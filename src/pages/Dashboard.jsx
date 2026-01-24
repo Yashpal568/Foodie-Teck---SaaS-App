@@ -4,6 +4,8 @@ import OverviewCards from '../components/dashboard/OverviewCards'
 import RecentOrders from '../components/dashboard/RecentOrders'
 import TableStatus from '../components/dashboard/TableStatus'
 import MenuManagement from '../components/menu/MenuManagement'
+import QRCodeManagement from '../components/dashboard/QRCodeManagement'
+import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 
 function Dashboard() {
@@ -43,26 +45,11 @@ function Dashboard() {
           </div>
         )
       
+      case 'qr-codes':
+        return <QRCodeManagement />
+      
       case 'menu':
         return <MenuManagement currency={currency} onCurrencyChange={setCurrency} />
-      
-      case 'qr-codes':
-        return (
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <QrCode className="w-8 h-8 text-purple-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">QR Code Generation</h1>
-                <p className="text-gray-600">Generate QR codes for your tables</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-              <QrCode className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">QR Codes</h3>
-              <p className="text-gray-600">Generate and manage QR codes for table access</p>
-            </div>
-          </div>
-        )
       
       case 'orders':
         return (

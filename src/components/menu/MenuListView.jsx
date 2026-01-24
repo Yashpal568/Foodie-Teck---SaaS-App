@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Edit2, Trash2, Search, Plus, Image as ImageIcon, Eye, MoreHorizontal, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Edit2, Trash2, Search, Plus, Image as ImageIcon, Eye, MoreHorizontal, ToggleLeft, ToggleRight, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatPrice } from '@/components/ui/currency-selector'
+import { Separator } from '@/components/ui/separator'
 
 export default function MenuListView({ 
   items, 

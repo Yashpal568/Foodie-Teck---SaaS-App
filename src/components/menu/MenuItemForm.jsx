@@ -10,9 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { currencies } from '@/components/ui/currency-selector'
 import ImageStorage from '@/utils/imageStorage'
 
-const categories = ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads']
-
-export default function MenuItemForm({ item = null, onSave, onCancel, currency = 'INR' }) {
+export default function MenuItemForm({ item = null, onSave, onCancel, currency = 'INR', categories = [] }) {
   const [formData, setFormData] = useState({
     name: item?.name || '',
     description: item?.description || '',
@@ -138,12 +136,12 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Category *</Label>
-              <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
+              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
+                  {categories.map(category => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>

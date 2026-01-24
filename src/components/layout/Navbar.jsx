@@ -1,4 +1,4 @@
-import { Search, Bell, Moon, Sun, User } from 'lucide-react'
+import { Search, Bell, User } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-export default function Navbar({ isDarkMode, toggleDarkMode, currency, onCurrencyChange }) {
+export default function Navbar({ currency, onCurrencyChange }) {
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -35,20 +35,6 @@ export default function Navbar({ isDarkMode, toggleDarkMode, currency, onCurrenc
             onChange={onCurrencyChange}
             className="border-gray-200"
           />
-
-          {/* Dark Mode Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleDarkMode}
-            className="text-gray-600 hover:text-gray-800"
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-          </Button>
 
           {/* Notifications */}
           <Button

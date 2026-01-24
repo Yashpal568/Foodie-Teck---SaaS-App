@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Home, 
   ShoppingCart, 
@@ -16,21 +17,27 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 
 const menuItems = [
-  { icon: Home, label: 'Dashboard', id: 'dashboard' },
-  { icon: ChefHat, label: 'Menu Management', id: 'menu', badge: null },
-  { icon: QrCode, label: 'QR Codes', id: 'qr-codes' },
-  { icon: ShoppingCart, label: 'Orders', id: 'orders', badge: '3' },
-  { icon: Table, label: 'Table Sessions', id: 'tables', badge: '2' },
-  { icon: Receipt, label: 'Analytics', id: 'analytics' },
-  { icon: Users, label: 'Customers', id: 'customers' },
+  { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
+  { icon: ChefHat, label: 'Menu Management', id: 'menu', route: '/dashboard' },
+  { icon: QrCode, label: 'QR Codes', id: 'qr-codes', route: '/dashboard' },
+  { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard', badge: '3' },
+  { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard', badge: '2' },
+  { icon: Receipt, label: 'Analytics', id: 'analytics', route: '/dashboard' },
+  { icon: Users, label: 'Customers', id: 'customers', route: '/dashboard' },
 ]
 
 const supportItems = [
-  { icon: HelpCircle, label: 'Help & Support', id: 'help' },
-  { icon: Settings, label: 'Settings', id: 'settings' },
+  { icon: HelpCircle, label: 'Help & Support', id: 'help', route: '/dashboard' },
+  { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' },
 ]
 
 export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed }) {
+  const navigate = useNavigate()
+
+  const handleNavigation = (item) => {
+    setActiveItem(item.id)
+    navigate(item.route)
+  }
   return (
     <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col`}>
       {/* Logo */}
@@ -56,7 +63,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveItem(item.id)}
+                onClick={() => handleNavigation(item)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   activeItem === item.id
                     ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
@@ -87,7 +94,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveItem(item.id)}
+                onClick={() => handleNavigation(item)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   activeItem === item.id
                     ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
