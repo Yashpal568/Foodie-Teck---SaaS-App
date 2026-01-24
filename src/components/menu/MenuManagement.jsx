@@ -9,56 +9,33 @@ import { formatPrice } from '@/components/ui/currency-selector'
 import CurrencySelector from '@/components/ui/currency-selector'
 import ImageStorage from '@/utils/imageStorage'
 
-// Sample data based on database schema
-const initialMenuItems = [
-  {
-    _id: '1',
-    restaurantId: 'restaurant-123',
-    name: 'Butter Chicken',
-    description: 'Tender chicken pieces cooked in a rich, creamy tomato-based sauce with aromatic spices and butter.',
-    price: 15.99,
-    photo: '',
-    category: 'Main Course',
-    type: 'NON_VEG',
-    isInStock: true,
-    createdAt: new Date('2024-01-20'),
-    updatedAt: new Date('2024-01-22')
-  },
-  {
-    _id: '2',
-    restaurantId: 'restaurant-123',
-    name: 'Paneer Tikka',
-    description: 'Cubes of cottage cheese marinated in yogurt and spices, grilled to perfection in a tandoor.',
-    price: 12.99,
-    photo: '',
-    category: 'Starters',
-    type: 'VEG',
-    isInStock: true,
-    createdAt: new Date('2024-01-19'),
-    updatedAt: new Date('2024-01-21')
-  },
-  {
-    _id: '3',
-    restaurantId: 'restaurant-123',
-    name: 'Margherita Pizza',
-    description: 'Classic Italian pizza with fresh mozzarella, tomato sauce, and basil leaves.',
-    price: 11.99,
-    photo: '',
-    category: 'Main Course',
-    type: 'VEG',
-    isInStock: false,
-    createdAt: new Date('2024-01-18'),
-    updatedAt: new Date('2024-01-20')
+// Load menu items from localStorage
+const loadMenuItems = () => {
+  try {
+    const savedItems = localStorage.getItem('menuItems')
+    return savedItems ? JSON.parse(savedItems) : []
+  } catch (error) {
+    console.error('Error loading menu items:', error)
+    return []
   }
-]
+}
+
+// Save menu items to localStorage
+const saveMenuItems = (items) => {
+  try {
+    localStorage.setItem('menuItems', JSON.stringify(items))
+  } catch (error) {
+    console.error('Error saving menu items:', error)
+  }
+}
 
 const categories = ['All', 'Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads']
 const types = ['All', 'VEG', 'NON_VEG']
 const stockStatuses = ['All', 'In Stock', 'Out of Stock']
 
 export default function MenuManagement() {
-  const [menuItems, setMenuItems] = useState(initialMenuItems)
-  const [filteredItems, setFilteredItems] = useState(initialMenuItems)
+  const [menuItems, setMenuItems] = useState([])
+  const [filteredItems, setFilteredItems] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
@@ -69,8 +46,13 @@ export default function MenuManagement() {
   const [typeFilter, setTypeFilter] = useState('All')
   const [stockFilter, setStockFilter] = useState('All')
 
-  // Load saved images from localStorage on component mount
+  // Load menu items from localStorage on component mount
   useEffect(() => {
+    const items = loadMenuItems()
+    setMenuItems(items)
+    setFilteredItems(items)
+    
+    // Load saved images from localStorage
     const savedImages = ImageStorage.getAllImages()
     setMenuItems(items => 
       items.map(item => ({
@@ -115,9 +97,11 @@ export default function MenuManagement() {
   const handleSaveItem = (itemData) => {
     if (editingItem) {
       // Update existing item
-      setMenuItems(items =>
-        items.map(item => item._id === editingItem._id ? itemData : item)
+      const updatedItems = menuItems.map(item => 
+        item._id === editingItem._id ? { ...itemData, updatedAt: new Date() } : item
       )
+      setMenuItems(updatedItems)
+      saveMenuItems(updatedItems)
       // Save image to localStorage if it exists
       if (itemData.photo) {
         ImageStorage.saveImage(editingItem._id, itemData.photo)
@@ -126,9 +110,14 @@ export default function MenuManagement() {
       // Add new item
       const newItem = {
         ...itemData,
-        _id: Date.now().toString()
+        _id: Date.now().toString(),
+        restaurantId: 'restaurant-123',
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
-      setMenuItems([...menuItems, newItem])
+      const updatedItems = [...menuItems, newItem]
+      setMenuItems(updatedItems)
+      saveMenuItems(updatedItems)
       // Save image to localStorage if it exists (handle tempPhoto for new items)
       if (itemData.tempPhoto) {
         ImageStorage.saveImage(newItem._id, itemData.tempPhoto)
@@ -150,20 +139,22 @@ export default function MenuManagement() {
 
   const handleDeleteItem = (itemId) => {
     if (confirm('Are you sure you want to delete this menu item?')) {
-      setMenuItems(items => items.filter(item => item._id !== itemId))
+      const updatedItems = menuItems.filter(item => item._id !== itemId)
+      setMenuItems(updatedItems)
+      saveMenuItems(updatedItems)
       // Remove image from localStorage
       ImageStorage.removeImage(itemId)
     }
   }
 
   const handleToggleStock = (itemId, newStockStatus) => {
-    setMenuItems(items =>
-      items.map(item =>
-        item._id === itemId
-          ? { ...item, isInStock: newStockStatus, updatedAt: new Date() }
-          : item
-      )
+    const updatedItems = menuItems.map(item =>
+      item._id === itemId
+        ? { ...item, isInStock: newStockStatus, updatedAt: new Date() }
+        : item
     )
+    setMenuItems(updatedItems)
+    saveMenuItems(updatedItems)
   }
 
   const handleCancelForm = () => {
