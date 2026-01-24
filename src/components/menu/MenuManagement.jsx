@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, Filter, ChefHat, ArrowLeft, Eye, Edit, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import MenuItemForm from './MenuItemForm'
 import MenuListView from './MenuListView'
@@ -191,58 +192,106 @@ export default function MenuManagement() {
     <TooltipProvider>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <ChefHat className="w-8 h-8 text-orange-600" />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Menu Management</h1>
-              <p className="text-gray-600">Manage your restaurant menu items</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={() => setShowForm(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <ChefHat className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">Menu Management</h1>
+                  <p className="text-gray-600">Manage your restaurant menu items efficiently</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Button onClick={() => setShowForm(true)} size="lg" className="bg-orange-600 hover:bg-orange-700">
+                  <Plus className="w-5 h-5 mr-2" />
                   Add New Item
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Add a new menu item to your restaurant</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <CurrencySelector 
-              value={currency} 
-              onChange={setCurrency}
-              className="border-gray-200"
-            />
-          </div>
-        </div>
+                
+                <CurrencySelector 
+                  value={currency} 
+                  onChange={setCurrency}
+                  className="border-gray-200"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-white p-4 rounded-lg border">
-            <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
-            <p className="text-sm text-gray-600">Total Items</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <p className="text-2xl font-bold text-green-600">{inStockItems}</p>
-            <p className="text-sm text-gray-600">In Stock</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <p className="text-2xl font-bold text-red-600">{outOfStockItems}</p>
-            <p className="text-sm text-gray-600">Out of Stock</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <p className="text-2xl font-bold text-green-600">{vegItems}</p>
-            <p className="text-sm text-gray-600">Vegetarian</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <p className="text-2xl font-bold text-red-600">{nonVegItems}</p>
-            <p className="text-sm text-gray-600">Non-Vegetarian</p>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
+                  <p className="text-sm text-gray-600">Total Items</p>
+                </div>
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-600 font-semibold">📋</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-green-600">{inStockItems}</p>
+                  <p className="text-sm text-gray-600">In Stock</p>
+                </div>
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span className="text-green-600">✓</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-red-600">{outOfStockItems}</p>
+                  <p className="text-sm text-gray-600">Out of Stock</p>
+                </div>
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                  <span className="text-red-600">✗</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-green-600">{vegItems}</p>
+                  <p className="text-sm text-gray-600">Vegetarian</p>
+                </div>
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span className="text-green-600">🥬</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-red-600">{nonVegItems}</p>
+                  <p className="text-sm text-gray-600">Non-Vegetarian</p>
+                </div>
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                  <span className="text-red-600">🍖</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* List View */}

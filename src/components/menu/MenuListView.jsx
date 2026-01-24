@@ -59,17 +59,12 @@ export default function MenuListView({
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        {/* Header with Actions */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Menu Items</h2>
             <p className="text-gray-600">Manage your restaurant menu</p>
           </div>
-          
-          <Button onClick={onAddNew} className="bg-orange-600 hover:bg-orange-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Item
-          </Button>
         </div>
 
         {/* Filters Card */}
