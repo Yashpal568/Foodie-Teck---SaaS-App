@@ -22,7 +22,7 @@ const blobToBase64 = (blob) => {
 
 // QR Code generator using QRServer API
 const generateQRCode = async (restaurantId, tableNumber) => {
-  const url = `http://localhost:5174/menu?restaurant=${restaurantId}&table=${tableNumber}`
+  const url = `http://localhost:5173/menu?restaurant=${restaurantId}&table=${tableNumber}`
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
   
   try {
