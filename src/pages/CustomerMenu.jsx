@@ -8,6 +8,8 @@ import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatPrice } from '@/components/ui/currency-selector'
 import { cn } from '@/lib/utils'
+import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
+import OrderTracking from '@/components/order/OrderTracking'
 
 // Mock restaurant data (in production, this would come from API)
 const restaurantData = {
@@ -40,9 +42,14 @@ export default function CustomerMenu() {
   const [isSessionActive, setIsSessionActive] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
+  const [currentOrder, setCurrentOrder] = useState(null)
+  const [showOrderTracking, setShowOrderTracking] = useState(false)
   const [menuItems, setMenuItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // Use order management hook
+  const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
 
   // Load menu items from localStorage on component mount
   useEffect(() => {
@@ -191,22 +198,69 @@ export default function CustomerMenu() {
   const placeOrder = () => {
     if (cart.length === 0) return
     
-    // In production, this would send the order to the backend
-    console.log('Order placed:', {
+    // Calculate order totals
+    const subtotal = getTotalPrice()
+    const tax = subtotal * 0.05
+    const total = subtotal + tax
+    
+    // Create order data
+    const orderData = {
       restaurantId,
       tableNumber,
-      items: cart,
-      total: getTotalPrice()
-    })
+      items: cart.map(item => ({
+        id: item._id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        type: item.type,
+        category: item.category
+      })),
+      subtotal,
+      tax,
+      total,
+      estimatedTime: '15-20' // minutes
+    }
     
+    // Create order using order management
+    const order = createOrder(orderData)
+    console.log('Order placed:', order)
+    
+    // Update state
+    setCurrentOrder(order)
     setOrderPlaced(true)
     setShowCheckout(false)
     setCart([])
+    
+    // Show order tracking after a short delay
+    setTimeout(() => {
+      setShowOrderTracking(true)
+    }, 2000)
   }
 
   const requestBill = () => {
-    // In production, this would update the order status to BILL_REQUESTED
+    // Get current orders for this table
+    const currentOrders = getOrdersByTable(tableNumber)
+    
+    if (currentOrders.length === 0) {
+      console.log('No orders found for bill request')
+      return
+    }
+    
+    // Check if any order is already served
+    const servedOrders = currentOrders.filter(order => order.status === ORDER_STATUS.SERVED)
+    
+    if (servedOrders.length === 0) {
+      console.log('No served orders found for bill request')
+      return
+    }
+    
+    // Update all served orders for this table to BILL_REQUESTED
+    servedOrders.forEach(order => {
+      updateStatus(order.id, ORDER_STATUS.BILL_REQUESTED, 'Customer requested bill')
+    })
+    
     console.log('Bill requested for table:', tableNumber)
+    console.log('Updated orders:', servedOrders)
   }
 
   const refreshMenu = () => {
@@ -255,21 +309,45 @@ export default function CustomerMenu() {
     )
   }
 
+  if (showOrderTracking && currentOrder) {
+    return (
+      <OrderTracking 
+        orderId={currentOrder.id} 
+        onClose={() => {
+          setShowOrderTracking(false)
+          setCurrentOrder(null)
+          setOrderPlaced(false)
+        }}
+      />
+    )
+  }
+
   if (orderPlaced) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Placed!</h2>
             <p className="text-gray-600 mb-6">
-              Your order has been sent to the kitchen. We'll notify you when it's ready.
+              Your order has been sent to the kitchen. You'll be redirected to order tracking shortly.
             </p>
-            <p className="text-sm text-gray-500 mb-4">
-              Table {tableNumber} • Order #{Date.now().getTime()}
-            </p>
-            <Button onClick={() => setOrderPlaced(false)} className="w-full">
-              Continue Ordering
+            <div className="space-y-2 mb-6">
+              <p className="text-sm text-gray-500">
+                Table {tableNumber} • Order #{currentOrder?.id}
+              </p>
+              <div className="w-8 h-8 border-4 border-orange-600 border-t-transparent animate-spin rounded-full mx-auto"></div>
+              <p className="text-sm text-orange-600">Loading order tracking...</p>
+            </div>
+            <Button 
+              onClick={() => {
+                setShowOrderTracking(true)
+              }}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              Track Order
             </Button>
           </CardContent>
         </Card>

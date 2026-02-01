@@ -5,6 +5,7 @@ import RecentOrders from '../components/dashboard/RecentOrders'
 import TableStatus from '../components/dashboard/TableStatus'
 import MenuManagement from '../components/menu/MenuManagement'
 import QRCodeManagement from '../components/dashboard/QRCodeManagement'
+import OrderManagement from '../components/dashboard/OrderManagement'
 import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 
@@ -52,22 +53,7 @@ function Dashboard() {
         return <MenuManagement currency={currency} onCurrencyChange={setCurrency} />
       
       case 'orders':
-        return (
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <ShoppingCart className="w-8 h-8 text-blue-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Orders Management</h1>
-                <p className="text-gray-600">Track and manage customer orders</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-              <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Orders</h3>
-              <p className="text-gray-600">View and manage all customer orders</p>
-            </div>
-          </div>
-        )
+        return <OrderManagement restaurantId="restaurant-123" />
       
       case 'tables':
         return (
@@ -76,34 +62,19 @@ function Dashboard() {
               <Users className="w-8 h-8 text-green-600" />
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Table Sessions</h1>
-                <p className="text-gray-600">Monitor table occupancy and sessions</p>
+                <p className="text-gray-600">Monitor table occupancy and customer sessions</p>
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
               <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Table Sessions</h3>
-              <p className="text-gray-600">Track active table sessions and customer flow</p>
+              <p className="text-gray-600">Monitor table occupancy and customer sessions</p>
             </div>
           </div>
         )
       
       case 'analytics':
-        return (
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <BarChart3 className="w-8 h-8 text-indigo-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Analytics & Reports</h1>
-                <p className="text-gray-600">View detailed analytics and reports</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-              <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Analytics</h3>
-              <p className="text-gray-600">Comprehensive analytics and business insights</p>
-            </div>
-          </div>
-        )
+        return <AnalyticsDashboard />
       
       case 'customers':
         return (
