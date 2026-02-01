@@ -16,39 +16,51 @@ const restaurantData = {
   currency: "INR"
 }
 
-// Mock menu items (in production, this would come from API)
-const mockMenuItems = [
-  {
-    _id: '1',
-    name: 'Butter Chicken',
-    description: 'Tender chicken pieces cooked in a rich, creamy tomato-based sauce with aromatic spices and butter.',
-    price: 280,
-    photo: '',
-    category: 'Main Course',
-    type: 'NON_VEG',
-    isInStock: true
-  },
-  {
-    _id: '2',
-    name: 'Paneer Tikka',
-    description: 'Cubes of cottage cheese marinated in yogurt and spices, grilled to perfection in a tandoor.',
-    price: 220,
-    photo: '',
-    category: 'Starters',
-    type: 'VEG',
-    isInStock: true
-  },
-  {
-    _id: '3',
-    name: 'Margherita Pizza',
-    description: 'Classic Italian pizza with fresh mozzarella, tomato sauce, and basil leaves.',
-    price: 180,
-    photo: '',
-    category: 'Main Course',
-    type: 'VEG',
-    isInStock: false
+// Load menu items from localStorage
+const loadMenuItems = () => {
+  try {
+    const savedItems = localStorage.getItem('menuItems')
+    if (savedItems) {
+      return JSON.parse(savedItems)
+    }
+    // Return default items if no saved items
+    return [
+      {
+        _id: '1',
+        name: 'Butter Chicken',
+        description: 'Tender chicken pieces cooked in a rich, creamy tomato-based sauce with aromatic spices and butter.',
+        price: 280,
+        photo: '',
+        category: 'Main Course',
+        type: 'NON_VEG',
+        isInStock: true
+      },
+      {
+        _id: '2',
+        name: 'Paneer Tikka',
+        description: 'Cubes of cottage cheese marinated in yogurt and spices, grilled to perfection in a tandoor.',
+        price: 220,
+        photo: '',
+        category: 'Starters',
+        type: 'VEG',
+        isInStock: true
+      },
+      {
+        _id: '3',
+        name: 'Margherita Pizza',
+        description: 'Classic Italian pizza with fresh mozzarella, tomato sauce, and basil leaves.',
+        price: 180,
+        photo: '',
+        category: 'Main Course',
+        type: 'VEG',
+        isInStock: false
+      }
+    ]
+  } catch (error) {
+    console.error('Error loading menu items:', error)
+    return []
   }
-]
+}
 
 export default function CustomerMenu() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -58,22 +70,48 @@ export default function CustomerMenu() {
   const [isSessionActive, setIsSessionActive] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
+  const [menuItems, setMenuItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  // Load menu items from localStorage on component mount
+  useEffect(() => {
+    try {
+      setLoading(true)
+      const items = loadMenuItems()
+      console.log('CustomerMenu - Loaded menu items:', items)
+      setMenuItems(items)
+      setError(null)
+    } catch (err) {
+      console.error('CustomerMenu - Error loading menu items:', err)
+      setError('Failed to load menu items')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   // Parse URL parameters on mount
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const table = urlParams.get('table')
-    const restaurant = urlParams.get('restaurant')
-    
-    if (table && restaurant) {
-      setTableNumber(table)
-      setRestaurantId(restaurant)
-      setIsSessionActive(true)
+    try {
+      const urlParams = new URLSearchParams(window.location.search)
+      const table = urlParams.get('table')
+      const restaurant = urlParams.get('restaurant')
+      
+      console.log('CustomerMenu - URL params:', { table, restaurant })
+      
+      if (table && restaurant) {
+        setTableNumber(table)
+        setRestaurantId(restaurant)
+        setIsSessionActive(true)
+      }
+    } catch (err) {
+      console.error('CustomerMenu - Error parsing URL params:', err)
+      setError('Failed to parse URL parameters')
     }
   }, [])
 
   // Filter menu items based on search and stock
-  const filteredItems = mockMenuItems.filter(item => {
+  const filteredItems = menuItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.description.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch && item.isInStock
@@ -87,6 +125,16 @@ export default function CustomerMenu() {
     acc[item.category].push(item)
     return acc
   }, {})
+
+  // Debug logging
+  console.log('CustomerMenu - Debug:', {
+    menuItems: menuItems.length,
+    filteredItems: filteredItems.length,
+    groupedItems: Object.keys(groupedItems),
+    searchTerm,
+    tableNumber,
+    restaurantId
+  })
 
   const addToCart = (item) => {
     const existingItem = cart.find(cartItem => cartItem._id === item._id)
@@ -142,6 +190,36 @@ export default function CustomerMenu() {
   const requestBill = () => {
     // In production, this would update the order status to BILL_REQUESTED
     console.log('Bill requested for table:', tableNumber)
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent animate-spin rounded-full mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900">Loading Menu...</h2>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Error</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Reload Page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (orderPlaced) {
@@ -218,11 +296,29 @@ export default function CustomerMenu() {
 
             {/* Menu Items by Category */}
             <div className="space-y-6">
-              {Object.entries(groupedItems).map(([category, items]) => (
-                <div key={category}>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">{category}</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {items.map((item) => (
+              {Object.keys(groupedItems).length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-gray-400 text-3xl">🍽️</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Menu Items Available</h3>
+                  <p className="text-gray-600 mb-4">
+                    {menuItems.length === 0 
+                      ? "The restaurant hasn't added any menu items yet." 
+                      : "No menu items match your search criteria."}
+                  </p>
+                  {menuItems.length === 0 && (
+                    <p className="text-sm text-gray-500">
+                      Please contact the restaurant staff to add menu items.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                Object.entries(groupedItems).map(([category, items]) => (
+                  <div key={category}>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">{category}</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {items.map((item) => (
                       <Card key={item._id} className="hover:shadow-md transition-shadow">
                         <CardContent className="p-4">
                           <div className="flex gap-4">
@@ -274,7 +370,8 @@ export default function CustomerMenu() {
                     ))}
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
 

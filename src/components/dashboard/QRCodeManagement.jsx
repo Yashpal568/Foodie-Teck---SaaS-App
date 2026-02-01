@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { QrCode, Download, Plus, Table, Smartphone, Scan, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,9 +10,19 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 
+// Convert blob to base64 data URL
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
 // QR Code generator using QRServer API
 const generateQRCode = async (restaurantId, tableNumber) => {
-  const url = `http://localhost:5173/menu?restaurant=${restaurantId}&table=${tableNumber}`
+  const url = `http://localhost:5174/menu?restaurant=${restaurantId}&table=${tableNumber}`
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
   
   try {
@@ -21,13 +31,16 @@ const generateQRCode = async (restaurantId, tableNumber) => {
     
     const blob = await response.blob()
     const qrImageUrl = URL.createObjectURL(blob)
+    const qrDataUrl = await blobToBase64(blob)
     
     return {
       url,
       qrImageUrl,
+      qrDataUrl, // Store base64 data URL for persistence
       qrBlob: blob,
       tableNumber,
-      restaurantId
+      restaurantId,
+      generatedAt: new Date().toISOString()
     }
   } catch (error) {
     console.error('Error generating QR code:', error)
@@ -35,11 +48,50 @@ const generateQRCode = async (restaurantId, tableNumber) => {
     return {
       url,
       qrImageUrl: null,
+      qrDataUrl: null,
       qrBlob: null,
       tableNumber,
-      restaurantId
+      restaurantId,
+      generatedAt: new Date().toISOString()
     }
   }
+}
+
+// Save QR codes to localStorage
+const saveQRCodesToStorage = (restaurantId, qrCodes) => {
+  try {
+    // Convert QR codes to storable format (exclude blobs, keep data URLs)
+    const storableQRCodes = qrCodes.map(qr => ({
+      url: qr.url,
+      qrDataUrl: qr.qrDataUrl,
+      tableNumber: qr.tableNumber,
+      restaurantId: qr.restaurantId,
+      generatedAt: qr.generatedAt
+    }))
+    
+    const data = {
+      restaurantId,
+      qrCodes: storableQRCodes,
+      savedAt: new Date().toISOString()
+    }
+    localStorage.setItem(`qrCodes_${restaurantId}`, JSON.stringify(data))
+  } catch (error) {
+    console.error('Error saving QR codes:', error)
+  }
+}
+
+// Load QR codes from localStorage
+const loadQRCodesFromStorage = (restaurantId) => {
+  try {
+    const saved = localStorage.getItem(`qrCodes_${restaurantId}`)
+    if (saved) {
+      const data = JSON.parse(saved)
+      return data.qrCodes || []
+    }
+  } catch (error) {
+    console.error('Error loading QR codes:', error)
+  }
+  return []
 }
 
 export default function QRCodeManagement() {
@@ -48,6 +100,27 @@ export default function QRCodeManagement() {
   const [restaurantId, setRestaurantId] = useState('restaurant-123')
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeTab, setActiveTab] = useState('generate')
+
+  // Load QR codes from localStorage on component mount
+  useEffect(() => {
+    const savedQRCodes = loadQRCodesFromStorage(restaurantId)
+    if (savedQRCodes.length > 0) {
+      // Recreate blob URLs from stored data URLs
+      const restoredQRCodes = savedQRCodes.map(qr => ({
+        ...qr,
+        qrImageUrl: qr.qrDataUrl, // Use data URL as image source
+        qrBlob: null // Blob is not needed for display
+      }))
+      setQrCodes(restoredQRCodes)
+    }
+  }, [restaurantId])
+
+  // Save QR codes to localStorage whenever they change
+  useEffect(() => {
+    if (qrCodes.length > 0) {
+      saveQRCodesToStorage(restaurantId, qrCodes)
+    }
+  }, [qrCodes, restaurantId])
 
   const generateAllQRCodes = async () => {
     setIsGenerating(true)
@@ -65,20 +138,54 @@ export default function QRCodeManagement() {
     }
   }
 
-  const downloadQRCode = (qrCode) => {
-    if (!qrCode.qrBlob) {
-      alert('QR code not available for download')
-      return
+  const clearQRCodes = () => {
+    setQrCodes([])
+    try {
+      localStorage.removeItem(`qrCodes_${restaurantId}`)
+    } catch (error) {
+      console.error('Error clearing QR codes:', error)
     }
-    
-    const url = URL.createObjectURL(qrCode.qrBlob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `qr-table-${qrCode.tableNumber}-${restaurantId}.jpeg`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+  }
+
+  const downloadQRCode = async (qrCode) => {
+    try {
+      console.log('Downloading QR code for table:', qrCode.tableNumber)
+      
+      let blob
+      
+      if (qrCode.qrDataUrl) {
+        // Convert data URL back to blob
+        const response = await fetch(qrCode.qrDataUrl)
+        blob = await response.blob()
+      } else if (qrCode.qrBlob) {
+        // Use existing blob
+        blob = qrCode.qrBlob
+      } else {
+        throw new Error('No QR code data available')
+      }
+      
+      // Create download link
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `qr-table-${qrCode.tableNumber}-${qrCode.restaurantId}.jpeg`
+      a.style.display = 'none'
+      
+      // Trigger download
+      document.body.appendChild(a)
+      a.click()
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 100)
+      
+      console.log('QR code downloaded successfully')
+    } catch (error) {
+      console.error('Error downloading QR code:', error)
+      alert('Failed to download QR code. Please try again.')
+    }
   }
 
   const downloadAllQRCodes = async () => {
@@ -116,10 +223,15 @@ export default function QRCodeManagement() {
             {qrCodes.length} Generated
           </Badge>
           {qrCodes.length > 0 && (
-            <Button onClick={downloadAllQRCodes} variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Download All
-            </Button>
+            <>
+              <Button onClick={downloadAllQRCodes} variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Download All
+              </Button>
+              <Button onClick={clearQRCodes} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                Clear All
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -359,7 +471,7 @@ export default function QRCodeManagement() {
                           variant="outline"
                           onClick={() => downloadQRCode(qrCode)}
                           className="w-full"
-                          disabled={!qrCode.qrBlob}
+                          disabled={!qrCode.qrDataUrl && !qrCode.qrBlob}
                         >
                           <Download className="w-3 h-3 mr-1" />
                           Download JPEG
