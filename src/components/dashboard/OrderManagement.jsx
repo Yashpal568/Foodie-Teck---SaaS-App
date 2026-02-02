@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react'
-import { Clock, ChefHat, CheckCircle, X, AlertCircle, RefreshCw, Filter, Users, DollarSign, TrendingUp, Calendar, Bell, Receipt } from 'lucide-react'
+import { Clock, ChefHat, CheckCircle, X, AlertCircle, RefreshCw, Filter, Users, DollarSign, TrendingUp, Calendar, Bell, Receipt, Search, MoreVertical, ArrowUpRight, ArrowDownRight, Minus, Package, Utensils, Coffee, Pizza } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 
 const OrderManagement = ({ restaurantId }) => {
   const { orders, loading, refreshOrders, updateStatus } = useOrderManagement(restaurantId)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [showOrderHistory, setShowOrderHistory] = useState(false)
 
   // Filter orders by status
   const filteredOrders = statusFilter === 'ALL' 
@@ -65,102 +69,131 @@ const OrderManagement = ({ restaurantId }) => {
     .reduce((sum, order) => sum + order.total, 0)
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50/30">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Order Management</h1>
-          <p className="text-gray-600">Track and manage customer orders in real-time</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button onClick={refreshOrders} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          <Button size="sm">
-            <Bell className="w-4 h-4 mr-2" />
-            Notifications
-          </Button>
+      <div className="bg-white border-b border-gray-200/60">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
+              <p className="text-sm text-gray-500 mt-1">Manage and track restaurant orders in real-time</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button onClick={refreshOrders} variant="outline" size="sm" className="h-9">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+              <Button size="sm" className="h-9">
+                <Bell className="w-4 h-4 mr-2" />
+                Notifications
+              </Button>
+              <Button 
+                size="sm"
+                onClick={() => setShowOrderHistory(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white h-9"
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Order History
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm font-medium">Total Orders</p>
-                <p className="text-3xl font-bold mt-1">{stats.total}</p>
-                <p className="text-blue-100 text-xs mt-2">All time</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                <Receipt className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="p-6">
 
-        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-100 text-sm font-medium">Preparing</p>
-                <p className="text-3xl font-bold mt-1">{stats.preparing}</p>
-                <p className="text-orange-100 text-xs mt-2">In kitchen</p>
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+          <Card className="border-0 shadow-sm bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-xs text-green-600">+12% from yesterday</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <Receipt className="w-6 h-6 text-blue-600" />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                <ChefHat className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">Ready</p>
-                <p className="text-3xl font-bold mt-1">{stats.ready}</p>
-                <p className="text-green-100 text-xs mt-2">Ready to serve</p>
+          <Card className="border-0 shadow-sm bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Preparing</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.preparing}</p>
+                  <div className="flex items-center mt-2">
+                    <Minus className="w-4 h-4 text-gray-400 mr-1" />
+                    <span className="text-xs text-gray-500">No change</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
+                  <ChefHat className="w-6 h-6 text-orange-600" />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm font-medium">Served</p>
-                <p className="text-3xl font-bold mt-1">{stats.served}</p>
-                <p className="text-purple-100 text-xs mt-2">Served to customers</p>
+          <Card className="border-0 shadow-sm bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Ready</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.ready}</p>
+                  <div className="flex items-center mt-2">
+                    <ArrowDownRight className="w-4 h-4 text-red-500 mr-1" />
+                    <span className="text-xs text-red-600">-8% from yesterday</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white border-0">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-yellow-100 text-sm font-medium">Bill Requested</p>
-                <p className="text-3xl font-bold mt-1">{stats.billRequested}</p>
-                <p className="text-yellow-100 text-xs mt-2">Awaiting payment</p>
+          <Card className="border-0 shadow-sm bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Served</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.served}</p>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-xs text-green-600">+15% from yesterday</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
+                  <Utensils className="w-6 h-6 text-purple-600" />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-white" />
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Bill Requested</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.billRequested}</p>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-xs text-green-600">+5% from yesterday</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-yellow-600" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
 
       {/* Main Content */}
       <Card className="border-0 shadow-lg">
@@ -359,6 +392,16 @@ const OrderManagement = ({ restaurantId }) => {
                             Cancel
                           </Button>
                         )}
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedOrder(order)}
+                          className="border-purple-200 text-purple-600 hover:bg-purple-50"
+                        >
+                          <Calendar className="w-4 h-4 mr-1" />
+                          History
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -368,6 +411,193 @@ const OrderManagement = ({ restaurantId }) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Order History Modal */}
+      {showOrderHistory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Order History</h2>
+                <Button
+                  onClick={() => setShowOrderHistory(false)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {orders.length === 0 ? (
+                <div className="text-center py-8">
+                  <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No orders found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .map((order) => (
+                      <Card key={order.id} className="border border-gray-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h3 className="font-semibold text-gray-900">Order #{order.id.slice(-6)}</h3>
+                              <p className="text-sm text-gray-600">Table {order.tableNumber}</p>
+                            </div>
+                            <Badge className={getStatusColor(order.status)}>
+                              {getStatusLabel(order.status)}
+                            </Badge>
+                          </div>
+                          
+                          <div className="mb-3">
+                            <p className="text-sm font-medium text-gray-700 mb-1">Order Date & Time:</p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(order.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+
+                          <div className="mb-3">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Order Timeline:</p>
+                            <div className="space-y-2">
+                              {order.statusHistory.map((history, index) => {
+                                const statusConfig = ORDER_STATUS_CONFIG[history.status]
+                                return (
+                                  <div key={index} className="flex items-start gap-3 text-sm">
+                                    <span className="text-lg">{statusConfig.icon}</span>
+                                    <div className="flex-1">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-900">
+                                          {statusConfig.label}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          {new Date(history.timestamp).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-gray-600 mt-1">{history.note}</p>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="border-t pt-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-600">Total Amount:</span>
+                              <span className="font-semibold text-gray-900">
+                                ${order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Individual Order History Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Order History</h2>
+                  <p className="text-sm text-gray-600 mt-1">Order #{selectedOrder.id.slice(-6)} - Table {selectedOrder.tableNumber}</p>
+                </div>
+                <Button
+                  onClick={() => setSelectedOrder(null)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-6">
+                {/* Order Details */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3">Order Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Order Date & Time:</p>
+                      <p className="font-medium">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Current Status:</p>
+                      <Badge className={getStatusColor(selectedOrder.status)}>
+                        {getStatusLabel(selectedOrder.status)}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Items */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3">Order Items</h3>
+                  <div className="space-y-2">
+                    {selectedOrder.items.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-gray-600">×{item.quantity}</p>
+                        </div>
+                        <p className="font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t mt-3 pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">Total:</span>
+                      <span className="font-bold text-lg">
+                        ${selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Timeline */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3">Order Timeline</h3>
+                  <div className="space-y-3">
+                    {selectedOrder.statusHistory.map((history, index) => {
+                      const statusConfig = ORDER_STATUS_CONFIG[history.status]
+                      return (
+                        <div key={index} className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg flex-shrink-0">
+                            {statusConfig.icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-gray-900">
+                                {statusConfig.label}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {new Date(history.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{history.note}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
     </div>
   )
 }

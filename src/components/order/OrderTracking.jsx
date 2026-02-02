@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Clock, ChefHat, CheckCircle, X, AlertCircle, DollarSign, Receipt, ArrowLeft, Home, Phone, Star, MapPin, Calendar, CreditCard } from 'lucide-react'
+import { Clock, ChefHat, CheckCircle, X, AlertCircle, DollarSign, Receipt, ArrowLeft, Home, Phone, Star, MapPin, Calendar, CreditCard, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 const OrderTracking = ({ orderId, onClose }) => {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [restaurantInfo, setRestaurantInfo] = useState({ restaurantId: '', tableNumber: '' })
 
   // Load order details
   useEffect(() => {
@@ -20,6 +21,14 @@ const OrderTracking = ({ orderId, onClose }) => {
         const orders = JSON.parse(localStorage.getItem('orders') || '[]')
         const foundOrder = orders.find(o => o.id === orderId)
         setOrder(foundOrder)
+        
+        // Store restaurant and table info separately
+        if (foundOrder) {
+          setRestaurantInfo({
+            restaurantId: foundOrder.restaurantId,
+            tableNumber: foundOrder.tableNumber
+          })
+        }
       } catch (error) {
         console.error('Error loading order:', error)
       } finally {
@@ -243,7 +252,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                       <Button 
                         onClick={() => {
                           // Go back to menu to order more
-                          window.location.href = `/menu?restaurant=${order.restaurantId}&table=${order.tableNumber}`
+                          window.location.href = `/menu?restaurant=${restaurantInfo.restaurantId}&table=${restaurantInfo.tableNumber}`
                         }}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
                       >
@@ -291,24 +300,34 @@ const OrderTracking = ({ orderId, onClose }) => {
                     <p className="text-sm text-green-700 mb-4">
                       Payment completed and table closed. We hope to see you again soon!
                     </p>
+                    <div className="mb-4 p-3 bg-green-100 rounded-lg">
+                      <div className="flex items-center justify-center mb-2">
+                        <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">QR</span>
+                        </div>
+                        <p className="text-sm text-green-600 ml-3">
+                          Table is ready for new customers
+                        </p>
+                      </div>
+                      <p className="text-xs text-green-700 text-center">
+                        New customers can scan the QR code to start a fresh session
+                      </p>
+                    </div>
                     <div className="flex gap-3">
                       <Button 
-                        onClick={() => {
-                          // Automatically start new session
-                          window.location.href = `/menu?restaurant=${order.restaurantId}&table=${order.tableNumber}`
-                        }}
+                        onClick={onClose}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
                       >
                         <Home className="w-4 h-4 mr-2" />
-                        Start New Session
+                        Back to Menu
                       </Button>
                       <Button 
-                        onClick={onClose}
+                        onClick={() => window.location.reload()}
                         variant="outline"
                         className="flex-1 border-green-200 text-green-700 hover:bg-green-50 font-semibold py-3"
                       >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back to Menu
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Refresh
                       </Button>
                     </div>
                   </div>
