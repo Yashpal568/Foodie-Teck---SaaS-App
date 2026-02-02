@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
+import NotificationDropdown from '@/components/ui/NotificationDropdown'
 
 const OrderManagement = ({ restaurantId }) => {
   const { orders, loading, refreshOrders, updateStatus } = useOrderManagement(restaurantId)
@@ -83,10 +84,7 @@ const OrderManagement = ({ restaurantId }) => {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh
               </Button>
-              <Button size="sm" className="h-9">
-                <Bell className="w-4 h-4 mr-2" />
-                Notifications
-              </Button>
+              <NotificationDropdown />
               <Button 
                 size="sm"
                 onClick={() => setShowOrderHistory(true)}
