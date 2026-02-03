@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatPrice } from '@/components/ui/currency-selector'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
+import MenuService from '@/services/menuService'
 
 const restaurantData = {
   name: "FoodieTech Restaurant",
@@ -44,9 +45,44 @@ export default function CustomerMenu() {
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
 
   useEffect(() => {
-    const items = loadMenuItems()
-    setMenuItems(items)
-    setLoading(false)
+    const fetchMenuItems = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // Load menu items from localStorage (persistent storage)
+        const savedItems = localStorage.getItem('menuItems')
+        
+        console.log('Raw localStorage data:', savedItems)
+        
+        if (savedItems) {
+          const items = JSON.parse(savedItems)
+          console.log('Parsed menu items:', items)
+          
+          // Validate that items have required fields
+          const validItems = items.filter(item => 
+            item && item._id && item.name && item.price !== undefined && item.category && item.isInStock !== undefined
+          )
+          
+          console.log('Valid menu items:', validItems)
+          setMenuItems(validItems)
+          console.log('Loaded dynamic menu items from localStorage')
+        } else {
+          // Start with empty menu - no hardcoded items
+          setMenuItems([])
+          console.log('No menu items found - empty menu ready for dynamic data')
+        }
+        
+      } catch (error) {
+        console.error('Error loading menu items:', error)
+        setError('Unable to load menu items. Please add menu items through the dashboard.')
+        setMenuItems([]) // Ensure no hardcoded items are shown
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMenuItems()
 
     const params = new URLSearchParams(window.location.search)
     setTableNumber(params.get('table') || 'N/A')
@@ -54,11 +90,15 @@ export default function CustomerMenu() {
   }, [])
 
   const filteredItems = useMemo(() => {
-    return menuItems.filter(item => 
+    const filtered = menuItems.filter(item => 
       item.isInStock && 
       (item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
        item.category.toLowerCase().includes(searchTerm.toLowerCase()))
     )
+    console.log('Filtered items:', filtered)
+    console.log('Total menu items:', menuItems.length)
+    console.log('Search term:', searchTerm)
+    return filtered
   }, [menuItems, searchTerm])
 
   const groupedItems = useMemo(() => {
@@ -142,7 +182,6 @@ export default function CustomerMenu() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input 
               className="pl-10 h-12 bg-white" 
-              placeholder="Search for dishes..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -201,6 +240,39 @@ export default function CustomerMenu() {
               </div>
             </div>
           ))}
+
+          {/* Show when no menu items are available */}
+          {Object.keys(groupedItems).length === 0 && !loading && (
+            <Card className="text-center py-12">
+              <CardContent>
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Utensils className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">No Menu Items Available</h3>
+                <p className="text-gray-600 mb-4">
+                  Please add menu items through the dashboard menu management system.
+                </p>
+                <div className="space-y-2 text-sm text-gray-500">
+                  <p>• Add items using the restaurant dashboard</p>
+                  <p>• Ensure items are marked as "In Stock"</p>
+                  <p>• Refresh this page after adding items</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {Object.keys(groupedItems).length === 0 && loading && (
+            <Card className="text-center py-12">
+              <CardContent>
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <RefreshCw className="w-10 h-10 text-gray-400 animate-spin" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Loading Menu...</h3>
+                <p className="text-gray-600 mb-4">
+                  Please wait while we load the menu items.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Desktop Cart Sidebar */}
