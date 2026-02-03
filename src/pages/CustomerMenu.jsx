@@ -1,18 +1,19 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Flame, Leaf, RefreshCw, Sparkles, Timer, MapPin, Heart, Award, TrendingUp, Utensils } from 'lucide-react'
+import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { formatPrice } from '@/components/ui/currency-selector'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
 import MenuService from '@/services/menuService'
 
 const restaurantData = {
-  name: "FoodieTech Restaurant",
+  name: "FoodieTech",
   rating: 4.8,
   deliveryTime: "15-20 min",
   cuisine: "Multi-Cuisine",
@@ -156,32 +157,35 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-zinc-50">
       {/* Header */}
-      <header className="bg-orange-600 text-white p-6 sticky top-0 z-40 shadow-md">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <header className="h-16 bg-white border-b border-zinc-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto h-full flex justify-between items-center px-4">
           <div className="flex items-center gap-3">
-            <Utensils className="h-8 w-8" />
-            <div>
-              <h1 className="text-xl font-bold">{restaurantData.name}</h1>
-              <p className="text-xs opacity-90">Table {tableNumber}</p>
+            <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
+              <Utensils className="h-4 w-4 text-white" />
             </div>
+            <h1 className="text-lg font-bold text-black">{restaurantData.name}</h1>
           </div>
-          <div className="flex gap-4">
-            <Badge variant="secondary" className="bg-orange-500 text-white border-none">
-              {restaurantData.rating} ★
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="border-zinc-300 text-zinc-600">
+              Table {tableNumber}
             </Badge>
+            <Button variant="ghost" size="icon" className="text-zinc-600 hover:text-black">
+              <User className="h-5 w-5" />
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 lg:grid lg:grid-cols-3 lg:gap-8">
+      <div className="max-w-7xl mx-auto p-4 lg:grid lg:grid-cols-[1fr_400px] lg:gap-8">
         {/* Menu Section */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 h-4 w-4" />
             <Input 
-              className="pl-10 h-12 bg-white" 
+              className="pl-10 h-12 bg-white border-zinc-200 focus:border-zinc-400" 
+              placeholder="Search for dishes..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -189,48 +193,54 @@ export default function CustomerMenu() {
 
           {Object.entries(groupedItems).map(([category, items]) => (
             <div key={category} className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800 border-l-4 border-orange-500 pl-3">
+              <h2 className="text-xl font-bold text-black border-l-4 border-zinc-900 pl-3">
                 {category}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.map((item) => (
-                  <Card key={item._id} className="overflow-hidden hover:shadow-md transition-shadow">
-                    <CardContent className="p-0 flex h-32">
-                      <div className="w-1/3 bg-gray-200">
-                        {item.photo ? (
-                          <img src={item.photo} alt={item.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="h-full flex items-center justify-center text-2xl bg-orange-50">
-                            {item.type === 'VEG' ? '🥗' : '🍖'}
-                          </div>
-                        )}
-                      </div>
-                      <div className="w-2/3 p-3 flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-start">
-                            <h3 className="font-bold text-gray-900 line-clamp-1">{item.name}</h3>
-                            {item.type === 'VEG' ? <Leaf className="h-4 w-4 text-green-500" /> : <Flame className="h-4 w-4 text-red-500" />}
-                          </div>
-                          <p className="text-xs text-gray-500 line-clamp-2 mt-1">{item.description}</p>
+                  <Card key={item._id} className="border-zinc-200 hover:border-zinc-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        <div className="w-24 h-24 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0">
+                          {item.photo ? (
+                            <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl">
+                              {item.type === 'VEG' ? '🥗' : '🍖'}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="font-bold text-orange-600">{formatPrice(item.price)}</span>
-                          <div className="flex items-center gap-2">
-                            {getQuantity(item._id) > 0 ? (
-                              <>
-                                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => removeFromCart(item._id)}>
-                                  <Minus className="h-3 w-3" />
+                        <div className="flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-start">
+                              <h3 className="font-bold text-black line-clamp-1">{item.name}</h3>
+                              {item.type === 'VEG' ? (
+                                <div className="w-4 h-4 bg-green-500 rounded-full" />
+                              ) : (
+                                <div className="w-4 h-4 bg-red-500 rounded-full" />
+                              )}
+                            </div>
+                            <p className="text-sm text-zinc-500 line-clamp-2 mt-1">{item.description}</p>
+                          </div>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="font-bold text-black">{formatPrice(item.price)}</span>
+                            <div className="flex items-center gap-2">
+                              {getQuantity(item._id) > 0 ? (
+                                <>
+                                  <Button size="icon" variant="outline" className="h-7 w-7 border-zinc-300" onClick={() => removeFromCart(item._id)}>
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="text-sm font-bold text-black">{getQuantity(item._id)}</span>
+                                  <Button size="icon" className="h-7 w-7 bg-black hover:bg-zinc-800" onClick={() => addToCart(item)}>
+                                    <Plus className="h-3 w-3 text-white" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button size="sm" className="bg-black hover:bg-zinc-800 text-white" onClick={() => addToCart(item)}>
+                                  Add
                                 </Button>
-                                <span className="text-sm font-bold">{getQuantity(item._id)}</span>
-                                <Button size="icon" className="h-7 w-7 bg-orange-600" onClick={() => addToCart(item)}>
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              </>
-                            ) : (
-                              <Button size="sm" variant="outline" className="text-orange-600 border-orange-600" onClick={() => addToCart(item)}>
-                                Add
-                              </Button>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -243,16 +253,16 @@ export default function CustomerMenu() {
 
           {/* Show when no menu items are available */}
           {Object.keys(groupedItems).length === 0 && !loading && (
-            <Card className="text-center py-12">
+            <Card className="text-center py-12 border-zinc-200">
               <CardContent>
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Utensils className="w-10 h-10 text-gray-400" />
+                <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Utensils className="w-10 h-10 text-zinc-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">No Menu Items Available</h3>
-                <p className="text-gray-600 mb-4">
+                <h3 className="text-xl font-semibold text-black mb-2">No Menu Items Available</h3>
+                <p className="text-zinc-600 mb-4">
                   Please add menu items through the dashboard menu management system.
                 </p>
-                <div className="space-y-2 text-sm text-gray-500">
+                <div className="space-y-2 text-sm text-zinc-500">
                   <p>• Add items using the restaurant dashboard</p>
                   <p>• Ensure items are marked as "In Stock"</p>
                   <p>• Refresh this page after adding items</p>
@@ -260,49 +270,39 @@ export default function CustomerMenu() {
               </CardContent>
             </Card>
           )}
-          {Object.keys(groupedItems).length === 0 && loading && (
-            <Card className="text-center py-12">
-              <CardContent>
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <RefreshCw className="w-10 h-10 text-gray-400 animate-spin" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">Loading Menu...</h3>
-                <p className="text-gray-600 mb-4">
-                  Please wait while we load the menu items.
-                </p>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {/* Desktop Cart Sidebar */}
         <div className="hidden lg:block">
-          <Card className="sticky top-28">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="sticky top-20 h-fit border-zinc-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-black">
                 <ShoppingCart className="h-5 w-5" /> Your Order
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {cart.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">Your cart is empty</p>
+                <div className="text-center py-8">
+                  <ShoppingBag className="w-12 h-12 text-zinc-300 mx-auto mb-2" />
+                  <p className="text-zinc-500">Cart is empty</p>
+                </div>
               ) : (
                 <>
                   <div className="space-y-3 max-h-96 overflow-auto">
                     {cart.map(item => (
                       <div key={item._id} className="flex justify-between text-sm">
-                        <span>{item.name} x{item.quantity}</span>
-                        <span>{formatPrice(item.price * item.quantity)}</span>
+                        <span className="text-zinc-700">{item.name} x{item.quantity}</span>
+                        <span className="font-medium text-black">{formatPrice(item.price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>
-                  <Separator />
+                  <Separator className="bg-zinc-200" />
                   <div className="space-y-2">
                     <div className="flex justify-between font-bold">
-                      <span>Total</span>
-                      <span className="text-orange-600">{formatPrice(getTotalPrice())}</span>
+                      <span className="text-black">Total</span>
+                      <span className="text-black">{formatPrice(getTotalPrice())}</span>
                     </div>
-                    <Button className="w-full bg-orange-600" onClick={() => setShowCheckout(true)}>
+                    <Button className="w-full bg-black hover:bg-zinc-800 text-white" onClick={() => setShowCheckout(true)}>
                       Checkout
                     </Button>
                   </div>
@@ -311,47 +311,73 @@ export default function CustomerMenu() {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
 
-      {/* Mobile Floating Cart Bar */}
+      {/* Mobile Floating Cart Button */}
       {cart.length > 0 && (
-        <div className="fixed bottom-0 w-full bg-white p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] lg:hidden z-50">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div>
-              <p className="text-xs text-gray-500">{getTotalItems()} Items</p>
-              <p className="text-lg font-bold text-orange-600">{formatPrice(getTotalPrice())}</p>
-            </div>
-            <Button className="bg-orange-600 px-8" onClick={() => setShowCheckout(true)}>
-              View Cart
-            </Button>
-          </div>
+        <div className="lg:hidden fixed bottom-4 right-4 z-50">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button className="h-14 w-14 rounded-full bg-black hover:bg-zinc-800 text-white shadow-lg">
+                <ShoppingCart className="h-6 w-6" />
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-zinc-900 text-white text-xs rounded-full flex items-center justify-center">
+                  {getTotalItems()}
+                </span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[80vh]">
+              <SheetHeader>
+                <SheetTitle className="text-black">Your Order</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-4">
+                <div className="space-y-3 max-h-96 overflow-auto">
+                  {cart.map(item => (
+                    <div key={item._id} className="flex justify-between text-sm">
+                      <span className="text-zinc-700">{item.name} x{item.quantity}</span>
+                      <span className="font-medium text-black">{formatPrice(item.price * item.quantity)}</span>
+                    </div>
+                  ))}
+                </div>
+                <Separator className="bg-zinc-200" />
+                <div className="space-y-2">
+                  <div className="flex justify-between font-bold">
+                    <span className="text-black">Total</span>
+                    <span className="text-black">{formatPrice(getTotalPrice())}</span>
+                  </div>
+                  <Button className="w-full bg-black hover:bg-zinc-800 text-white" onClick={() => setShowCheckout(true)}>
+                    Checkout
+                  </Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       )}
 
       {/* Checkout Modal Overlay */}
       {showCheckout && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <Card className="max-w-md w-full animate-in zoom-in-95">
+          <Card className="max-w-md w-full animate-in zoom-in-95 border-zinc-200">
             <CardHeader>
-              <CardTitle>Confirm Order</CardTitle>
+              <CardTitle className="text-black">Confirm Order</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 {cart.map(item => (
                   <div key={item._id} className="flex justify-between text-sm">
-                    <span>{item.name} x{item.quantity}</span>
-                    <span>{formatPrice(item.price * item.quantity)}</span>
+                    <span className="text-zinc-700">{item.name} x{item.quantity}</span>
+                    <span className="font-medium text-black">{formatPrice(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>
-              <Separator />
+              <Separator className="bg-zinc-200" />
               <div className="flex justify-between font-bold text-lg">
-                <span>Total Amount</span>
-                <span className="text-orange-600">{formatPrice(getTotalPrice())}</span>
+                <span className="text-black">Total Amount</span>
+                <span className="text-black">{formatPrice(getTotalPrice())}</span>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowCheckout(false)}>Cancel</Button>
-                <Button className="flex-1 bg-orange-600" onClick={placeOrder}>Place Order</Button>
+                <Button variant="outline" className="flex-1 border-zinc-300 text-zinc-700 hover:bg-zinc-50" onClick={() => setShowCheckout(false)}>Cancel</Button>
+                <Button className="flex-1 bg-black hover:bg-zinc-800 text-white" onClick={placeOrder}>Place Order</Button>
               </div>
             </CardContent>
           </Card>
