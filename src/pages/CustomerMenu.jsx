@@ -196,10 +196,57 @@ export default function CustomerMenu() {
               <h2 className="text-xl font-bold text-black border-l-4 border-zinc-900 pl-3">
                 {category}
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-2">
                 {items.map((item) => (
-                  <Card key={item._id} className="border-zinc-200 hover:border-zinc-300 transition-colors">
-                    <CardContent className="p-4">
+                  <Card key={item._id} className="border-zinc-200 hover:border-zinc-300 transition-colors lg:block">
+                    {/* Mobile List View */}
+                    <CardContent className="p-4 lg:hidden">
+                      <div className="flex gap-4">
+                        <div className="w-20 h-20 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0">
+                          {item.photo ? (
+                            <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl">
+                              {item.type === 'VEG' ? '🥗' : '🍖'}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-start">
+                              <h3 className="font-bold text-black line-clamp-1">{item.name}</h3>
+                              <Badge variant="outline" className={`text-xs ${item.type === 'VEG' ? 'border-green-600 text-green-600' : 'border-red-600 text-red-600'}`}>
+                                {item.type}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-zinc-500 line-clamp-2 mt-1">{item.description}</p>
+                          </div>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="font-bold text-black">{formatPrice(item.price)}</span>
+                            <div className="flex items-center gap-2">
+                              {getQuantity(item._id) > 0 ? (
+                                <>
+                                  <Button size="icon" variant="outline" className="h-7 w-7 border-zinc-300" onClick={() => removeFromCart(item._id)}>
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="text-sm font-bold text-black">{getQuantity(item._id)}</span>
+                                  <Button size="icon" className="h-7 w-7 bg-black hover:bg-zinc-800" onClick={() => addToCart(item)}>
+                                    <Plus className="h-3 w-3 text-white" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button size="sm" className="bg-black hover:bg-zinc-800 text-white" onClick={() => addToCart(item)}>
+                                  Add
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                    
+                    {/* Desktop Card View */}
+                    <CardContent className="p-4 max-lg:hidden">
                       <div className="flex gap-4">
                         <div className="w-24 h-24 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0">
                           {item.photo ? (
@@ -214,11 +261,9 @@ export default function CustomerMenu() {
                           <div>
                             <div className="flex justify-between items-start">
                               <h3 className="font-bold text-black line-clamp-1">{item.name}</h3>
-                              {item.type === 'VEG' ? (
-                                <div className="w-4 h-4 bg-green-500 rounded-full" />
-                              ) : (
-                                <div className="w-4 h-4 bg-red-500 rounded-full" />
-                              )}
+                              <Badge variant="outline" className={`text-xs ${item.type === 'VEG' ? 'border-green-600 text-green-600' : 'border-red-600 text-red-600'}`}>
+                                {item.type}
+                              </Badge>
                             </div>
                             <p className="text-sm text-zinc-500 line-clamp-2 mt-1">{item.description}</p>
                           </div>
@@ -316,7 +361,9 @@ export default function CustomerMenu() {
       {/* Mobile Floating Cart Button */}
       {cart.length > 0 && (
         <div className="lg:hidden fixed bottom-4 right-4 z-50">
-          <Sheet>
+          <Sheet open={showCheckout ? false : undefined} onOpenChange={(open) => {
+            if (!open) setShowCheckout(false)
+          }}>
             <SheetTrigger asChild>
               <Button className="h-14 w-14 rounded-full bg-black hover:bg-zinc-800 text-white shadow-lg">
                 <ShoppingCart className="h-6 w-6" />
@@ -344,7 +391,12 @@ export default function CustomerMenu() {
                     <span className="text-black">Total</span>
                     <span className="text-black">{formatPrice(getTotalPrice())}</span>
                   </div>
-                  <Button className="w-full bg-black hover:bg-zinc-800 text-white" onClick={() => setShowCheckout(true)}>
+                  <Button 
+                    className="w-full bg-black hover:bg-zinc-800 text-white" 
+                    onClick={() => {
+                      setShowCheckout(true)
+                    }}
+                  >
                     Checkout
                   </Button>
                 </div>
