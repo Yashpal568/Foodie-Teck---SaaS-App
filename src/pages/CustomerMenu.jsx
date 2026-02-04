@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,6 +46,7 @@ export default function CustomerMenu() {
   const [tableNumber, setTableNumber] = useState('')
   const [restaurantId, setRestaurantId] = useState('')
   const [showCheckout, setShowCheckout] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [currentOrder, setCurrentOrder] = useState(null)
   const [showOrderTracking, setShowOrderTracking] = useState(false)
@@ -54,6 +55,8 @@ export default function CustomerMenu() {
   const [error, setError] = useState(null)
   const [activeOrderId, setActiveOrderId] = useState(null) // Track active order for this session
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false) // Mobile menu state
+  const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0 }) // Cart button position
+  const [isDragging, setIsDragging] = useState(false) // Drag state
 
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
 
@@ -155,6 +158,71 @@ export default function CustomerMenu() {
   const getTotalPrice = () => cart.reduce((t, i) => t + (i.price * i.quantity), 0)
   const getTotalItems = () => cart.reduce((t, i) => t + i.quantity, 0)
 
+  // Drag functionality for cart button
+  const handleDragStart = useCallback((e) => {
+    setIsDragging(true)
+    const touch = e.touches ? e.touches[0] : e
+    const button = e.currentTarget
+    const rect = button.getBoundingClientRect()
+    
+    // Store the initial offset from the button center
+    const offsetX = touch.clientX - rect.left - rect.width / 2
+    const offsetY = touch.clientY - rect.top - rect.height / 2
+    
+    setButtonPosition({
+      x: touch.clientX - offsetX,
+      y: touch.clientY - offsetY,
+      offsetX: offsetX,
+      offsetY: offsetY
+    })
+  }, [])
+
+  const handleDragMove = useCallback((e) => {
+    if (!isDragging) return
+    
+    const touch = e.touches ? e.touches[0] : e
+    const windowWidth = window.innerWidth
+    const windowHeight = window.innerHeight
+    
+    // Calculate new position using the stored offset
+    let newX = touch.clientX - (buttonPosition.offsetX || 0)
+    let newY = touch.clientY - (buttonPosition.offsetY || 0)
+    
+    // Constrain to screen bounds with padding
+    const padding = 20
+    const buttonSize = 56 // Button size (14 * 4px = 56px)
+    
+    newX = Math.max(padding, Math.min(windowWidth - padding - buttonSize, newX))
+    newY = Math.max(padding, Math.min(windowHeight - padding - buttonSize, newY))
+    
+    setButtonPosition(prev => ({
+      ...prev,
+      x: newX,
+      y: newY
+    }))
+  }, [isDragging, buttonPosition.offsetX, buttonPosition.offsetY])
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Add global event listeners for drag
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('touchmove', handleDragMove)
+      document.addEventListener('touchend', handleDragEnd)
+      document.addEventListener('mousemove', handleDragMove)
+      document.addEventListener('mouseup', handleDragEnd)
+      
+      return () => {
+        document.removeEventListener('touchmove', handleDragMove)
+        document.removeEventListener('touchend', handleDragEnd)
+        document.removeEventListener('mousemove', handleDragMove)
+        document.removeEventListener('mouseup', handleDragEnd)
+      }
+    }
+  }, [isDragging, handleDragMove, handleDragEnd])
+
   const placeOrder = () => {
     if (cart.length === 0) return
     const orderData = {
@@ -169,7 +237,7 @@ export default function CustomerMenu() {
     setCurrentOrder(order)
     setActiveOrderId(order.id) // Set active order for this session
     setOrderPlaced(true)
-    setShowCheckout(false)
+    setShowConfirmModal(false) // Close confirmation modal
     setCart([])
     setTimeout(() => setShowOrderTracking(true), 2000)
   }
@@ -460,55 +528,71 @@ export default function CustomerMenu() {
       </div>
 
       {/* Mobile Floating Cart Button */}
-      {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-4 right-4 z-50">
-          <Sheet open={showCheckout ? false : undefined} onOpenChange={(open) => {
-            if (!open) setShowCheckout(false)
-          }}>
-            <SheetTrigger asChild>
-              <Button className="h-14 w-14 rounded-full bg-black hover:bg-zinc-800 text-white shadow-lg">
-                <ShoppingCart className="h-6 w-6" />
-                <span className="absolute -top-1 -right-1 h-5 w-5 bg-zinc-900 text-white text-xs rounded-full flex items-center justify-center">
-                  {getTotalItems()}
-                </span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[80vh]">
-              <SheetHeader>
-                <SheetTitle className="text-black">Your Order</SheetTitle>
-              </SheetHeader>
-              <div className="mt-6 space-y-4">
-                <div className="space-y-3 max-h-96 overflow-auto">
-                  {cart.map(item => (
-                    <div key={item._id} className="flex justify-between text-sm">
-                      <span className="text-zinc-700">{item.name} x{item.quantity}</span>
-                      <span className="font-medium text-black">{formatPrice(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
+      <div 
+        className={`lg:hidden fixed z-50 transition-all duration-200 ${isDragging ? 'scale-110 shadow-2xl' : 'hover:scale-105'} ${cart.length === 0 ? 'pointer-events-none opacity-0' : ''}`}
+        style={{
+          left: buttonPosition.x === 0 ? 'auto' : `${buttonPosition.x}px`,
+          right: buttonPosition.x === 0 ? '16px' : 'auto',
+          bottom: buttonPosition.y === 0 ? '96px' : 'auto',
+          top: buttonPosition.y === 0 ? 'auto' : `${buttonPosition.y}px`,
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+      >
+        <Button 
+          className="h-14 w-14 rounded-full bg-black hover:bg-zinc-800 text-white shadow-lg select-none"
+          onMouseDown={handleDragStart}
+          onTouchStart={handleDragStart}
+          style={{ touchAction: 'none' }}
+          onClick={() => cart.length > 0 && setShowCheckout(true)}
+          disabled={cart.length === 0}
+        >
+          <ShoppingCart className="h-6 w-6" />
+          <span className="absolute -top-1 -right-1 h-5 w-5 bg-zinc-900 text-white text-xs rounded-full flex items-center justify-center">
+            {getTotalItems()}
+          </span>
+        </Button>
+      </div>
+
+      {/* Mobile Cart Sheet - Separate from button */}
+      <Sheet open={showCheckout && cart.length > 0} onOpenChange={(open) => {
+        if (!open) setShowCheckout(false)
+      }}>
+        <SheetContent side="bottom" className="h-[80vh]">
+          <SheetHeader>
+            <SheetTitle className="text-black">Your Order</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 space-y-4">
+            <div className="space-y-3 max-h-96 overflow-auto">
+              {cart.map(item => (
+                <div key={item._id} className="flex justify-between text-sm">
+                  <span className="text-zinc-700">{item.name} x{item.quantity}</span>
+                  <span className="font-medium text-black">{formatPrice(item.price * item.quantity)}</span>
                 </div>
-                <Separator className="bg-zinc-200" />
-                <div className="space-y-2">
-                  <div className="flex justify-between font-bold">
-                    <span className="text-black">Total</span>
-                    <span className="text-black">{formatPrice(getTotalPrice())}</span>
-                  </div>
-                  <Button 
-                    className="w-full bg-black hover:bg-zinc-800 text-white" 
-                    onClick={() => {
-                      setShowCheckout(true)
-                    }}
-                  >
-                    Checkout
-                  </Button>
-                </div>
+              ))}
+            </div>
+            <Separator className="bg-zinc-200" />
+            <div className="space-y-2">
+              <div className="flex justify-between font-bold">
+                <span className="text-black">Total</span>
+                <span className="text-black">{formatPrice(getTotalPrice())}</span>
               </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      )}
+              <Button 
+                className="w-full bg-black hover:bg-zinc-800 text-white" 
+                onClick={() => {
+                  // Close the sheet and show the confirmation modal
+                  setShowCheckout(false)
+                  setTimeout(() => setShowConfirmModal(true), 100)
+                }}
+              >
+                Checkout
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Checkout Modal Overlay */}
-      {showCheckout && (
+      {showConfirmModal && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
           <Card className="max-w-md w-full animate-in zoom-in-95 border-zinc-200">
             <CardHeader>
@@ -529,7 +613,7 @@ export default function CustomerMenu() {
                 <span className="text-black">{formatPrice(getTotalPrice())}</span>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 border-zinc-300 text-zinc-700 hover:bg-zinc-50" onClick={() => setShowCheckout(false)}>Cancel</Button>
+                <Button variant="outline" className="flex-1 border-zinc-300 text-zinc-700 hover:bg-zinc-50" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
                 <Button className="flex-1 bg-black hover:bg-zinc-800 text-white" onClick={placeOrder}>Place Order</Button>
               </div>
             </CardContent>
