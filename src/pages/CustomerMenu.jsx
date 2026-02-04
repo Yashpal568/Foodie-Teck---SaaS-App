@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag } from 'lucide-react'
+import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -7,6 +7,16 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { 
+  Navbar, 
+  NavbarContent, 
+  NavbarBrand, 
+  NavbarItem, 
+  NavbarMenuToggle, 
+  NavbarMenu, 
+  NavbarMenuItem 
+} from '@/components/ui/navbar'
+import { TrackOrderButton } from '@/components/ui/track-order-button'
 import { formatPrice } from '@/components/ui/currency-selector'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
@@ -42,6 +52,8 @@ export default function CustomerMenu() {
   const [menuItems, setMenuItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [activeOrderId, setActiveOrderId] = useState(null) // Track active order for this session
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false) // Mobile menu state
 
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
 
@@ -89,6 +101,17 @@ export default function CustomerMenu() {
     setTableNumber(params.get('table') || 'N/A')
     setRestaurantId(params.get('restaurant') || 'default')
   }, [])
+
+  // Check for session completion and clear active order
+  useEffect(() => {
+    if (activeOrderId && currentOrder) {
+      // If order is finished, clear the active order for next session
+      if (currentOrder.status === ORDER_STATUS.FINISHED) {
+        setActiveOrderId(null)
+        setCurrentOrder(null)
+      }
+    }
+  }, [activeOrderId, currentOrder])
 
   const filteredItems = useMemo(() => {
     const filtered = menuItems.filter(item => 
@@ -144,6 +167,7 @@ export default function CustomerMenu() {
     }
     const order = createOrder(orderData)
     setCurrentOrder(order)
+    setActiveOrderId(order.id) // Set active order for this session
     setOrderPlaced(true)
     setShowCheckout(false)
     setCart([])
@@ -157,26 +181,103 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* Header */}
-      <header className="h-16 bg-white border-b border-zinc-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto h-full flex justify-between items-center px-4">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-zinc-50 flex flex-col">
+      {/* Shadcn Studio Navbar */}
+      <Navbar>
+        <NavbarContent className="max-w-7xl mx-auto px-4">
+          {/* Mobile Menu Toggle */}
+          <NavbarMenuToggle 
+            onClick={() => setMobileMenuOpen(true)}
+            className="lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </NavbarMenuToggle>
+
+          {/* Brand - Left Side */}
+          <NavbarBrand className="flex-1">
             <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
               <Utensils className="h-4 w-4 text-white" />
             </div>
-            <h1 className="text-lg font-bold text-black">{restaurantData.name}</h1>
-          </div>
-          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold text-black hidden md:block">{restaurantData.name}</h1>
+            <h1 className="text-base font-bold text-black md:hidden">{restaurantData.name}</h1>
+          </NavbarBrand>
+
+          {/* Spacer for better spacing */}
+          <div className="flex-1 lg:hidden"></div>
+
+          {/* Desktop Items - Right Side */}
+          <div className="hidden lg:flex items-center gap-4 flex-1 justify-end">
             <Badge variant="outline" className="border-zinc-300 text-zinc-600">
               Table {tableNumber}
             </Badge>
+            {/* Track Order Button - Desktop */}
+            {activeOrderId && (
+              <TrackOrderButton
+                isActive={showOrderTracking}
+                orderStatus={currentOrder?.status}
+                onClick={() => setShowOrderTracking(true)}
+                className="scale-90"
+              />
+            )}
             <Button variant="ghost" size="icon" className="text-zinc-600 hover:text-black">
               <User className="h-5 w-5" />
             </Button>
           </div>
-        </div>
-      </header>
+
+          {/* Mobile Items - Right Side */}
+          <div className="lg:hidden flex items-center gap-2">
+            <Badge variant="outline" className="border-zinc-300 text-zinc-600 text-xs">
+              Table {tableNumber}
+            </Badge>
+            {/* Track Order Button - Mobile */}
+            {activeOrderId && (
+              <TrackOrderButton
+                isActive={showOrderTracking}
+                orderStatus={currentOrder?.status}
+                onClick={() => setShowOrderTracking(true)}
+                showLabel={false}
+                className="h-8 w-8 p-0"
+              />
+            )}
+            <Button variant="ghost" size="icon" className="text-zinc-600 hover:text-black h-8 w-8">
+              <User className="h-4 w-4" />
+            </Button>
+          </div>
+        </NavbarContent>
+
+        {/* Mobile Menu */}
+        <NavbarMenu isOpen={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <NavbarMenuItem onClick={() => setMobileMenuOpen(false)}>
+            <div className="flex items-center gap-3">
+              <Utensils className="h-5 w-5 text-zinc-600" />
+              <div>
+                <div className="font-medium">{restaurantData.name}</div>
+                <div className="text-sm text-zinc-500">Table {tableNumber}</div>
+              </div>
+            </div>
+          </NavbarMenuItem>
+          
+          {/* Track Order in Mobile Menu */}
+          {activeOrderId && (
+            <NavbarMenuItem onClick={() => {
+              setShowOrderTracking(true)
+              setMobileMenuOpen(false)
+            }}>
+              <div className="flex items-center gap-3">
+                <Timer className="h-5 w-5 text-blue-600" />
+                <div>
+                  <div className="font-medium">Track Order</div>
+                  <div className="text-sm text-zinc-500">
+                    {currentOrder?.status === 'preparing' && 'Preparing your order'}
+                    {currentOrder?.status === 'ready' && 'Order ready!'}
+                    {currentOrder?.status === 'served' && 'Order served'}
+                  </div>
+                </div>
+              </div>
+            </NavbarMenuItem>
+          )}
+        </NavbarMenu>
+      </Navbar>
 
       <div className="max-w-7xl mx-auto p-4 lg:grid lg:grid-cols-[1fr_400px] lg:gap-8">
         {/* Menu Section */}
@@ -435,6 +536,85 @@ export default function CustomerMenu() {
           </Card>
         </div>
       )}
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-zinc-200 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Restaurant Info */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-black rounded flex items-center justify-center">
+                  <Utensils className="h-3 w-3 text-white" />
+                </div>
+                <h3 className="font-bold text-black">{restaurantData.name}</h3>
+              </div>
+              <p className="text-sm text-zinc-600">
+                {restaurantData.cuisine} • {restaurantData.deliveryTime}
+              </p>
+              <div className="flex items-center gap-1">
+                <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                <span className="text-sm font-medium text-black">{restaurantData.rating}</span>
+                <span className="text-sm text-zinc-600">(2.5k reviews)</span>
+              </div>
+            </div>
+
+            {/* Quick Links */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-black">Quick Links</h4>
+              <div className="space-y-2">
+                <a href="#" className="block text-sm text-zinc-600 hover:text-black transition-colors">
+                  About Us
+                </a>
+                <a href="#" className="block text-sm text-zinc-600 hover:text-black transition-colors">
+                  Contact
+                </a>
+                <a href="#" className="block text-sm text-zinc-600 hover:text-black transition-colors">
+                  Privacy Policy
+                </a>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-black">Contact</h4>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-zinc-600">
+                  <MapPin className="h-4 w-4" />
+                  <span>123 Restaurant Street, City</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-zinc-600">
+                  <Phone className="h-4 w-4" />
+                  <span>+91 98765 43210</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-zinc-600">
+                  <Mail className="h-4 w-4" />
+                  <span>info@foodietech.com</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-6 bg-zinc-200" />
+
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-zinc-600">
+              2024 {restaurantData.name}. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4">
+              <a href="#" className="text-zinc-600 hover:text-black transition-colors">
+                <Facebook className="h-5 w-5" />
+              </a>
+              <a href="#" className="text-zinc-600 hover:text-black transition-colors">
+                <Twitter className="h-5 w-5" />
+              </a>
+              <a href="#" className="text-zinc-600 hover:text-black transition-colors">
+                <Instagram className="h-5 w-5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
