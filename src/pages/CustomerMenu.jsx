@@ -105,16 +105,100 @@ export default function CustomerMenu() {
     setRestaurantId(params.get('restaurant') || 'default')
   }, [])
 
+  // Emit table session start event when customer scans QR code
+  useEffect(() => {
+    if (tableNumber && tableNumber !== 'N/A') {
+      console.log('Customer scanned QR code for table:', tableNumber)
+      
+      // Check if there's a completed order for this table
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const tableOrders = orders.filter(order => 
+        order.tableNumber === tableNumber && 
+        (order.status === 'FINISHED' || order.status === 'CANCELLED')
+      )
+      
+      // Only mark as occupied if there are no completed orders
+      if (tableOrders.length === 0) {
+        console.log('No completed orders found, marking table as occupied')
+        
+        // Direct table update - update localStorage directly
+        const tableSessions = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+        const updatedTables = tableSessions.map(table => {
+          if (table.tableNumber === parseInt(tableNumber)) {
+            return {
+              ...table,
+              status: 'occupied',
+              sessionStart: new Date().toISOString(),
+              lastActivity: new Date().toISOString()
+            }
+          }
+          return table
+        })
+        
+        localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+        console.log('Table status updated directly in localStorage')
+      } else {
+        console.log('Found completed orders, not marking table as occupied')
+      }
+      
+      // Also emit event for backup
+      window.dispatchEvent(new CustomEvent('orderUpdated', { 
+        detail: { 
+          tableNumber: parseInt(tableNumber), 
+          orderStatus: 'created',
+          customers: 0, // Will be updated when order is placed
+          orderId: null,
+          revenue: 0
+        }
+      }))
+    }
+  }, [tableNumber])
+
   // Check for session completion and clear active order
   useEffect(() => {
     if (activeOrderId && currentOrder) {
       // If order is finished, clear the active order for next session
       if (currentOrder.status === ORDER_STATUS.FINISHED) {
+        console.log('Order finished, updating table status to available')
+        
+        // Update table status back to available
+        const tableSessions = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+        const updatedTables = tableSessions.map(table => {
+          if (table.tableNumber === parseInt(tableNumber)) {
+            return {
+              ...table,
+              status: 'available',
+              customers: 0,
+              currentOrder: null,
+              sessionStart: null,
+              sessionDuration: null,
+              revenue: 0,
+              needsCleaning: false,
+              lastActivity: new Date().toISOString()
+            }
+          }
+          return table
+        })
+        
+        localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+        console.log('Table status updated to available in localStorage')
+        
+        // Emit event for backup
+        window.dispatchEvent(new CustomEvent('orderUpdated', { 
+          detail: { 
+            tableNumber: parseInt(tableNumber), 
+            orderStatus: 'finished',
+            customers: 0,
+            orderId: null,
+            revenue: 0
+          }
+        }))
+        
         setActiveOrderId(null)
         setCurrentOrder(null)
       }
     }
-  }, [activeOrderId, currentOrder])
+  }, [activeOrderId, currentOrder, tableNumber])
 
   const filteredItems = useMemo(() => {
     const filtered = menuItems.filter(item => 
@@ -240,6 +324,46 @@ export default function CustomerMenu() {
     setShowConfirmModal(false) // Close confirmation modal
     setCart([])
     setTimeout(() => setShowOrderTracking(true), 2000)
+    
+    // Direct table update - update localStorage directly
+    const tableSessions = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+    const updatedTables = tableSessions.map(table => {
+      if (table.tableNumber === parseInt(tableNumber)) {
+        return {
+          ...table,
+          status: 'occupied',
+          customers: cart.reduce((sum, item) => sum + item.quantity, 0),
+          currentOrder: order.id,
+          revenue: getTotalPrice() * 1.05,
+          sessionStart: new Date().toISOString(),
+          lastActivity: new Date().toISOString()
+        }
+      }
+      return table
+    })
+    
+    localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+    console.log('Table updated directly in localStorage on order placement')
+    
+    console.log('Emitting order update event:', {
+      tableNumber: parseInt(tableNumber),
+      orderStatus: 'created',
+      customers: cart.reduce((sum, item) => sum + item.quantity, 0),
+      orderId: order.id,
+      revenue: getTotalPrice() * 1.05
+    })
+    
+    window.dispatchEvent(new CustomEvent('orderUpdated', { 
+      detail: { 
+        tableNumber: parseInt(tableNumber), 
+        orderStatus: 'created',
+        customers: cart.reduce((sum, item) => sum + item.quantity, 0),
+        orderId: order.id,
+        revenue: getTotalPrice() * 1.05
+      }
+    }))
+    
+    console.log('Order update event dispatched')
   }
 
   if (loading) return <div className="flex h-screen items-center justify-center">Loading Menu...</div>

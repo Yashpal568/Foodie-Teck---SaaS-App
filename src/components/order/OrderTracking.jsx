@@ -560,10 +560,76 @@ const OrderTracking = ({ orderId, onClose }) => {
                   <p className="text-sm text-zinc-600 mb-3">
                     Contact restaurant staff for any assistance
                   </p>
-                  <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white transition-colors duration-200">
+                  <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white transition-colors duration-200 mb-2">
                     <Phone className="w-4 h-4 mr-2" />
                     Call Restaurant
                   </Button>
+                  
+                  {/* Complete Order Button */}
+                  {order && (order.status === ORDER_STATUS.SERVED || order.status === ORDER_STATUS.READY) && (
+                    <Button 
+                      onClick={() => {
+                        console.log('Completing order:', order.id)
+                        
+                        // Update order status to FINISHED
+                        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+                        const updatedOrders = orders.map(o => {
+                          if (o.id === order.id) {
+                            return {
+                              ...o,
+                              status: ORDER_STATUS.FINISHED,
+                              updatedAt: new Date().toISOString()
+                            }
+                          }
+                          return o
+                        })
+                        localStorage.setItem('orders', JSON.stringify(updatedOrders))
+                        
+                        // Update table status to available
+                        const tableSessions = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+                        const updatedTables = tableSessions.map(table => {
+                          if (table.tableNumber === parseInt(order.tableNumber)) {
+                            return {
+                              ...table,
+                              status: 'available',
+                              customers: 0,
+                              currentOrder: null,
+                              sessionStart: null,
+                              sessionDuration: null,
+                              revenue: 0,
+                              needsCleaning: false,
+                              lastActivity: new Date().toISOString()
+                            }
+                          }
+                          return table
+                        })
+                        localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+                        
+                        // Emit event for table sessions
+                        window.dispatchEvent(new CustomEvent('orderUpdated', {
+                          detail: {
+                            tableNumber: parseInt(order.tableNumber),
+                            orderStatus: 'finished',
+                            customers: 0,
+                            orderId: null,
+                            revenue: 0
+                          }
+                        }))
+                        
+                        console.log('Order completed and table marked as available')
+                        
+                        // Update local order state
+                        setOrder({
+                          ...order,
+                          status: ORDER_STATUS.FINISHED
+                        })
+                      }}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white transition-colors duration-200"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Complete Order
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -3,6 +3,7 @@ import Layout from '../components/layout/Layout'
 import OverviewCards from '../components/dashboard/OverviewCards'
 import RecentOrders from '../components/dashboard/RecentOrders'
 import TableStatus from '../components/dashboard/TableStatus'
+import TableSessions from '../components/dashboard/TableSessions'
 import MenuManagement from '../components/menu/MenuManagement'
 import QRCodeManagement from '../components/dashboard/QRCodeManagement'
 import OrderManagement from '../components/dashboard/OrderManagement'
@@ -62,14 +63,10 @@ function Dashboard() {
               <Users className="w-8 h-8 text-green-600" />
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Table Sessions</h1>
-                <p className="text-gray-600">Monitor table occupancy and customer sessions</p>
+                <p className="text-gray-600">Monitor table occupancy and customer sessions in real-time</p>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Table Sessions</h3>
-              <p className="text-gray-600">Monitor table occupancy and customer sessions</p>
-            </div>
+            <TableSessions />
           </div>
         )
       

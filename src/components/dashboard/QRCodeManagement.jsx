@@ -119,6 +119,11 @@ export default function QRCodeManagement() {
   useEffect(() => {
     if (qrCodes.length > 0) {
       saveQRCodesToStorage(restaurantId, qrCodes)
+      // Emit event to notify TableSessions component
+      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes } }))
+    } else {
+      // Also emit event when QR codes are cleared
+      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: [] } }))
     }
   }, [qrCodes, restaurantId])
 
@@ -131,6 +136,11 @@ export default function QRCodeManagement() {
         codes.push(qrCode)
       }
       setQrCodes(codes)
+      console.log('Generated QR codes:', codes.length, 'codes')
+      // Emit event to notify TableSessions component
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: codes } }))
+      }, 100)
     } catch (error) {
       console.error('Error generating QR codes:', error)
     } finally {
@@ -142,6 +152,8 @@ export default function QRCodeManagement() {
     setQrCodes([])
     try {
       localStorage.removeItem(`qrCodes_${restaurantId}`)
+      // Emit event to notify TableSessions component
+      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: [] } }))
     } catch (error) {
       console.error('Error clearing QR codes:', error)
     }
