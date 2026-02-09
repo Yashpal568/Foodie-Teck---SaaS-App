@@ -1,24 +1,28 @@
 import { useState, useEffect } from 'react'
 import { 
   Users, 
-  CheckCircle, 
   Clock, 
-  AlertCircle, 
   DollarSign, 
-  Home, 
-  Calendar,
-  UserCheck,
-  Sparkles,
+  TrendingUp, 
+  Calendar, 
+  CheckCircle, 
+  AlertCircle, 
+  Settings, 
+  Plus, 
+  X, 
+  Search, 
+  Filter, 
+  RefreshCw, 
+  Grid, 
+  List,
+  Save,
   CreditCard,
-  TrendingUp,
-  MoreVertical,
-  RefreshCw,
-  Settings,
-  Plus,
-  Edit,
-  Trash2,
+  Sparkles,
+  Home,
   Eye,
-  Filter
+  Edit,
+  UserCheck,
+  Trash2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +31,15 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { 
+  Navbar, 
+  NavbarContent, 
+  NavbarBrand, 
+  NavbarItem, 
+  NavbarMenuToggle, 
+  NavbarMenu, 
+  NavbarMenuItem 
+} from '@/components/ui/navbar'
 
 const TableSessions = () => {
   const [tables, setTables] = useState([])
@@ -34,6 +47,18 @@ const TableSessions = () => {
   const [selectedTable, setSelectedTable] = useState(null)
   const [showReserveModal, setShowReserveModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [reserveData, setReserveData] = useState({ customerName: '', notes: '', reservationTime: '' })
+  const [showAddTableModal, setShowAddTableModal] = useState(false)
+  const [newTableData, setNewTableData] = useState({ tableNumber: '', capacity: 4, location: '' })
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [settings, setSettings] = useState({
+    autoRefresh: true,
+    refreshInterval: 3,
+    autoCompleteOrders: true,
+    autoCompleteMinutes: 60,
+    notifications: true,
+    theme: 'light'
+  })
   const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -289,58 +314,26 @@ const TableSessions = () => {
     }
   }, [])
 
-  // Also add a manual refresh function that checks for recent orders
-  const checkForRecentOrders = () => {
-    console.log('Checking for recent orders...')
-    
-    // Get recent orders from localStorage
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const recentOrders = orders.filter(order => {
-      const orderTime = new Date(order.createdAt)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-      return orderTime > fiveMinutesAgo
-    })
-    
-    console.log('Recent orders found:', recentOrders.length)
-    
-    // Update tables based on recent orders
-    recentOrders.forEach(order => {
-      console.log('Updating table for order:', order.tableNumber, order.status)
+  // Also listen for order completion events
+  useEffect(() => {
+    const handleOrderCompleted = (event) => {
+      console.log('Order completion event received:', event.detail)
+      const { tableNumber, orderId } = event.detail
       
+      // Update table to available
       setTables(prev => {
         const updatedTables = prev.map(table => {
-          if (table.tableNumber === order.tableNumber) {
-            let newStatus = 'available'
-            
-            switch (order.status) {
-              case 'pending':
-              case 'confirmed':
-              case 'preparing':
-              case 'ready':
-                newStatus = 'occupied'
-                break
-              case 'served':
-                newStatus = 'occupied'
-                break
-              case 'billing':
-                newStatus = 'billing'
-                break
-              case 'paid':
-                newStatus = 'needs-cleaning'
-                break
-              case 'finished':
-                newStatus = 'available'
-                break
-            }
-            
+          if (table.tableNumber === tableNumber) {
             return {
               ...table,
-              status: newStatus,
-              customers: order.items ? order.items.reduce((sum, item) => sum + (item.quantity || 1), 0) : 0,
-              currentOrder: order.id,
-              sessionStart: order.createdAt,
-              revenue: order.total || 0,
-              lastActivity: order.createdAt
+              status: 'available',
+              customers: 0,
+              currentOrder: null,
+              sessionStart: null,
+              sessionDuration: null,
+              revenue: 0,
+              needsCleaning: false,
+              lastActivity: new Date().toISOString()
             }
           }
           return table
@@ -349,8 +342,14 @@ const TableSessions = () => {
         localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
         return updatedTables
       })
-    })
-  }
+    }
+    
+    window.addEventListener('orderCompleted', handleOrderCompleted)
+    
+    return () => {
+      window.removeEventListener('orderCompleted', handleOrderCompleted)
+    }
+  }, [])
 
   // Check for recent orders every 5 seconds
   useEffect(() => {
@@ -470,43 +469,6 @@ const TableSessions = () => {
     }
   }
 
-  // Also listen for order completion events
-  useEffect(() => {
-    const handleOrderCompleted = (event) => {
-      console.log('Order completion event received:', event.detail)
-      const { tableNumber, orderId } = event.detail
-      
-      // Update table to available
-      setTables(prev => {
-        const updatedTables = prev.map(table => {
-          if (table.tableNumber === tableNumber) {
-            return {
-              ...table,
-              status: 'available',
-              customers: 0,
-              currentOrder: null,
-              sessionStart: null,
-              sessionDuration: null,
-              revenue: 0,
-              needsCleaning: false,
-              lastActivity: new Date().toISOString()
-            }
-          }
-          return table
-        })
-        
-        localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-        return updatedTables
-      })
-    }
-    
-    window.addEventListener('orderCompleted', handleOrderCompleted)
-    
-    return () => {
-      window.removeEventListener('orderCompleted', handleOrderCompleted)
-    }
-  }, [])
-
   const statusConfig = {
     available: {
       label: 'Available',
@@ -616,71 +578,57 @@ const TableSessions = () => {
     }
   }
 
+  const handleSaveSettings = () => {
+    localStorage.setItem('tableSessionsSettings', JSON.stringify(settings))
+    setSettingsModalOpen(false)
+  }
+
   const handleAddTable = () => {
-    // Get current QR codes to find next table number
-    const restaurantId = 'restaurant-123'
-    const savedQRCodes = localStorage.getItem(`qrCodes_${restaurantId}`)
-    const qrCodes = savedQRCodes ? JSON.parse(savedQRCodes) : []
-    
-    // Find the next available table number
-    const existingTableNumbers = tables.map(t => t.tableNumber)
-    const qrTableNumbers = qrCodes.map(qr => qr.tableNumber)
-    const allTableNumbers = [...existingTableNumbers, ...qrTableNumbers]
-    const nextTableNumber = allTableNumbers.length > 0 ? Math.max(...allTableNumbers) + 1 : 1
-    
-    const newTable = {
-      id: nextTableNumber,
-      name: `Table ${nextTableNumber}`,
-      tableNumber: nextTableNumber,
-      restaurantId: restaurantId,
-      qrUrl: `http://localhost:5173/menu?restaurant=${restaurantId}&table=${nextTableNumber}`,
-      status: 'available',
-      customers: 0,
-      currentOrder: null,
-      sessionStart: null,
-      sessionDuration: null,
-      lastActivity: null,
-      revenue: 0,
-      reservedBy: null,
-      reservedTime: null,
-      needsCleaning: false,
-      createdAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-      isManual: true // Flag to indicate this was manually added
+    setShowAddTableModal(true)
+  }
+
+  const handleConfirmAddTable = () => {
+    if (newTableData.tableNumber) {
+      const newTable = {
+        id: Date.now().toString(),
+        tableNumber: parseInt(newTableData.tableNumber),
+        name: `Table ${newTableData.tableNumber}`,
+        status: 'available',
+        capacity: newTableData.capacity,
+        location: newTableData.location,
+        customers: 0,
+        currentOrder: null,
+        sessionStart: null,
+        sessionDuration: null,
+        revenue: 0,
+        needsCleaning: false,
+        reservedFor: null,
+        reservedAt: null,
+        reservationNotes: null,
+        lastActivity: new Date().toISOString()
+      }
+      
+      const updatedTables = [...tables, newTable]
+      setTables(updatedTables)
+      localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+      setShowAddTableModal(false)
+      setNewTableData({ tableNumber: '', capacity: 4, location: '' })
     }
-    
-    const updatedTables = [...tables, newTable]
-    setTables(updatedTables)
-    localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-    console.log('Added new table manually:', newTable)
   }
 
   const handleRefreshTables = () => {
     console.log('Manually refreshing tables...')
-    // Debug localStorage contents
-    const qrCodes = localStorage.getItem('qrCodes_restaurant-123')
-    const tableSessions = localStorage.getItem('tableSessions')
     
-    console.log('Debug - QR Codes in localStorage:', qrCodes)
-    console.log('Debug - Table Sessions in localStorage:', tableSessions)
-    
-    if (qrCodes) {
-      const parsed = JSON.parse(qrCodes)
-      console.log('Parsed QR codes:', parsed.length, 'codes')
-      console.log('QR code details:', parsed)
-    } else {
-      console.log('No QR codes found in localStorage')
+    // Force reload from localStorage
+    const savedTables = localStorage.getItem('tableSessions')
+    if (savedTables) {
+      const tables = JSON.parse(savedTables)
+      setTables(tables)
+      console.log('Tables refreshed from localStorage')
     }
     
-    // Force check for recent orders
-    checkForRecentOrders()
-    
-    // Trigger the QR code change event to reload tables
-    window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: [] } }))
-    setTimeout(() => {
-      const currentQRCodes = JSON.parse(localStorage.getItem('qrCodes_restaurant-123') || '[]')
-      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: currentQRCodes } }))
-    }, 100)
+    // Also check for completed orders
+    checkForCompletedOrders()
   }
 
   const handleMarkTableAvailable = (table) => {
@@ -709,98 +657,29 @@ const TableSessions = () => {
     console.log('Table manually marked as available')
   }
 
-  const handleDebugStorage = () => {
-    console.log('=== DEBUGGING LOCAL STORAGE ===')
-    
-    // Check all possible QR code keys
-    const keys = [
-      'qrCodes',
-      'qrCodes_restaurant-123',
-      'qrCodes_restaurant123',
-      'qrCodes_default'
-    ]
-    
-    keys.forEach(key => {
-      const value = localStorage.getItem(key)
-      if (value) {
-        const parsed = JSON.parse(value)
-        const qrCount = parsed.qrCodes ? parsed.qrCodes.length : (Array.isArray(parsed) ? parsed.length : 0)
-        console.log(`${key}:`, qrCount + ' items', parsed.qrCodes ? '(nested)' : '(direct)')
-      } else {
-        console.log(`${key}: not found`)
-      }
-    })
-    
-    // Check table sessions
-    const tableSessions = localStorage.getItem('tableSessions')
-    console.log('tableSessions:', tableSessions ? JSON.parse(tableSessions).length + ' tables' : 'not found')
-    
-    // Force reload with specific key
-    const restaurantId = 'restaurant-123'
-    const savedQRCodes = localStorage.getItem(`qrCodes_${restaurantId}`)
-    
-    if (savedQRCodes) {
-      const parsed = JSON.parse(savedQRCodes)
-      const qrCodes = parsed.qrCodes || parsed || []
-      
-      console.log('Found QR codes, forcing table creation...')
-      console.log('QR codes to process:', qrCodes)
-      
-      // Create tables directly
-      const newTables = qrCodes.map((qr, index) => ({
-        id: qr.tableNumber,
-        name: `Table ${qr.tableNumber}`,
-        tableNumber: qr.tableNumber,
-        restaurantId: qr.restaurantId,
-        qrUrl: qr.url,
-        status: 'available',
-        customers: 0,
-        currentOrder: null,
-        sessionStart: null,
-        sessionDuration: null,
-        lastActivity: null,
-        revenue: 0,
-        reservedBy: null,
-        reservedTime: null,
-        needsCleaning: false,
-        createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
-      }))
-      
-      console.log('Creating tables:', newTables)
-      setTables(newTables)
-      localStorage.setItem('tableSessions', JSON.stringify(newTables))
-    } else {
-      console.log('Still no QR codes found!')
-    }
-  }
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading table sessions...</p>
+          <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading table sessions...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Table Sessions</h1>
-              <p className="text-sm text-gray-500 mt-1">Manage restaurant table status and reservations</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" onClick={handleDebugStorage}>
-                <Settings className="w-4 h-4 mr-2" />
-                Debug
-              </Button>
+    <div className="min-h-screen bg-background">
+      {/* Professional Navbar */}
+      <Navbar className="bg-card border-border">
+        <NavbarContent>
+          <NavbarBrand className="flex items-center gap-2">
+            <Calendar className="w-6 h-6 text-primary" />
+            <span className="text-xl font-bold text-foreground">Table Sessions</span>
+          </NavbarBrand>
+          
+          <div className="flex items-center gap-4 ml-auto">
+            <NavbarItem>
               <Button variant="outline" size="sm" onClick={() => {
                 // Test: Force complete all orders
                 const orders = JSON.parse(localStorage.getItem('orders') || '[]')
@@ -823,8 +702,11 @@ const TableSessions = () => {
                 })
               }}>
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Test Complete Orders
+                Complete All Orders
               </Button>
+            </NavbarItem>
+            
+            <NavbarItem>
               <Button variant="outline" size="sm" onClick={() => {
                 // Mark all tables as available
                 const updatedTables = tables.map(table => ({
@@ -843,64 +725,52 @@ const TableSessions = () => {
                 console.log('All tables marked as available')
               }}>
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Mark All Available
+                Reset All Tables
               </Button>
-              <Button variant="outline" size="sm">
+            </NavbarItem>
+            
+            <NavbarItem>
+              <Button variant="outline" size="sm" onClick={() => setSettingsModalOpen(true)}>
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAddTable}>
+            </NavbarItem>
+            
+            <NavbarItem>
+              <Button size="sm" onClick={handleAddTable}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Table
               </Button>
-            </div>
+            </NavbarItem>
           </div>
-        </div>
-      </div>
+        </NavbarContent>
+      </Navbar>
 
       <div className="p-6">
-        {/* Debug Info */}
-        <Card className="border-0 shadow-sm bg-blue-50 mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <span className="font-medium">Debug Info:</span>
-                <span className="ml-2">Total Tables: {tables.length}</span>
-                <span className="ml-4">Filtered Tables: {filteredTables.length}</span>
-                <span className="ml-4">Loading: {loading ? 'Yes' : 'No'}</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleDebugStorage}>
-                <Settings className="w-4 h-4 mr-2" />
-                Debug Storage
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="border-0 shadow-sm bg-white">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <Card className="border-0 shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Tables</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
-                  <p className="text-xs text-gray-500 mt-1">All tables</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Tables</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{stats.total}</p>
+                  <p className="text-xs text-muted-foreground mt-1">All tables</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                  <Home className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Home className="w-6 h-6 text-primary" />
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          <Card className="border-0 shadow-sm bg-white">
+          
+          <Card className="border-0 shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Available</p>
+                  <p className="text-sm font-medium text-muted-foreground">Available Tables</p>
                   <p className="text-2xl font-bold text-green-600 mt-1">{stats.available}</p>
-                  <p className="text-xs text-green-600 mt-1">Ready for service</p>
+                  <p className="text-xs text-muted-foreground mt-1">Ready for customers</p>
                 </div>
                 <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-green-600" />
@@ -908,14 +778,14 @@ const TableSessions = () => {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="border-0 shadow-sm bg-white">
+          
+          <Card className="border-0 shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Occupied</p>
-                  <p className="text-2xl font-bold text-blue-600 mt-1">{stats.occupied + stats.billing}</p>
-                  <p className="text-xs text-blue-600 mt-1">Currently serving</p>
+                  <p className="text-sm font-medium text-muted-foreground">Occupied Tables</p>
+                  <p className="text-2xl font-bold text-blue-600 mt-1">{stats.occupied}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Currently in use</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
                   <Users className="w-6 h-6 text-blue-600" />
@@ -923,14 +793,14 @@ const TableSessions = () => {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="border-0 shadow-sm bg-white">
+          
+          <Card className="border-0 shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Active Customers</p>
+                  <p className="text-sm font-medium text-muted-foreground">Active Customers</p>
                   <p className="text-2xl font-bold text-purple-600 mt-1">{stats.activeCustomers}</p>
-                  <p className="text-xs text-purple-600 mt-1">Total customers</p>
+                  <p className="text-xs text-muted-foreground mt-1">Across all tables</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
                   <UserCheck className="w-6 h-6 text-purple-600" />
@@ -938,12 +808,12 @@ const TableSessions = () => {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="border-0 shadow-sm bg-white">
+          
+          <Card className="border-0 shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Today's Revenue</p>
+                  <p className="text-sm font-medium text-muted-foreground">Today's Revenue</p>
                   <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(stats.totalRevenue)}</p>
                   <div className="flex items-center mt-2">
                     <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
@@ -958,59 +828,57 @@ const TableSessions = () => {
           </Card>
         </div>
 
-        {/* Filters and Search */}
-        <Card className="border-0 shadow-sm bg-white mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="relative flex-1 max-w-md">
-                <Filter className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <Input
-                  placeholder="Search tables..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-9"
-                />
-              </div>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-40 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="occupied">Occupied</SelectItem>
-                  <SelectItem value="billing">Billing</SelectItem>
-                  <SelectItem value="needs-cleaning">Needs Cleaning</SelectItem>
-                  <SelectItem value="reserved">Reserved</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" onClick={handleRefreshTables}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Table Management */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex items-center justify-between">
-            <TabsList className="bg-gray-100/60 p-1">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Eye className="w-4 h-4 mr-2" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="grid" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Home className="w-4 h-4 mr-2" />
-                Grid View
-              </TabsTrigger>
-              <TabsTrigger value="list" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Detailed List
-              </TabsTrigger>
-            </TabsList>
+        {/* Search and Filter Section */}
+        <div className="mb-6 flex gap-4 items-end">
+          <div className="flex-1">
+            <Input
+              placeholder="Search tables..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full"
+            />
           </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="available">Available</SelectItem>
+              <SelectItem value="occupied">Occupied</SelectItem>
+              <SelectItem value="billing">Billing</SelectItem>
+              <SelectItem value="needs-cleaning">Needs Cleaning</SelectItem>
+              <SelectItem value="reserved">Reserved</SelectItem>
+            </SelectContent>
+          </Select>
+          {tables.length > 0 && (
+            <Button variant="outline" onClick={() => {
+              setSearchTerm('')
+              setFilterStatus('all')
+            }}>
+              Clear Filters
+            </Button>
+          )}
+        </div>
 
+        {/* Tabs for different views */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Home className="w-4 h-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="grid" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Grid className="w-4 h-4 mr-2" />
+              Grid View
+            </TabsTrigger>
+            <TabsTrigger value="list" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Filter className="w-4 h-4 mr-2" />
+              Detailed List
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
             {filteredTables.length === 0 ? (
               <Card className="border-0 shadow-sm bg-white">
@@ -1182,11 +1050,12 @@ const TableSessions = () => {
             )}
           </TabsContent>
 
+          {/* Grid Tab */}
           <TabsContent value="grid" className="space-y-4">
             <Card className="border-0 shadow-sm bg-white">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Home className="w-5 h-5" />
+                  <Grid className="w-5 h-5" />
                   Table Grid View
                 </CardTitle>
               </CardHeader>
@@ -1205,7 +1074,7 @@ const TableSessions = () => {
                             {status.icon}
                           </div>
                           <h4 className="font-bold text-gray-900 mb-1">{table.name}</h4>
-                          <Badge className={status.color} size="sm">
+                          <Badge className={status.color}>
                             {status.label}
                           </Badge>
                           {table.customers > 0 && (
@@ -1222,6 +1091,7 @@ const TableSessions = () => {
             </Card>
           </TabsContent>
 
+          {/* List Tab */}
           <TabsContent value="list" className="space-y-4">
             <Card className="border-0 shadow-sm bg-white">
               <CardHeader>
@@ -1251,7 +1121,7 @@ const TableSessions = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <Badge className={status.color} size="sm">
+                            <Badge className={status.color}>
                               {status.label}
                             </Badge>
                             {table.customers > 0 && (
@@ -1277,23 +1147,24 @@ const TableSessions = () => {
       </div>
 
       {/* Table Details Modal */}
-      {selectedTable && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
+      {selectedTable && !showReserveModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-0">
                 <h3 className="text-lg font-bold text-gray-900">Table Details</h3>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedTable(null)}
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
-              
-              <div className="space-y-4">
+            </div>
+            
+            <div className="p-6 space-y-4">
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <span className="text-sm font-medium text-gray-600">Table Number</span>
                   <span className="font-bold text-gray-900">{selectedTable.name}</span>
@@ -1334,8 +1205,9 @@ const TableSessions = () => {
                   </div>
                 )}
               </div>
-              
-              <div className="flex items-center gap-3 mt-6">
+            
+            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <div className="flex items-center gap-3">
                 {selectedTable.status === 'needs-cleaning' && (
                   <Button
                     onClick={() => {
@@ -1345,8 +1217,9 @@ const TableSessions = () => {
                           : t
                       ))
                       localStorage.setItem('tableSessions', JSON.stringify(tables))
+                      setSelectedTable(null)
                     }}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white h-10 font-medium"
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Mark as Cleaned
@@ -1356,7 +1229,7 @@ const TableSessions = () => {
                 {selectedTable.status === 'available' && (
                   <Button
                     onClick={() => setShowReserveModal(true)}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-10 font-medium"
                   >
                     <Calendar className="w-4 h-4 mr-2" />
                     Reserve Table
@@ -1366,7 +1239,7 @@ const TableSessions = () => {
                 <Button
                   variant="outline"
                   onClick={() => setSelectedTable(null)}
-                  className="flex-1"
+                  className="flex-1 h-10 font-medium border-gray-300 hover:bg-gray-100"
                 >
                   Close
                 </Button>
@@ -1378,57 +1251,382 @@ const TableSessions = () => {
 
       {/* Reserve Modal */}
       {showReserveModal && selectedTable && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
-            <div className="p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Reserve {selectedTable.name}</h3>
-              
-              <div className="space-y-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-60 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full mx-4 relative">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name</label>
-                  <Input
-                    placeholder="Enter customer name"
-                    className="w-full"
-                  />
+                  <h3 className="text-xl font-bold text-gray-900 mb-4">Reserve {selectedTable.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">Enter reservation details</p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reservation Time</label>
-                  <Input
-                    type="datetime-local"
-                    className="w-full"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
-                  <textarea
-                    placeholder="Add any special notes..."
-                    className="w-full h-20 p-2 border border-gray-300 rounded-md"
-                  />
-                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowReserveModal(false)}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name</label>
+                <Input
+                  placeholder="Enter customer name"
+                  className="w-full"
+                  value={reserveData.customerName}
+                  onChange={(e) => setReserveData(prev => ({ ...prev, customerName: e.target.value }))}
+                />
               </div>
               
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reservation Time</label>
+                <Input
+                  type="datetime-local"
+                  className="w-full"
+                  value={reserveData.reservationTime}
+                  onChange={(e) => setReserveData(prev => ({ ...prev, reservationTime: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                <textarea
+                  placeholder="Add any special notes..."
+                  className="w-full h-20 p-2 border border-gray-300 rounded-md"
+                  value={reserveData.notes}
+                  onChange={(e) => setReserveData(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
               <div className="flex items-center gap-3 mt-6">
                 <Button
                   onClick={() => {
-                    setTables(prev => prev.map(t => 
-                      t.id === selectedTable.id 
-                        ? { ...t, reservedBy: 'Customer Name', reservedTime: new Date().toISOString() }
-                        : t
-                    ))
-                    localStorage.setItem('tableSessions', JSON.stringify(tables))
-                    setShowReserveModal(false)
+                    if (reserveData.customerName.trim()) {
+                      const updatedTables = tables.map(t => {
+                        if (t.tableNumber === selectedTable.tableNumber) {
+                          return {
+                            ...t,
+                            status: 'reserved',
+                            reservedBy: reserveData.customerName,
+                            reservedTime: reserveData.reservationTime || new Date().toISOString(),
+                            reservationNotes: reserveData.notes,
+                            lastActivity: new Date().toISOString()
+                          }
+                        }
+                        return t
+                      })
+                      
+                      setTables(updatedTables)
+                      localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+                      setShowReserveModal(false)
+                      setReserveData({ customerName: '', notes: '', reservationTime: '' })
+                      setSelectedTable(null)
+                    }
                   }}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-10 font-medium"
                 >
+                  <Calendar className="w-4 h-4 mr-2" />
                   Confirm Reservation
                 </Button>
                 
                 <Button
                   variant="outline"
                   onClick={() => setShowReserveModal(false)}
-                  className="flex-1"
+                  className="flex-1 h-10 font-medium border-gray-300 hover:bg-gray-50"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Settings Modal */}
+      {settingsModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Table Sessions Settings</h3>
+                  <p className="text-sm text-gray-500 mt-1">Configure table management preferences</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSettingsModalOpen(false)}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700">Auto Refresh</label>
+                    <p className="text-xs text-gray-500">Automatically refresh table status</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.autoRefresh}
+                    onChange={(e) => setSettings(prev => ({ ...prev, autoRefresh: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-700">Refresh Interval (seconds)</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={settings.refreshInterval}
+                    onChange={(e) => setSettings(prev => ({ ...prev, refreshInterval: parseInt(e.target.value) }))}
+                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700">Auto Complete Orders</label>
+                    <p className="text-xs text-gray-500">Automatically complete old orders</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.autoCompleteOrders}
+                    onChange={(e) => setSettings(prev => ({ ...prev, autoCompleteOrders: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-700">Auto Complete After (minutes)</label>
+                  <Input
+                    type="number"
+                    min="15"
+                    max="240"
+                    value={settings.autoCompleteMinutes}
+                    onChange={(e) => setSettings(prev => ({ ...prev, autoCompleteMinutes: parseInt(e.target.value) }))}
+                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700">Notifications</label>
+                    <p className="text-xs text-gray-500">Show table status notifications</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.notifications}
+                    onChange={(e) => setSettings(prev => ({ ...prev, notifications: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleSaveSettings}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-11 font-medium"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Settings
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setSettingsModalOpen(false)}
+                  className="flex-1 h-11 font-medium border-gray-300 hover:bg-gray-50"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Add Table Modal */}
+      {showAddTableModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Add New Table</h3>
+                  <p className="text-sm text-gray-500 mt-1">Create a new table for your restaurant</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAddTableModal(false)}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Table Number</label>
+                <Input
+                  type="number"
+                  placeholder="Enter table number"
+                  value={newTableData.tableNumber}
+                  onChange={(e) => setNewTableData(prev => ({ ...prev, tableNumber: e.target.value }))}
+                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Capacity</label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={newTableData.capacity}
+                  onChange={(e) => setNewTableData(prev => ({ ...prev, capacity: parseInt(e.target.value) }))}
+                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Location (Optional)</label>
+                <Input
+                  placeholder="e.g., Main Hall, Outdoor"
+                  value={newTableData.location}
+                  onChange={(e) => setNewTableData(prev => ({ ...prev, location: e.target.value }))}
+                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleConfirmAddTable}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-11 font-medium"
+                  disabled={!newTableData.tableNumber}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Table
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAddTableModal(false)}
+                  className="flex-1 h-11 font-medium border-gray-300 hover:bg-gray-50"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit Table Modal */}
+      {showEditModal && selectedTable && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Edit Table</h3>
+                  <p className="text-sm text-gray-500 mt-1">{selectedTable.name}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowEditModal(false)}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Table Number</label>
+                <Input
+                  type="number"
+                  value={selectedTable.tableNumber}
+                  disabled
+                  className="h-11 border-gray-300 bg-gray-50"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Capacity</label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={selectedTable.capacity || 4}
+                  onChange={(e) => {
+                    const updatedTables = tables.map(t => {
+                      if (t.tableNumber === selectedTable.tableNumber) {
+                        return { ...t, capacity: parseInt(e.target.value) }
+                      }
+                      return t
+                    })
+                    setTables(updatedTables)
+                    setSelectedTable(updatedTables.find(t => t.id === selectedTable.id))
+                    localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+                  }}
+                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Location</label>
+                <Input
+                  placeholder="e.g., Main Hall, Outdoor"
+                  value={selectedTable.location || ''}
+                  onChange={(e) => {
+                    const updatedTables = tables.map(t => {
+                      if (t.tableNumber === selectedTable.tableNumber) {
+                        return { ...t, location: e.target.value }
+                      }
+                      return t
+                    })
+                    setTables(updatedTables)
+                    setSelectedTable(updatedTables.find(t => t.id === selectedTable.id))
+                    localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+                  }}
+                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-11 font-medium"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 h-11 font-medium border-gray-300 hover:bg-gray-50"
                 >
                   Cancel
                 </Button>
