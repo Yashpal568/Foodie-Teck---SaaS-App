@@ -106,12 +106,53 @@ const createOrder = (orderData) => {
   return order
 }
 
+// Update analytics data when an order is finished
+const updateAnalytics = (order) => {
+  try {
+    // Update totalRevenue
+    const currentRevenue = parseFloat(localStorage.getItem('totalRevenue') || '0')
+    localStorage.setItem('totalRevenue', (currentRevenue + order.total).toString())
+
+    // Update orderHistory
+    const savedOrderHistory = localStorage.getItem('orderHistory')
+    const orderHistory = savedOrderHistory ? JSON.parse(savedOrderHistory) : []
+    orderHistory.push({
+      ...order,
+      completedAt: new Date().toISOString(),
+      revenue: order.total
+    })
+    localStorage.setItem('orderHistory', JSON.stringify(orderHistory))
+
+    // Update menuAnalytics
+    const savedAnalytics = localStorage.getItem('menuAnalytics')
+    const analytics = savedAnalytics ? JSON.parse(savedAnalytics) : {
+      itemViews: {},
+      itemOrders: {},
+      totalViews: 0,
+      totalOrders: 0
+    }
+
+    analytics.totalOrders = (analytics.totalOrders || 0) + 1
+    order.items.forEach(item => {
+      analytics.itemOrders[item._id] = (analytics.itemOrders[item._id] || 0) + 1
+    })
+
+    localStorage.setItem('menuAnalytics', JSON.stringify(analytics))
+    
+    // Dispatch storage event manually for same-tab updates
+    window.dispatchEvent(new Event('storage'))
+  } catch (error) {
+    console.error('Error updating analytics:', error)
+  }
+}
+
 // Update order status
 const updateOrderStatus = (orderId, newStatus, note = '') => {
   const orders = loadOrders()
   const orderIndex = orders.findIndex(order => order.id === orderId)
   
   if (orderIndex !== -1) {
+    const oldStatus = orders[orderIndex].status
     orders[orderIndex].status = newStatus
     orders[orderIndex].updatedAt = new Date().toISOString()
     orders[orderIndex].statusHistory.push({
@@ -119,6 +160,11 @@ const updateOrderStatus = (orderId, newStatus, note = '') => {
       timestamp: new Date().toISOString(),
       note: note || `Status changed to ${newStatus}`
     })
+    
+    // Update analytics if the order is newly finished
+    if (newStatus === ORDER_STATUS.FINISHED && oldStatus !== ORDER_STATUS.FINISHED) {
+      updateAnalytics(orders[orderIndex])
+    }
     
     saveOrders(orders)
     return orders[orderIndex]

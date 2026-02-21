@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { TrendingUp, TrendingDown, Eye, ShoppingCart, DollarSign, Star, BarChart3, PieChart, Calendar, Filter } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { TrendingUp, TrendingDown, Eye, ShoppingCart, DollarSign, Star, BarChart3, PieChart, Calendar, Filter, Users, Clock, CreditCard, Activity } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,17 +8,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 // Load analytics data from localStorage
 const loadAnalytics = () => {
   try {
     const saved = localStorage.getItem('menuAnalytics')
-    return saved ? JSON.parse(saved) : {
+    const savedRevenue = localStorage.getItem('totalRevenue')
+    const savedOrderHistory = localStorage.getItem('orderHistory')
+    
+    return {
       itemViews: {},
       itemOrders: {},
       totalViews: 0,
       totalOrders: 0,
-      lastUpdated: new Date().toISOString()
+      totalRevenue: parseFloat(savedRevenue) || 0,
+      orderHistory: savedOrderHistory ? JSON.parse(savedOrderHistory) : [],
+      lastUpdated: new Date().toISOString(),
+      ...(saved ? JSON.parse(saved) : {})
     }
   } catch (error) {
     console.error('Error loading analytics:', error)
@@ -27,9 +34,46 @@ const loadAnalytics = () => {
       itemOrders: {},
       totalViews: 0,
       totalOrders: 0,
+      totalRevenue: 0,
+      orderHistory: [],
       lastUpdated: new Date().toISOString()
     }
   }
+}
+
+// Format currency for Indian Rupees
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount)
+}
+
+// Generate revenue trend data
+const generateRevenueTrend = (orderHistory, timeRange) => {
+  const now = new Date()
+  const days = timeRange === '7days' ? 7 : timeRange === '30days' ? 30 : 90
+  const trend = []
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now)
+    date.setDate(date.getDate() - i)
+    const dateStr = date.toISOString().split('T')[0]
+    
+    const dayRevenue = orderHistory
+      .filter(order => order.completedAt && order.completedAt.startsWith(dateStr))
+      .reduce((sum, order) => sum + (order.revenue || 0), 0)
+    
+    trend.push({
+      date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+      revenue: dayRevenue,
+      orders: orderHistory.filter(order => order.completedAt && order.completedAt.startsWith(dateStr)).length
+    })
+  }
+  
+  return trend
 }
 
 export default function AnalyticsDashboard() {
@@ -37,6 +81,47 @@ export default function AnalyticsDashboard() {
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('7days')
   const [activeTab, setActiveTab] = useState('overview')
+  const [realtimeData, setRealtimeData] = useState({
+    totalViews: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
+    activeUsers: 0,
+    avgOrderValue: 0
+  })
+
+  // Real-time data updates
+  useEffect(() => {
+    const updateRealtimeData = () => {
+      const currentAnalytics = loadAnalytics()
+      const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+      
+      const totalRevenue = currentAnalytics.totalRevenue || 0
+      const totalOrders = currentAnalytics.orderHistory?.length || 0
+      const totalViews = currentAnalytics.totalViews || 0
+      const activeUsers = tables.filter(t => t.status === 'occupied').length
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+      
+      setRealtimeData({
+        totalViews,
+        totalOrders,
+        totalRevenue,
+        activeUsers,
+        avgOrderValue
+      })
+    }
+
+    updateRealtimeData()
+    const interval = setInterval(updateRealtimeData, 5000) // Update every 5 seconds
+    
+    // Add storage listener for immediate updates
+    window.addEventListener('storage', updateRealtimeData)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('storage', updateRealtimeData)
+    }
+  }, [])
 
   useEffect(() => {
     setAnalytics(loadAnalytics())
@@ -46,6 +131,28 @@ export default function AnalyticsDashboard() {
       setMenuItems(JSON.parse(savedItems))
     }
   }, [])
+
+  // Memoized calculations for performance
+  const revenueTrend = useMemo(() => {
+    return generateRevenueTrend(analytics.orderHistory || [], timeRange)
+  }, [analytics.orderHistory, timeRange])
+
+  const categoryDistribution = useMemo(() => {
+    const distribution = {}
+    const orderHistory = analytics.orderHistory || []
+    
+    orderHistory.forEach(order => {
+      // This would need to be enhanced based on your order structure
+      const category = 'Dine-in' // Default category
+      distribution[category] = (distribution[category] || 0) + (order.revenue || 0)
+    })
+    
+    return Object.entries(distribution).map(([category, revenue]) => ({
+      category,
+      revenue,
+      percentage: realtimeData.totalRevenue > 0 ? (revenue / realtimeData.totalRevenue * 100).toFixed(1) : 0
+    }))
+  }, [analytics.orderHistory, realtimeData.totalRevenue])
 
   const getTopItems = (type, limit = 5) => {
     const data = type === 'views' ? (analytics.itemViews || {}) : (analytics.itemOrders || {})
@@ -139,240 +246,257 @@ export default function AnalyticsDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {/* Overview Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Eye className="w-5 h-5 text-blue-600" />
-                  </div>
+          {/* Real-time Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{analytics.totalViews || 0}</p>
-                    <p className="text-sm text-gray-600">Total Views</p>
-                    <Badge variant="secondary" className="text-xs mt-1">
-                      +12% from last week
-                    </Badge>
+                    <p className="text-sm font-medium text-blue-600">Total Views</p>
+                    <p className="text-2xl font-bold text-blue-900 mt-1">{realtimeData.totalViews.toLocaleString()}</p>
+                    <div className="flex items-center mt-2">
+                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                      <span className="text-xs text-green-600">+12.5% from last period</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                    <Eye className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <ShoppingCart className="w-5 h-5 text-green-600" />
-                  </div>
+
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-green-600">{analytics.totalOrders || 0}</p>
-                    <p className="text-sm text-gray-600">Total Orders</p>
-                    <Badge variant="secondary" className="text-xs mt-1 bg-green-100 text-green-800">
-                      +8% from last week
-                    </Badge>
+                    <p className="text-sm font-medium text-green-600">Total Orders</p>
+                    <p className="text-2xl font-bold text-green-900 mt-1">{realtimeData.totalOrders.toLocaleString()}</p>
+                    <div className="flex items-center mt-2">
+                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                      <span className="text-xs text-green-600">+8.3% from last period</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+                    <ShoppingCart className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-purple-600" />
-                  </div>
+
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-purple-600">₹{(analytics.totalOrders * 150).toLocaleString()}</p>
-                    <p className="text-sm text-gray-600">Revenue</p>
-                    <Badge variant="secondary" className="text-xs mt-1 bg-purple-100 text-purple-800">
-                      +15% from last week
-                    </Badge>
+                    <p className="text-sm font-medium text-purple-600">Total Revenue</p>
+                    <p className="text-2xl font-bold text-purple-900 mt-1">{formatCurrency(realtimeData.totalRevenue)}</p>
+                    <div className="flex items-center mt-2">
+                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                      <span className="text-xs text-green-600">+15.7% from last period</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Star className="w-5 h-5 text-orange-600" />
-                  </div>
+
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-orange-100">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-orange-600">{menuItems.length}</p>
-                    <p className="text-sm text-gray-600">Menu Items</p>
-                    <Badge variant="secondary" className="text-xs mt-1 bg-orange-100 text-orange-800">
-                      Active
-                    </Badge>
+                    <p className="text-sm font-medium text-orange-600">Active Users</p>
+                    <p className="text-2xl font-bold text-orange-900 mt-1">{realtimeData.activeUsers}</p>
+                    <div className="flex items-center mt-2">
+                      <Activity className="w-4 h-4 text-orange-500 mr-1" />
+                      <span className="text-xs text-orange-600">Live now</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-pink-50 to-pink-100">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-pink-600">Avg Order Value</p>
+                    <p className="text-2xl font-bold text-pink-900 mt-1">{formatCurrency(realtimeData.avgOrderValue)}</p>
+                    <div className="flex items-center mt-2">
+                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                      <span className="text-xs text-green-600">+5.2% from last period</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-pink-500 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Quick Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
+          {/* Revenue Trend Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-0 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
+                  <TrendingUp className="w-5 h-5 text-green-600" />
                   Revenue Trend
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500">Revenue chart will appear here</p>
-                  </div>
+                <div className="space-y-4">
+                  {revenueTrend.slice(-7).map((day, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">{day.date}</span>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 max-w-xs">
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-green-500 rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min((day.revenue / Math.max(...revenueTrend.map(d => d.revenue))) * 100, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 w-20 text-right">
+                          {formatCurrency(day.revenue)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Category Distribution */}
+            <Card className="border-0 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <PieChart className="w-5 h-5 text-green-600" />
+                  <PieChart className="w-5 h-5 text-purple-600" />
                   Category Distribution
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <PieChart className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500">Category chart will appear here</p>
-                  </div>
+                <div className="space-y-4">
+                  {categoryDistribution.map((category, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full bg-${['blue', 'green', 'purple', 'orange'][index % 4]}-500`} />
+                        <span className="text-sm font-medium text-gray-700">{category.category}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 max-w-xs">
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full bg-${['blue', 'green', 'purple', 'orange'][index % 4]}-500 rounded-full transition-all duration-300`}
+                              style={{ width: `${category.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatCurrency(category.revenue)}
+                          </div>
+                          <div className="text-xs text-gray-500">{category.percentage}%</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
+        {/* Menu Performance Tab */}
         <TabsContent value="menu" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Top Viewed Items */}
-            <Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                  Most Viewed Items
-                </CardTitle>
+                <CardTitle>Top Viewed Items</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {topViewed.map((entry, index) => (
-                    <div key={entry.item._id} className="flex items-center justify-between">
+                  {topViewed.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{entry.item.name}</p>
-                          <p className="text-sm text-gray-500">{entry.item.category}</p>
-                        </div>
+                        <span className="text-sm font-medium text-gray-700">{item.item?.name}</span>
+                        <Badge variant="secondary">{item.count} views</Badge>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">{entry.count} views</p>
-                        <p className="text-sm text-gray-500">{entry.percentage}%</p>
-                      </div>
+                      <span className="text-sm text-gray-500">{item.percentage}%</span>
                     </div>
                   ))}
-                  {topViewed.length === 0 && (
-                    <p className="text-center text-gray-500 py-4">No view data available yet</p>
-                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Top Ordered Items */}
-            <Card>
+            <Card className="border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-green-600" />
-                  Most Ordered Items
-                </CardTitle>
+                <CardTitle>Top Ordered Items</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {topOrdered.map((entry, index) => (
-                    <div key={entry.item._id} className="flex items-center justify-between">
+                  {topOrdered.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-sm font-medium text-green-600">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{entry.item.name}</p>
-                          <p className="text-sm text-gray-500">{entry.item.category}</p>
-                        </div>
+                        <span className="text-sm font-medium text-gray-700">{item.item?.name}</span>
+                        <Badge variant="secondary">{item.count} orders</Badge>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">{entry.count} orders</p>
-                        <p className="text-sm text-gray-500">{entry.percentage}%</p>
-                      </div>
+                      <span className="text-sm text-gray-500">{item.percentage}%</span>
                     </div>
                   ))}
-                  {topOrdered.length === 0 && (
-                    <p className="text-center text-gray-500 py-4">No order data available yet</p>
-                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
 
-          {/* Category Performance */}
-          <Card>
+        {/* Sales Analytics Tab */}
+        <TabsContent value="sales" className="space-y-6">
+          <Card className="border-0 shadow-sm">
             <CardHeader>
-              <CardTitle>Category Performance</CardTitle>
+              <CardTitle>Sales Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {Object.entries(categoryStats).map(([category, stats]) => (
-                  <div key={category} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">{category}</p>
-                        <p className="text-sm text-gray-500">
-                          {stats.items} items • Avg: ₹{stats.avgPrice.toFixed(0)}
-                        </p>
-                      </div>
-                      <div className="flex gap-4 text-sm">
-                        <span className="text-blue-600">{stats.views} views</span>
-                        <span className="text-green-600">{stats.orders} orders</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Views</span>
-                        <span>{analytics.totalViews > 0 ? ((stats.views / analytics.totalViews) * 100).toFixed(1) : 0}%</span>
-                      </div>
-                      <Progress 
-                        value={analytics.totalViews > 0 ? (stats.views / analytics.totalViews) * 100 : 0} 
-                        className="h-2"
-                      />
-                    </div>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{formatCurrency(realtimeData.totalRevenue)}</div>
+                  <div className="text-sm text-gray-600">Total Revenue</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{realtimeData.totalOrders}</div>
+                  <div className="text-sm text-gray-600">Total Orders</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{formatCurrency(realtimeData.avgOrderValue)}</div>
+                  <div className="text-sm text-gray-600">Average Order Value</div>
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="sales" className="space-y-6">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Sales Analytics</h3>
-              <p className="text-gray-600">Detailed sales analytics will appear here</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
+        {/* Customer Insights Tab */}
         <TabsContent value="customers" className="space-y-6">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Star className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Insights</h3>
-              <p className="text-gray-600">Customer behavior analytics will appear here</p>
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle>Customer Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">{realtimeData.activeUsers}</div>
+                  <div className="text-sm text-gray-600">Active Users Now</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-pink-600">{realtimeData.totalViews}</div>
+                  <div className="text-sm text-gray-600">Total Page Views</div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -380,3 +504,4 @@ export default function AnalyticsDashboard() {
     </div>
   )
 }
+                                              

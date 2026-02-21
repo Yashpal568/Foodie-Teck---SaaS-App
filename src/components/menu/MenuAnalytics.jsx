@@ -33,16 +33,35 @@ const loadAnalytics = () => {
 const saveAnalytics = (analytics) => {
   try {
     localStorage.setItem('menuAnalytics', JSON.stringify(analytics))
+    // Dispatch storage event manually for same-tab updates
+    window.dispatchEvent(new Event('storage'))
   } catch (error) {
     console.error('Error saving analytics:', error)
   }
+}
+
+// Guard to prevent double tracking in development (Strict Mode)
+let trackingGuard = false;
+
+// Track overall menu visit
+export const trackMenuVisit = () => {
+  if (trackingGuard) return;
+  trackingGuard = true;
+  
+  // Reset guard after a short delay to allow subsequent intentional visits/refreshes
+  setTimeout(() => { trackingGuard = false; }, 100);
+
+  const analytics = loadAnalytics()
+  analytics.totalViews = (analytics.totalViews || 0) + 1
+  analytics.lastUpdated = new Date().toISOString()
+  saveAnalytics(analytics)
 }
 
 // Track item view
 export const trackItemView = (itemId) => {
   const analytics = loadAnalytics()
   analytics.itemViews[itemId] = (analytics.itemViews[itemId] || 0) + 1
-  analytics.totalViews++
+  analytics.totalViews = (analytics.totalViews || 0) + 1
   analytics.lastUpdated = new Date().toISOString()
   saveAnalytics(analytics)
 }
@@ -51,7 +70,7 @@ export const trackItemView = (itemId) => {
 export const trackItemOrder = (itemId) => {
   const analytics = loadAnalytics()
   analytics.itemOrders[itemId] = (analytics.itemOrders[itemId] || 0) + 1
-  analytics.totalOrders++
+  analytics.totalOrders = (analytics.totalOrders || 0) + 1
   analytics.lastUpdated = new Date().toISOString()
   saveAnalytics(analytics)
 }

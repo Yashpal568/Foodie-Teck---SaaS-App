@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { 
   Users, 
   Clock, 
@@ -507,16 +507,17 @@ const TableSessions = () => {
     }
   }
 
-  const stats = {
-    total: tables.length,
-    available: tables.filter(t => t.status === 'available').length,
-    occupied: tables.filter(t => t.status === 'occupied').length,
-    billing: tables.filter(t => t.status === 'billing').length,
-    needsCleaning: tables.filter(t => t.status === 'needs-cleaning').length,
-    reserved: tables.filter(t => t.status === 'reserved').length,
-    activeCustomers: tables.reduce((sum, t) => sum + (t.customers || 0), 0),
-    totalRevenue: tables.reduce((sum, t) => sum + (t.revenue || 0), 0)
-  }
+  const stats = useMemo(() => {
+    return {
+      totalTables: tables.length,
+      available: tables.filter(t => t.status === 'available').length,
+      occupied: tables.filter(t => t.status === 'occupied').length,
+      needsCleaning: tables.filter(t => t.status === 'needs-cleaning').length,
+      reserved: tables.filter(t => t.status === 'reserved').length,
+      activeCustomers: tables.reduce((sum, t) => sum + (t.customers || 0), 0),
+      totalRevenue: tables.reduce((sum, t) => sum + (t.revenue || 0), 0)
+    }
+  }, [tables])
 
   const formatDuration = (duration) => {
     if (!duration) return '-'
@@ -529,9 +530,9 @@ const TableSessions = () => {
   }
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'INR'
     }).format(amount)
   }
 
@@ -754,7 +755,7 @@ const TableSessions = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Tables</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{stats.total}</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{stats.totalTables}</p>
                   <p className="text-xs text-muted-foreground mt-1">All tables</p>
                 </div>
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">

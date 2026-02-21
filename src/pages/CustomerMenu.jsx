@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/navbar'
 import { TrackOrderButton } from '@/components/ui/track-order-button'
 import { formatPrice } from '@/components/ui/currency-selector'
+import { trackMenuVisit } from '@/components/menu/MenuAnalytics'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
 import MenuService from '@/services/menuService'
@@ -59,6 +60,11 @@ export default function CustomerMenu() {
   const [isDragging, setIsDragging] = useState(false) // Drag state
 
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
+
+  // Track menu visit on mount
+  useEffect(() => {
+    trackMenuVisit()
+  }, [])
 
   useEffect(() => {
     const fetchMenuItems = async () => {
