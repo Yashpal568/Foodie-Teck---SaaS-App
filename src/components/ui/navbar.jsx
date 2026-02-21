@@ -19,12 +19,14 @@ const Navbar = React.forwardRef(({ className, children, ...props }, ref) => (
 ))
 Navbar.displayName = "Navbar"
 
-const NavbarContent = React.forwardRef(({ className, ...props }, ref) => (
+const NavbarContent = React.forwardRef(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
     className={cn("container flex h-16 items-center", className)}
     {...props}
-  />
+  >
+    {children}
+  </div>
 ))
 NavbarContent.displayName = "NavbarContent"
 
@@ -39,12 +41,14 @@ const NavbarBrand = React.forwardRef(({ className, children, ...props }, ref) =>
 ))
 NavbarBrand.displayName = "NavbarBrand"
 
-const NavbarItem = React.forwardRef(({ className, ...props }, ref) => (
+const NavbarItem = React.forwardRef(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
     className={cn("flex items-center", className)}
     {...props}
-  />
+  >
+    {children}
+  </div>
 ))
 NavbarItem.displayName = "NavbarItem"
 

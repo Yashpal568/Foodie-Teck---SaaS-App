@@ -1,5 +1,22 @@
 import { useState, useEffect, useMemo } from 'react'
-import { TrendingUp, TrendingDown, Eye, ShoppingCart, DollarSign, Star, BarChart3, PieChart, Calendar, Filter, Users, Clock, CreditCard, Activity } from 'lucide-react'
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Eye, 
+  ShoppingCart, 
+  DollarSign, 
+  Star, 
+  BarChart3, 
+  PieChart, 
+  Calendar, 
+  Filter, 
+  Users, 
+  Clock, 
+  CreditCard, 
+  Activity,
+  ArrowUpRight,
+  TrendingUp as TrendingUpIcon
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +26,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts'
 
 // Load analytics data from localStorage
 const loadAnalytics = () => {
@@ -54,22 +83,54 @@ const formatCurrency = (amount) => {
 // Generate revenue trend data
 const generateRevenueTrend = (orderHistory, timeRange) => {
   const now = new Date()
+  
+  if (!orderHistory || orderHistory.length === 0) return []
+  
+  if (timeRange === 'all') {
+    // Monthly aggregation for long-term view
+    const monthlyStats = {}
+    orderHistory.forEach(order => {
+      if (order.completedAt) {
+        const date = new Date(order.completedAt)
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        if (!monthlyStats[monthKey]) {
+          monthlyStats[monthKey] = { 
+            name: date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+            revenue: 0, 
+            orders: 0,
+            fullDate: date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+            timestamp: date.getTime()
+          }
+        }
+        monthlyStats[monthKey].revenue += (order.revenue || 0)
+        monthlyStats[monthKey].orders += 1
+      }
+    })
+    
+    return Object.values(monthlyStats).sort((a, b) => a.timestamp - b.timestamp)
+  }
+
   const days = timeRange === '7days' ? 7 : timeRange === '30days' ? 30 : 90
   const trend = []
   
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(now)
     date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = date.toLocaleDateString('en-CA') // YYYY-MM-DD
     
+    // Aggregate revenue for this specific local day
     const dayRevenue = orderHistory
-      .filter(order => order.completedAt && order.completedAt.startsWith(dateStr))
+      .filter(order => order.completedAt && order.completedAt.split('T')[0] === dateStr)
       .reduce((sum, order) => sum + (order.revenue || 0), 0)
     
+    const dayOrders = orderHistory.filter(order => order.completedAt && order.completedAt.split('T')[0] === dateStr).length
+
     trend.push({
+      name: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
       date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
       revenue: dayRevenue,
-      orders: orderHistory.filter(order => order.completedAt && order.completedAt.startsWith(dateStr)).length
+      orders: dayOrders,
+      fullDate: date.toLocaleDateString('en-IN', { dateStyle: 'long' })
     })
   }
   
@@ -77,7 +138,14 @@ const generateRevenueTrend = (orderHistory, timeRange) => {
 }
 
 export default function AnalyticsDashboard() {
-  const [analytics, setAnalytics] = useState({})
+  const [analytics, setAnalytics] = useState({
+    itemViews: {},
+    itemOrders: {},
+    totalViews: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
+    orderHistory: []
+  })
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('7days')
   const [activeTab, setActiveTab] = useState('overview')
@@ -227,6 +295,7 @@ export default function AnalyticsDashboard() {
               <SelectItem value="7days">Last 7 days</SelectItem>
               <SelectItem value="30days">Last 30 days</SelectItem>
               <SelectItem value="90days">Last 90 days</SelectItem>
+              <SelectItem value="all">All Time (Monthly)</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline">
@@ -340,76 +409,148 @@ export default function AnalyticsDashboard() {
           </div>
 
           {/* Revenue Trend Chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  Revenue Trend
-                </CardTitle>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="col-span-1 lg:col-span-2 border-0 shadow-sm overflow-hidden">
+              <CardHeader className="bg-white/50 backdrop-blur-sm border-b pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                    <TrendingUp className="w-5 h-5 text-emerald-600" />
+                    Revenue Analytics
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100">
+                      Live
+                    </Badge>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {revenueTrend.slice(-7).map((day, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">{day.date}</span>
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1 max-w-xs">
-                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-green-500 rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min((day.revenue / Math.max(...revenueTrend.map(d => d.revenue))) * 100, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                        <span className="text-sm font-medium text-gray-900 w-20 text-right">
-                          {formatCurrency(day.revenue)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+              <CardContent className="pt-6">
+                <div className="h-[350px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={revenueTrend}>
+                      <defs>
+                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748b', fontSize: 12 }}
+                        dy={10}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748b', fontSize: 12 }}
+                        tickFormatter={(value) => `₹${value}`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                          backgroundColor: '#fff'
+                        }}
+                        formatter={(value) => [formatCurrency(value), 'Revenue']}
+                        labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="revenue" 
+                        stroke="#10b981" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorRevenue)" 
+                        animationDuration={1500}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Category Distribution */}
             <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="w-5 h-5 text-purple-600" />
-                  Category Distribution
-                </CardTitle>
+              <CardHeader className="border-b">
+                <CardTitle className="text-lg font-bold text-slate-800">Growth Breakdown</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {categoryDistribution.map((category, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full bg-${['blue', 'green', 'purple', 'orange'][index % 4]}-500`} />
-                        <span className="text-sm font-medium text-gray-700">{category.category}</span>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {revenueTrend.slice(-5).reverse().map((day, index) => (
+                    <div key={index} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-slate-700">{day.name}</p>
+                        <p className="text-xs text-slate-500">{day.orders} orders</p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1 max-w-xs">
-                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full bg-${['blue', 'green', 'purple', 'orange'][index % 4]}-500 rounded-full transition-all duration-300`}
-                              style={{ width: `${category.percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium text-gray-900">
-                            {formatCurrency(category.revenue)}
-                          </div>
-                          <div className="text-xs text-gray-500">{category.percentage}%</div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-emerald-600">{formatCurrency(day.revenue)}</p>
+                        <div className="flex items-center justify-end">
+                          <TrendingUp className="w-3 h-3 text-emerald-500 mr-1" />
+                          <span className="text-[10px] font-medium text-emerald-600">+12%</span>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
+                <div className="p-4">
+                  <Button variant="ghost" className="w-full text-slate-600 text-xs py-2 h-auto" onClick={() => setTimeRange('all')}>
+                    View Full History
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Category Distribution */}
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="border-b bg-slate-50/50">
+              <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                <PieChart className="w-5 h-5 text-purple-600" />
+                Category Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {categoryDistribution.map((category, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-3 h-3 rounded-full",
+                        index % 4 === 0 ? "bg-blue-500" :
+                        index % 4 === 1 ? "bg-emerald-500" :
+                        index % 4 === 2 ? "bg-purple-500" : "bg-orange-500"
+                      )} />
+                      <span className="text-sm font-semibold text-slate-700">{category.category}</span>
+                    </div>
+                    <div className="flex items-center gap-4 flex-1 justify-end max-w-[200px]">
+                      <div className="flex-1">
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full rounded-full transition-all duration-1000",
+                              index % 4 === 0 ? "bg-blue-500" :
+                              index % 4 === 1 ? "bg-emerald-500" :
+                              index % 4 === 2 ? "bg-purple-500" : "bg-orange-500"
+                            )}
+                            style={{ width: `${category.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="text-right min-w-[70px]">
+                        <div className="text-sm font-bold text-slate-900">
+                          {formatCurrency(category.revenue)}
+                        </div>
+                        <div className="text-[10px] font-medium text-slate-500 uppercase tracking-tight">{category.percentage}%</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Menu Performance Tab */}
@@ -457,23 +598,32 @@ export default function AnalyticsDashboard() {
 
         {/* Sales Analytics Tab */}
         <TabsContent value="sales" className="space-y-6">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle>Sales Overview</CardTitle>
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="border-b bg-slate-50/50">
+              <CardTitle className="text-lg font-bold text-slate-800">Sales Overview</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{formatCurrency(realtimeData.totalRevenue)}</div>
-                  <div className="text-sm text-gray-600">Total Revenue</div>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-100/50 flex flex-col items-center justify-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div className="text-2xl font-black text-emerald-700">{formatCurrency(realtimeData.totalRevenue)}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-600/70">Total Revenue</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{realtimeData.totalOrders}</div>
-                  <div className="text-sm text-gray-600">Total Orders</div>
+                <div className="p-6 rounded-2xl bg-blue-50 border border-blue-100/50 flex flex-col items-center justify-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <ShoppingCart className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="text-2xl font-black text-blue-700">{realtimeData.totalOrders}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-blue-600/70">Total Orders</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{formatCurrency(realtimeData.avgOrderValue)}</div>
-                  <div className="text-sm text-gray-600">Average Order Value</div>
+                <div className="p-6 rounded-2xl bg-purple-50 border border-purple-100/50 flex flex-col items-center justify-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    <TrendingUpIcon className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="text-2xl font-black text-purple-700">{formatCurrency(realtimeData.avgOrderValue)}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-purple-600/70">Avg Order Value</div>
                 </div>
               </div>
             </CardContent>
@@ -482,19 +632,25 @@ export default function AnalyticsDashboard() {
 
         {/* Customer Insights Tab */}
         <TabsContent value="customers" className="space-y-6">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle>Customer Analytics</CardTitle>
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="border-b bg-slate-50/50">
+              <CardTitle className="text-lg font-bold text-slate-800">Customer Analytics</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">{realtimeData.activeUsers}</div>
-                  <div className="text-sm text-gray-600">Active Users Now</div>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 rounded-2xl bg-orange-50 border border-orange-100/50 flex flex-col items-center justify-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div className="text-2xl font-black text-orange-700">{realtimeData.activeUsers}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-orange-600/70">Active Users Now</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-pink-600">{realtimeData.totalViews}</div>
-                  <div className="text-sm text-gray-600">Total Page Views</div>
+                <div className="p-6 rounded-2xl bg-pink-50 border border-pink-100/50 flex flex-col items-center justify-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    <Eye className="w-5 h-5 text-pink-600" />
+                  </div>
+                  <div className="text-2xl font-black text-pink-700">{realtimeData.totalViews}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-pink-600/70">Total Page Views</div>
                 </div>
               </div>
             </CardContent>

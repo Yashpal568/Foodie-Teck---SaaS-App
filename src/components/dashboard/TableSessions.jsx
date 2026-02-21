@@ -40,8 +40,10 @@ import {
   NavbarMenu, 
   NavbarMenuItem 
 } from '@/components/ui/navbar'
+import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 
 const TableSessions = () => {
+  const { updateStatus } = useOrderManagement()
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedTable, setSelectedTable] = useState(null)
@@ -206,7 +208,7 @@ const TableSessions = () => {
               currentOrder: orderId,
               sessionStart,
               sessionDuration: sessionStart ? 
-                Math.floor((new Date() - new Date(sessionStart)) / 60000) + ' min' : null,
+                Math.floor((new Date().getTime() - new Date(sessionStart).getTime()) / 60000) + ' min' : null,
               lastActivity: new Date().toISOString(),
               revenue: revenue || table.revenue
             }
@@ -288,7 +290,7 @@ const TableSessions = () => {
                 currentOrder: orderId,
                 sessionStart,
                 sessionDuration: sessionStart ? 
-                  Math.floor((new Date() - new Date(sessionStart)) / 60000) + ' min' : null,
+                  Math.floor((new Date().getTime() - new Date(sessionStart).getTime()) / 60000) + ' min' : null,
                 lastActivity: new Date().toISOString(),
                 revenue: revenue || table.revenue
               }
@@ -385,7 +387,7 @@ const TableSessions = () => {
       // Auto-complete orders that are more than 1 hour old
       const orderTime = new Date(order.createdAt)
       const now = new Date()
-      const timeDiff = (now - orderTime) / (1000 * 60) // minutes
+      const timeDiff = (now.getTime() - orderTime.getTime()) / (1000 * 60) // minutes
       
       if (timeDiff > 60 && order.status !== 'FINISHED' && order.status !== 'CANCELLED') {
         console.log(`Auto-completing old order ${order.id} after ${timeDiff.toFixed(0)} minutes`)
@@ -635,6 +637,11 @@ const TableSessions = () => {
   const handleMarkTableAvailable = (table) => {
     console.log('Manually marking table as available:', table.tableNumber)
     
+    // If table has a current order, mark it as finished so analytics update
+    if (table.currentOrder) {
+      updateStatus(table.currentOrder, ORDER_STATUS.FINISHED)
+    }
+
     // Update table status to available
     const updatedTables = tables.map(t => {
       if (t.tableNumber === table.tableNumber) {

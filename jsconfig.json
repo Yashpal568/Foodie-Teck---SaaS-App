@@ -1,12 +1,18 @@
 {
-  "files": [],
-  "references": [
-    
-  ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "target": "ESNext",
+    "checkJs": true
+  },
+  "include": [
+    "src/**/*"
+  ]
 }

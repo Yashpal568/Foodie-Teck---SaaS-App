@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 
 function Card({
   className,
+  children,
   ...props
 }) {
   return (
@@ -13,12 +14,16 @@ function Card({
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
         className
       )}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </div>
   );
 }
 
 function CardHeader({
   className,
+  children,
   ...props
 }) {
   return (
@@ -28,19 +33,26 @@ function CardHeader({
         "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
         className
       )}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </div>
   );
 }
 
 function CardTitle({
   className,
+  children,
   ...props
 }) {
   return (
     <div
       data-slot="card-title"
       className={cn("leading-none font-semibold", className)}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -73,9 +85,18 @@ function CardAction({
 
 function CardContent({
   className,
+  children,
   ...props
 }) {
-  return (<div data-slot="card-content" className={cn("px-6", className)} {...props} />);
+  return (
+    <div 
+      data-slot="card-content" 
+      className={cn("px-6", className)} 
+      {...props}
+    >
+      {children}
+    </div>
+  );
 }
 
 function CardFooter({

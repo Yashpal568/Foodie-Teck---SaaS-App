@@ -98,17 +98,43 @@ const createOrder = (orderData) => {
       }
     ]
   }
-  
+
   const orders = loadOrders()
   orders.push(order)
   saveOrders(orders)
-  
+
   return order
+}
+
+// Check if a daily reset is needed
+const checkDailyReset = () => {
+  try {
+    const lastReset = localStorage.getItem('lastAnalyticsReset')
+    const today = new Date().toLocaleDateString('en-CA')
+
+    if (!lastReset || lastReset !== today) {
+      localStorage.setItem('totalRevenue', '0')
+      const savedAnalytics = localStorage.getItem('menuAnalytics')
+      if (savedAnalytics) {
+        const analytics = JSON.parse(savedAnalytics)
+        analytics.totalOrders = 0
+        analytics.totalViews = 0
+        localStorage.setItem('menuAnalytics', JSON.stringify(analytics))
+      }
+      localStorage.setItem('lastAnalyticsReset', today)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('Error checking daily reset:', error)
+    return false
+  }
 }
 
 // Update analytics data when an order is finished
 const updateAnalytics = (order) => {
   try {
+    checkDailyReset()
     // Update totalRevenue
     const currentRevenue = parseFloat(localStorage.getItem('totalRevenue') || '0')
     localStorage.setItem('totalRevenue', (currentRevenue + order.total).toString())
@@ -138,7 +164,7 @@ const updateAnalytics = (order) => {
     })
 
     localStorage.setItem('menuAnalytics', JSON.stringify(analytics))
-    
+
     // Dispatch storage event manually for same-tab updates
     window.dispatchEvent(new Event('storage'))
   } catch (error) {
@@ -150,7 +176,7 @@ const updateAnalytics = (order) => {
 const updateOrderStatus = (orderId, newStatus, note = '') => {
   const orders = loadOrders()
   const orderIndex = orders.findIndex(order => order.id === orderId)
-  
+
   if (orderIndex !== -1) {
     const oldStatus = orders[orderIndex].status
     orders[orderIndex].status = newStatus
@@ -160,16 +186,16 @@ const updateOrderStatus = (orderId, newStatus, note = '') => {
       timestamp: new Date().toISOString(),
       note: note || `Status changed to ${newStatus}`
     })
-    
+
     // Update analytics if the order is newly finished
     if (newStatus === ORDER_STATUS.FINISHED && oldStatus !== ORDER_STATUS.FINISHED) {
       updateAnalytics(orders[orderIndex])
     }
-    
+
     saveOrders(orders)
     return orders[orderIndex]
   }
-  
+
   return null
 }
 
@@ -182,8 +208,8 @@ const getOrdersByRestaurant = (restaurantId) => {
 // Get orders by table
 const getOrdersByTable = (restaurantId, tableNumber) => {
   const orders = loadOrders()
-  return orders.filter(order => 
-    order.restaurantId === restaurantId && 
+  return orders.filter(order =>
+    order.restaurantId === restaurantId &&
     order.tableNumber === tableNumber &&
     order.status !== ORDER_STATUS.SERVED &&
     order.status !== ORDER_STATUS.CANCELLED
