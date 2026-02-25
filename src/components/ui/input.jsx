@@ -2,9 +2,12 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * @param {import("react").InputHTMLAttributes<HTMLInputElement>} props
+ */
 function Input({
   className,
-  type,
+  type = "text",
   ...props
 }) {
   return (

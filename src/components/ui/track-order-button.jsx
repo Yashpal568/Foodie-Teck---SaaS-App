@@ -4,14 +4,23 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Timer } from "lucide-react"
 
-const TrackOrderButton = React.forwardRef(({ 
-  className, 
-  isActive = false, 
-  onClick, 
-  orderStatus = "preparing",
-  showLabel = true,
-  ...props 
-}, ref) => {
+const TrackOrderButton = React.forwardRef(
+  /**
+   * @param {React.ComponentPropsWithoutRef<typeof Button> & { 
+   *   isActive?: boolean, 
+   *   orderStatus?: string, 
+   *   showLabel?: boolean 
+   * }} props
+   * @param {React.ForwardedRef<HTMLButtonElement>} ref
+   */
+  ({ 
+    className, 
+    isActive = false, 
+    onClick, 
+    orderStatus = "preparing",
+    showLabel = true,
+    ...props 
+  }, ref) => {
   const statusColors = {
     preparing: "bg-blue-500",
     ready: "bg-green-500", 

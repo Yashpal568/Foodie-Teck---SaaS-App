@@ -56,7 +56,12 @@ export default function CustomerMenu() {
   const [error, setError] = useState(null)
   const [activeOrderId, setActiveOrderId] = useState(null) // Track active order for this session
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false) // Mobile menu state
-  const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0 }) // Cart button position
+  const [buttonPosition, setButtonPosition] = useState({ 
+    x: 0, 
+    y: 0,
+    offsetX: 0,
+    offsetY: 0
+  }) // Cart button position with offsets
   const [isDragging, setIsDragging] = useState(false) // Drag state
 
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
@@ -483,6 +488,7 @@ export default function CustomerMenu() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 h-4 w-4" />
             <Input 
+              type="text"
               className="pl-10 h-12 bg-white border-zinc-200 focus:border-zinc-400" 
               placeholder="Search for dishes..." 
               value={searchTerm}
@@ -598,7 +604,7 @@ export default function CustomerMenu() {
           {/* Show when no menu items are available */}
           {Object.keys(groupedItems).length === 0 && !loading && (
             <Card className="text-center py-12 border-zinc-200">
-              <CardContent>
+              <CardContent className="pt-6">
                 <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Utensils className="w-10 h-10 text-zinc-400" />
                 </div>
