@@ -646,7 +646,13 @@ export default function CustomerMenu() {
                       <span className="text-black">Total</span>
                       <span className="text-black">{formatPrice(getTotalPrice())}</span>
                     </div>
-                    <Button className="w-full bg-black hover:bg-zinc-800 text-white" onClick={() => setShowCheckout(true)}>
+                    <Button 
+                      className="w-full bg-black hover:bg-zinc-800 text-white font-bold py-6 rounded-xl transition-all active:scale-[0.98]" 
+                      onClick={() => {
+                        setShowConfirmModal(true)
+                        // Ensure we scroll to top of modal if needed or just show it
+                      }}
+                    >
                       Checkout
                     </Button>
                   </div>
@@ -657,7 +663,6 @@ export default function CustomerMenu() {
         </div>
       </div>
 
-      {/* Mobile Floating Cart Button */}
       <div 
         className={`lg:hidden fixed z-50 transition-all duration-200 ${isDragging ? 'scale-110 shadow-2xl' : 'hover:scale-105'} ${cart.length === 0 ? 'pointer-events-none opacity-0' : ''}`}
         style={{
@@ -673,7 +678,7 @@ export default function CustomerMenu() {
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
           style={{ touchAction: 'none' }}
-          onClick={() => cart.length > 0 && setShowCheckout(true)}
+          onClick={() => cart.length > 0 && setShowConfirmModal(true)}
           disabled={cart.length === 0}
         >
           <ShoppingCart className="h-6 w-6" />
@@ -683,68 +688,65 @@ export default function CustomerMenu() {
         </Button>
       </div>
 
-      {/* Mobile Cart Sheet - Separate from button */}
-      <Sheet open={showCheckout && cart.length > 0} onOpenChange={(open) => {
-        if (!open) setShowCheckout(false)
-      }}>
-        <SheetContent side="bottom" className="h-[80vh]">
-          <SheetHeader>
-            <SheetTitle className="text-black">Your Order</SheetTitle>
-          </SheetHeader>
-          <div className="mt-6 space-y-4">
-            <div className="space-y-3 max-h-96 overflow-auto">
-              {cart.map(item => (
-                <div key={item._id} className="flex justify-between text-sm">
-                  <span className="text-zinc-700">{item.name} x{item.quantity}</span>
-                  <span className="font-medium text-black">{formatPrice(item.price * item.quantity)}</span>
-                </div>
-              ))}
-            </div>
-            <Separator className="bg-zinc-200" />
-            <div className="space-y-2">
-              <div className="flex justify-between font-bold">
-                <span className="text-black">Total</span>
-                <span className="text-black">{formatPrice(getTotalPrice())}</span>
-              </div>
-              <Button 
-                className="w-full bg-black hover:bg-zinc-800 text-white" 
-                onClick={() => {
-                  // Close the sheet and show the confirmation modal
-                  setShowCheckout(false)
-                  setTimeout(() => setShowConfirmModal(true), 100)
-                }}
-              >
-                Checkout
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
 
-      {/* Checkout Modal Overlay */}
+      {/* Checkout Modal Overlay - Polished Responsive Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <Card className="max-w-md w-full animate-in zoom-in-95 border-zinc-200">
-            <CardHeader>
-              <CardTitle className="text-black">Confirm Order</CardTitle>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+          <Card className="max-w-xl w-full animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border-zinc-200 shadow-2xl overflow-hidden rounded-2xl">
+            <CardHeader className="bg-zinc-50/50 border-b pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-bold text-black flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-zinc-900" />
+                  Confirm Your Order
+                </CardTitle>
+                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-zinc-200" onClick={() => setShowConfirmModal(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                 {cart.map(item => (
-                  <div key={item._id} className="flex justify-between text-sm">
-                    <span className="text-zinc-700">{item.name} x{item.quantity}</span>
-                    <span className="font-medium text-black">{formatPrice(item.price * item.quantity)}</span>
+                  <div key={item._id} className="flex justify-between items-center group">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-zinc-900 group-hover:text-black transition-colors">{item.name}</span>
+                      <span className="text-xs text-zinc-500 font-medium">Quantity: {item.quantity}</span>
+                    </div>
+                    <span className="font-bold text-black tabular-nums">{formatPrice(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>
-              <Separator className="bg-zinc-200" />
-              <div className="flex justify-between font-bold text-lg">
-                <span className="text-black">Total Amount</span>
-                <span className="text-black">{formatPrice(getTotalPrice())}</span>
+              
+              <div className="pt-4 border-t border-zinc-100 space-y-3">
+                <div className="flex justify-between items-center text-sm text-zinc-600">
+                  <span>Subtotal</span>
+                  <span className="font-medium">{formatPrice(getTotalPrice())}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-zinc-600">
+                  <span>Tax & Fees (5%)</span>
+                  <span className="font-medium">{formatPrice(getTotalPrice() * 0.05)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-lg font-bold text-black">Total Amount</span>
+                  <span className="text-2xl font-black text-black tabular-nums">{formatPrice(getTotalPrice() * 1.05)}</span>
+                </div>
               </div>
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 border-zinc-300 text-zinc-700 hover:bg-zinc-50" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
-                <Button className="flex-1 bg-black hover:bg-zinc-800 text-white" onClick={placeOrder}>Place Order</Button>
+
+              <div className="flex gap-4 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 h-12 rounded-xl border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-50 hover:text-black transition-all" 
+                  onClick={() => setShowConfirmModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="flex-1 h-12 rounded-xl bg-black hover:bg-zinc-800 text-white font-bold shadow-lg shadow-black/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2" 
+                  onClick={placeOrder}
+                >
+                  Place Order
+                  <Plus className="w-4 h-4" />
+                </Button>
               </div>
             </CardContent>
           </Card>
