@@ -25,9 +25,12 @@ const badgeVariants = cva(
   }
 )
 
+/**
+ * @param {import("class-variance-authority").VariantProps<typeof badgeVariants> & React.HTMLAttributes<HTMLSpanElement> & { asChild?: boolean }} props
+ */
 function Badge({
   className,
-  variant,
+  variant = "default",
   asChild = false,
   ...props
 }) {

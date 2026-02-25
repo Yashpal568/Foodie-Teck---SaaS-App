@@ -2,11 +2,11 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Card({
-  className,
-  children,
-  ...props
-}) {
+/**
+ * @param {React.HTMLAttributes<HTMLDivElement>} props
+ */
+function Card(props) {
+  const { className, children, ...rest } = props
   return (
     <div
       data-slot="card"
@@ -14,18 +14,18 @@ function Card({
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
         className
       )}
-      {...props}
+      {...rest}
     >
       {children}
     </div>
   );
 }
 
-function CardHeader({
-  className,
-  children,
-  ...props
-}) {
+/**
+ * @param {React.HTMLAttributes<HTMLDivElement>} props
+ */
+function CardHeader(props) {
+  const { className, children, ...rest } = props
   return (
     <div
       data-slot="card-header"
@@ -33,23 +33,23 @@ function CardHeader({
         "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
         className
       )}
-      {...props}
+      {...rest}
     >
       {children}
     </div>
   );
 }
 
-function CardTitle({
-  className,
-  children,
-  ...props
-}) {
+/**
+ * @param {React.HTMLAttributes<HTMLDivElement>} props
+ */
+function CardTitle(props) {
+  const { className, children, ...rest } = props
   return (
     <div
       data-slot="card-title"
       className={cn("leading-none font-semibold", className)}
-      {...props}
+      {...rest}
     >
       {children}
     </div>
@@ -83,16 +83,16 @@ function CardAction({
   );
 }
 
-function CardContent({
-  className,
-  children,
-  ...props
-}) {
+/**
+ * @param {React.HTMLAttributes<HTMLDivElement>} props
+ */
+function CardContent(props) {
+  const { className, children, ...rest } = props
   return (
     <div 
       data-slot="card-content" 
       className={cn("px-6", className)} 
-      {...props}
+      {...rest}
     >
       {children}
     </div>

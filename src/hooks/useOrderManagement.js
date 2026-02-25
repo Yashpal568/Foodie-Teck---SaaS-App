@@ -57,12 +57,35 @@ export const ORDER_STATUS_CONFIG = {
   }
 }
 
-// Save orders to localStorage
+// Save orders to localStorage with pruning for QuotaExceededError
 const saveOrders = (orders) => {
   try {
     localStorage.setItem('orders', JSON.stringify(orders))
   } catch (error) {
-    console.error('Error saving orders:', error)
+    if (error.name === 'QuotaExceededError') {
+      console.warn('LocalStorage quota exceeded. Pruning old orders...')
+      // Prune: Keep only the most recent 50 orders
+      // Prefer keeping active orders over FINISHED/CANCELLED
+      const sortedOrders = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      const activeOrders = sortedOrders.filter(o =>
+        ![ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(o.status)
+      )
+      const historicalOrders = sortedOrders.filter(o =>
+        [ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(o.status)
+      )
+
+      // Keep all active, but limit historical to fill up to 50 total
+      const prunedOrders = [...activeOrders, ...historicalOrders.slice(0, Math.max(0, 50 - activeOrders.length))]
+
+      try {
+        localStorage.setItem('orders', JSON.stringify(prunedOrders))
+        console.log(`Pruned orders from ${orders.length} to ${prunedOrders.length}`)
+      } catch (retryError) {
+        console.error('Pruning failed to resolve QuotaExceededError:', retryError)
+      }
+    } else {
+      console.error('Error saving orders:', error)
+    }
   }
 }
 
@@ -139,14 +162,20 @@ const updateAnalytics = (order) => {
     const currentRevenue = parseFloat(localStorage.getItem('totalRevenue') || '0')
     localStorage.setItem('totalRevenue', (currentRevenue + order.total).toString())
 
-    // Update orderHistory
+    // Update orderHistory with pruning (keep last 100)
     const savedOrderHistory = localStorage.getItem('orderHistory')
-    const orderHistory = savedOrderHistory ? JSON.parse(savedOrderHistory) : []
-    orderHistory.push({
+    let orderHistory = savedOrderHistory ? JSON.parse(savedOrderHistory) : []
+    orderHistory.unshift({
       ...order,
       completedAt: new Date().toISOString(),
       revenue: order.total
     })
+
+    // Limit to 100 entries to save space
+    if (orderHistory.length > 100) {
+      orderHistory = orderHistory.slice(0, 100)
+    }
+
     localStorage.setItem('orderHistory', JSON.stringify(orderHistory))
 
     // Update menuAnalytics
