@@ -6,6 +6,7 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/** @param {React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root>} props */
 function Select({
   ...props
 }) {
@@ -24,6 +25,12 @@ function SelectValue({
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
+/**
+ * @param {Object} props
+ * @param {string} [props.className]
+ * @param {"default" | "sm"} [props.size]
+ * @param {React.ReactNode} props.children
+ */
 function SelectTrigger({
   className,
   size = "default",
@@ -47,6 +54,13 @@ function SelectTrigger({
   );
 }
 
+/**
+ * @param {Object} props
+ * @param {string} [props.className]
+ * @param {React.ReactNode} props.children
+ * @param {"popper" | "item-aligned"} [props.position]
+ * @param {"start" | "center" | "end"} [props.align]
+ */
 function SelectContent({
   className,
   children,
@@ -79,8 +93,12 @@ function SelectContent({
   );
 }
 
+/** 
+ * @param {Object} props
+ * @param {string} [props.className]
+ */
 function SelectLabel({
-  className,
+  className = "",
   ...props
 }) {
   return (
@@ -91,14 +109,22 @@ function SelectLabel({
   );
 }
 
+/**
+ * @param {Object} props
+ * @param {string} [props.className]
+ * @param {React.ReactNode} props.children
+ * @param {string} props.value
+ */
 function SelectItem({
   className,
   children,
+  value,
   ...props
 }) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      value={value}
       className={cn(
         "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
@@ -116,8 +142,12 @@ function SelectItem({
   );
 }
 
+/** 
+ * @param {Object} props
+ * @param {string} [props.className]
+ */
 function SelectSeparator({
-  className,
+  className = "",
   ...props
 }) {
   return (
@@ -128,8 +158,12 @@ function SelectSeparator({
   );
 }
 
+/** 
+ * @param {Object} props
+ * @param {string} [props.className]
+ */
 function SelectScrollUpButton({
-  className,
+  className = "",
   ...props
 }) {
   return (
@@ -142,8 +176,12 @@ function SelectScrollUpButton({
   );
 }
 
+/** 
+ * @param {Object} props
+ * @param {string} [props.className]
+ */
 function SelectScrollDownButton({
-  className,
+  className = "",
   ...props
 }) {
   return (

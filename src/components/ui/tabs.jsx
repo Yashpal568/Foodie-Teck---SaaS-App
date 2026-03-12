@@ -5,7 +5,15 @@ import { cn } from "@/lib/utils"
 
 const Tabs = TabsPrimitive.Root
 
-const TabsList = React.forwardRef(({ className, children, ...props }, ref) => (
+/**
+ * @typedef {Object} TabsListProps
+ * @property {string} [className]
+ * @property {React.ReactNode} children
+ */
+
+const TabsList = React.forwardRef(
+  /** @param {TabsListProps & React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>} props */
+  ({ className, children, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
     className={cn(
@@ -19,7 +27,15 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => (
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
-const TabsTrigger = React.forwardRef(({ className, children, ...props }, ref) => (
+/**
+ * @typedef {Object} TabsTriggerProps
+ * @property {string} [className]
+ * @property {React.ReactNode} children
+ */
+
+const TabsTrigger = React.forwardRef(
+  /** @param {TabsTriggerProps & React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>} props */
+  ({ className, children, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
@@ -33,7 +49,15 @@ const TabsTrigger = React.forwardRef(({ className, children, ...props }, ref) =>
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
-const TabsContent = React.forwardRef(({ className, children, ...props }, ref) => (
+/**
+ * @typedef {Object} TabsContentProps
+ * @property {string} [className]
+ * @property {React.ReactNode} children
+ */
+
+const TabsContent = React.forwardRef(
+  /** @param {TabsContentProps & React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>} props */
+  ({ className, children, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
