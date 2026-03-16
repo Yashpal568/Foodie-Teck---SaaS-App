@@ -9,7 +9,8 @@ const Tooltip = TooltipPrimitive.Root
 
 const TooltipTrigger = TooltipPrimitive.Trigger
 
-const TooltipContent = React.forwardRef(({ className, sideOffset = 4, ...props }, ref) => (
+/** @type {React.ForwardRefExoticComponent<React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>>} */
+const TooltipContent = React.forwardRef(({ className = "", sideOffset = 4, children = null, ...props }, ref) => (
   <TooltipPrimitive.Content
     ref={ref}
     sideOffset={sideOffset}
@@ -18,7 +19,9 @@ const TooltipContent = React.forwardRef(({ className, sideOffset = 4, ...props }
       className
     )}
     {...props}
-  />
+  >
+    {children}
+  </TooltipPrimitive.Content>
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Download, Upload, FileText, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -162,6 +162,9 @@ export default function BulkImportExport({ menuItems, onImport }) {
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Bulk Import/Export Menu Items</DialogTitle>
+          <DialogDescription>
+            Import multiple items from CSV/Excel or export your current menu for backup.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -72,7 +72,7 @@ export default function MenuListView({
         <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-gray-100">
           <CardHeader className="p-4 md:p-6 pb-2 md:pb-3 border-b border-gray-50">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <CardTitle className="text-xl font-black text-gray-900 flex items-center gap-2">
+              <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 Menu Items
                 <Badge variant="secondary" className="bg-orange-50 text-orange-700 border-orange-100 font-bold ml-1">
                   {items.length}
@@ -228,7 +228,7 @@ export default function MenuListView({
                               </Badge>
                             </TableCell>
                             
-                            <TableCell className="font-black text-gray-900">
+                            <TableCell className="font-bold text-gray-900">
                               {formatPrice(item.price, currency)}
                             </TableCell>
                             
@@ -249,7 +249,7 @@ export default function MenuListView({
                                       <Eye className="w-4 h-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>
+                                  <TooltipContent className="">
                                     <p>View Details</p>
                                   </TooltipContent>
                                 </Tooltip>
@@ -260,7 +260,7 @@ export default function MenuListView({
                                       <Edit2 className="w-4 h-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>
+                                  <TooltipContent className="">
                                     <p>Edit Item</p>
                                   </TooltipContent>
                                 </Tooltip>
@@ -280,7 +280,7 @@ export default function MenuListView({
                                       {item.isInStock ? <ToggleLeft className="w-5 h-5" /> : <ToggleRight className="w-5 h-5" />}
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>
+                                  <TooltipContent className="">
                                     <p>{item.isInStock ? 'Disable' : 'Enable'}</p>
                                   </TooltipContent>
                                 </Tooltip>
@@ -291,7 +291,7 @@ export default function MenuListView({
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>
+                                  <TooltipContent className="">
                                     <p>Delete Item</p>
                                   </TooltipContent>
                                 </Tooltip>
@@ -324,8 +324,8 @@ export default function MenuListView({
                           
                           <div className="flex-1 min-w-0 py-1 flex flex-col justify-between">
                             <div className="flex items-start justify-between gap-2">
-                              <h4 className="font-black text-gray-900 leading-tight truncate">{item.name}</h4>
-                              <p className="font-black text-orange-600 whitespace-nowrap">{formatPrice(item.price, currency)}</p>
+                              <h4 className="font-bold text-gray-900 leading-tight truncate">{item.name}</h4>
+                              <p className="font-bold text-orange-600 whitespace-nowrap">{formatPrice(item.price, currency)}</p>
                             </div>
                             
                             <div className="flex flex-wrap gap-1.5 mt-1">
@@ -346,7 +346,7 @@ export default function MenuListView({
                           <div className="flex items-center gap-1">
                             <Badge 
                               variant={item.isInStock ? "default" : "destructive"}
-                              className={item.isInStock ? "bg-green-100 text-green-700 border-none text-[10px] font-black h-7" : "text-[10px] font-black border-none h-7"}
+                              className={item.isInStock ? "bg-green-100 text-green-700 border-none text-[10px] font-bold h-7" : "text-[10px] font-bold border-none h-7"}
                             >
                               {item.isInStock ? 'LIVE' : 'OUT'}
                             </Badge>
@@ -387,7 +387,7 @@ export default function MenuListView({
         <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
           {selectedItem && (
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
-              <DialogHeader>
+              <DialogHeader className="">
                 <DialogTitle className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                     {selectedItem.photo ? (
@@ -416,14 +416,14 @@ export default function MenuListView({
                     </div>
                   </div>
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="">
                   Detailed information and settings for {selectedItem.name}.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-6">
                 {/* Item Image */}
-                <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+                <div className="w-full h-48 sm:h-64 bg-gray-100 rounded-2xl overflow-hidden ring-1 ring-gray-100">
                   {selectedItem.photo ? (
                     <img
                       src={selectedItem.photo}
@@ -432,73 +432,78 @@ export default function MenuListView({
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-16 h-16 text-gray-300" />
+                      <ImageIcon className="w-16 h-16 text-gray-200" />
                     </div>
                   )}
                 </div>
 
-                {/* Item Details */}
-                <div className="grid grid-cols-2 gap-6">
+                {/* Item Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-gray-50/50 p-4 rounded-2xl ring-1 ring-gray-100">
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Price</h4>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Price</h4>
                     <p className="text-2xl font-bold text-gray-900">
                       {formatPrice(selectedItem.price, currency)}
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Availability</h4>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Availability</h4>
                     <Badge 
                       variant={selectedItem.isInStock ? "default" : "destructive"}
-                      className={selectedItem.isInStock ? "bg-green-100 text-green-800 border-green-200" : ""}
+                      className={selectedItem.isInStock 
+                        ? "bg-green-100 text-green-700 border-none px-3 py-1 text-[10px] font-bold h-7" 
+                        : "px-3 py-1 text-[10px] font-bold border-none h-7"}
                     >
-                      {selectedItem.isInStock ? 'In Stock' : 'Out of Stock'}
+                      {selectedItem.isInStock ? 'AVAILABLE' : 'OUT OF STOCK'}
                     </Badge>
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
-                  <p className="text-gray-600">{selectedItem.description}</p>
+                <div className="px-1">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</h4>
+                  <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">{selectedItem.description}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 px-1">
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Category</h4>
-                    <p className="text-gray-600">{selectedItem.category}</p>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Category</h4>
+                    <p className="text-gray-900 font-bold">{selectedItem.category}</p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Type</h4>
-                    <p className="text-gray-600">{selectedItem.type}</p>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Type</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${typeConfig[selectedItem.type].dotColor}`}></div>
+                      <p className="text-gray-900 font-bold">{typeConfig[selectedItem.type].label}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 px-1 border-t pt-6">
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Created</h4>
-                    <p className="text-gray-600">{new Date(selectedItem.createdAt).toLocaleDateString()}</p>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Created On</h4>
+                    <p className="text-gray-600 text-sm">{new Date(selectedItem.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Last Updated</h4>
-                    <p className="text-gray-600">{new Date(selectedItem.updatedAt).toLocaleDateString()}</p>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Last Updated</h4>
+                    <p className="text-gray-600 text-sm">{new Date(selectedItem.updatedAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
                   <Button 
                     onClick={() => { onEdit(selectedItem); closeModal(); }}
-                    className="px-6 py-3 text-base font-medium"
+                    className="flex-1 h-12 text-sm font-bold rounded-xl bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95"
                   >
-                    <Edit2 className="w-5 h-5 mr-2" />
+                    <Edit2 className="w-4 h-4 mr-2" />
                     Edit Item
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => { onToggleStock(selectedItem._id, !selectedItem.isInStock); closeModal(); }}
-                    className={`px-6 py-3 text-base font-medium ${
+                    className={`flex-1 h-12 text-sm font-bold rounded-xl border-2 transition-all active:scale-95 ${
                       selectedItem.isInStock 
-                        ? 'text-yellow-600 border-yellow-600 hover:bg-yellow-50 hover:text-yellow-700' 
-                        : 'text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700'
+                        ? 'text-yellow-600 border-yellow-100 hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-200' 
+                        : 'text-green-600 border-green-100 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
                     }`}
                   >
                     {selectedItem.isInStock ? 'Mark Out of Stock' : 'Mark In Stock'}
@@ -506,10 +511,10 @@ export default function MenuListView({
                   <Button
                     variant="destructive"
                     onClick={() => { onDelete(selectedItem._id); closeModal(); }}
-                    className="px-6 py-3 text-base font-medium"
+                    className="h-12 sm:w-12 sm:px-0 text-sm font-bold rounded-xl bg-red-50 text-red-600 border-none hover:bg-red-100 transition-all active:scale-95 shadow-none"
                   >
-                    <Trash2 className="w-5 h-5 mr-2" />
-                    Delete Item
+                    <Trash2 className="w-5 h-5 sm:mx-auto" />
+                    <span className="sm:hidden ml-2">Delete Item</span>
                   </Button>
                 </div>
               </div>

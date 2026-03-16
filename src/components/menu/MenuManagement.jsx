@@ -288,11 +288,11 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-1.5 md:space-y-2">
-              <div className="flex items-center gap-2 text-[10px] md:text-xs font-black text-orange-600 uppercase tracking-[0.2em]">
+              <div className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-orange-600 uppercase tracking-[0.2em]">
                 <ChefHat className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 <span>Inventory & Operations</span>
               </div>
-              <h1 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tight leading-none">
+              <h1 className="text-2xl md:text-4xl font-bold text-gray-900 tracking-tight leading-none">
                 Menu Management
               </h1>
               <p className="text-gray-500 max-w-sm text-xs md:text-base font-semibold leading-relaxed">
@@ -304,7 +304,7 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
               <Button 
                 onClick={() => setShowForm(true)} 
                 size="lg" 
-                className="hidden md:flex bg-orange-600 hover:bg-orange-700 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-orange-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="hidden md:flex bg-orange-600 hover:bg-orange-700 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-orange-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Add New Item
@@ -368,8 +368,8 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
                     <LayoutGrid className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-[9px] md:text-[10px] font-black text-blue-600/80 uppercase tracking-widest">Total</p>
-                    <p className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{totalItems}</p>
+                    <p className="text-[9px] md:text-[10px] font-semibold text-blue-600/80 uppercase tracking-widest">Total</p>
+                    <p className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">{totalItems}</p>
                   </div>
                 </div>
               </div>
@@ -381,8 +381,8 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-[9px] md:text-[10px] font-black text-green-600/80 uppercase tracking-widest">Live</p>
-                    <p className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">{inStockItems}</p>
+                    <p className="text-[9px] md:text-[10px] font-semibold text-green-600/80 uppercase tracking-widest">Live</p>
+                    <p className="text-2xl md:text-3xl font-bold text-green-700 tracking-tight">{inStockItems}</p>
                   </div>
                 </div>
               </div>
@@ -394,8 +394,8 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
                     <AlertCircle className="w-5 h-5 text-red-600" />
                   </div>
                   <div>
-                    <p className="text-[9px] md:text-[10px] font-black text-red-600/80 uppercase tracking-widest">Alert</p>
-                    <p className="text-2xl md:text-3xl font-black text-red-700 tracking-tight">{outOfStockItems}</p>
+                    <p className="text-[9px] md:text-[10px] font-semibold text-red-600/80 uppercase tracking-widest">Alert</p>
+                    <p className="text-2xl md:text-3xl font-bold text-red-700 tracking-tight">{outOfStockItems}</p>
                   </div>
                 </div>
               </div>
@@ -407,8 +407,8 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
                     <Leaf className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-[9px] md:text-[10px] font-black text-emerald-600/80 uppercase tracking-widest">Veg</p>
-                    <p className="text-2xl md:text-3xl font-black text-emerald-700 tracking-tight">{vegItems}</p>
+                    <p className="text-[9px] md:text-[10px] font-semibold text-emerald-600/80 uppercase tracking-widest">Veg</p>
+                    <p className="text-2xl md:text-3xl font-bold text-emerald-700 tracking-tight">{vegItems}</p>
                   </div>
                 </div>
               </div>
@@ -420,8 +420,8 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
                     <Flame className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-[9px] md:text-[10px] font-black text-orange-600/80 uppercase tracking-widest">Non-Veg</p>
-                    <p className="text-2xl md:text-3xl font-black text-orange-700 tracking-tight">{nonVegItems}</p>
+                    <p className="text-[9px] md:text-[10px] font-semibold text-orange-600/80 uppercase tracking-widest">Non-Veg</p>
+                    <p className="text-2xl md:text-3xl font-bold text-orange-700 tracking-tight">{nonVegItems}</p>
                   </div>
                 </div>
               </div>
@@ -450,7 +450,7 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
         </div>
 
         {/* Mobile Sticky Floating Action Button */}
-        <div className="fixed bottom-6 right-6 md:hidden z-50">
+        <div className="fixed bottom-24 right-6 md:hidden z-50">
           <Button 
             onClick={() => setShowForm(true)} 
             className="w-14 h-14 rounded-full bg-orange-600 hover:bg-orange-700 text-white shadow-2xl shadow-orange-600/40 border-4 border-white flex items-center justify-center transition-all hover:scale-110 active:scale-90"

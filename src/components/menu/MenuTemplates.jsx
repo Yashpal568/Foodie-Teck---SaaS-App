@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Copy, Store, Coffee, Pizza, Utensils } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
@@ -95,6 +95,9 @@ export default function MenuTemplates({ onApplyTemplate, currentItemsCount }) {
           <DialogTitle className="text-xl font-semibold text-gray-900">
             Menu Templates
           </DialogTitle>
+          <DialogDescription className="text-sm text-gray-500 mt-1">
+            Browse and apply professionally crafted menu templates for your restaurant type.
+          </DialogDescription>
         </div>
         
         {/* Alert Bar */}

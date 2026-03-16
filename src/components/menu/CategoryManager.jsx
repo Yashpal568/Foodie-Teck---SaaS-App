@@ -3,7 +3,7 @@ import { Plus, X, Edit2, Trash2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -92,6 +92,9 @@ export default function CategoryManager({ onCategoriesChange }) {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Manage Menu Categories</DialogTitle>
+            <DialogDescription>
+              Create, edit, and organize categories for your menu items.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {/* Add New Category */}

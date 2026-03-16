@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
+import MobileNavbar from './MobileNavbar'
 
 export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -13,16 +14,21 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         <Navbar 
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           currency={currency}
           onCurrencyChange={onCurrencyChange}
         />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto pb-20 lg:pb-0">
           {children}
         </main>
+        
+        <MobileNavbar 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+        />
       </div>
     </div>
   )

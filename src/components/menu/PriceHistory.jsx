@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Calendar, DollarSign, Package } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -145,6 +145,9 @@ export default function PriceHistory({ menuItems }) {
             <Package className="w-6 h-6 text-blue-600" />
             Price History & Analytics
           </DialogTitle>
+          <DialogDescription>
+            Track price fluctuations and analyze long-term pricing trends for your menu items.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="flex-1 overflow-auto p-6 space-y-6">

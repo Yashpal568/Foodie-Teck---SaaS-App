@@ -29,7 +29,7 @@ function DialogClose({
 }
 
 function DialogOverlay({
-  className,
+  className = "",
   ...props
 }) {
   return (
@@ -44,8 +44,8 @@ function DialogOverlay({
 }
 
 function DialogContent({
-  className,
-  children,
+  className = "",
+  children = null,
   showCloseButton = true,
   ...props
 }) {
@@ -73,51 +73,71 @@ function DialogContent({
   );
 }
 
+/** @param {{className?: string, children?: React.ReactNode} & React.HTMLAttributes<HTMLDivElement>} props */
 function DialogHeader({
-  className,
+  className = "",
+  children = null,
   ...props
 }) {
   return (
     <div
       data-slot="dialog-header"
       className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </div>
   );
 }
 
+/** @param {{className?: string, children?: React.ReactNode} & React.HTMLAttributes<HTMLDivElement>} props */
 function DialogFooter({
-  className,
+  className = "",
+  children = null,
   ...props
 }) {
   return (
     <div
       data-slot="dialog-footer"
       className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </div>
   );
 }
 
+/** @param {{className?: string, children?: React.ReactNode} & React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>} props */
 function DialogTitle({
-  className,
+  className = "",
+  children = null,
   ...props
 }) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn("text-lg leading-none font-semibold", className)}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </DialogPrimitive.Title>
   );
 }
 
+/** @param {{className?: string, children?: React.ReactNode} & React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>} props */
 function DialogDescription({
-  className,
+  className = "",
+  children = null,
   ...props
 }) {
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn("text-muted-foreground text-sm", className)}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </DialogPrimitive.Description>
   );
 }
 
