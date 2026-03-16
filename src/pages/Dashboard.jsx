@@ -8,11 +8,14 @@ import MenuManagement from '../components/menu/MenuManagement'
 import QRCodeManagement from '../components/dashboard/QRCodeManagement'
 import OrderManagement from '../components/dashboard/OrderManagement'
 import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard'
+import CustomerManagement from '../components/dashboard/CustomerManagement'
+import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 
 function Dashboard() {
   const [activeItem, setActiveItem] = useState('dashboard')
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
+  const { profile } = useRestaurantProfile('restaurant-123')
 
   const renderContent = () => {
     switch (activeItem) {
@@ -74,22 +77,7 @@ function Dashboard() {
         return <AnalyticsDashboard />
       
       case 'customers':
-        return (
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Users className="w-8 h-8 text-teal-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Customer Management</h1>
-                <p className="text-gray-600">Manage customer information and preferences</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Customers</h3>
-              <p className="text-gray-600">View and manage customer database</p>
-            </div>
-          </div>
-        )
+        return <CustomerManagement plan={profile.plan} />
       
       case 'settings':
         return (

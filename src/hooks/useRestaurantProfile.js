@@ -9,7 +9,8 @@ export const useRestaurantProfile = (restaurantId) => {
         name: 'FoodieTech',
         address: 'Main Square Mall, Floor 2',
         phone: '+91 98765 43210',
-        description: 'Premium Dining Experience'
+        description: 'Premium Dining Experience',
+        plan: 'Premium' // Default to Premium for development
     })
 
     useEffect(() => {

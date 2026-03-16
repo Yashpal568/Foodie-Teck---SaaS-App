@@ -63,6 +63,8 @@ export default function CustomerMenu() {
     offsetY: 0
   }) // Cart button position with offsets
   const [isDragging, setIsDragging] = useState(false) // Drag state
+  const [customerName, setCustomerName] = useState('') // Name capture for CRM
+
 
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
 
@@ -323,14 +325,18 @@ export default function CustomerMenu() {
 
   const placeOrder = () => {
     if (cart.length === 0) return
+    
     const orderData = {
       restaurantId,
       tableNumber,
+      customerName: customerName || 'Guest Customer',
       items: cart,
       subtotal: getTotalPrice(),
       tax: getTotalPrice() * 0.05,
-      total: getTotalPrice() * 1.05
+      total: getTotalPrice() * 1.05,
+      type: 'DINE-IN'
     }
+
     const order = createOrder(orderData)
     setCurrentOrder(order)
     setActiveOrderId(order.id) // Set active order for this session
@@ -714,6 +720,20 @@ export default function CustomerMenu() {
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
+              {/* Customer Name Capture */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-zinc-700 block">Your Name (for order tracking)</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                  <Input 
+                    placeholder="Enter your name" 
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="pl-10 h-11 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-400"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                 {cart.map(item => (
                   <div key={item._id} className="flex justify-between items-center group">
