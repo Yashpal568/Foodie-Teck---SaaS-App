@@ -47,7 +47,7 @@ export default function TableStatus() {
   return (
     <div className="space-y-6">
       {/* Table Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {Object.entries(statusConfig).map(([status, config]) => (
           <Card key={status} className={config.bgColor}>
             <CardContent className="p-4">
@@ -72,7 +72,7 @@ export default function TableStatus() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {tableData.map((table) => {
               const status = statusConfig[table.status]
               
@@ -81,9 +81,9 @@ export default function TableStatus() {
                   key={table.id}
                   className={`p-4 rounded-lg border-2 ${status.bgColor} hover:shadow-md transition-shadow cursor-pointer`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-gray-900">{table.name}</h4>
-                    <Badge className={status.color}>
+                  <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+                    <h4 className="font-bold text-gray-900">{table.name}</h4>
+                    <Badge className={`${status.color} shadow-sm border-none`}>
                       {status.label}
                     </Badge>
                   </div>

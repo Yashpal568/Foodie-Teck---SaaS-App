@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Filter, ChefHat, ArrowLeft, Eye, Edit, Trash2, ToggleLeft, ToggleRight, Copy } from 'lucide-react'
+import { Plus, Search, Filter, ChefHat, ArrowLeft, Eye, Edit, Trash2, ToggleLeft, ToggleRight, Copy, LayoutGrid, CheckCircle2, AlertCircle, Leaf, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -112,12 +112,12 @@ const categories = ['All', 'Starters', 'Main Course', 'Desserts', 'Beverages', '
 const types = ['All', 'VEG', 'NON_VEG']
 const stockStatuses = ['All', 'In Stock', 'Out of Stock']
 
-export default function MenuManagement() {
+export default function MenuManagement({ currency, onCurrencyChange }) {
   const [menuItems, setMenuItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
-  const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
+  // Drop local currency state and use props
   const [dynamicCategories, setDynamicCategories] = useState(['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads'])
   
   // Filter states
@@ -283,27 +283,46 @@ export default function MenuManagement() {
 
   return (
     <TooltipProvider>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <ChefHat className="w-6 h-6 text-orange-600" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Menu Management</h1>
-                  <p className="text-gray-600">Manage your restaurant menu items efficiently</p>
-                </div>
+      <div className="p-4 md:p-8 pb-24 md:pb-8 space-y-6 md:space-y-8 bg-[#f8fafc]/50 min-h-screen">
+        {/* Header Section */}
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-1.5 md:space-y-2">
+              <div className="flex items-center gap-2 text-[10px] md:text-xs font-black text-orange-600 uppercase tracking-[0.2em]">
+                <ChefHat className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span>Inventory & Operations</span>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <Button onClick={() => setShowForm(true)} size="lg" className="bg-orange-600 hover:bg-orange-700">
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add New Item
-                </Button>
-                
+              <h1 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tight leading-none">
+                Menu Management
+              </h1>
+              <p className="text-gray-500 max-w-sm text-xs md:text-base font-semibold leading-relaxed">
+                Refine your restaurant's digital storefront with precision item control.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              <Button 
+                onClick={() => setShowForm(true)} 
+                size="lg" 
+                className="hidden md:flex bg-orange-600 hover:bg-orange-700 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-orange-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Add New Item
+              </Button>
+              <div className="hidden md:block">
+                <CurrencySelector 
+                  value={currency} 
+                  onChange={onCurrencyChange}
+                  className="h-12 border-none ring-1 ring-gray-200 rounded-xl bg-white shadow-sm font-bold"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions Strip */}
+          <div className="relative">
+            <div className="flex items-center gap-2 overflow-x-auto pb-3 -mx-4 px-4 md:mx-0 md:px-0 no-scrollbar">
+              <div className="flex items-center gap-2 min-w-max">
                 <CategoryManager onCategoriesChange={setDynamicCategories} />
                 <BulkImportExport 
                   menuItems={menuItems} 
@@ -324,106 +343,121 @@ export default function MenuManagement() {
                 />
                 <PriceHistory menuItems={menuItems} />
                 
-                <CurrencySelector 
-                  value={currency} 
-                  onChange={setCurrency}
-                  className="border-gray-200"
-                />
+                <div className="md:hidden">
+                  <CurrencySelector 
+                    value={currency} 
+                    onChange={onCurrencyChange}
+                    className="h-10 border-none ring-1 ring-gray-100 rounded-xl bg-white min-w-[100px] font-bold text-xs"
+                  />
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            {/* Subtle fade effect for scrolling on mobile */}
+            <div className="absolute right-[-4px] top-0 bottom-3 w-12 bg-gradient-to-l from-[#f8fafc] via-[#f8fafc]/90 to-transparent md:hidden pointer-events-none" />
+          </div>
+        </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
-                  <p className="text-sm text-gray-600">Total Items</p>
-                </div>
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold">📋</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-green-600">{inStockItems}</p>
-                  <p className="text-sm text-gray-600">In Stock</p>
-                </div>
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <span className="text-green-600">✓</span>
+        {/* Executive Stats Panel */}
+        <div className="md:px-0">
+          <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-gray-100 rounded-2xl">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-x divide-y divide-gray-100/60">
+              {/* Total Items */}
+              <div className="p-4 md:p-6 bg-blue-50/5 hover:bg-blue-50/30 transition-colors group">
+                <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
+                  <div className="w-10 h-10 bg-blue-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <LayoutGrid className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] md:text-[10px] font-black text-blue-600/80 uppercase tracking-widest">Total</p>
+                    <p className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{totalItems}</p>
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-red-600">{outOfStockItems}</p>
-                  <p className="text-sm text-gray-600">Out of Stock</p>
-                </div>
-                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                  <span className="text-red-600">✗</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-green-600">{vegItems}</p>
-                  <p className="text-sm text-gray-600">Vegetarian</p>
-                </div>
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <span className="text-green-600">🥬</span>
+
+              {/* In Stock */}
+              <div className="p-4 md:p-6 bg-green-50/5 hover:bg-green-50/30 transition-colors group">
+                <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
+                  <div className="w-10 h-10 bg-green-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] md:text-[10px] font-black text-green-600/80 uppercase tracking-widest">Live</p>
+                    <p className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">{inStockItems}</p>
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-red-600">{nonVegItems}</p>
-                  <p className="text-sm text-gray-600">Non-Vegetarian</p>
-                </div>
-                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                  <span className="text-red-600">🍖</span>
+
+              {/* Out of Stock */}
+              <div className="p-4 md:p-6 bg-red-50/5 hover:bg-red-50/30 transition-colors group">
+                <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
+                  <div className="w-10 h-10 bg-red-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] md:text-[10px] font-black text-red-600/80 uppercase tracking-widest">Alert</p>
+                    <p className="text-2xl md:text-3xl font-black text-red-700 tracking-tight">{outOfStockItems}</p>
+                  </div>
                 </div>
               </div>
-            </CardContent>
+
+              {/* Vegetarian */}
+              <div className="p-4 md:p-6 bg-emerald-50/5 hover:bg-emerald-50/30 transition-colors group">
+                <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
+                  <div className="w-10 h-10 bg-emerald-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Leaf className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] md:text-[10px] font-black text-emerald-600/80 uppercase tracking-widest">Veg</p>
+                    <p className="text-2xl md:text-3xl font-black text-emerald-700 tracking-tight">{vegItems}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Non-Vegetarian */}
+              <div className="p-4 md:p-6 bg-orange-50/5 hover:bg-orange-50/30 transition-colors group col-span-2 md:col-span-1">
+                <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
+                  <div className="w-10 h-10 bg-orange-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Flame className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] md:text-[10px] font-black text-orange-600/80 uppercase tracking-widest">Non-Veg</p>
+                    <p className="text-2xl md:text-3xl font-black text-orange-700 tracking-tight">{nonVegItems}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
         </div>
 
         {/* List View */}
-        <MenuListView
-          items={filteredItems}
-          currency={currency}
-          onEdit={handleEditItem}
-          onDelete={handleDeleteItem}
-          onToggleStock={handleToggleStock}
-          onAddNew={() => setShowForm(true)}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          categoryFilter={categoryFilter}
-          onCategoryFilterChange={setCategoryFilter}
-          typeFilter={typeFilter}
-          onTypeFilterChange={setTypeFilter}
-          stockFilter={stockFilter}
-          onStockFilterChange={setStockFilter}
-        />
+        <div className="md:px-0">
+          <MenuListView
+            items={filteredItems}
+            currency={currency}
+            onEdit={handleEditItem}
+            onDelete={handleDeleteItem}
+            onToggleStock={handleToggleStock}
+            onAddNew={() => setShowForm(true)}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            categoryFilter={categoryFilter}
+            onCategoryFilterChange={setCategoryFilter}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            stockFilter={stockFilter}
+            onStockFilterChange={setStockFilter}
+          />
+        </div>
+
+        {/* Mobile Sticky Floating Action Button */}
+        <div className="fixed bottom-6 right-6 md:hidden z-50">
+          <Button 
+            onClick={() => setShowForm(true)} 
+            className="w-14 h-14 rounded-full bg-orange-600 hover:bg-orange-700 text-white shadow-2xl shadow-orange-600/40 border-4 border-white flex items-center justify-center transition-all hover:scale-110 active:scale-90"
+          >
+            <Plus className="w-7 h-7" />
+          </Button>
+        </div>
       </div>
     </TooltipProvider>
   )

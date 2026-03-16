@@ -21,17 +21,17 @@ function Dashboard() {
     switch (activeItem) {
       case 'dashboard':
         return (
-          <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="p-4 md:p-6 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-                <p className="text-gray-600 mt-1">Welcome back! Here's what's happening at your restaurant today.</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 line-clamp-1">Dashboard Overview</h1>
+                <p className="text-sm md:text-base text-gray-600 mt-1">Welcome back! Here&apos;s what&apos;s happening at your restaurant today.</p>
               </div>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <div className="flex gap-2 w-full md:w-auto">
+                <button className="flex-1 md:flex-none px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 shadow-sm transition-all active:scale-95">
                   Quick Order
                 </button>
-                <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                <button className="flex-1 md:flex-none px-4 py-2.5 bg-white text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 shadow-sm transition-all active:scale-95">
                   View Reports
                 </button>
               </div>

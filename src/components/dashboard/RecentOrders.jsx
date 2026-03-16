@@ -75,19 +75,19 @@ export default function RecentOrders() {
             const StatusIcon = status.icon
             
             return (
-              <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+              <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-all gap-3 overflow-hidden">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <span className="text-xs font-bold text-gray-600">{order.table}</span>
+                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-blue-600">{order.table}</span>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{order.customer}</p>
-                    <p className="text-sm text-gray-500">{order.items} items • {order.total}</p>
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 truncate">{order.customer}</p>
+                    <p className="text-xs text-gray-500 truncate">{order.items} items • {order.total}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-500">{order.time}</span>
-                  <Badge className={status.color}>
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-1 sm:mt-0">
+                  <span className="text-[10px] md:text-sm text-gray-500 font-medium">{order.time}</span>
+                  <Badge className={`${status.color} shadow-sm border-none`}>
                     <StatusIcon className="w-3 h-3 mr-1" />
                     {status.label}
                   </Badge>

@@ -21,7 +21,8 @@ import {
   ChevronRight,
   Star,
   Activity,
-  CreditCard
+  CreditCard,
+  PieChart as PieIcon
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -177,7 +178,7 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
 
   const renderOverview = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
@@ -246,13 +247,15 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="p-6">
-            <CardTitle className="text-lg">Customer Growth</CardTitle>
-            <CardDescription className="text-sm">New customers acquired over the last 7 days</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 border-0 shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-gray-50 p-4 md:p-6">
+            <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-teal-600" /> Customer Growth
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">New customers acquired over the last 7 days</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="p-2 md:p-6 h-[250px] md:h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
@@ -273,12 +276,15 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="p-6">
-            <CardTitle className="text-lg">Customer Distribution</CardTitle>
-            <CardDescription className="text-sm">Breakdown by loyalty tier</CardDescription>
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-gray-50 p-4 md:p-6">
+            <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+              <PieIcon className="w-5 h-5 text-blue-600" /> Customer Distribution
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">Breakdown by loyalty tier</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center h-[300px]">
+          <CardContent className="p-4 md:p-6 flex flex-col items-center justify-center">
+            <div className="h-[200px] md:h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -299,7 +305,8 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-            <div className="space-y-2 ml-4">
+            </div>
+            <div className="space-y-2 mt-4">
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-teal-600" /><span className="text-sm">VIP</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /><span className="text-sm">Regular</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-gray-300" /><span className="text-sm">New</span></div>
@@ -310,184 +317,184 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
     </div>
   )
 
-  const renderTable = () => (
-    <Card className="border-0 shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <CardHeader className="border-b bg-gray-50/50 p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
-                <Users className="w-5 h-5 text-gray-600" />
+  const renderDatabase = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <CardHeader className="border-b bg-gray-50/50 p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                  <Users className="w-5 h-5 text-gray-600" />
+              </div>
+              <div>
+                  <CardTitle className="text-lg">Database Registry</CardTitle>
+                  <CardDescription className="text-sm">Search and filter your complete customer list</CardDescription>
+              </div>
             </div>
-            <div>
-                <CardTitle className="text-lg">Database Registry</CardTitle>
-                <CardDescription className="text-sm">Search and filter your complete customer list</CardDescription>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input 
+                  placeholder="Search name or email..." 
+                  className="pl-9 h-10 border-gray-200" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Button variant="outline" className="h-10 border-gray-200 shadow-none">
+                <Download className="w-4 h-4 mr-2" /> Export
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input 
-                placeholder="Search name or email..." 
-                className="pl-9 h-10 border-gray-200" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Button variant="outline" className="h-10 border-gray-200 shadow-none">
-              <Download className="w-4 h-4 mr-2" /> Export
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <Table className="shadow-none border-0">
-        <TableHeader className="shadow-none border-0">
-          <TableRow className="bg-gray-50/30 shadow-none border-0">
-            <TableHead className="shadow-none border-0">Customer</TableHead>
-            <TableHead className="shadow-none border-0">Tier</TableHead>
-            <TableHead className="shadow-none border-0">Engagement</TableHead>
-            <TableHead className="shadow-none border-0">Last Visit</TableHead>
-            <TableHead className="shadow-none border-0">Lifetime Spend</TableHead>
-            <TableHead className="text-right shadow-none border-0">Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="shadow-none border-0">
-          {filteredCustomers.map((customer, idx) => (
-            <TableRow key={idx} className="group hover:bg-gray-50/50 transition-colors shadow-none border-0">
-              <TableCell className="shadow-none border-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-sm">
-                    {customer.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">{customer.name}</div>
-                    <div className="text-xs text-gray-500">{customer.email}</div>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="shadow-none border-0">
-                <Badge 
-                    variant="secondary" 
-                    className={cn(
-                        "font-medium",
-                        customer.tag === 'VIP' ? "bg-amber-100 text-amber-700 border-amber-200" :
-                        customer.tag === 'Regular' ? "bg-blue-100 text-blue-700 border-blue-200" :
-                        "bg-gray-100 text-gray-700 border-gray-200"
-                    )}
-                >
-                  {customer.tag}
-                </Badge>
-              </TableCell>
-              <TableCell className="shadow-none border-0">
-                <div className="flex items-center gap-1.5">
-                  <div className={cn("w-2 h-2 rounded-full", customer.health === 'Healthy' ? "bg-green-500" : "bg-red-400")} />
-                  <span className="text-sm font-medium">{customer.health}</span>
-                </div>
-              </TableCell>
-              <TableCell className="shadow-none border-0">
-                <div className="text-sm font-medium text-gray-900">
-                  {new Date(customer.lastVisit).toLocaleDateString()}
-                </div>
-                <div className="text-[10px] text-gray-400">
-                  {new Date(customer.lastVisit).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </TableCell>
-              <TableCell className="font-bold text-black font-mono shadow-none border-0">
-                ₹{customer.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </TableCell>
-              <TableCell className="text-right shadow-none border-0">
-                <Dialog>
-                    <DialogTrigger asChild className="shadow-none border-0">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-gray-400 group-hover:text-teal-600 group-hover:bg-teal-50"
-                            onClick={() => setSelectedCustomer(customer)}
-                        >
-                            <ChevronRight className="w-5 h-5" />
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl bg-white p-6 shadow-2xl border-0 rounded-2xl">
-                        <DialogHeader className="p-0 border-0 shadow-none">
-                            <DialogTitle className="text-xl font-bold">Customer Profile</DialogTitle>
-                            <DialogDescription className="text-sm">Full history for {customer.name}</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-6 pt-4">
-                            <div className="flex gap-6 pb-6 border-b">
-                                <div className="w-20 h-20 rounded-2xl bg-teal-600 flex items-center justify-center text-3xl font-bold text-white shadow-xl">
-                                    {customer.name.charAt(0)}
+        </CardHeader>
+        <div className="overflow-x-auto">
+          <Table className="shadow-none border-0">
+            <TableHeader className="bg-gray-50/50 shadow-none border-0">
+              <TableRow className="shadow-none border-0">
+                <TableHead className="shadow-none border-0">Customer</TableHead>
+                <TableHead className="shadow-none border-0">Tier</TableHead>
+                <TableHead className="shadow-none border-0">Engagement</TableHead>
+                <TableHead className="shadow-none border-0">Last Visit</TableHead>
+                <TableHead className="shadow-none border-0">Lifetime Spend</TableHead>
+                <TableHead className="text-right shadow-none border-0">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="shadow-none border-0">
+              {filteredCustomers.map((customer, idx) => (
+                <TableRow key={idx} className="group hover:bg-gray-50/50 transition-colors shadow-none border-0">
+                  <TableCell className="shadow-none border-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-sm">
+                        {customer.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-900">{customer.name}</div>
+                        <div className="text-xs text-gray-500">{customer.email}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="shadow-none border-0">
+                    <Badge 
+                        variant="secondary" 
+                        className={cn(
+                            "font-medium",
+                            customer.tag === 'VIP' ? "bg-amber-100 text-amber-700 border-amber-200" :
+                            customer.tag === 'Regular' ? "bg-blue-100 text-blue-700 border-blue-200" :
+                            "bg-gray-100 text-gray-700 border-gray-200"
+                        )}
+                    >
+                      {customer.tag}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="shadow-none border-0">
+                    <div className="flex items-center gap-1.5">
+                      <div className={cn("w-2 h-2 rounded-full", customer.health === 'Healthy' ? "bg-green-500" : "bg-red-400")} />
+                      <span className="text-sm font-medium">{customer.health}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="shadow-none border-0">
+                    <div className="text-sm font-medium text-gray-900">
+                      {new Date(customer.lastVisit).toLocaleDateString()}
+                    </div>
+                    <div className="text-[10px] text-gray-400">
+                      {new Date(customer.lastVisit).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-bold text-black font-mono shadow-none border-0">
+                    ₹{customer.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="text-right shadow-none border-0">
+                    <Dialog>
+                        <DialogTrigger asChild className="shadow-none border-0">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-gray-400 group-hover:text-teal-600 group-hover:bg-teal-50"
+                                onClick={() => setSelectedCustomer(customer)}
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl bg-white p-6 shadow-2xl border-0 rounded-2xl">
+                            <DialogHeader className="p-0 border-0 shadow-none">
+                                <DialogTitle className="text-xl font-bold">Customer Profile</DialogTitle>
+                                <DialogDescription className="text-sm">Full history for {customer.name}</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-6 pt-4">
+                                <div className="flex gap-6 pb-6 border-b">
+                                    <div className="w-20 h-20 rounded-2xl bg-teal-600 flex items-center justify-center text-3xl font-bold text-white shadow-xl">
+                                        {customer.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <h2 className="text-2xl font-bold">{customer.name}</h2>
+                                        <div className="pt-2 flex gap-2">
+                                            <Badge className="bg-teal-600 text-white border-0">{customer.tag} Member</Badge>
+                                            <Badge variant="outline" className="border-green-200 text-green-700">{customer.health}</Badge>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex-1 space-y-1">
-                                    <h2 className="text-2xl font-bold">{customer.name}</h2>
-                                    <div className="pt-2 flex gap-2">
-                                        <Badge className="bg-teal-600 text-white border-0">{customer.tag} Member</Badge>
-                                        <Badge variant="outline" className="border-green-200 text-green-700">{customer.health}</Badge>
+                                
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="p-4 bg-gray-50 rounded-xl space-y-1">
+                                        <p className="text-xs text-gray-500 font-medium tracking-wide">TOTAL SPENT</p>
+                                        <p className="text-xl font-bold">₹{customer.totalSpent.toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl space-y-1">
+                                        <p className="text-xs text-gray-500 font-medium tracking-wide">TOTAL VISITS</p>
+                                        <p className="text-xl font-bold">{customer.visits}</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl space-y-1">
+                                        <p className="text-xs text-gray-500 font-medium tracking-wide">MEMBER SINCE</p>
+                                        <p className="text-xl font-bold text-sm pt-1">{new Date(customer.firstVisit).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-gray-400" /> Recent Activity
+                                    </h4>
+                                    <div className="border rounded-xl divide-y">
+                                        {customer.orders.slice(-3).reverse().map((order, oidx) => (
+                                            <div key={oidx} className="p-4 flex justify-between items-center group/order hover:bg-gray-50 transition-colors">
+                                                <div>
+                                                    <div className="font-medium text-gray-900">Order #{order.id.slice(-6)}</div>
+                                                    <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold">₹{order.total?.toLocaleString() || order.revenue?.toLocaleString()}</div>
+                                                    <Badge variant="outline" className="text-[10px] h-4 mt-1">Dine-In</Badge>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-                                    <p className="text-xs text-gray-500 font-medium tracking-wide">TOTAL SPENT</p>
-                                    <p className="text-xl font-bold">₹{customer.totalSpent.toLocaleString()}</p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-                                    <p className="text-xs text-gray-500 font-medium tracking-wide">TOTAL VISITS</p>
-                                    <p className="text-xl font-bold">{customer.visits}</p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-                                    <p className="text-xs text-gray-500 font-medium tracking-wide">MEMBER SINCE</p>
-                                    <p className="text-xl font-bold text-sm pt-1">{new Date(customer.firstVisit).toLocaleDateString()}</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <h4 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-gray-400" /> Recent Activity
-                                </h4>
-                                <div className="border rounded-xl divide-y">
-                                    {customer.orders.slice(-3).reverse().map((order, oidx) => (
-                                        <div key={oidx} className="p-4 flex justify-between items-center group/order hover:bg-gray-50 transition-colors">
-                                            <div>
-                                                <div className="font-medium text-gray-900">Order #{order.id.slice(-6)}</div>
-                                                <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-bold">₹{order.total?.toLocaleString() || order.revenue?.toLocaleString()}</div>
-                                                <Badge variant="outline" className="text-[10px] h-4 mt-1">Dine-In</Badge>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
+                        </DialogContent>
+                    </Dialog>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </div>
   )
-
-  return (
-    <div className="min-h-screen bg-[#f8fafc] pb-12 w-full">
-      {/* Proper Module Navbar */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 mb-6">
-        <div className="flex items-center justify-between px-8 h-18">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                <span>Dashboard</span>
-                <ChevronRight className="w-3 h-3" />
-                <span className="text-teal-600">Customer Intelligence</span>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900 mt-0.5">Customer CRM</h1>
+  const renderHeader = () => (
+    <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200/50 px-4 md:px-8 py-4 md:py-6 mb-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-widest">
+              <span>Dashboard</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-teal-600">Customer Intelligence</span>
             </div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Customer CRM</h1>
           </div>
           
-          <div className="flex items-center gap-3">
-             <div className="flex -space-x-2 mr-4">
+          <div className="flex flex-wrap items-center gap-3">
+             <div className="hidden sm:flex -space-x-2 mr-2">
                 {customers.slice(0, 3).map((c, i) => (
                     <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-teal-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-1 ring-black/5 leading-none p-0">
                         {c.name.charAt(0)}
@@ -501,13 +508,15 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
              </div>
              <Dialog open={showReport} onOpenChange={setShowReport}>
                 <DialogTrigger asChild>
-                    <Button variant="outline" className="rounded-xl border-gray-200 h-10 px-4 text-sm font-semibold hover:bg-gray-50 shadow-none">
+                    <Button variant="outline" className="rounded-xl border-gray-200 h-10 px-4 text-xs md:text-sm font-semibold hover:bg-gray-50 shadow-none flex-1 md:flex-none">
                         <Download className="w-4 h-4 mr-2" />
                         Report
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-3xl bg-white p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
-                    <div className="bg-teal-600 p-8 text-white">
+                <DialogContent className="max-w-3xl w-[95vw] md:w-full bg-white p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+                    <DialogTitle className="sr-only">Premium Insights Report</DialogTitle>
+                    <DialogDescription className="sr-only">Full database performance and retention analytics report.</DialogDescription>
+                    <div className="bg-teal-600 p-6 md:p-8 text-white">
                         <div className="flex justify-between items-start">
                             <div>
                                 <h2 className="text-3xl font-bold italic tracking-tight">Premium Insights Report</h2>
@@ -568,22 +577,27 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
           </div>
         </div>
       </div>
+    </div>
+  )
 
-      <div className="px-8 space-y-6 relative">
+  return (
+    <div className="min-h-screen bg-[#f8fafc] pb-12 w-full">
+      {renderHeader()}
+      <div className="px-4 md:px-8 space-y-6 relative">
         <Tabs defaultValue="overview" className="w-full shadow-none border-0" onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between mb-6">
-            <TabsList className="bg-white border p-1 h-11 rounded-xl shadow-sm border-gray-100">
-              <TabsTrigger value="overview" className="rounded-lg px-6 data-[state=active]:bg-teal-600 data-[state=active]:text-white shadow-none transition-all">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <TabsList className="bg-white border p-1 h-11 rounded-xl shadow-sm border-gray-100 w-full sm:w-auto overflow-x-auto">
+              <TabsTrigger value="overview" className="flex-1 sm:flex-none rounded-lg px-4 md:px-6 data-[state=active]:bg-teal-600 data-[state=active]:text-white shadow-none transition-all text-xs md:text-sm">
                   <TrendingUp className="w-4 h-4 mr-2" /> Overview
               </TabsTrigger>
-              <TabsTrigger value="database" className="rounded-lg px-6 data-[state=active]:bg-teal-600 data-[state=active]:text-white shadow-none transition-all">
+              <TabsTrigger value="database" className="flex-1 sm:flex-none rounded-lg px-4 md:px-6 data-[state=active]:bg-teal-600 data-[state=active]:text-white shadow-none transition-all text-xs md:text-sm">
                   <Users className="w-4 h-4 mr-2" /> Registry
               </TabsTrigger>
             </TabsList>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <Select value={tierFilter} onValueChange={setTierFilter}>
-                <SelectTrigger className="rounded-xl border-gray-200 hover:bg-gray-50 shadow-none transition-colors w-[140px] h-11 bg-white">
+                <SelectTrigger className="rounded-xl border-gray-200 hover:bg-gray-50 shadow-none transition-colors w-full sm:w-[140px] h-11 bg-white">
                     <div className="flex items-center gap-2">
                         <Filter className="w-4 h-4 text-gray-400" />
                         <SelectValue placeholder="All Tiers" />
@@ -604,7 +618,7 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
           </TabsContent>
 
           <TabsContent value="database" className="shadow-none border-0 focus-visible:outline-none">
-            {renderTable()}
+            {renderDatabase()}
           </TabsContent>
 
         </Tabs>

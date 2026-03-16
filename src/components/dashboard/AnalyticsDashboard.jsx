@@ -163,6 +163,7 @@ export default function AnalyticsDashboard() {
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('7days')
   const [activeTab, setActiveTab] = useState('overview')
+  const [isChartReady, setIsChartReady] = useState(false)
   
   // Custom Date Range State
   const [customDateRange, setCustomDateRange] = useState({
@@ -229,6 +230,10 @@ export default function AnalyticsDashboard() {
     if (savedItems) {
       setMenuItems(JSON.parse(savedItems))
     }
+
+    // Small delay to ensure parent dimensions are calculated for Recharts
+    const timer = setTimeout(() => setIsChartReady(true), 100)
+    return () => clearTimeout(timer)
   }, [])
 
   // Memoized calculations for performance
@@ -365,11 +370,11 @@ export default function AnalyticsDashboard() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="menu">Menu Performance</TabsTrigger>
-          <TabsTrigger value="sales">Sales Analytics</TabsTrigger>
-          <TabsTrigger value="customers">Customer Insights</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto lg:h-10 p-1 bg-gray-100/50">
+          <TabsTrigger value="overview" className="py-2.5">Overview</TabsTrigger>
+          <TabsTrigger value="menu" className="py-2.5">Menu Performance</TabsTrigger>
+          <TabsTrigger value="sales" className="py-2.5">Sales Analytics</TabsTrigger>
+          <TabsTrigger value="customers" className="py-2.5">Customer Insights</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -483,50 +488,56 @@ export default function AnalyticsDashboard() {
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="h-[350px] w-full min-h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%" minHeight={350}>
-                    <AreaChart data={revenueTrend}>
-                      <defs>
-                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: '#64748b', fontSize: 12 }}
-                        dy={10}
-                      />
-                      <YAxis 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: '#64748b', fontSize: 12 }}
-                        tickFormatter={(value) => `₹${value}`}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          borderRadius: '12px', 
-                          border: 'none', 
-                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                          backgroundColor: '#fff'
-                        }}
-                        formatter={(value) => [formatCurrency(value), 'Revenue']}
-                        labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="revenue" 
-                        stroke="#10b981" 
-                        strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorRevenue)" 
-                        animationDuration={1500}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="h-[350px] w-full min-h-[350px] relative">
+                  {isChartReady ? (
+                    <ResponsiveContainer width="100%" height="100%" minHeight={350} debounce={50}>
+                      <AreaChart data={revenueTrend}>
+                        <defs>
+                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#64748b', fontSize: 12 }}
+                          dy={10}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#64748b', fontSize: 12 }}
+                          tickFormatter={(value) => `₹${value}`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            borderRadius: '12px', 
+                            border: 'none', 
+                            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                            backgroundColor: '#fff'
+                          }}
+                          formatter={(value) => [formatCurrency(value), 'Revenue']}
+                          labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="revenue" 
+                          stroke="#10b981" 
+                          strokeWidth={3}
+                          fillOpacity={1} 
+                          fill="url(#colorRevenue)" 
+                          animationDuration={1500}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-50/50 rounded-lg animate-pulse">
+                      <TrendingUp className="w-8 h-8 text-gray-200" />
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

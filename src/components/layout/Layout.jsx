@@ -6,7 +6,7 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-x-hidden">
       <Sidebar 
         activeItem={activeItem}
         setActiveItem={setActiveItem}
@@ -15,6 +15,8 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
           currency={currency}
           onCurrencyChange={onCurrencyChange}
         />

@@ -16,7 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 
-const menuItems = [
+export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
   { icon: ChefHat, label: 'Menu Management', id: 'menu', route: '/dashboard' },
   { icon: QrCode, label: 'QR Codes', id: 'qr-codes', route: '/dashboard' },
@@ -26,7 +26,7 @@ const menuItems = [
   { icon: Users, label: 'Customers', id: 'customers', route: '/dashboard' },
 ]
 
-const supportItems = [
+export const supportItems = [
   { icon: HelpCircle, label: 'Help & Support', id: 'help', route: '/dashboard' },
   { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' },
 ]
@@ -39,7 +39,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     navigate(item.route)
   }
   return (
-    <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col`}>
+    <div className={`hidden lg:flex bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col`}>
       {/* Logo */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
