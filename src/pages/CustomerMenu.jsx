@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/navbar'
 import { TrackOrderButton } from '@/components/ui/track-order-button'
 import { formatPrice } from '@/components/ui/currency-selector'
-import { trackMenuVisit } from '@/components/menu/MenuAnalytics'
+import { trackMenuVisit, trackItemView } from '@/components/menu/MenuAnalytics'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
 import MenuService from '@/services/menuService'
@@ -232,6 +232,9 @@ export default function CustomerMenu() {
   }, [filteredItems])
 
   const addToCart = (item) => {
+    // Track item view when added to cart
+    trackItemView(item._id)
+
     const existing = cart.find(i => i._id === item._id)
     if (existing) {
       setCart(cart.map(i => i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i))

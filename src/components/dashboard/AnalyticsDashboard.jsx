@@ -46,6 +46,20 @@ const loadAnalytics = () => {
     const savedRevenue = localStorage.getItem('totalRevenue')
     const savedOrderHistory = localStorage.getItem('orderHistory')
     
+    const parsedMenuAnalytics = saved ? JSON.parse(saved) : {}
+    const today = new Date().toLocaleDateString('en-CA')
+    const lastDate = parsedMenuAnalytics.lastUpdated ? new Date(parsedMenuAnalytics.lastUpdated).toLocaleDateString('en-CA') : today
+    
+    if (today !== lastDate) {
+      parsedMenuAnalytics.itemViews = {}
+      parsedMenuAnalytics.itemOrders = {}
+      parsedMenuAnalytics.totalViews = 0
+      parsedMenuAnalytics.totalOrders = 0
+      parsedMenuAnalytics.lastUpdated = new Date().toISOString()
+      localStorage.setItem('menuAnalytics', JSON.stringify(parsedMenuAnalytics))
+      window.dispatchEvent(new Event('storage'))
+    }
+    
     return {
       itemViews: {},
       itemOrders: {},
@@ -54,7 +68,7 @@ const loadAnalytics = () => {
       totalRevenue: parseFloat(savedRevenue) || 0,
       orderHistory: savedOrderHistory ? JSON.parse(savedOrderHistory) : [],
       lastUpdated: new Date().toISOString(),
-      ...(saved ? JSON.parse(saved) : {})
+      ...parsedMenuAnalytics
     }
   } catch (error) {
     console.error('Error loading analytics:', error)
@@ -149,6 +163,13 @@ export default function AnalyticsDashboard() {
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('7days')
   const [activeTab, setActiveTab] = useState('overview')
+  
+  // Custom Date Range State
+  const [customDateRange, setCustomDateRange] = useState({
+    startDate: '',
+    endDate: ''
+  })
+
   const [realtimeData, setRealtimeData] = useState({
     totalViews: 0,
     totalOrders: 0,
@@ -163,20 +184,30 @@ export default function AnalyticsDashboard() {
       const currentAnalytics = loadAnalytics()
       const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
       const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const todayStr = new Date().toLocaleDateString('en-CA')
       
-      const totalRevenue = currentAnalytics.totalRevenue || 0
-      const totalOrders = currentAnalytics.orderHistory?.length || 0
+      // Calculate today's orders and revenue from orderHistory
+      const todayOrdersArr = (currentAnalytics.orderHistory || []).filter(order => 
+        order.completedAt && order.completedAt.split('T')[0] === todayStr
+      )
+      
+      const totalRevenueToday = todayOrdersArr.reduce((sum, order) => sum + (order.revenue || 0), 0)
+      const totalOrdersToday = todayOrdersArr.length
+      
       const totalViews = currentAnalytics.totalViews || 0
       const activeUsers = tables.filter(t => t.status === 'occupied').length
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+      const avgOrderValueToday = totalOrdersToday > 0 ? totalRevenueToday / totalOrdersToday : 0
       
       setRealtimeData({
         totalViews,
-        totalOrders,
-        totalRevenue,
+        totalOrders: totalOrdersToday,
+        totalRevenue: totalRevenueToday,
         activeUsers,
-        avgOrderValue
+        avgOrderValue: avgOrderValueToday
       })
+
+      // Ensure full analytics state updates in real-time for detailed view/order lists
+      setAnalytics(currentAnalytics)
     }
 
     updateRealtimeData()
@@ -268,6 +299,37 @@ export default function AnalyticsDashboard() {
     return categoryStats
   }
 
+  // Custom Date Range Calculation
+  const customRangeStats = useMemo(() => {
+    if (!customDateRange.startDate && !customDateRange.endDate) {
+      return { revenue: 0, orders: 0, avgValue: 0 }
+    }
+
+    const orderHistory = analytics.orderHistory || []
+    
+    // Convert inputs to local start/end of day for accurate comparison
+    const startObj = customDateRange.startDate ? new Date(customDateRange.startDate) : new Date(0)
+    if (customDateRange.startDate) startObj.setHours(0, 0, 0, 0)
+    
+    const endObj = customDateRange.endDate ? new Date(customDateRange.endDate) : new Date()
+    if (customDateRange.endDate) endObj.setHours(23, 59, 59, 999)
+
+    const filteredOrders = orderHistory.filter(order => {
+      if (!order.completedAt) return false
+      const orderDate = new Date(order.completedAt)
+      return orderDate >= startObj && orderDate <= endObj
+    })
+
+    const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.revenue || 0), 0)
+    const totalOrders = filteredOrders.length
+
+    return {
+      revenue: totalRevenue,
+      orders: totalOrders,
+      avgValue: totalOrders > 0 ? totalRevenue / totalOrders : 0
+    }
+  }, [analytics.orderHistory, customDateRange])
+
   const topViewed = getTopItems('views')
   const topOrdered = getTopItems('orders')
   const categoryStats = getCategoryStats()
@@ -298,10 +360,6 @@ export default function AnalyticsDashboard() {
               <SelectItem value="all">All Time (Monthly)</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </Button>
         </div>
       </div>
 
@@ -425,8 +483,8 @@ export default function AnalyticsDashboard() {
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="h-[350px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[350px] w-full min-h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={350}>
                     <AreaChart data={revenueTrend}>
                       <defs>
                         <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -556,44 +614,154 @@ export default function AnalyticsDashboard() {
         {/* Menu Performance Tab */}
         <TabsContent value="menu" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle>Top Viewed Items</CardTitle>
+            <Card className="border-0 shadow-sm overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-b pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                  <Eye className="w-5 h-5 text-blue-600" />
+                  Top Viewed Items
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="p-0">
+                <div className="divide-y">
                   {topViewed.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-700">{item.item?.name}</span>
-                        <Badge variant="secondary">{item.count} views</Badge>
+                    <div key={index} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-700">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800">{item.item?.name}</p>
+                          <p className="text-xs text-slate-500">{item.item?.category}</p>
+                        </div>
                       </div>
-                      <span className="text-sm text-gray-500">{item.percentage}%</span>
+                      <div className="text-right flex items-center gap-4">
+                        <div>
+                          <p className="font-bold text-slate-800">{item.count} <span className="text-xs font-normal text-slate-500">views</span></p>
+                          <p className="text-[10px] font-medium text-slate-400 capitalize">{item.percentage}% of total</p>
+                        </div>
+                        <Progress value={Number(item.percentage)} className="w-16 h-1.5 [&>div]:bg-blue-500" />
+                      </div>
                     </div>
                   ))}
+                  {topViewed.length === 0 && (
+                    <div className="p-8 text-center text-slate-500">
+                      <Eye className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm font-medium">No menu items viewed yet</p>
+                      <p className="text-xs text-slate-400 mt-1">Data will appear here when customers browse the menu</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle>Top Ordered Items</CardTitle>
+            <Card className="border-0 shadow-sm overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-b pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                  <ShoppingCart className="w-5 h-5 text-green-600" />
+                  Top Ordered Items
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="p-0">
+                <div className="divide-y">
                   {topOrdered.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-700">{item.item?.name}</span>
-                        <Badge variant="secondary">{item.count} orders</Badge>
+                    <div key={index} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-sm font-bold text-green-700">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800">{item.item?.name}</p>
+                          <p className="text-xs text-slate-500">{item.item?.category}</p>
+                        </div>
                       </div>
-                      <span className="text-sm text-gray-500">{item.percentage}%</span>
+                      <div className="text-right flex items-center gap-4">
+                        <div>
+                          <p className="font-bold text-slate-800">{item.count} <span className="text-xs font-normal text-slate-500">orders</span></p>
+                          <p className="text-[10px] font-medium text-slate-400 capitalize">{item.percentage}% of total</p>
+                        </div>
+                        <Progress value={Number(item.percentage)} className="w-16 h-1.5 [&>div]:bg-green-500" />
+                      </div>
                     </div>
                   ))}
+                  {topOrdered.length === 0 && (
+                    <div className="p-8 text-center text-slate-500">
+                      <ShoppingCart className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm font-medium">No orders recorded yet</p>
+                      <p className="text-xs text-slate-400 mt-1">Data will appear here once items are ordered</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Category Performance Detail */}
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                <Star className="w-5 h-5 text-orange-500" />
+                Category Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {Object.entries(categoryStats).map(([category, stats], index) => {
+                  const viewsPercentage = analytics.totalViews > 0 ? (stats.views / analytics.totalViews) * 100 : 0;
+                  const ordersPercentage = analytics.totalOrders > 0 ? (stats.orders / analytics.totalOrders) * 100 : 0;
+                  
+                  return (
+                    <div key={index} className="p-6 md:p-8 hover:bg-slate-50 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        
+                        {/* Category Info */}
+                        <div className="md:w-1/4">
+                          <h4 className="text-lg font-bold text-slate-800 mb-1">{category}</h4>
+                          <p className="text-sm font-medium text-slate-500">{stats.items} Items</p>
+                          <div className="mt-4">
+                            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Average Price</p>
+                            <p className="text-xl font-bold text-slate-700">{formatCurrency(stats.avgPrice)}</p>
+                          </div>
+                        </div>
+
+                        {/* Views Progress */}
+                        <div className="md:w-1/3 space-y-3">
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-0.5">Views</p>
+                              <p className="text-2xl font-black text-slate-800 leading-none">{stats.views}</p>
+                            </div>
+                            <span className="text-sm font-bold text-blue-500">{viewsPercentage.toFixed(1)}%</span>
+                          </div>
+                          <Progress value={viewsPercentage} className="h-2.5 bg-slate-100 [&>div]:bg-gradient-to-r [&>div]:from-blue-400 [&>div]:to-blue-600" />
+                        </div>
+
+                        {/* Orders Progress */}
+                        <div className="md:w-1/3 space-y-3">
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-0.5">Orders</p>
+                              <p className="text-2xl font-black text-slate-800 leading-none">{stats.orders}</p>
+                            </div>
+                            <span className="text-sm font-bold text-green-500">{ordersPercentage.toFixed(1)}%</span>
+                          </div>
+                          <Progress value={ordersPercentage} className="h-2.5 bg-slate-100 [&>div]:bg-gradient-to-r [&>div]:from-green-400 [&>div]:to-green-600" />
+                        </div>
+
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {Object.keys(categoryStats).length === 0 && (
+                  <div className="p-12 text-center text-slate-500">
+                    <PieChart className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-base font-semibold">No category data available</p>
+                    <p className="text-sm text-slate-400 mt-1">Categories will populate automatically based on your active menu</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Sales Analytics Tab */}
@@ -625,6 +793,91 @@ export default function AnalyticsDashboard() {
                   <div className="text-2xl font-black text-purple-700">{formatCurrency(realtimeData.avgOrderValue)}</div>
                   <div className="text-xs font-bold uppercase tracking-wider text-purple-600/70">Avg Order Value</div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Custom Date Range Earnings */}
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="border-b bg-slate-50/50">
+              <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                <Calendar className="w-5 h-5 text-indigo-600" />
+                Custom Range Earnings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex flex-col lg:flex-row gap-8 lg:items-center">
+                
+                {/* Date Selectors */}
+                <div className="lg:w-1/3 space-y-4">
+                  <div>
+                    <Label htmlFor="start-date" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Start Date</Label>
+                    <Input 
+                      id="start-date" 
+                      type="date" 
+                      className="bg-slate-50 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 transition-colors"
+                      value={customDateRange.startDate}
+                      onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="end-date" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">End Date</Label>
+                    <Input 
+                      id="end-date" 
+                      type="date" 
+                      className="bg-slate-50 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 transition-colors"
+                      value={customDateRange.endDate}
+                      onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                      min={customDateRange.startDate}
+                    />
+                  </div>
+                  <div className="pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-slate-600 border-slate-200 hover:bg-slate-100"
+                      onClick={() => setCustomDateRange({ startDate: '', endDate: '' })}
+                      disabled={!customDateRange.startDate && !customDateRange.endDate}
+                    >
+                      Clear Range
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Results Display */}
+                <div className="lg:w-2/3 grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
+                  {/* Revenue Result */}
+                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <DollarSign className="w-16 h-16 text-indigo-600" />
+                    </div>
+                    <p className="text-sm font-semibold text-indigo-800/70 uppercase tracking-wider mb-2">Earnings</p>
+                    <p className="text-3xl font-black text-indigo-700 relative z-10 break-words">
+                      {formatCurrency(customRangeStats.revenue)}
+                    </p>
+                    {(customDateRange.startDate || customDateRange.endDate) ? (
+                      <p className="text-xs text-indigo-600/70 font-medium mt-2">In selected period</p>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-medium mt-2">Select dates to calculate</p>
+                    )}
+                  </div>
+
+                  {/* Orders Result */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 relative overflow-hidden">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Orders</p>
+                    <p className="text-3xl font-black text-slate-800">
+                      {customRangeStats.orders}
+                    </p>
+                  </div>
+
+                  {/* Avg Value Result */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 relative overflow-hidden">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Avg Value</p>
+                    <p className="text-3xl font-black text-slate-800 break-words">
+                      {formatCurrency(customRangeStats.avgValue)}
+                    </p>
+                  </div>
+                </div>
+
               </div>
             </CardContent>
           </Card>

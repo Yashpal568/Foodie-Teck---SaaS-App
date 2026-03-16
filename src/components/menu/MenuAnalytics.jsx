@@ -10,13 +10,30 @@ import { Progress } from '@/components/ui/progress'
 const loadAnalytics = () => {
   try {
     const saved = localStorage.getItem('menuAnalytics')
-    return saved ? JSON.parse(saved) : {
+    const parsed = saved ? JSON.parse(saved) : {
       itemViews: {},
       itemOrders: {},
       totalViews: 0,
       totalOrders: 0,
       lastUpdated: new Date().toISOString()
     }
+    
+    // Check if it needs a daily reset
+    const today = new Date().toLocaleDateString('en-CA')
+    const lastDate = parsed.lastUpdated ? new Date(parsed.lastUpdated).toLocaleDateString('en-CA') : today
+    
+    if (today !== lastDate) {
+      parsed.itemViews = {}
+      parsed.itemOrders = {}
+      parsed.totalViews = 0
+      parsed.totalOrders = 0
+      parsed.lastUpdated = new Date().toISOString()
+      localStorage.setItem('menuAnalytics', JSON.stringify(parsed))
+      // Dispatch storage event so other tabs/components update
+      window.dispatchEvent(new Event('storage'))
+    }
+    
+    return parsed
   } catch (error) {
     console.error('Error loading analytics:', error)
     return {
@@ -77,7 +94,7 @@ export const trackItemOrder = (itemId) => {
 
 export default function MenuAnalytics({ menuItems }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [analytics, setAnalytics] = useState({})
+  const [analytics, setAnalytics] = useState({ itemViews: {}, itemOrders: {}, totalViews: 0, totalOrders: 0 })
 
   useEffect(() => {
     setAnalytics(loadAnalytics())
