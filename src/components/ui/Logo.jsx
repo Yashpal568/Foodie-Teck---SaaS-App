@@ -38,13 +38,15 @@ export const LogoText = ({ className = '' }) => (
 
 export const Logo = ({ className = '', showText = true, subtitle = '', iconSize = 36 }) => {
   return (
-    <div className={cn("flex items-center gap-3", className)}>
-      <LogoIcon size={iconSize} />
+    <div className={cn("flex items-center gap-2.5 sm:gap-3", className)}>
+      <div className="flex-shrink-0">
+        <LogoIcon size={iconSize} className="w-[28px] h-[28px] sm:w-[32px] sm:h-[32px] lg:w-[36px] lg:h-[36px]" />
+      </div>
       {showText && (
         <div className="flex flex-col">
-          <LogoText className="text-2xl leading-tight" />
+          <LogoText className="text-xl sm:text-2xl leading-tight" />
           {subtitle && (
-            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5 leading-none">
+            <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0 sm:mt-0.5 leading-none">
               {subtitle}
             </span>
           )}

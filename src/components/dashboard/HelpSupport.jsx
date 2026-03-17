@@ -124,7 +124,7 @@ const faqs = [
 
 const quickLinks = [
   { icon: BookOpen, title: 'Documentation', desc: 'Complete guides and tutorials', color: 'blue', badge: 'Docs', action: 'docs' },
-  { icon: Youtube, title: 'Video Tutorials', desc: 'Step-by-step visual guides', color: 'red', badge: 'New', action: null },
+  { icon: Youtube, title: 'Video Tutorials', desc: 'Step-by-step visual guides', color: 'red', badge: 'New', action: 'tutorials' },
   { icon: FileText, title: 'Release Notes', desc: 'Latest updates and changes', color: 'purple', badge: 'v2.1', action: 'releases' },
 ]
 

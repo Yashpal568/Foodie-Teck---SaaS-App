@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { 
   FileText, Sparkles, ChevronRight, ArrowLeft, 
   Home, Menu, Zap, Shield, Rocket, Package,
-  Star, Clock, Terminal, CheckCircle2, AlertCircle
+  Star, Clock, Terminal, CheckCircle2, AlertCircle,
+  BookOpen, HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,24 +16,25 @@ import MobileNavbar from '../layout/MobileNavbar'
 
 const releases = [
   {
-    version: 'v2.1.0',
-    date: 'March 15, 2026',
-    tag: 'Production',
-    title: 'The "Precision" Update',
+    version: 'v1.1.0',
+    date: 'March 17, 2026',
+    tag: 'Latest',
+    title: 'Support Hub & Docs Overhaul',
     highlights: [
-      { type: 'feature', icon: Sparkles, title: 'Real-time Analytics', desc: 'New live dashboard metrics for monitoring peak restaurant hours.' },
-      { type: 'fix', icon: Shield, title: 'Security Patch', desc: 'Enhanced CSRF protection and session validation logic.' },
-      { type: 'improvement', icon: Zap, title: 'QR Engine v2', desc: 'Faster QR generation with support for high-resolution vector exports.' }
+      { type: 'feature', icon: Sparkles, title: 'Intelligent Help Center', desc: 'New Help & Support hub with live search, FAQ system, and ticket tracking.' },
+      { type: 'improvement', icon: Zap, title: 'Premium Mobile Nav', desc: 'Redesigned Documentation mobile navbar with glassmorphism and centered branding.' },
+      { type: 'feature', icon: BookOpen, title: 'Responsive Docs', desc: 'Complete documentation redesign with vertical pagination and mobile-optimized layouts.' }
     ]
   },
   {
-    version: 'v2.0.5',
-    date: 'February 28, 2026',
+    version: 'v1.0.5',
+    date: 'March 10, 2026',
     tag: 'Stable',
-    title: 'Mobile Optimization',
+    title: 'Analytics & Management',
     highlights: [
-      { type: 'feature', icon: Rocket, title: 'Progressive Web App', desc: 'Install Servora on your homescreen for a native mobile experience.' },
-      { type: 'improvement', icon: Package, title: 'Menu Previews', desc: 'Interactive dish previews for customers before they order.' }
+      { type: 'feature', icon: Rocket, title: 'Real-time Analytics', desc: 'Enhanced dashboard with live revenue tracking and order volume charts.' },
+      { type: 'improvement', icon: Shield, title: 'Customer CRM', desc: 'New customer management section for tracking dining history and loyalty.' },
+      { type: 'fix', icon: Package, title: 'Layout Refactor', desc: 'Standardized dashboard layout for full-screen compatibility across all browsers.' }
     ]
   }
 ]
@@ -43,16 +45,21 @@ export default function ReleaseNotes({ activeItem, setActiveItem, navigate }) {
   return (
     <div className="h-full flex flex-col lg:flex-row bg-white overflow-hidden relative">
       {/* Mobile Navbar */}
-      <div className="lg:hidden sticky top-0 z-[60] w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 h-16 flex items-center justify-between gap-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-[60] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="text-slate-600 hover:bg-slate-100 rounded-xl" onClick={() => setMobileMenuOpen(true)}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="w-10 h-10 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" 
+            onClick={() => setMobileMenuOpen(true)}
+          >
             <Menu className="w-5 h-5" />
           </Button>
           <Logo subtitle="Releases" iconSize={26} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <NotificationDropdown />
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-[10px] shadow-lg shadow-blue-200">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-[10px] shadow-lg shadow-blue-500/20">
             JD
           </div>
         </div>
@@ -77,31 +84,31 @@ export default function ReleaseNotes({ activeItem, setActiveItem, navigate }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Desktop Header */}
-        <header className="hidden lg:flex h-16 flex-shrink-0 bg-white border-b border-slate-200 px-6 items-center justify-between sticky top-0 z-40 shadow-sm">
-          <div className="flex items-center gap-4">
+        <header className="hidden lg:flex h-20 flex-shrink-0 bg-white/50 backdrop-blur-sm border-b border-slate-100 px-8 items-center justify-between sticky top-0 z-40">
+          <div className="flex items-center gap-5">
              <Button 
               variant="outline" 
               onClick={() => setActiveItem('dashboard')}
-              className="h-10 px-5 bg-white border-slate-200 text-slate-700 font-bold rounded-2xl shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-50 hover:text-blue-600 transition-all duration-300 group flex items-center gap-3"
+              className="h-11 px-6 bg-white border-slate-200 text-slate-700 font-black rounded-2xl shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 hover:border-blue-100 hover:text-blue-600 transition-all duration-300 group flex items-center gap-3"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span>Dashboard</span>
+              <span>Back to Dashboard</span>
             </Button>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-100">
-               <Star className="w-3.5 h-3.5 text-emerald-600" />
-               <span className="text-[10px] font-black text-emerald-700 uppercase tracking-tight">Latest: v2.1.0</span>
+            <Separator orientation="vertical" className="h-8 opacity-50" />
+            <div className="flex items-center gap-2 px-4 py-1.5 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
+               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+               <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Live Now: v1.1.0</span>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <NotificationDropdown />
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-xs shadow-lg">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-xs shadow-xl shadow-blue-500/20 ring-4 ring-white">
               JD
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/50 pb-24 lg:pb-0">
+        <main className="flex-1 overflow-y-auto bg-slate-50/50 pb-24 lg:pb-12 pt-16 lg:pt-0">
           <div className="max-w-4xl mx-auto px-6 py-12">
             <div className="mb-16 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-2xl mb-6">
