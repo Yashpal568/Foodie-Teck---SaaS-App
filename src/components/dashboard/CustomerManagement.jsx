@@ -26,6 +26,7 @@ import {
   RefreshCw
 } from 'lucide-react'
 import CustomerMobileNavbar from './CustomerMobileNavbar'
+import PremiumLock from './PremiumLock'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -73,7 +74,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigate }) => {
-  const isPremium = true // TEMPORARILY DISABLED LOCK FOR DEVELOPMENT REVIEW
+  const isPremium = plan === 'Premium'
   const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -600,7 +601,13 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
   )
 
   return (
-    <div className="min-h-screen bg-gray-50/50 w-full pb-32 lg:pb-12">
+    <div className="min-h-screen bg-gray-50/50 w-full pb-32 lg:pb-12 relative overflow-hidden">
+      {!isPremium && <PremiumLock navigate={navigate} setActiveItem={setActiveItem} />}
+      
+      <div className={cn(
+        "transition-all duration-700",
+        !isPremium && "blur-xl grayscale-[0.5] opacity-50 pointer-events-none scale-[0.98]"
+      )}>
       <CustomerMobileNavbar 
         activeItem={activeItem}
         setActiveItem={setActiveItem}
@@ -660,6 +667,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
           </TabsContent>
 
         </Tabs>
+      </div>
       </div>
     </div>
   )
