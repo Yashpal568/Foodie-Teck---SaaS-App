@@ -36,7 +36,7 @@ const NotificationDropdown = () => {
   const formatTime = (timestamp) => {
     const date = new Date(timestamp)
     const now = new Date()
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60))
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
 
     if (diffInMinutes < 1) return 'Just now'
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`
@@ -51,14 +51,14 @@ const NotificationDropdown = () => {
         variant="outline"
         size="sm"
         onClick={toggleNotifications}
-        className="relative h-9"
+        className="relative h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all font-semibold"
       >
-        <Bell className="w-4 h-4 mr-2" />
-        Notifications
+        <Bell className="w-4 h-4 sm:mr-2" />
+        <span className="hidden sm:inline">Notifications</span>
         {unreadCount > 0 && (
           <Badge 
             variant="destructive" 
-            className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+            className="absolute -top-1.5 -right-1.5 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-[10px] sm:text-xs shadow-lg shadow-red-600/30"
           >
             {unreadCount > 99 ? '99+' : unreadCount}
           </Badge>

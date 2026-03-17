@@ -15,12 +15,14 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
         setIsCollapsed={setIsCollapsed}
       />
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <Navbar 
-          activeItem={activeItem}
-          setActiveItem={setActiveItem}
-          currency={currency}
-          onCurrencyChange={onCurrencyChange}
-        />
+        <div className={activeItem === 'orders' ? 'hidden lg:block' : 'block'}>
+          <Navbar 
+            activeItem={activeItem}
+            setActiveItem={setActiveItem}
+            currency={currency}
+            onCurrencyChange={onCurrencyChange}
+          />
+        </div>
         <main className="flex-1 overflow-auto pb-20 lg:pb-0">
           {children}
         </main>

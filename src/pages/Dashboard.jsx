@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/layout/Layout'
 import OverviewCards from '../components/dashboard/OverviewCards'
 import RecentOrders from '../components/dashboard/RecentOrders'
@@ -13,6 +14,7 @@ import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 
 function Dashboard() {
+  const navigate = useNavigate()
   const [activeItem, setActiveItem] = useState('dashboard')
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
   const { profile } = useRestaurantProfile('restaurant-123')
@@ -57,7 +59,12 @@ function Dashboard() {
         return <MenuManagement currency={currency} onCurrencyChange={setCurrency} />
       
       case 'orders':
-        return <OrderManagement restaurantId="restaurant-123" />
+        return <OrderManagement 
+          restaurantId="restaurant-123" 
+          activeItem={activeItem} 
+          setActiveItem={setActiveItem} 
+          navigate={navigate}
+        />
       
       case 'tables':
         return (
