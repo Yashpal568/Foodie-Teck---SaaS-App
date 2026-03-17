@@ -10,6 +10,8 @@ import QRCodeManagement from '../components/dashboard/QRCodeManagement'
 import OrderManagement from '../components/dashboard/OrderManagement'
 import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard'
 import CustomerManagement from '../components/dashboard/CustomerManagement'
+import HelpSupport from '../components/dashboard/HelpSupport'
+import Documentation from '../components/dashboard/Documentation'
 import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
 import DashboardMobileNavbar from '../components/dashboard/DashboardMobileNavbar'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
@@ -126,6 +128,20 @@ function Dashboard() {
           navigate={navigate}
         />
       
+      case 'help':
+        return <HelpSupport 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+        />
+      
+      case 'docs':
+        return <Documentation 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+        />
+      
       case 'settings':
         return (
           <div className="p-6">
@@ -152,6 +168,16 @@ function Dashboard() {
           </div>
         )
     }
+  }
+
+  if (activeItem === 'docs') {
+    return (
+      <Documentation 
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        navigate={navigate}
+      />
+    )
   }
 
   return (

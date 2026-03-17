@@ -8,14 +8,16 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-x-hidden">
-      <Sidebar 
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        isCollapsed={isCollapsed}
-        setIsCollapsed={setIsCollapsed}
-      />
+      {activeItem !== 'docs' && (
+        <Sidebar 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          isCollapsed={isCollapsed}
+          setIsCollapsed={setIsCollapsed}
+        />
+      )}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <div className={(activeItem === 'dashboard' || activeItem === 'orders' || activeItem === 'menu' || activeItem === 'analytics' || activeItem === 'tables' || activeItem === 'customers' || activeItem === 'qr-codes') ? 'hidden lg:block' : 'block'}>
+        <div className={(activeItem === 'dashboard' || activeItem === 'orders' || activeItem === 'menu' || activeItem === 'analytics' || activeItem === 'tables' || activeItem === 'customers' || activeItem === 'qr-codes' || activeItem === 'help' || activeItem === 'docs') ? 'hidden lg:block' : 'block'}>
           <Navbar 
             activeItem={activeItem}
             setActiveItem={setActiveItem}
