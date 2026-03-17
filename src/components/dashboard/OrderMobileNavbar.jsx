@@ -1,4 +1,4 @@
-import { Menu, RefreshCw, Calendar, ShoppingBag, ChefHat } from 'lucide-react'
+import { Menu, RefreshCw, Calendar, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet"
 import { Separator } from '@/components/ui/separator'
 import { menuItems, supportItems } from '../layout/Sidebar'
+import Logo from '@/components/ui/Logo'
 
 export default function OrderMobileNavbar({ onRefresh, onShowHistory, activeItem, setActiveItem, navigate }) {
   
@@ -32,15 +33,7 @@ export default function OrderMobileNavbar({ onRefresh, onShowHistory, activeItem
           <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
           <div className="flex flex-col h-full">
             <div className="p-6 border-b border-gray-100 mb-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <ChefHat className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-800">FoodieTech</h1>
-                  <p className="text-xs text-gray-500 font-medium">Studio Management</p>
-                </div>
-              </div>
+              <Logo subtitle="Studio Management" />
             </div>
 
             <nav className="flex-1 p-4 overflow-y-auto">

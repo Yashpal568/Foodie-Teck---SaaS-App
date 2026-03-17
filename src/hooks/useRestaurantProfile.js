@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
  */
 export const useRestaurantProfile = (restaurantId) => {
     const [profile, setProfile] = useState({
-        name: 'FoodieTech',
+        name: 'Servora',
         address: 'Main Square Mall, Floor 2',
         phone: '+91 98765 43210',
         description: 'Premium Dining Experience',

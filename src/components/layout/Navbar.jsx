@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import CurrencySelector from '@/components/ui/currency-selector'
+import NotificationDropdown from '@/components/ui/NotificationDropdown'
+import Logo from '@/components/ui/Logo'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,15 +49,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
               <div className="flex flex-col h-full">
                 {/* Logo in Drawer */}
                 <div className="p-6 border-b border-gray-100 mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                      <ChefHat className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-bold text-gray-800">FoodieTech</h1>
-                      <p className="text-xs text-gray-500">Restaurant Dashboard</p>
-                    </div>
-                  </div>
+                  <Logo subtitle="Restaurant Dashboard" />
                 </div>
 
                 {/* Navigation Links in Drawer */}
@@ -129,15 +123,8 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
             />
           </div>
 
-          {/* Notifications */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-600 hover:text-gray-800 relative h-9 w-9"
-          >
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </Button>
+          {/* Notifications Center */}
+          <NotificationDropdown />
 
           {/* User Profile */}
           <DropdownMenu>

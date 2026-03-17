@@ -16,6 +16,7 @@ import {
   NavbarMenu, 
   NavbarMenuItem 
 } from '@/components/ui/navbar'
+import Logo from '@/components/ui/Logo'
 import { TrackOrderButton } from '@/components/ui/track-order-button'
 import { formatPrice } from '@/components/ui/currency-selector'
 import { trackMenuVisit, trackItemView } from '@/components/menu/MenuAnalytics'
@@ -24,7 +25,7 @@ import OrderTracking from '@/components/order/OrderTracking'
 import MenuService from '@/services/menuService'
 
 const restaurantData = {
-  name: "FoodieTech",
+  name: "Servora",
   rating: 4.8,
   deliveryTime: "15-20 min",
   cuisine: "Multi-Cuisine",
@@ -407,11 +408,7 @@ export default function CustomerMenu() {
 
           {/* Brand - Left Side */}
           <NavbarBrand className="flex-1">
-            <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
-              <Utensils className="h-4 w-4 text-white" />
-            </div>
-            <h1 className="text-lg font-bold text-black hidden md:block">{restaurantData.name}</h1>
-            <h1 className="text-base font-bold text-black md:hidden">{restaurantData.name}</h1>
+            <Logo showText={true} iconSize={28} subtitle="" />
           </NavbarBrand>
 
           {/* Spacer for better spacing */}
@@ -834,7 +831,7 @@ export default function CustomerMenu() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-zinc-600">
                   <Mail className="h-4 w-4" />
-                  <span>info@foodietech.com</span>
+                  <span>info@servora.com</span>
                 </div>
               </div>
             </div>

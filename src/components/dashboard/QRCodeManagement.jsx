@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { QrCode, Download, Plus, Table, Smartphone, Scan, CheckCircle, AlertCircle } from 'lucide-react'
+import { QrCode, Download, Plus, Table, Smartphone, Scan, CheckCircle, AlertCircle, RefreshCw, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,10 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import Sidebar from '../layout/Sidebar'
+import Logo from '@/components/ui/Logo'
+import NotificationDropdown from '@/components/ui/NotificationDropdown'
 
 // Convert blob to base64 data URL
 const blobToBase64 = (blob) => {
@@ -94,12 +98,13 @@ const loadQRCodesFromStorage = (restaurantId) => {
   return []
 }
 
-export default function QRCodeManagement() {
+export default function QRCodeManagement({ activeItem, setActiveItem, navigate }) {
   const [tableCount, setTableCount] = useState(10)
   const [qrCodes, setQrCodes] = useState([])
   const [restaurantId, setRestaurantId] = useState('restaurant-123')
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeTab, setActiveTab] = useState('generate')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Load QR codes from localStorage on component mount
   useEffect(() => {
@@ -217,36 +222,81 @@ export default function QRCodeManagement() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+    <div className="min-h-screen bg-gray-50/50">
+      {/* Mobile Navbar */}
+      <div className="lg:hidden sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <QrCode className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">QR Code Management</h1>
-            <p className="text-gray-600">Generate QR codes for your restaurant tables</p>
-          </div>
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-100 rounded-xl">
+                <Menu className="w-6 h-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 border-none">
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
+              <Sidebar 
+                activeItem={activeItem} 
+                setActiveItem={(item) => {
+                  setActiveItem(item)
+                  setMobileMenuOpen(false)
+                }} 
+                isCollapsed={false}
+                setIsCollapsed={() => {}}
+                isMobile={true}
+              />
+            </SheetContent>
+          </Sheet>
+          <Logo subtitle="QR Codes" />
         </div>
-        
-        <div className="flex gap-2">
-          <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-            {qrCodes.length} Generated
-          </Badge>
-          {qrCodes.length > 0 && (
-            <>
-              <Button onClick={downloadAllQRCodes} variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Download All
-              </Button>
-              <Button onClick={clearQRCodes} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-                Clear All
-              </Button>
-            </>
-          )}
+        <div className="flex items-center gap-1">
+          <NotificationDropdown />
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
+            <span className="text-[10px] font-bold text-blue-700">JD</span>
+          </div>
         </div>
       </div>
+
+      {/* Desktop Section Header */}
+      <div className="hidden lg:block bg-white/80 backdrop-blur-md border-b border-gray-100">
+        <div className="px-4 md:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Header Info */}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-purple-600 uppercase tracking-[0.2em] mb-1">
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Digital Access</span>
+              </div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight leading-none">
+                QR Code Management
+              </h1>
+              <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-sm">
+                Generate and manage QR codes for your restaurant tables.
+              </p>
+            </div>
+
+            {/* Action Tools */}
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <Badge variant="outline" className="h-9 px-3 text-xs font-semibold text-purple-700 border-purple-200 bg-purple-50/50">
+                {qrCodes.length} Generated
+              </Badge>
+              {qrCodes.length > 0 && (
+                <>
+                  <Button onClick={downloadAllQRCodes} variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all">
+                    <Download className="w-4 h-4 mr-2" />
+                    Download All
+                  </Button>
+                  <Button onClick={clearQRCodes} size="sm" className="h-9 px-3 rounded-xl bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 transition-all font-semibold">
+                    Clear All
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-32 lg:pb-8">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -342,7 +392,7 @@ export default function QRCodeManagement() {
                 </div>
               </div>
               
-              <Separator />
+              <Separator className="my-2" />
               
               <Button 
                 onClick={generateAllQRCodes} 
@@ -438,7 +488,7 @@ export default function QRCodeManagement() {
               </div>
             </CardHeader>
             <CardContent>
-              <Alert>
+              <Alert className="bg-blue-50/50 border-blue-100" variant="default">
                 <AlertDescription className="flex items-center gap-2">
                   <Scan className="w-4 h-4" />
                   Each QR code will open your menu with the correct table number when scanned by customers.
@@ -497,6 +547,7 @@ export default function QRCodeManagement() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   )
 }

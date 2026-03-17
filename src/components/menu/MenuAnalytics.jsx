@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Eye, ShoppingCart, DollarSign, Star } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -154,6 +154,7 @@ export default function MenuAnalytics({ menuItems }) {
       <DialogContent className="max-w-6xl max-h-[80vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Menu Analytics & Insights</DialogTitle>
+          <DialogDescription className="sr-only">Detailed analysis of menu item views, orders, and category performance.</DialogDescription>
         </DialogHeader>
         <div className="space-y-6">
           {/* Overview Stats */}

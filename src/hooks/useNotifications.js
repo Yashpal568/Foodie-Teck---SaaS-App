@@ -35,7 +35,7 @@ export const useNotifications = () => {
       const lastOrderCheck = localStorage.getItem('lastOrderCheck') || '0'
       
       const newOrders = orders.filter(order => 
-        new Date(order.createdAt) > new Date(lastOrderCheck) && 
+        new Date(order.createdAt).getTime() > new Date(lastOrderCheck).getTime() && 
         order.status === 'ORDERED'
       )
 
@@ -72,10 +72,11 @@ export const useNotifications = () => {
       const orders = JSON.parse(localStorage.getItem('orders') || '[]')
       const lastStatusCheck = localStorage.getItem('lastStatusCheck') || '0'
       
-      const recentOrders = orders.filter(order => 
-        new Date(order.updatedAt) > new Date(lastStatusCheck) && 
-        order.updatedAt !== order.createdAt // Only status changes, not new orders
-      )
+      const recentOrders = orders.filter(order => {
+        const isRecent = new Date(order.updatedAt).getTime() > new Date(lastStatusCheck).getTime();
+        const isStatusChange = order.updatedAt !== order.createdAt;
+        return isRecent && isStatusChange;
+      })
 
       if (recentOrders.length > 0) {
         recentOrders.forEach(order => {
@@ -93,7 +94,7 @@ export const useNotifications = () => {
             addNotification({
               id: `status-${order.id}-${Date.now()}`,
               type: 'order_status',
-              title: config.title,
+              title: `${config.icon} ${config.title}`,
               message: `Order #${order.id.slice(-6)} from Table ${order.tableNumber} is now ${order.status.replace('_', ' ')}`,
               orderId: order.id,
               tableNumber: order.tableNumber,

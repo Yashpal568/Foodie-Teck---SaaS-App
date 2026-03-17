@@ -1,6 +1,5 @@
-import { RefreshCw, Calendar, Bell, ShoppingBag } from 'lucide-react'
+import { RefreshCw, Calendar, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import NotificationDropdown from '@/components/ui/NotificationDropdown'
 
 export default function OrderNavbar({ onRefresh, onShowHistory }) {
   return (
@@ -34,8 +33,6 @@ export default function OrderNavbar({ onRefresh, onShowHistory }) {
               <RefreshCw className="w-4 h-4 mr-2" />
               <span className="hidden xs:inline">Refresh</span>
             </Button>
-            
-            <NotificationDropdown />
             
             <Button 
               size="sm"

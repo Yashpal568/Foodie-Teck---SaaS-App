@@ -43,10 +43,50 @@ export default function TableStatus() {
 
   // Load and sync table data
   useEffect(() => {
+    const syncTableStatuses = () => {
+      try {
+        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+        const currentTables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+        
+        let tablesChanged = false
+        const updatedTables = currentTables.map(table => {
+          // If table is occupied and has a current order
+          if ((table.status === 'occupied' || table.status === 'billing') && table.currentOrder) {
+            const order = orders.find(o => o.id === table.currentOrder)
+            // If order is finished or cancelled, table should be available
+            if (!order || order.status === 'FINISHED' || order.status === 'CANCELLED') {
+              tablesChanged = true
+              return {
+                ...table,
+                status: 'available',
+                customers: 0,
+                currentOrder: null,
+                sessionStart: null,
+                sessionDuration: null,
+                revenue: 0,
+                needsCleaning: false,
+                lastActivity: new Date().toISOString()
+              }
+            }
+          }
+          return table
+        })
+
+        if (tablesChanged) {
+          localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+          setTableData(updatedTables)
+        } else if (JSON.stringify(currentTables) !== JSON.stringify(tableData)) {
+          setTableData(currentTables)
+        }
+      } catch (err) {
+        console.error('Error syncing table statuses:', err)
+      }
+    }
+
     const loadData = () => {
       const saved = localStorage.getItem('tableSessions')
       if (saved) {
-        setTableData(JSON.parse(saved))
+        syncTableStatuses() // This also sets table data
       } else {
         setTableData(defaultTables)
       }
@@ -56,16 +96,19 @@ export default function TableStatus() {
 
     const handleStorage = () => {
       setRefreshTrigger(prev => prev + 1)
-      loadData()
+      syncTableStatuses()
     }
 
     window.addEventListener('storage', handleStorage)
     window.addEventListener('orderUpdated', handleStorage)
+    window.addEventListener('orderHistoryUpdated', handleStorage)
+    
     return () => {
       window.removeEventListener('storage', handleStorage)
       window.removeEventListener('orderUpdated', handleStorage)
+      window.removeEventListener('orderHistoryUpdated', handleStorage)
     }
-  }, [refreshTrigger])
+  }, [refreshTrigger, tableData])
 
   const stats = useMemo(() => ({
     occupied: tableData.filter(t => t.status === 'occupied' || t.status === 'billing').length,

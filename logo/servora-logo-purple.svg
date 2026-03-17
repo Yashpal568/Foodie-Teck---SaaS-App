@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 100" width="340" height="100">
+
+  <!-- QR Mark (96x96 centered vertically) -->
+  <g transform="translate(2, 2)">
+
+    <!-- Icon background -->
+    <rect width="96" height="96" rx="20" fill="#EDE9FE"/>
+
+    <!-- Top-left corner square -->
+    <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+    <rect x="16" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+
+    <!-- Top-right corner square -->
+    <rect x="62" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+    <rect x="66" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+
+    <!-- Bottom-left corner square -->
+    <rect x="12" y="62" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+    <rect x="16" y="66" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+
+    <!-- QR data dots -->
+    <rect x="40" y="13" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.65"/>
+    <rect x="48" y="13" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+    <rect x="40" y="21" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+    <rect x="48" y="21" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.85"/>
+    <rect x="56" y="21" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+    <rect x="48" y="29" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+    <rect x="56" y="29" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+
+    <rect x="13" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+    <rect x="21" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.8"/>
+    <rect x="13" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+    <rect x="21" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+    <rect x="29" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+    <rect x="13" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.45"/>
+    <rect x="29" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.7"/>
+
+    <rect x="40" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+    <rect x="48" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.85"/>
+    <rect x="56" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+    <rect x="40" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+    <rect x="56" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+    <rect x="40" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+    <rect x="48" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.7"/>
+    <rect x="56" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+
+    <rect x="62" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.8"/>
+    <rect x="70" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.45"/>
+    <rect x="78" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+    <rect x="62" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+    <rect x="78" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+    <rect x="70" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.7"/>
+    <rect x="78" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+
+    <rect x="40" y="62" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+    <rect x="56" y="62" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.85"/>
+    <rect x="40" y="70" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+    <rect x="48" y="70" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+    <rect x="40" y="78" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.55"/>
+    <rect x="48" y="78" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.8"/>
+    <rect x="56" y="78" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+
+    <!-- Bottom-right: fork & knife tile -->
+    <rect x="62" y="62" width="22" height="22" rx="4" fill="#6C5CE7"/>
+    <line x1="70" y1="66" x2="70" y2="72" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+    <line x1="68" y1="66" x2="68" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+    <line x1="72" y1="66" x2="72" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+    <line x1="70" y1="72" x2="70" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+    <line x1="78" y1="66" x2="78" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+    <path d="M78 66 Q82 69 78 73" stroke="white" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+
+  </g>
+
+  <!-- Wordmark: "Serv" in dark + "ora" in purple -->
+  <text
+    x="114" y="58"
+    font-family="Inter, Arial, sans-serif"
+    font-size="44"
+    font-weight="700"
+    letter-spacing="-0.5"
+    fill="#2D3436">Serv</text>
+
+  <text
+    x="218" y="58"
+    font-family="Inter, Arial, sans-serif"
+    font-size="44"
+    font-weight="700"
+    letter-spacing="-0.5"
+    fill="#6C5CE7">ora</text>
+
+  <!-- Tagline -->
+  <text
+    x="115" y="78"
+    font-family="Inter, Arial, sans-serif"
+    font-size="9"
+    font-weight="500"
+    letter-spacing="3"
+    fill="#A29BFE">SCAN · ORDER · SERVED</text>
+
+</svg>

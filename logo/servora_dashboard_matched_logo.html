@@ -1,0 +1,378 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  .page{padding:28px 24px 44px;font-family:'Inter',sans-serif;}
+  .section-label{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:500;margin-bottom:16px;}
+
+  /* Dashboard purple palette extracted from screenshot */
+  :root{
+    --dash-purple: #6C5CE7;
+    --dash-purple-light: #A29BFE;
+    --dash-purple-dark: #4834D4;
+    --dash-bg: #F8F9FC;
+    --dash-card: #FFFFFF;
+    --dash-text: #2D3436;
+    --dash-muted: #636E72;
+  }
+
+  .logo-card{border:0.5px solid #E8EAF0;border-radius:20px;overflow:hidden;margin-bottom:20px;}
+
+  .hero{
+    background:#F8F9FC;
+    padding:52px 32px 40px;
+    display:flex;flex-direction:column;align-items:center;gap:18px;
+  }
+
+  .wm{
+    font-family:'Inter',sans-serif;
+    font-size:40px;font-weight:700;
+    color:#2D3436;letter-spacing:-0.5px;line-height:1;
+  }
+  .wm span{color:#6C5CE7;}
+
+  .tagline{
+    font-size:10px;letter-spacing:0.22em;text-transform:uppercase;
+    color:#A29BFE;font-weight:500;
+  }
+  .divider{width:48px;height:2px;background:#6C5CE7;border-radius:99px;opacity:0.4;}
+
+  /* variants */
+  .variants{display:flex;gap:14px;margin-bottom:20px;}
+  .v{flex:1;border:0.5px solid #E8EAF0;border-radius:14px;padding:22px 14px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;background:#fff;}
+  .v-dark{background:#1E1B4B;}
+  .v-purple{background:#6C5CE7;}
+  .v-label{font-size:10px;letter-spacing:0.13em;text-transform:uppercase;font-weight:500;color:#A0AEC0;margin-top:2px;}
+  .v-dark .v-label{color:rgba(255,255,255,0.28);}
+  .v-purple .v-label{color:rgba(255,255,255,0.5);}
+
+  .wm-sm{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.3px;line-height:1;}
+  .wm-default{color:#2D3436;}.wm-default span{color:#6C5CE7;}
+  .wm-ondark{color:#E8E6FF;}.wm-ondark span{color:#A29BFE;}
+  .wm-onpurple{color:#fff;}.wm-onpurple span{color:#DDD6FE;}
+
+  /* header preview */
+  .header-preview{border:0.5px solid #E8EAF0;border-radius:14px;overflow:hidden;margin-bottom:20px;}
+  .sidebar-preview{display:flex;border:0.5px solid #E8EAF0;border-radius:14px;overflow:hidden;margin-bottom:20px;height:200px;}
+
+  .hbar{
+    background:#fff;padding:0 24px;height:62px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid #F1F3F8;
+  }
+  .hlogo{display:flex;align-items:center;gap:10px;}
+  .hnav{display:flex;gap:24px;}
+  .hnav a{font-size:12px;font-weight:400;color:#636E72;text-decoration:none;font-family:'Inter',sans-serif;}
+  .hcta{
+    background:#6C5CE7;color:#fff;
+    font-size:11px;font-weight:500;letter-spacing:0.04em;
+    padding:7px 16px;border-radius:8px;border:none;cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+
+  /* sidebar mock */
+  .sidebar{
+    width:180px;background:#fff;border-right:1px solid #F1F3F8;
+    padding:16px 12px;display:flex;flex-direction:column;gap:4px;flex-shrink:0;
+  }
+  .s-logo-row{display:flex;align-items:center;gap:8px;padding:4px 8px 16px;}
+  .s-brand{font-family:'Inter',sans-serif;font-size:15px;font-weight:700;color:#2D3436;}
+  .s-brand span{color:#6C5CE7;}
+  .s-sub{font-size:9px;color:#A0AEC0;letter-spacing:0.05em;margin-top:1px;}
+  .s-item{
+    display:flex;align-items:center;gap:8px;padding:7px 10px;
+    border-radius:8px;font-size:11px;color:#636E72;font-family:'Inter',sans-serif;
+  }
+  .s-item.active{background:#EDE9FE;color:#6C5CE7;font-weight:500;}
+  .s-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+  .main-area{flex:1;background:#F8F9FC;padding:16px;}
+  .dash-title{font-size:13px;font-weight:600;color:#2D3436;font-family:'Inter',sans-serif;margin-bottom:10px;}
+  .mini-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .mini-card{background:#fff;border-radius:8px;padding:10px 12px;border:0.5px solid #E8EAF0;}
+  .mc-label{font-size:9px;color:#A0AEC0;font-family:'Inter',sans-serif;letter-spacing:0.06em;text-transform:uppercase;}
+  .mc-val{font-size:16px;font-weight:700;color:#2D3436;font-family:'Inter',sans-serif;margin-top:2px;}
+  .mc-val span{color:#6C5CE7;font-size:10px;font-weight:500;}
+
+  .actions{display:flex;gap:10px;padding:16px 20px 20px;background:#F8F9FC;border-top:0.5px solid #E8EAF0;}
+  .abtn{
+    flex:1;padding:9px;border-radius:8px;
+    border:0.5px solid #E8EAF0;background:#fff;
+    font-size:12px;color:#636E72;cursor:pointer;
+    font-family:'Inter',sans-serif;letter-spacing:0.02em;
+    transition:background 0.15s;
+  }
+  .abtn:hover{background:#F8F9FC;}
+</style>
+
+<div class="page">
+
+  <div class="section-label">Logo — matched to dashboard theme</div>
+
+  <div class="logo-card">
+    <div class="hero">
+
+      <!-- MARK: QR grid in dashboard purple -->
+      <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Soft shadow card bg -->
+        <rect width="96" height="96" rx="20" fill="#EDE9FE"/>
+
+        <!-- Top-left corner -->
+        <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+        <rect x="16" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+
+        <!-- Top-right corner -->
+        <rect x="62" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+        <rect x="66" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+
+        <!-- Bottom-left corner -->
+        <rect x="12" y="62" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+        <rect x="16" y="66" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+
+        <!-- Data dots -->
+        <rect x="40" y="13" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.65"/>
+        <rect x="48" y="13" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+        <rect x="40" y="21" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+        <rect x="48" y="21" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.85"/>
+        <rect x="56" y="21" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+        <rect x="48" y="29" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+        <rect x="56" y="29" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+
+        <rect x="13" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+        <rect x="21" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.8"/>
+        <rect x="13" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+        <rect x="21" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+        <rect x="29" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+        <rect x="13" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.45"/>
+        <rect x="29" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.7"/>
+
+        <rect x="40" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+        <rect x="48" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.85"/>
+        <rect x="56" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+        <rect x="40" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+        <rect x="56" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+        <rect x="40" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+        <rect x="48" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.7"/>
+        <rect x="56" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+
+        <rect x="62" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.8"/>
+        <rect x="70" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.45"/>
+        <rect x="78" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+        <rect x="62" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.5"/>
+        <rect x="78" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+        <rect x="70" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.7"/>
+        <rect x="78" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+
+        <rect x="40" y="62" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+        <rect x="56" y="62" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.85"/>
+        <rect x="40" y="70" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+        <rect x="48" y="70" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.4"/>
+        <rect x="40" y="78" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.55"/>
+        <rect x="48" y="78" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.8"/>
+        <rect x="56" y="78" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+
+        <!-- Fork & knife tile — solid purple -->
+        <rect x="62" y="62" width="22" height="22" rx="4" fill="#6C5CE7"/>
+        <line x1="70" y1="66" x2="70" y2="72" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="68" y1="66" x2="68" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+        <line x1="72" y1="66" x2="72" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+        <line x1="70" y1="72" x2="70" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="78" y1="66" x2="78" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M78 66 Q82 69 78 73" stroke="white" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+      </svg>
+
+      <div class="wm">Serv<span>ora</span></div>
+      <div class="divider"></div>
+      <div class="tagline">Scan · Order · Served</div>
+
+    </div>
+
+    <!-- Variants -->
+    <div style="padding:20px 24px;background:#F8F9FC;display:flex;gap:14px;border-top:0.5px solid #E8EAF0;">
+      <!-- White -->
+      <div class="v">
+        <svg width="52" height="52" viewBox="0 0 96 96" fill="none">
+          <rect width="96" height="96" rx="20" fill="#EDE9FE"/>
+          <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+          <rect x="16" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="62" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+          <rect x="66" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="12" y="62" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2"/>
+          <rect x="16" y="66" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="40" y="13" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.65"/>
+          <rect x="48" y="21" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.85"/>
+          <rect x="56" y="29" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="13" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="21" y="40" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.8"/>
+          <rect x="40" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="56" y="56" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="78" y="48" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="40" y="70" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="56" y="78" width="5" height="5" rx="1.2" fill="#6C5CE7" opacity="0.6"/>
+          <rect x="62" y="62" width="22" height="22" rx="4" fill="#6C5CE7"/>
+          <line x1="70" y1="66" x2="70" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="68" y1="66" x2="68" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+          <line x1="72" y1="66" x2="72" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+          <line x1="78" y1="66" x2="78" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M78 66 Q82 69 78 73" stroke="white" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+        </svg>
+        <span class="wm-sm wm-default">Serv<span>ora</span></span>
+        <div class="v-label">On white</div>
+      </div>
+      <!-- Dark -->
+      <div class="v v-dark">
+        <svg width="52" height="52" viewBox="0 0 96 96" fill="none">
+          <rect width="96" height="96" rx="20" fill="#312E81"/>
+          <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="#A29BFE" stroke-width="2"/>
+          <rect x="16" y="16" width="14" height="14" rx="2.5" fill="#A29BFE"/>
+          <rect x="62" y="12" width="22" height="22" rx="4" fill="none" stroke="#A29BFE" stroke-width="2"/>
+          <rect x="66" y="16" width="14" height="14" rx="2.5" fill="#A29BFE"/>
+          <rect x="12" y="62" width="22" height="22" rx="4" fill="none" stroke="#A29BFE" stroke-width="2"/>
+          <rect x="16" y="66" width="14" height="14" rx="2.5" fill="#A29BFE"/>
+          <rect x="40" y="13" width="5" height="5" rx="1.2" fill="#A29BFE" opacity="0.65"/>
+          <rect x="48" y="21" width="5" height="5" rx="1.2" fill="#A29BFE" opacity="0.85"/>
+          <rect x="13" y="48" width="5" height="5" rx="1.2" fill="#A29BFE" opacity="0.9"/>
+          <rect x="40" y="48" width="5" height="5" rx="1.2" fill="#A29BFE" opacity="0.9"/>
+          <rect x="78" y="48" width="5" height="5" rx="1.2" fill="#A29BFE" opacity="0.9"/>
+          <rect x="56" y="56" width="5" height="5" rx="1.2" fill="#A29BFE" opacity="0.9"/>
+          <rect x="40" y="70" width="5" height="5" rx="1.2" fill="#A29BFE" opacity="0.9"/>
+          <rect x="62" y="62" width="22" height="22" rx="4" fill="#A29BFE"/>
+          <line x1="70" y1="66" x2="70" y2="82" stroke="#1E1B4B" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="68" y1="66" x2="68" y2="69" stroke="#1E1B4B" stroke-width="1.1" stroke-linecap="round"/>
+          <line x1="72" y1="66" x2="72" y2="69" stroke="#1E1B4B" stroke-width="1.1" stroke-linecap="round"/>
+          <line x1="78" y1="66" x2="78" y2="82" stroke="#1E1B4B" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M78 66 Q82 69 78 73" stroke="#1E1B4B" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+        </svg>
+        <span class="wm-sm wm-ondark">Serv<span>ora</span></span>
+        <div class="v-label">On dark</div>
+      </div>
+      <!-- Purple -->
+      <div class="v v-purple">
+        <svg width="52" height="52" viewBox="0 0 96 96" fill="none">
+          <rect width="96" height="96" rx="20" fill="#5A4BD1"/>
+          <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="white" stroke-width="2"/>
+          <rect x="16" y="16" width="14" height="14" rx="2.5" fill="white"/>
+          <rect x="62" y="12" width="22" height="22" rx="4" fill="none" stroke="white" stroke-width="2"/>
+          <rect x="66" y="16" width="14" height="14" rx="2.5" fill="white"/>
+          <rect x="12" y="62" width="22" height="22" rx="4" fill="none" stroke="white" stroke-width="2"/>
+          <rect x="16" y="66" width="14" height="14" rx="2.5" fill="white"/>
+          <rect x="40" y="13" width="5" height="5" rx="1.2" fill="white" opacity="0.7"/>
+          <rect x="48" y="21" width="5" height="5" rx="1.2" fill="white" opacity="0.85"/>
+          <rect x="13" y="48" width="5" height="5" rx="1.2" fill="white" opacity="0.9"/>
+          <rect x="40" y="48" width="5" height="5" rx="1.2" fill="white" opacity="0.9"/>
+          <rect x="78" y="48" width="5" height="5" rx="1.2" fill="white" opacity="0.9"/>
+          <rect x="56" y="56" width="5" height="5" rx="1.2" fill="white" opacity="0.9"/>
+          <rect x="40" y="70" width="5" height="5" rx="1.2" fill="white" opacity="0.7"/>
+          <rect x="62" y="62" width="22" height="22" rx="4" fill="white" opacity="0.2"/>
+          <rect x="62" y="62" width="22" height="22" rx="4" fill="none" stroke="white" stroke-width="1.2"/>
+          <line x1="70" y1="66" x2="70" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="68" y1="66" x2="68" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+          <line x1="72" y1="66" x2="72" y2="69" stroke="white" stroke-width="1.1" stroke-linecap="round"/>
+          <line x1="78" y1="66" x2="78" y2="82" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M78 66 Q82 69 78 73" stroke="white" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+        </svg>
+        <span class="wm-sm wm-onpurple">Serv<span>ora</span></span>
+        <div class="v-label">On purple</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="abtn" onclick="sendPrompt('Export the purple-themed Servora logo as a downloadable SVG file.')">Export SVG ↗</button>
+      <button class="abtn" onclick="sendPrompt('Replace the FoodieTech branding in our dashboard sidebar with the new Servora purple logo in HTML.')">Apply to dashboard ↗</button>
+    </div>
+  </div>
+
+  <!-- SIDEBAR PREVIEW -->
+  <div class="section-label">In your dashboard sidebar</div>
+  <div class="sidebar-preview">
+    <div class="sidebar">
+      <div class="s-logo-row">
+        <svg width="28" height="28" viewBox="0 0 96 96" fill="none">
+          <rect width="96" height="96" rx="20" fill="#EDE9FE"/>
+          <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2.5"/>
+          <rect x="16" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="62" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2.5"/>
+          <rect x="66" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="12" y="62" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2.5"/>
+          <rect x="16" y="66" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="40" y="21" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.8"/>
+          <rect x="13" y="48" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="40" y="48" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="78" y="48" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="62" y="62" width="22" height="22" rx="4" fill="#6C5CE7"/>
+          <line x1="70" y1="66" x2="70" y2="82" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="68" y1="66" x2="68" y2="69" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="72" y1="66" x2="72" y2="69" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="78" y1="66" x2="78" y2="82" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M78 66 Q82 69 78 73" stroke="white" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+        </svg>
+        <div>
+          <div class="s-brand">Serv<span>ora</span></div>
+          <div class="s-sub">Restaurant Dashboard</div>
+        </div>
+      </div>
+      <div class="s-item active"><div class="s-dot"></div>Dashboard</div>
+      <div class="s-item"><div class="s-dot"></div>Menu Management</div>
+      <div class="s-item"><div class="s-dot"></div>QR Codes</div>
+      <div class="s-item"><div class="s-dot"></div>Orders</div>
+      <div class="s-item"><div class="s-dot"></div>Table Sessions</div>
+    </div>
+    <div class="main-area">
+      <div class="dash-title">Dashboard Overview</div>
+      <div class="mini-cards">
+        <div class="mini-card">
+          <div class="mc-label">Total Revenue</div>
+          <div class="mc-val">₹16,285 <span>+12.5%</span></div>
+        </div>
+        <div class="mini-card">
+          <div class="mc-label">Today's Orders</div>
+          <div class="mc-val">4 <span>+8.3%</span></div>
+        </div>
+        <div class="mini-card">
+          <div class="mc-label">Active Tables</div>
+          <div class="mc-val">0 <span>+2</span></div>
+        </div>
+        <div class="mini-card">
+          <div class="mc-label">Menu Items</div>
+          <div class="mc-val">16 <span>+4</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER PREVIEW -->
+  <div class="section-label">In your website header</div>
+  <div class="header-preview">
+    <div class="hbar">
+      <div class="hlogo">
+        <svg width="30" height="30" viewBox="0 0 96 96" fill="none">
+          <rect width="96" height="96" rx="20" fill="#EDE9FE"/>
+          <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2.5"/>
+          <rect x="16" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="62" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2.5"/>
+          <rect x="66" y="16" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="12" y="62" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" stroke-width="2.5"/>
+          <rect x="16" y="66" width="14" height="14" rx="2.5" fill="#6C5CE7"/>
+          <rect x="40" y="21" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.8"/>
+          <rect x="13" y="48" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="40" y="48" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="78" y="48" width="5" height="5" rx="1" fill="#6C5CE7" opacity="0.9"/>
+          <rect x="62" y="62" width="22" height="22" rx="4" fill="#6C5CE7"/>
+          <line x1="70" y1="66" x2="70" y2="82" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="68" y1="66" x2="68" y2="69" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="72" y1="66" x2="72" y2="69" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="78" y1="66" x2="78" y2="82" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M78 66 Q82 69 78 73" stroke="white" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+        </svg>
+        <span style="font-family:'Inter',sans-serif;font-size:18px;font-weight:700;color:#2D3436;letter-spacing:-0.3px;">Serv<span style="color:#6C5CE7;">ora</span></span>
+      </div>
+      <div class="hnav">
+        <a href="#">Features</a>
+        <a href="#">For Restaurants</a>
+        <a href="#">Pricing</a>
+      </div>
+      <button class="hcta">Get started</button>
+    </div>
+  </div>
+
+</div>

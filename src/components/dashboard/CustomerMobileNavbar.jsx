@@ -20,6 +20,8 @@ export default function CustomerMobileNavbar({ activeItem, setActiveItem, naviga
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] p-0 border-r-0 bg-white">
+            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+            <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
             <Sidebar 
               activeItem={activeItem} 
               setActiveItem={setActiveItem} 

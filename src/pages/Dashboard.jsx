@@ -18,7 +18,15 @@ function Dashboard() {
   const navigate = useNavigate()
   const [activeItem, setActiveItem] = useState('dashboard')
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const { profile } = useRestaurantProfile('restaurant-123')
+
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    window.dispatchEvent(new Event('storage'))
+    window.dispatchEvent(new Event('orderUpdated'))
+    setTimeout(() => setIsRefreshing(false), 800)
+  }
 
   const renderContent = () => {
     switch (activeItem) {
@@ -28,7 +36,8 @@ function Dashboard() {
             <DashboardMobileNavbar 
               activeItem={activeItem}
               setActiveItem={setActiveItem}
-              onRefresh={() => window.location.reload()}
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshing}
             />
             
             <div className="p-4 md:p-8 space-y-6">
@@ -68,7 +77,11 @@ function Dashboard() {
         )
       
       case 'qr-codes':
-        return <QRCodeManagement />
+        return <QRCodeManagement 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+        />
       
       case 'menu':
         return <MenuManagement 

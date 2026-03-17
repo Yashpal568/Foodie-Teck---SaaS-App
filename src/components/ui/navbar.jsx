@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
 const Navbar = React.forwardRef(
   /**
@@ -118,6 +118,9 @@ const NavbarMenu = React.forwardRef(
         <SheetContent side="left" className={cn("w-[300px] sm:w-[400px]", className)}>
           <SheetHeader>
             <SheetTitle>Menu</SheetTitle>
+            <SheetDescription className="sr-only">
+              Navigation menu for the application.
+            </SheetDescription>
           </SheetHeader>
           <div className="flex flex-col space-y-4 mt-6">
             {children}

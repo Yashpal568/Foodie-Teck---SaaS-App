@@ -9,16 +9,16 @@ import {
   HelpCircle,
   Menu,
   X,
-  ChefHat,
   Receipt,
   Table
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import Logo from '@/components/ui/Logo'
 
 export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
-  { icon: ChefHat, label: 'Menu Management', id: 'menu', route: '/dashboard' },
+  { icon: Table, label: 'Menu Management', id: 'menu', route: '/dashboard' },
   { icon: QrCode, label: 'QR Codes', id: 'qr-codes', route: '/dashboard' },
   { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard' },
   { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard' },
@@ -67,18 +67,12 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   return (
     <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col ${isMobile ? 'flex' : 'hidden lg:flex'}`}>
       {/* Logo */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <ChefHat className="w-6 h-6 text-white" />
-          </div>
-          {!isCollapsed && (
-            <div>
-              <h1 className="text-xl font-bold text-gray-800">FoodieTech</h1>
-              <p className="text-xs text-gray-500">Restaurant Dashboard</p>
-            </div>
-          )}
-        </div>
+      <div className="p-5 border-b border-gray-100 flex items-center justify-center">
+        {isCollapsed ? (
+          <Logo showText={false} iconSize={40} />
+        ) : (
+          <Logo subtitle="Restaurant Dashboard" />
+        )}
       </div>
 
       {/* Navigation */}

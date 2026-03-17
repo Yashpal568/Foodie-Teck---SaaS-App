@@ -33,15 +33,6 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { 
-  Navbar, 
-  NavbarContent, 
-  NavbarBrand, 
-  NavbarItem, 
-  NavbarMenuToggle, 
-  NavbarMenu, 
-  NavbarMenuItem 
-} from '@/components/ui/navbar'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 
 const TableSessions = ({ activeItem, setActiveItem, navigate }) => {
@@ -689,76 +680,78 @@ const TableSessions = ({ activeItem, setActiveItem, navigate }) => {
       />
 
       {/* Desktop Header - Hide on Mobile */}
-      <div className="hidden lg:block">
-        <Navbar className="bg-white border-b border-gray-100">
-          <NavbarContent>
-            <NavbarBrand className="flex items-center gap-2">
-              <Calendar className="w-6 h-6 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900 tracking-tight">Table Hub</span>
-            </NavbarBrand>
-            
-            <div className="flex items-center gap-4 ml-auto">
-              <NavbarItem>
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => {
-                  const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-                  const updatedOrders = orders.map(order => ({
-                    ...order,
-                    status: 'FINISHED',
-                    updatedAt: new Date().toISOString()
-                  }))
-                  localStorage.setItem('orders', JSON.stringify(updatedOrders))
-                  
-                  updatedOrders.forEach(order => {
-                    window.dispatchEvent(new CustomEvent('orderCompleted', {
-                      detail: {
-                        tableNumber: parseInt(order.tableNumber),
-                        orderId: order.id
-                      }
-                    }))
-                  })
-                }}>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Complete All
-                </Button>
-              </NavbarItem>
-              
-              <NavbarItem>
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => {
-                  const updatedTables = tables.map(table => ({
-                    ...table,
-                    status: 'available',
-                    customers: 0,
-                    currentOrder: null,
-                    sessionStart: null,
-                    sessionDuration: null,
-                    revenue: 0,
-                    needsCleaning: false,
-                    lastActivity: new Date().toISOString()
-                  }))
-                  setTables(updatedTables)
-                  localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-                }}>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Reset Tables
-                </Button>
-              </NavbarItem>
-              
-              <NavbarItem>
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setSettingsModalOpen(true)}>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </Button>
-              </NavbarItem>
-              
-              <NavbarItem>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20" onClick={handleAddTable}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Table
-                </Button>
-              </NavbarItem>
+      <div className="hidden lg:block bg-white/80 backdrop-blur-md border-b border-gray-100">
+        <div className="px-4 md:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Header Info */}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em] mb-1">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Floor Management</span>
+              </div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight leading-none">
+                Table Hub
+              </h1>
+              <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-sm">
+                Manage table sessions, availability and seating in real-time.
+              </p>
             </div>
-          </NavbarContent>
-        </Navbar>
+
+            {/* Action Tools */}
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all" onClick={() => {
+                const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+                const updatedOrders = orders.map(order => ({
+                  ...order,
+                  status: 'FINISHED',
+                  updatedAt: new Date().toISOString()
+                }))
+                localStorage.setItem('orders', JSON.stringify(updatedOrders))
+                
+                updatedOrders.forEach(order => {
+                  window.dispatchEvent(new CustomEvent('orderCompleted', {
+                    detail: {
+                      tableNumber: parseInt(order.tableNumber),
+                      orderId: order.id
+                    }
+                  }))
+                })
+              }}>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Complete All
+              </Button>
+              
+              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all" onClick={() => {
+                const updatedTables = tables.map(table => ({
+                  ...table,
+                  status: 'available',
+                  customers: 0,
+                  currentOrder: null,
+                  sessionStart: null,
+                  sessionDuration: null,
+                  revenue: 0,
+                  needsCleaning: false,
+                  lastActivity: new Date().toISOString()
+                }))
+                setTables(updatedTables)
+                localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+              }}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reset Tables
+              </Button>
+              
+              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all" onClick={() => setSettingsModalOpen(true)}>
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+              
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all font-semibold" onClick={handleAddTable}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Table
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 pb-32 lg:pb-8">
