@@ -3,6 +3,7 @@ import { Copy, Store, Coffee, Pizza, Utensils } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
@@ -58,7 +59,7 @@ const menuTemplates = {
   }
 }
 
-export default function MenuTemplates({ onApplyTemplate, currentItemsCount }) {
+export default function MenuTemplates({ onApplyTemplate, currentItemsCount, showLabel = true }) {
   const [isOpen, setIsOpen] = useState(false)
 
   const applyTemplate = (templateKey) => {
@@ -84,10 +85,23 @@ export default function MenuTemplates({ onApplyTemplate, currentItemsCount }) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="bg-white hover:bg-gray-50 border-gray-200">
-          <Copy className="w-4 h-4 mr-2" />
-          Templates
-        </Button>
+        <div className="tooltip-wrapper">
+          {!showLabel ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-gray-100 rounded-lg">
+                  <Copy className="w-4 h-4 text-gray-600" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Templates</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button variant="outline" size="sm" className="bg-white hover:bg-gray-50 border-gray-200">
+              <Copy className="w-4 h-4 mr-2" />
+              Templates
+            </Button>
+          )}
+        </div>
       </DialogTrigger>
       <DialogContent className="w-full w-screen max-h-[95vh] h-[92vh] flex flex-col p-0">
         {/* Fixed Header */}

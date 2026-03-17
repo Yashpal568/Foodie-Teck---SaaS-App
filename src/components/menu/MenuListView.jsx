@@ -60,32 +60,30 @@ export default function MenuListView({
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Menu Items</h2>
-            <p className="text-gray-600">Manage your restaurant menu</p>
-          </div>
-        </div>
 
         {/* Menu Items Table Card */}
         <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-gray-100">
           <CardHeader className="p-4 md:p-6 pb-2 md:pb-3 border-b border-gray-50">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                Menu Items
-                <Badge variant="secondary" className="bg-orange-50 text-orange-700 border-orange-100 font-bold ml-1">
-                  {items.length}
-                </Badge>
-              </CardTitle>
+              <div className="flex flex-col">
+                <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  Menu Items
+                  <Badge variant="secondary" className="bg-orange-50 text-orange-700 border-none font-bold ml-1 text-[10px] px-2 py-0.5">
+                    {items.length}
+                  </Badge>
+                </CardTitle>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">Manage and organize your restaurant catalog</p>
+              </div>
               
-              <div className="relative w-full md:w-72">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <div className="relative w-full md:w-80 group">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-orange-600 transition-colors">
+                  <Search className="w-4 h-4" />
+                </div>
                 <Input
-                  placeholder="Search products..."
+                  placeholder="Search products, categories, or descriptions..."
                   value={searchTerm}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  className="pl-9 bg-gray-50/50 border-gray-100 focus:bg-white transition-all h-10 rounded-lg text-sm"
+                  className="pl-10 bg-gray-50/50 border-gray-100 focus:bg-white focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all h-11 rounded-xl text-sm font-medium shadow-sm group-hover:bg-gray-50"
                 />
               </div>
             </div>

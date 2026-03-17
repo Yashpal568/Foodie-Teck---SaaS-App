@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Download, Upload, FileText, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -99,7 +100,7 @@ const createExcelTemplate = () => {
   URL.revokeObjectURL(url)
 }
 
-export default function BulkImportExport({ menuItems, onImport }) {
+export default function BulkImportExport({ menuItems, onImport, showLabel = true }) {
   const [isOpen, setIsOpen] = useState(false)
   const [importData, setImportData] = useState('')
   const [importErrors, setImportErrors] = useState([])
@@ -154,10 +155,23 @@ export default function BulkImportExport({ menuItems, onImport }) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <FileText className="w-4 h-4 mr-2" />
-          Import/Export
-        </Button>
+        <div className="tooltip-wrapper">
+          {!showLabel ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-gray-100 rounded-lg">
+                  <FileText className="w-4 h-4 text-gray-600" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Import/Export</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button variant="outline" size="sm">
+              <FileText className="w-4 h-4 mr-2" />
+              Import/Export
+            </Button>
+          )}
+        </div>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
         <DialogHeader>

@@ -27,7 +27,7 @@ const saveCategories = (categories) => {
   }
 }
 
-export default function CategoryManager({ onCategoriesChange }) {
+export default function CategoryManager({ onCategoriesChange, showLabel = true }) {
   const [categories, setCategories] = useState([])
   const [newCategory, setNewCategory] = useState('')
   const [editingCategory, setEditingCategory] = useState(null)
@@ -84,10 +84,23 @@ export default function CategoryManager({ onCategoriesChange }) {
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Edit2 className="w-4 h-4 mr-2" />
-            Manage Categories
-          </Button>
+          <div className="tooltip-wrapper">
+            {!showLabel ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-gray-100 rounded-lg">
+                    <Edit2 className="w-4 h-4 text-gray-600" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Manage Categories</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button variant="outline" size="sm">
+                <Edit2 className="w-4 h-4 mr-2" />
+                Manage Categories
+              </Button>
+            )}
+          </div>
         </DialogTrigger>
         <DialogContent className="max-w-2xl">
           <DialogHeader>

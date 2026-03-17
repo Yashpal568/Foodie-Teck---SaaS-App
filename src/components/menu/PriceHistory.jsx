@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 // Load price history from localStorage
 const loadPriceHistory = () => {
@@ -100,7 +101,7 @@ export const recordPriceChange = (itemId, itemName, oldPrice, newPrice) => {
   savePriceHistory(history)
 }
 
-export default function PriceHistory({ menuItems }) {
+export default function PriceHistory({ menuItems, showLabel = true }) {
   const [isOpen, setIsOpen] = useState(false)
   const [priceHistory, setPriceHistory] = useState({})
 
@@ -134,10 +135,25 @@ export default function PriceHistory({ menuItems }) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="bg-white hover:bg-gray-50 border-gray-200">
-          <TrendingUp className="w-4 h-4 mr-2" />
-          Price History
-        </Button>
+        <div className="tooltip-wrapper">
+          {!showLabel ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-gray-100 rounded-lg">
+                    <TrendingUp className="w-4 h-4 text-gray-600" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Price History</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button variant="outline" size="sm" className="bg-white hover:bg-gray-50 border-gray-200">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Price History
+            </Button>
+          )}
+        </div>
       </DialogTrigger>
       <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] h-[85vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
@@ -214,18 +230,18 @@ export default function PriceHistory({ menuItems }) {
             <CardContent className="flex-1 overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[25%]">Item Name</TableHead>
-                    <TableHead className="w-[15%]">Old Price</TableHead>
-                    <TableHead className="w-[15%]">New Price</TableHead>
-                    <TableHead className="w-[20%]">Change</TableHead>
-                    <TableHead className="w-[25%]">Date</TableHead>
-                  </TableRow>
+                    <TableRow className="">
+                      <TableHead className="w-[25%]">Item Name</TableHead>
+                      <TableHead className="w-[15%]">Old Price</TableHead>
+                      <TableHead className="w-[15%]">New Price</TableHead>
+                      <TableHead className="w-[20%]">Change</TableHead>
+                      <TableHead className="w-[25%]">Date</TableHead>
+                    </TableRow>
                 </TableHeader>
                 <TableBody>
                   {Object.entries(priceHistory)
                     .filter(([_, data]) => data.changes.length > 0)
-                    .sort(([_, a], [__, b]) => new Date(b.changes[0].date) - new Date(a.changes[0].date))
+                    .sort(([_, a], [__, b]) => (new Date(b.changes[0].date)).getTime() - (new Date(a.changes[0].date)).getTime())
                     .slice(0, 10)
                     .map(([itemId, data]) => (
                       data.changes.map((change, index) => (
@@ -233,7 +249,7 @@ export default function PriceHistory({ menuItems }) {
                           <TableCell className="font-medium text-gray-900">{data.itemName}</TableCell>
                           <TableCell className="text-gray-700">₹{change.oldPrice}</TableCell>
                           <TableCell className="text-gray-900 font-medium">₹{change.newPrice}</TableCell>
-                          <TableCell>
+                          <TableCell className="">
                             <Badge 
                               variant={change.change > 0 ? "destructive" : "default"}
                               className={change.change > 0 ? "bg-red-100 text-red-800 border-red-200" : "bg-green-100 text-green-800 border-green-200"}
