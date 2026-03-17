@@ -1,8 +1,9 @@
+import React, { useMemo, useState, useEffect } from 'react'
 import { Users, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
-const tableData = [
+const defaultTables = [
   { id: 1, name: 'Table 1', status: 'occupied', customers: 4, time: '45 min', order: 'ORD-002' },
   { id: 2, name: 'Table 2', status: 'occupied', customers: 2, time: '30 min', order: 'ORD-004' },
   { id: 3, name: 'Table 3', status: 'available', customers: 0, time: '-', order: null },
@@ -37,12 +38,41 @@ const statusConfig = {
 }
 
 export default function TableStatus() {
-  const stats = {
-    occupied: tableData.filter(t => t.status === 'occupied').length,
+  const [tableData, setTableData] = useState([])
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Load and sync table data
+  useEffect(() => {
+    const loadData = () => {
+      const saved = localStorage.getItem('tableSessions')
+      if (saved) {
+        setTableData(JSON.parse(saved))
+      } else {
+        setTableData(defaultTables)
+      }
+    }
+
+    loadData()
+
+    const handleStorage = () => {
+      setRefreshTrigger(prev => prev + 1)
+      loadData()
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('orderUpdated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('orderUpdated', handleStorage)
+    }
+  }, [refreshTrigger])
+
+  const stats = useMemo(() => ({
+    occupied: tableData.filter(t => t.status === 'occupied' || t.status === 'billing').length,
     available: tableData.filter(t => t.status === 'available').length,
-    'needs-cleaning': tableData.filter(t => t.status === 'needs-cleaning').length,
+    'needs-cleaning': tableData.filter(t => t.status === 'needs-cleaning' || t.needsCleaning).length,
     reserved: tableData.filter(t => t.status === 'reserved').length
-  }
+  }), [tableData])
 
   return (
     <div className="space-y-6">
@@ -96,12 +126,12 @@ export default function TableStatus() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-500" />
-                        <span className="text-gray-700">{table.time}</span>
+                        <span className="text-gray-700">{table.sessionDuration || table.time}</span>
                       </div>
-                      {table.order && (
+                      {(table.currentOrder || table.order) && (
                         <div className="flex items-center gap-2">
                           <AlertCircle className="w-4 h-4 text-blue-500" />
-                          <span className="text-blue-600 font-medium">{table.order}</span>
+                          <span className="text-blue-600 font-medium">{table.currentOrder || table.order}</span>
                         </div>
                       )}
                     </div>
@@ -110,14 +140,14 @@ export default function TableStatus() {
                   {table.status === 'reserved' && (
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="w-4 h-4 text-gray-500" />
-                      <span className="text-gray-700">{table.time}</span>
+                      <span className="text-gray-700">{table.reservedTime || table.time}</span>
                     </div>
                   )}
                   
-                  {table.status === 'needs-cleaning' && (
+                  {(table.status === 'needs-cleaning' || table.needsCleaning) && (
                     <div className="flex items-center gap-2 text-sm">
                       <CheckCircle className="w-4 h-4 text-yellow-500" />
-                      <span className="text-yellow-700">Free {table.time}</span>
+                      <span className="text-yellow-700">Needs Cleaning</span>
                     </div>
                   )}
                 </div>

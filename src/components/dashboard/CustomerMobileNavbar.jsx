@@ -2,7 +2,7 @@ import { Menu, Users, RefreshCw, Download, ChefHat, Activity, Settings } from 'l
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
-import { menuItems as navigationItems, supportItems as sidebarSupportItems } from '../layout/Sidebar'
+import Sidebar from '../layout/Sidebar'
 
 export default function CustomerMobileNavbar({ activeItem, setActiveItem, navigate, onRefresh, onDownload }) {
   const handleNavigation = (item) => {
@@ -20,56 +20,13 @@ export default function CustomerMobileNavbar({ activeItem, setActiveItem, naviga
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] p-0 border-r-0 bg-white">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <ChefHat className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-800 tracking-tight">FoodieTech</h1>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none mt-0.5">Studio Management</p>
-                </div>
-              </div>
-              
-              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-              <SheetDescription className="sr-only">Access different sections of the dashboard.</SheetDescription>
-
-              <div className="space-y-1.5">
-                {navigationItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigation(item)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${
-                      activeItem === item.id 
-                        ? 'bg-blue-50/50 text-blue-600 font-bold ring-1 ring-inset ring-blue-100/50' 
-                        : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <item.icon className={`w-5 h-5 flex-shrink-0 ${activeItem === item.id ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <span className="text-sm tracking-tight">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <Separator className="my-6 bg-gray-100" />
-
-              <div className="space-y-1.5">
-                {sidebarSupportItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigation(item)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${
-                      activeItem === item.id 
-                        ? 'bg-blue-50/50 text-blue-600 font-bold' 
-                        : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5 flex-shrink-0 text-gray-400" />
-                    <span className="text-sm tracking-tight">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Sidebar 
+              activeItem={activeItem} 
+              setActiveItem={setActiveItem} 
+              isCollapsed={false}
+              setIsCollapsed={() => {}}
+              isMobile={true}
+            />
           </SheetContent>
         </Sheet>
         

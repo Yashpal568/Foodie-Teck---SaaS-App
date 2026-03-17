@@ -11,6 +11,7 @@ import OrderManagement from '../components/dashboard/OrderManagement'
 import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard'
 import CustomerManagement from '../components/dashboard/CustomerManagement'
 import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
+import DashboardMobileNavbar from '../components/dashboard/DashboardMobileNavbar'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 
 function Dashboard() {
@@ -23,30 +24,44 @@ function Dashboard() {
     switch (activeItem) {
       case 'dashboard':
         return (
-          <div className="p-4 md:p-6 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 line-clamp-1">Dashboard Overview</h1>
-                <p className="text-sm md:text-base text-gray-600 mt-1">Welcome back! Here&apos;s what&apos;s happening at your restaurant today.</p>
-              </div>
-              <div className="flex gap-2 w-full md:w-auto">
-                <button className="flex-1 md:flex-none px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 shadow-sm transition-all active:scale-95">
-                  Quick Order
-                </button>
-                <button className="flex-1 md:flex-none px-4 py-2.5 bg-white text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 shadow-sm transition-all active:scale-95">
-                  View Reports
-                </button>
-              </div>
-            </div>
-
-            <OverviewCards />
+          <div className="flex flex-col min-h-screen bg-gray-50/50 pb-20 lg:pb-0">
+            <DashboardMobileNavbar 
+              activeItem={activeItem}
+              setActiveItem={setActiveItem}
+              onRefresh={() => window.location.reload()}
+            />
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <TableStatus />
+            <div className="p-4 md:p-8 space-y-6">
+              <div className="hidden lg:flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Dashboard Overview</h1>
+                  <p className="text-sm md:text-base text-gray-500 font-medium mt-1 uppercase tracking-widest text-[10px]">Welcome back! Monitoring your restaurant's performance.</p>
+                </div>
+                <div className="flex gap-2 w-full md:w-auto">
+                  <button 
+                    onClick={() => setActiveItem('orders')}
+                    className="flex-1 md:flex-none px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-2xl hover:shadow-lg hover:shadow-blue-500/20 transition-all active:scale-95 shadow-md"
+                  >
+                    Quick Order
+                  </button>
+                  <button 
+                    onClick={() => setActiveItem('analytics')}
+                    className="flex-1 md:flex-none px-6 py-3 bg-white text-gray-700 text-sm font-bold rounded-2xl border border-gray-100 hover:bg-gray-50 shadow-sm transition-all active:scale-95"
+                  >
+                    View Reports
+                  </button>
+                </div>
               </div>
-              <div>
-                <RecentOrders />
+
+              <OverviewCards />
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <TableStatus />
+                </div>
+                <div>
+                  <RecentOrders />
+                </div>
               </div>
             </div>
           </div>

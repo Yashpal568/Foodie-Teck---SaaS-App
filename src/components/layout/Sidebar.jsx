@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Home, 
@@ -20,8 +20,8 @@ export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
   { icon: ChefHat, label: 'Menu Management', id: 'menu', route: '/dashboard' },
   { icon: QrCode, label: 'QR Codes', id: 'qr-codes', route: '/dashboard' },
-  { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard', badge: '3' },
-  { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard', badge: '2' },
+  { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard' },
+  { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard' },
   { icon: Receipt, label: 'Analytics', id: 'analytics', route: '/dashboard' },
   { icon: Users, label: 'Customers', id: 'customers', route: '/dashboard' },
 ]
@@ -31,15 +31,41 @@ export const supportItems = [
   { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' },
 ]
 
-export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed }) {
+export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed, isMobile = false }) {
   const navigate = useNavigate()
+  const [counts, setCounts] = useState({ orders: 0, tables: 0 })
+
+  useEffect(() => {
+    const updateCounts = () => {
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const activeOrders = orders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
+      
+      const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+      const activeTables = tables.filter(t => t.status === 'occupied' || t.status === 'billing')
+      
+      setCounts({
+        orders: activeOrders.length,
+        tables: activeTables.length
+      })
+    }
+
+    updateCounts()
+    window.addEventListener('storage', updateCounts)
+    window.addEventListener('orderUpdated', updateCounts)
+    
+    return () => {
+      window.removeEventListener('storage', updateCounts)
+      window.removeEventListener('orderUpdated', updateCounts)
+    }
+  }, [])
 
   const handleNavigation = (item) => {
     setActiveItem(item.id)
     navigate(item.route)
   }
+
   return (
-    <div className={`hidden lg:flex bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col`}>
+    <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col ${isMobile ? 'flex' : 'hidden lg:flex'}`}>
       {/* Logo */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
@@ -60,6 +86,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
         <div className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon
+            const badgeCount = item.id === 'orders' ? counts.orders : item.id === 'tables' ? counts.tables : null
+
             return (
               <button
                 key={item.id}
@@ -74,9 +102,9 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
                 {!isCollapsed && (
                   <>
                     <span className="font-medium">{item.label}</span>
-                    {item.badge && (
+                    {badgeCount > 0 && (
                       <Badge variant="destructive" className="ml-auto">
-                        {item.badge}
+                        {badgeCount}
                       </Badge>
                     )}
                   </>
@@ -85,8 +113,6 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
             )
           })}
         </div>
-
-        <Separator className="my-6" />
 
         <div className="space-y-2">
           {supportItems.map((item) => {

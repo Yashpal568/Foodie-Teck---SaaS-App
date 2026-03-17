@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator'
-import { menuItems as navigationItems, supportItems as sidebarSupportItems } from '../layout/Sidebar'
+import Sidebar from '../layout/Sidebar'
 import CategoryManager from './CategoryManager'
 import BulkImportExport from './BulkImportExport'
 import MenuTemplates from './MenuTemplates'
@@ -53,65 +53,13 @@ export default function MenuMobileNavbar({
         <SheetContent side="left" className="w-[280px] p-0 bg-white border-r">
           <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
           <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
-          <div className="flex flex-col h-full">
-            <div className="p-6 border-b border-gray-100 mb-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <ChefHat className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-800">FoodieTech</h1>
-                  <p className="text-xs text-gray-500 font-medium">Studio Management</p>
-                </div>
-              </div>
-            </div>
-
-            <nav className="flex-1 p-4 overflow-y-auto">
-              <div className="space-y-1.5">
-                {navigationItems.map((item) => {
-                  const Icon = item.icon
-                  const isActive = activeItem === item.id
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavigation(item)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? 'bg-blue-50/50 text-blue-600 font-bold ring-1 ring-inset ring-blue-100/50'
-                          : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-600' : ''}`} />
-                      <span className="text-sm tracking-tight">{item.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <Separator className="my-6" />
-
-              <div className="space-y-1.5">
-                {sidebarSupportItems.map((item) => {
-                  const Icon = item.icon
-                  const isActive = activeItem === item.id
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavigation(item)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? 'bg-blue-50/50 text-blue-600 font-bold'
-                          : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="text-sm tracking-tight">{item.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </nav>
-          </div>
+          <Sidebar 
+            activeItem={activeItem} 
+            setActiveItem={setActiveItem} 
+            isCollapsed={false}
+            setIsCollapsed={() => {}}
+            isMobile={true}
+          />
         </SheetContent>
       </Sheet>
 

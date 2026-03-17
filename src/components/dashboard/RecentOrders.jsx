@@ -1,45 +1,7 @@
+import React, { useMemo } from 'react'
 import { Clock, CheckCircle, AlertCircle, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-
-const recentOrders = [
-  {
-    id: 'ORD-001',
-    table: 'Table 3',
-    customer: 'John Smith',
-    items: 3,
-    total: '$45.99',
-    status: 'ready',
-    time: '2 min ago'
-  },
-  {
-    id: 'ORD-002',
-    table: 'Table 1',
-    customer: 'Sarah Johnson',
-    items: 5,
-    total: '$78.50',
-    status: 'preparing',
-    time: '5 min ago'
-  },
-  {
-    id: 'ORD-003',
-    table: 'Table 5',
-    customer: 'Mike Davis',
-    items: 2,
-    total: '$32.00',
-    status: 'completed',
-    time: '8 min ago'
-  },
-  {
-    id: 'ORD-004',
-    table: 'Table 2',
-    customer: 'Emily Wilson',
-    items: 4,
-    total: '$56.75',
-    status: 'preparing',
-    time: '12 min ago'
-  }
-]
 
 const statusConfig = {
   preparing: {
@@ -60,41 +22,67 @@ const statusConfig = {
 }
 
 export default function RecentOrders() {
+  const orders = useMemo(() => {
+    try {
+      const currentOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+      
+      // Merge and sort by time (assuming createdAt exists)
+      return [...currentOrders, ...orderHistory]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5) // Show latest 5
+    } catch (e) {
+      console.error('Error loading orders:', e)
+      return []
+    }
+  }, [])
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="w-5 h-5" />
+    <Card className="border-gray-100 shadow-sm overflow-hidden">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg font-bold text-gray-800">
+          <Users className="w-5 h-5 text-blue-600" />
           Recent Orders
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {recentOrders.map((order) => {
-            const status = statusConfig[order.status]
+          {orders.length > 0 ? orders.map((order) => {
+            const status = statusConfig[order.status?.toLowerCase()] || statusConfig.preparing
             const StatusIcon = status.icon
             
+            // Basic relative time calculation
+            const orderDate = new Date(order.createdAt)
+            const diffInMins = Math.floor((new Date().getTime() - orderDate.getTime()) / 60000)
+            const timeDisplay = diffInMins < 1 ? 'Just now' : `${diffInMins} min ago`
+
             return (
-              <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-all gap-3 overflow-hidden">
+              <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border border-gray-50 rounded-2xl hover:bg-gray-50 transition-all gap-3 overflow-hidden group">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-blue-600">{order.table}</span>
+                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <span className="text-[10px] font-black text-blue-600 uppercase">{order.tableId || order.tableNumber || 'TA'}</span>
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-gray-900 truncate">{order.customer}</p>
-                    <p className="text-xs text-gray-500 truncate">{order.items} items • {order.total}</p>
+                    <p className="font-bold text-sm text-gray-900 truncate">{order.customerName || 'Guest'}</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight truncate">
+                      {(order.items?.length || 0)} items • ₹{(order.total || 0).toLocaleString()}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-1 sm:mt-0">
-                  <span className="text-[10px] md:text-sm text-gray-500 font-medium">{order.time}</span>
-                  <Badge className={`${status.color} shadow-sm border-none`}>
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                  <span className="text-[10px] text-gray-400 font-bold tabular-nums">{order.time || timeDisplay}</span>
+                  <Badge className={`${status.color} shadow-sm border-none rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase`}>
                     <StatusIcon className="w-3 h-3 mr-1" />
                     {status.label}
                   </Badge>
                 </div>
               </div>
             )
-          })}
+          }) : (
+            <div className="py-12 text-center bg-gray-50/50 rounded-[2rem] border-2 border-dashed border-gray-100">
+               <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">No recent orders yet</p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
