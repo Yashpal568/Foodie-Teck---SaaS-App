@@ -1,3 +1,4 @@
+import React, { useMemo, useState, useEffect } from 'react'
 import { Menu, ChefHat, BarChart3, Calendar, ChevronDown, Activity, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,7 +19,7 @@ import {
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator'
-import { menuItems, supportItems } from '../layout/Sidebar'
+import { menuItems as navigationItems, supportItems as sidebarSupportItems } from '../layout/Sidebar'
 
 export default function AnalyticsMobileNavbar({ 
   activeItem, 
@@ -70,7 +71,7 @@ export default function AnalyticsMobileNavbar({
 
             <nav className="flex-1 p-4 overflow-y-auto">
               <div className="space-y-1.5">
-                {menuItems.map((item) => {
+                {navigationItems.map((item) => {
                   const Icon = item.icon
                   const isActive = activeItem === item.id
                   return (
@@ -93,7 +94,7 @@ export default function AnalyticsMobileNavbar({
               <Separator className="my-6" />
 
               <div className="space-y-1.5">
-                {supportItems.map((item) => {
+                {sidebarSupportItems.map((item) => {
                   const Icon = item.icon
                   const isActive = activeItem === item.id
                   return (

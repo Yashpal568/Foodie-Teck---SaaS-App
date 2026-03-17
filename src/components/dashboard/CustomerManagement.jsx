@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { 
   Users, 
   Search, 
@@ -22,8 +22,10 @@ import {
   Star,
   Activity,
   CreditCard,
-  PieChart as PieIcon
+  PieChart as PieIcon,
+  RefreshCw
 } from 'lucide-react'
+import CustomerMobileNavbar from './CustomerMobileNavbar'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -70,7 +72,7 @@ import {
 } from 'recharts'
 import { cn } from '@/lib/utils'
 
-const CustomerManagement = ({ plan = 'Basic' }) => {
+const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigate }) => {
   const isPremium = true // TEMPORARILY DISABLED LOCK FOR DEVELOPMENT REVIEW
   const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
@@ -78,6 +80,11 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
   const [tierFilter, setTierFilter] = useState('All Tiers')
   const [showReport, setShowReport] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Dynamic Data Calculation
   const { customers, chartData, stats } = useMemo(() => {
@@ -176,72 +183,89 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
     return matchesSearch && matchesTier
   })
 
+  // Calculate stats based on filtered data for global updates
+  const filteredStats = useMemo(() => {
+    const total = filteredCustomers.length
+    const vip = filteredCustomers.filter(c => c.tag === 'VIP').length
+    const newCount = filteredCustomers.filter(c => c.tag === 'New').length
+    const retentionRate = total > 0 
+        ? (filteredCustomers.filter(c => c.visits > 1).length / total) * 100 
+        : 0
+    const revenue = filteredCustomers.reduce((sum, c) => sum + c.totalSpent, 0)
+    
+    return {
+        total,
+        vip,
+        new: newCount,
+        retention: retentionRate.toFixed(1),
+        revenue
+    }
+  }, [filteredCustomers])
+
   const renderOverview = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-teal-50 rounded-xl">
-                <Users className="w-6 h-6 text-teal-600" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
+        <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center ring-1 ring-teal-100/50">
+                <Users className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total Database</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold">{stats.total}</h3>
-                  <span className="text-xs text-green-600 flex items-center shadow-none border-0">
-                    <TrendingUp className="w-3 h-3 mr-1" /> +12%
-                  </span>
-                </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-teal-600 border-teal-100 bg-teal-50/50">Total</Badge>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Database</p>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <p className="text-xl md:text-2xl font-black text-teal-600">{filteredStats.total}</p>
+                <span className="text-[10px] font-bold text-green-600 flex items-center">
+                  <TrendingUp className="w-3 h-3 mr-0.5" /> +12%
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-amber-50 rounded-xl">
-                <Star className="w-6 h-6 text-amber-600" />
+
+        <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center ring-1 ring-amber-100/50">
+                <Star className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">VIP Customers</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold">{stats.vip}</h3>
-                  <Badge variant="outline" className="text-[10px] h-4 border-amber-200 text-amber-700 bg-amber-50/50">TOP SPENDERS</Badge>
-                </div>
-              </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-amber-600 border-amber-100 bg-amber-50/50">VIP</Badge>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Top Spenders</p>
+              <p className="text-xl md:text-2xl font-black text-amber-600 mt-0.5">{filteredStats.vip}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-sm bg-white overflow-hidden relative">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-50 rounded-xl">
-                <Activity className="w-6 h-6 text-blue-600" />
+
+        <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center ring-1 ring-blue-100/50">
+                <Activity className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Retention Rate</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold">{stats.retention}%</h3>
-                  <Badge variant="outline" className="text-[10px] h-4 border-blue-200 text-blue-700 bg-blue-50/50">REAL-TIME</Badge>
-                </div>
-              </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-blue-600 border-blue-100 bg-blue-50/50">Live</Badge>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Retention</p>
+              <p className="text-xl md:text-2xl font-black text-blue-600 mt-0.5">{filteredStats.retention}%</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-sm bg-white overflow-hidden relative">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-indigo-50 rounded-xl">
-                <CreditCard className="w-6 h-6 text-indigo-600" />
+
+        <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center ring-1 ring-indigo-100/50">
+                <CreditCard className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total Lifetime Value</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold">₹{stats.revenue.toLocaleString()}</h3>
-                  <Badge variant="outline" className="text-[10px] h-4 border-indigo-200 text-indigo-700 bg-indigo-50/50">REAL-TIME</Badge>
-                </div>
-              </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-indigo-600 border-indigo-100 bg-indigo-50/50">LTV</Badge>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lifetime Value</p>
+              <p className="text-xl md:text-2xl font-black text-indigo-600 mt-0.5">₹{filteredStats.revenue.toLocaleString()}</p>
             </div>
           </CardContent>
         </Card>
@@ -255,8 +279,9 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
             </CardTitle>
             <CardDescription className="text-xs md:text-sm">New customers acquired over the last 7 days</CardDescription>
           </CardHeader>
-          <CardContent className="p-2 md:p-6 h-[250px] md:h-[350px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250} debounce={50}>
+          <CardContent className="p-2 md:p-6 h-[250px] md:h-[350px] relative w-full">
+            {isMounted && (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
@@ -273,6 +298,7 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
                 <Area type="monotone" dataKey="count" stroke="#0d9488" fillOpacity={1} fill="url(#colorCount)" strokeWidth={3} />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -283,9 +309,10 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
             </CardTitle>
             <CardDescription className="text-xs md:text-sm">Breakdown by loyalty tier</CardDescription>
           </CardHeader>
-          <CardContent className="p-4 md:p-6 flex flex-col items-center justify-center">
-            <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={50}>
+          <CardContent className="p-4 md:p-6 flex flex-col items-center justify-center min-h-[300px]">
+            <div className="h-[250px] w-full relative">
+            {isMounted && (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               <PieChart>
                 <Pie
                   data={[
@@ -305,6 +332,7 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            )}
             </div>
             <div className="space-y-2 mt-4">
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-teal-600" /><span className="text-sm">VIP</span></div>
@@ -332,15 +360,6 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input 
-                  placeholder="Search name or email..." 
-                  className="pl-9 h-10 border-gray-200" 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
               <Button variant="outline" className="h-10 border-gray-200 shadow-none">
                 <Download className="w-4 h-4 mr-2" /> Export
               </Button>
@@ -481,7 +500,7 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
     </div>
   )
   const renderHeader = () => (
-    <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200/50 px-4 md:px-8 py-4 md:py-6 mb-6">
+    <div className="hidden lg:block sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200/50 px-8 py-6 mb-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -581,7 +600,17 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
   )
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-12 w-full">
+    <div className="min-h-screen bg-gray-50/50 w-full pb-32 lg:pb-12">
+      <CustomerMobileNavbar 
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        navigate={navigate}
+        onRefresh={() => {
+          setIsRefreshing(true)
+          setTimeout(() => setIsRefreshing(false), 1000)
+        }}
+        onDownload={() => setShowReport(true)}
+      />
       {renderHeader()}
       <div className="px-4 md:px-8 space-y-6 relative">
         <Tabs defaultValue="overview" className="w-full shadow-none border-0" onValueChange={setActiveTab}>
@@ -595,15 +624,24 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
               </TabsTrigger>
             </TabsList>
             
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input 
+                  placeholder="Search database..." 
+                  className="pl-10 h-11 rounded-xl border-gray-100 bg-white shadow-sm focus:ring-2 focus:ring-teal-500/20" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
               <Select value={tierFilter} onValueChange={setTierFilter}>
-                <SelectTrigger className="rounded-xl border-gray-200 hover:bg-gray-50 shadow-none transition-colors w-full sm:w-[140px] h-11 bg-white">
+                <SelectTrigger className="rounded-xl border-gray-200 hover:bg-gray-50 shadow-none transition-colors w-full sm:w-[140px] h-11 bg-white focus:ring-2 focus:ring-teal-500/20">
                     <div className="flex items-center gap-2">
                         <Filter className="w-4 h-4 text-gray-400" />
                         <SelectValue placeholder="All Tiers" />
                     </div>
                 </SelectTrigger>
-                <SelectContent className="bg-white border-0 shadow-2xl rounded-2xl p-1">
+                <SelectContent className="bg-white border border-gray-100 shadow-2xl rounded-2xl p-1">
                     <SelectItem value="All Tiers" className="rounded-xl font-bold py-3">All Tiers</SelectItem>
                     <SelectItem value="VIP" className="rounded-xl font-bold py-3 text-amber-600">VIP Members</SelectItem>
                     <SelectItem value="Regular" className="rounded-xl font-bold py-3 text-blue-600">Regulars</SelectItem>

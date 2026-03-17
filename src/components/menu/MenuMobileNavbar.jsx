@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator'
-import { menuItems, supportItems } from '../layout/Sidebar'
+import { menuItems as navigationItems, supportItems as sidebarSupportItems } from '../layout/Sidebar'
 import CategoryManager from './CategoryManager'
 import BulkImportExport from './BulkImportExport'
 import MenuTemplates from './MenuTemplates'
@@ -68,7 +68,7 @@ export default function MenuMobileNavbar({
 
             <nav className="flex-1 p-4 overflow-y-auto">
               <div className="space-y-1.5">
-                {menuItems.map((item) => {
+                {navigationItems.map((item) => {
                   const Icon = item.icon
                   const isActive = activeItem === item.id
                   return (
@@ -91,7 +91,7 @@ export default function MenuMobileNavbar({
               <Separator className="my-6" />
 
               <div className="space-y-1.5">
-                {supportItems.map((item) => {
+                {sidebarSupportItems.map((item) => {
                   const Icon = item.icon
                   const isActive = activeItem === item.id
                   return (
@@ -134,12 +134,12 @@ export default function MenuMobileNavbar({
                </Button>
              </DropdownMenuTrigger>
              <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-gray-100 shadow-2xl">
-               <DropdownMenuLabel className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 py-1.5">Management</DropdownMenuLabel>
+               <DropdownMenuLabel inset={false} className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 py-1.5">Management</DropdownMenuLabel>
                <div className="space-y-1">
-                 <DropdownMenuItem asChild className="p-0 focus:bg-transparent">
+                 <DropdownMenuItem inset={false} asChild className="p-0 focus:bg-transparent">
                    <CategoryManager onCategoriesChange={onCategoriesChange} />
                  </DropdownMenuItem>
-                 <DropdownMenuItem asChild className="p-0 focus:bg-transparent">
+                 <DropdownMenuItem inset={false} asChild className="p-0 focus:bg-transparent">
                    <BulkImportExport 
                     menuItems={menuItems} 
                     onImport={(items) => {
@@ -148,7 +148,7 @@ export default function MenuMobileNavbar({
                     }}
                    />
                  </DropdownMenuItem>
-                 <DropdownMenuItem asChild className="p-0 focus:bg-transparent">
+                 <DropdownMenuItem inset={false} asChild className="p-0 focus:bg-transparent">
                    <MenuTemplates 
                     onApplyTemplate={(items, categories) => {
                       const updatedItems = [...menuItems, ...items]
@@ -158,12 +158,12 @@ export default function MenuMobileNavbar({
                     currentItemsCount={menuItems?.length || 0}
                    />
                  </DropdownMenuItem>
-                 <DropdownMenuItem asChild className="p-0 focus:bg-transparent">
+                 <DropdownMenuItem inset={false} asChild className="p-0 focus:bg-transparent">
                    <PriceHistory menuItems={menuItems} />
                  </DropdownMenuItem>
                </div>
                <DropdownMenuSeparator className="my-2 bg-gray-100" />
-               <DropdownMenuLabel className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 py-1.5">Settings</DropdownMenuLabel>
+               <DropdownMenuLabel inset={false} className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 py-1.5">Settings</DropdownMenuLabel>
                <div className="px-1 py-1">
                  <CurrencySelector 
                     value={currency} 

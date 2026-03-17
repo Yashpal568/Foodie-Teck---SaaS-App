@@ -91,7 +91,12 @@ function Dashboard() {
         />
       
       case 'customers':
-        return <CustomerManagement plan={profile.plan} />
+        return <CustomerManagement 
+          plan={profile.plan} 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+        />
       
       case 'settings':
         return (
