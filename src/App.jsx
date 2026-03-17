@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import CustomerMenu from './pages/CustomerMenu'
 import DocumentationPage from './pages/DocumentationPage'
+import ReleaseNotesPage from './pages/ReleaseNotesPage'
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/menu" element={<CustomerMenu />} />
         <Route path="/docs" element={<DocumentationPage />} />
+        <Route path="/releases" element={<ReleaseNotesPage />} />
         <Route path="/" element={<div className="flex min-h-svh flex-col items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">Foodie-Tech</h1>

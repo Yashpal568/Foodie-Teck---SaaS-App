@@ -438,16 +438,14 @@ export default function Documentation({ activeItem, setActiveItem, navigate }) {
   const SectionIcon = activeSection.icon
 
   return (
-    <div className="h-full flex bg-white overflow-hidden">
-      {/* Mobile Component (Conditional) */}
-      <div className="lg:hidden absolute top-0 left-0 right-0 z-[60]">
-        <DocumentationMobileNavbar 
-          activeItem={activeItem}
-          setActiveItem={setActiveItem}
-          onSearch={() => setDocSidebarOpen(true)}
-          searchTerm={searchTerm}
-        />
-      </div>
+    <div className="h-full flex flex-col lg:flex-row bg-white overflow-hidden relative">
+      {/* Mobile Component */}
+      <DocumentationMobileNavbar 
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        onSearch={() => setDocSidebarOpen(true)}
+        searchTerm={searchTerm}
+      />
 
       {/* Fixed Desktop Sidebar - All the way to top */}
       <aside className="hidden lg:block w-80 flex-shrink-0 border-r border-slate-100 bg-white z-50">
@@ -619,33 +617,33 @@ export default function Documentation({ activeItem, setActiveItem, navigate }) {
             </div>
 
             {/* Pagination Controls */}
-            <div className="mt-20 pt-10 border-t border-slate-100 flex items-center justify-between gap-6">
+            <div className="mt-20 pt-10 border-t border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 md:gap-6">
               {prevArticle ? (
                 <button 
                   onClick={() => navigateToArticle(prevArticle.sectionId, prevArticle.articleId)}
-                  className="group flex-1 flex items-center gap-4 p-5 rounded-3xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/20 transition-all text-left"
+                  className="group flex-1 flex items-center gap-4 p-5 rounded-3xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all text-left shadow-sm hover:shadow-md"
                 >
-                  <div className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                    <ChevronLeft className="w-5 h-5" />
+                  <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-300 flex-shrink-0">
+                    <ChevronLeft className="w-6 h-6" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Previous Article</span>
-                    <p className="text-sm font-black text-slate-900 truncate tracking-tight">{getPrevTitle()}</p>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Previous Article</span>
+                    <p className="text-base font-black text-slate-900 truncate tracking-tight">{getPrevTitle()}</p>
                   </div>
                 </button>
-              ) : <div className="flex-1" />}
+              ) : <div className="hidden md:block flex-1" />}
 
               {nextArticle && (
                 <button 
                   onClick={() => navigateToArticle(nextArticle.sectionId, nextArticle.articleId)}
-                  className="group flex-1 flex items-center justify-between gap-4 p-5 rounded-3xl bg-slate-900 hover:bg-blue-700 transition-all text-right border-none shadow-xl shadow-slate-200"
+                  className="group flex-1 flex items-center justify-between gap-4 p-5 rounded-3xl bg-slate-900 hover:bg-black transition-all text-right border-none shadow-xl shadow-slate-200 hover:shadow-blue-900/10"
                 >
                   <div className="text-left min-w-0">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Next Up</span>
-                    <p className="text-sm font-black text-white truncate tracking-tight">{getNextTitle()}</p>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Next Up</span>
+                    <p className="text-base font-black text-white truncate tracking-tight">{getNextTitle()}</p>
                   </div>
-                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-blue-700 transition-all flex-shrink-0">
-                    <ChevronRight className="w-5 h-5" />
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 flex-shrink-0">
+                    <ChevronRight className="w-6 h-6" />
                   </div>
                 </button>
               )}
@@ -653,15 +651,15 @@ export default function Documentation({ activeItem, setActiveItem, navigate }) {
           </div>
         </main>
 
-        {/* Floating Mobile Accessory (Optional Toggle) */}
+        {/* Mobile Sidebar Overlay Toggle (Floating) */}
         {!docSidebarOpen && (
-          <div className="lg:hidden fixed bottom-6 right-6 z-50">
+          <div className="lg:hidden fixed bottom-24 right-6 z-50">
             <Button 
               size="lg" 
               onClick={() => setDocSidebarOpen(true)}
-              className="h-16 w-16 rounded-3xl bg-blue-600 text-white shadow-2xl hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all"
+              className="h-14 w-14 rounded-2xl bg-slate-900 text-white shadow-2xl hover:bg-black hover:scale-105 active:scale-95 transition-all flex items-center justify-center p-0"
             >
-              <Menu className="w-8 h-8" />
+              <Menu className="w-6 h-6" />
             </Button>
           </div>
         )}
@@ -670,6 +668,8 @@ export default function Documentation({ activeItem, setActiveItem, navigate }) {
       {/* Mobile Sidebar Overlay */}
       <Sheet open={docSidebarOpen} onOpenChange={setDocSidebarOpen}>
         <SheetContent side="left" className="p-0 w-80 border-none shadow-2xl">
+          <SheetTitle className="sr-only">Documentation Menu</SheetTitle>
+          <SheetDescription className="sr-only">Browse documentation sections and articles</SheetDescription>
           <DocSidebar />
         </SheetContent>
       </Sheet>

@@ -125,8 +125,7 @@ const faqs = [
 const quickLinks = [
   { icon: BookOpen, title: 'Documentation', desc: 'Complete guides and tutorials', color: 'blue', badge: 'Docs', action: 'docs' },
   { icon: Youtube, title: 'Video Tutorials', desc: 'Step-by-step visual guides', color: 'red', badge: 'New', action: null },
-  { icon: Globe, title: 'API Reference', desc: 'Integration documentation', color: 'green', badge: 'Dev', action: null },
-  { icon: FileText, title: 'Release Notes', desc: 'Latest updates and changes', color: 'purple', badge: 'v2.1', action: null },
+  { icon: FileText, title: 'Release Notes', desc: 'Latest updates and changes', color: 'purple', badge: 'v2.1', action: 'releases' },
 ]
 
 // ─── Status Helpers ──────────────────────────────────────────────────────────
@@ -472,10 +471,61 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    if (activeTab !== 'faq' && e.target.value.length > 0) setActiveTab('faq')
+                  }}
+                  onFocus={() => { if (searchTerm.length > 0) setActiveTab('faq') }}
                   placeholder="Search for help topics, features, or issues..."
                   className="pl-12 h-12 bg-white text-gray-900 border-0 shadow-xl rounded-xl placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-white/50"
                 />
+
+                {/* Live Search Results Overlay (Optional: only if you want a dropdown feel) */}
+                {searchTerm.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-2 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
+                        {filteredFaqs.reduce((acc, cat) => acc + cat.questions.length, 0)} Potential Matches
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')} className="h-6 text-[10px] font-bold text-slate-400 hover:text-rose-500">
+                        Clear
+                      </Button>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
+                      {filteredFaqs.length > 0 ? (
+                        filteredFaqs.map((cat) => (
+                          cat.questions.map((q, idx) => (
+                            <button
+                              key={`${cat.category}-${idx}`}
+                              onClick={() => {
+                                setActiveTab('faq')
+                                const key = `${faqs.findIndex(f => f.category === cat.category)}-${faqs.find(f => f.category === cat.category).questions.findIndex(qu => qu.q === q.q)}`
+                                setExpandedFaq(key)
+                                setSearchTerm('')
+                                // Smooth scroll to results
+                                document.getElementById('faq-content')?.scrollIntoView({ behavior: 'smooth' })
+                              }}
+                              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-colors text-left group"
+                            >
+                              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                <HelpCircle className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 truncate">{q.q}</p>
+                                <p className="text-[10px] text-slate-400 font-medium truncate">{cat.category}</p>
+                              </div>
+                            </button>
+                          ))
+                        ))
+                      ) : (
+                        <div className="py-8 text-center">
+                          <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                          <p className="text-xs font-bold text-slate-400">No matching help articles</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -564,7 +614,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
           </TabsList>
 
           {/* ═══ FAQ Tab ═══ */}
-          <TabsContent value="faq" className="space-y-4">
+          <TabsContent value="faq" id="faq-content" className="space-y-4">
             {filteredFaqs.length === 0 ? (
               <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
                 <CardContent className="p-10 text-center">

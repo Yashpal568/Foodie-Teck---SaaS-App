@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
+import MobileNavbar from '@/components/layout/MobileNavbar'
 
 // ─── Documentation Content ───────────────────────────────────────────────────
 const docSections = [
@@ -527,8 +528,22 @@ export default function DocumentationPage() {
   const SectionIcon = activeSection.icon
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
-      {/* Premium Top Navigation Bar */}
+    <div className="h-screen flex flex-col bg-white overflow-hidden relative">
+      {/* Mobile Top Header (Standalone) */}
+      <div className="lg:hidden sticky top-0 z-[60] w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 h-16 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="text-slate-600 hover:bg-slate-100 rounded-xl w-10 h-10" onClick={() => navigate('/dashboard')}>
+            <Home className="w-5 h-5" />
+          </Button>
+          <Logo subtitle="Docs" iconSize={26} />
+        </div>
+        <div className="flex items-center gap-2">
+          <NotificationDropdown />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-[10px] shadow-lg shadow-blue-200">
+            JD
+          </div>
+        </div>
+      </div>
       <header className="h-16 flex-shrink-0 bg-white border-b border-slate-200 sticky top-0 z-50 px-6 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-6">
           <div className="cursor-pointer" onClick={() => navigateToArticle('getting-started', 'introduction')}>
@@ -575,7 +590,7 @@ export default function DocumentationPage() {
         </aside>
 
         {/* Dynamic Content Area */}
-        <main ref={contentRef} className="flex-1 overflow-y-auto bg-slate-50/30">
+        <main ref={contentRef} className="flex-1 overflow-y-auto bg-slate-50/30 pb-24 lg:pb-0">
           <div className="w-full mx-auto px-6 md:px-12 py-12">
             {/* Breadcrumb Navigation */}
             <nav className="flex items-center gap-2 mb-8 text-sm font-medium">
@@ -691,32 +706,32 @@ export default function DocumentationPage() {
             </div>
 
             {/* Bottom Navigation */}
-            <div className="mt-20 pt-10 border-t border-slate-100 flex items-center justify-between gap-8">
+            <div className="mt-20 pt-10 border-t border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 md:gap-8">
               {prevArticle ? (
                 <button 
                   onClick={() => navigateToArticle(prevArticle.sectionId, prevArticle.articleId)}
-                  className="group flex-1 flex items-center gap-4 p-6 rounded-3xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all text-left"
+                  className="group flex-1 flex items-center gap-4 p-6 rounded-3xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all text-left shadow-sm hover:shadow-md"
                 >
-                  <div className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 flex-shrink-0 shadow-sm">
                     <ChevronLeft className="w-6 h-6" />
                   </div>
-                  <div>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Previous Article</span>
-                    <p className="text-lg font-black text-slate-900 line-clamp-1 tracking-tight">{getPrevTitle()}</p>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Previous Article</span>
+                    <p className="text-lg font-black text-slate-900 truncate tracking-tight">{getPrevTitle()}</p>
                   </div>
                 </button>
-              ) : <div className="flex-1" />}
+              ) : <div className="hidden md:block flex-1" />}
 
               {nextArticle && (
                 <button 
                   onClick={() => navigateToArticle(nextArticle.sectionId, nextArticle.articleId)}
-                  className="group flex-1 flex items-center justify-between gap-4 p-6 rounded-3xl bg-slate-900 hover:bg-blue-700 transition-all text-right border-none shadow-xl shadow-slate-200"
+                  className="group flex-1 flex items-center justify-between gap-4 p-6 rounded-3xl bg-slate-900 hover:bg-black transition-all text-right border-none shadow-xl shadow-slate-200 hover:shadow-blue-900/10"
                 >
-                  <div className="text-left">
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Next Up</span>
-                    <p className="text-lg font-black text-white line-clamp-1 tracking-tight">{getNextTitle()}</p>
+                  <div className="text-left min-w-0">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Next Up</span>
+                    <p className="text-lg font-black text-white truncate tracking-tight">{getNextTitle()}</p>
                   </div>
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-blue-700 transition-all">
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 flex-shrink-0">
                     <ChevronRight className="w-6 h-6" />
                   </div>
                 </button>
@@ -734,11 +749,16 @@ export default function DocumentationPage() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-80 border-none shadow-2xl">
+              <SheetTitle className="sr-only">Documentation Menu</SheetTitle>
+              <SheetDescription className="sr-only">Browse documentation sections and articles</SheetDescription>
               <PremiumSidebar />
             </SheetContent>
           </Sheet>
         </div>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileNavbar activeItem="docs" setActiveItem={() => {}} />
     </div>
   )
 }

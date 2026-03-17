@@ -12,6 +12,7 @@ import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard'
 import CustomerManagement from '../components/dashboard/CustomerManagement'
 import HelpSupport from '../components/dashboard/HelpSupport'
 import Documentation from '../components/dashboard/Documentation'
+import ReleaseNotes from '../components/dashboard/ReleaseNotes'
 import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
 import DashboardMobileNavbar from '../components/dashboard/DashboardMobileNavbar'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
@@ -142,6 +143,13 @@ function Dashboard() {
           navigate={navigate}
         />
       
+      case 'releases':
+        return <ReleaseNotes 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+        />
+      
       case 'settings':
         return (
           <div className="p-6">
@@ -170,9 +178,13 @@ function Dashboard() {
     }
   }
 
-  if (activeItem === 'docs') {
+  if (activeItem === 'docs' || activeItem === 'releases') {
+    const Component = 
+      activeItem === 'docs' ? Documentation : 
+      ReleaseNotes;
+
     return (
-      <Documentation 
+      <Component 
         activeItem={activeItem}
         setActiveItem={setActiveItem}
         navigate={navigate}

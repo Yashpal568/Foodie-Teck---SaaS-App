@@ -10,18 +10,17 @@ const DocumentationMobileNavbar = ({ activeItem, setActiveItem, onSearch, search
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="lg:hidden sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 h-16 flex items-center justify-between">
-      {/* Left Section */}
-      <div className="flex items-center gap-3">
+    <div className="lg:hidden sticky top-0 z-[60] w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 h-16 flex items-center justify-between gap-4">
+      {/* Left Action: Menu & Logo */}
+      <div className="flex items-center gap-2">
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-100 rounded-xl">
-              <Menu className="w-6 h-6" />
+            <Button variant="ghost" size="icon" className="text-slate-600 hover:bg-slate-100 rounded-xl w-10 h-10">
+              <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72 border-none">
-            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-            <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
+          <SheetContent side="left" className="p-0 w-80 border-none shadow-2xl">
+            <SheetTitle className="sr-only">Main Menu</SheetTitle>
             <Sidebar 
                 activeItem={activeItem} 
                 setActiveItem={(item) => {
@@ -34,37 +33,14 @@ const DocumentationMobileNavbar = ({ activeItem, setActiveItem, onSearch, search
             />
           </SheetContent>
         </Sheet>
-        
-        <Logo subtitle="Docs" className="ml-2" />
+        <Logo subtitle="Docs" iconSize={26} showText={true} />
       </div>
 
-      {/* Right Section */}
+      {/* Right Action: Notifications & Profile */}
       <div className="flex items-center gap-2">
-        {/* Search Button */}
-        <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onSearch}
-            className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
-        >
-          <Search className="w-5 h-5" />
-        </Button>
-        
-        {/* Documentation Toggle */}
-        <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
-        >
-          <BookOpen className="w-5 h-5" />
-        </Button>
-        
-        {/* Notifications */}
         <NotificationDropdown />
-        
-        {/* User Avatar */}
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
-          <span className="text-xs font-bold text-blue-600">U</span>
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-[10px] shadow-lg shadow-blue-200">
+          JD
         </div>
       </div>
     </div>
