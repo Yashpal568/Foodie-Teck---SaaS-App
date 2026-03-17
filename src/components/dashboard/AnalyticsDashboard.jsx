@@ -15,8 +15,10 @@ import {
   CreditCard, 
   Activity,
   ArrowUpRight,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  ChevronRight
 } from 'lucide-react'
+import AnalyticsMobileNavbar from './AnalyticsMobileNavbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -151,7 +153,7 @@ const generateRevenueTrend = (orderHistory, timeRange) => {
   return trend
 }
 
-export default function AnalyticsDashboard() {
+export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate }) {
   const [analytics, setAnalytics] = useState({
     itemViews: {},
     itemOrders: {},
@@ -340,131 +342,160 @@ export default function AnalyticsDashboard() {
   const categoryStats = getCategoryStats()
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-            <BarChart3 className="w-6 h-6 text-white" />
+    <div className="bg-[#f8fafc]/50 min-h-screen">
+      <AnalyticsMobileNavbar 
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        navigate={navigate}
+        timeRange={timeRange}
+        setTimeRange={setTimeRange}
+      />
+
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8 pb-24 lg:pb-8">
+        {/* Header (Desktop Only) */}
+        <div className="hidden lg:flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <BarChart3 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Analytics Dashboard</h1>
+              <p className="text-gray-500 font-medium">Track your restaurant's performance across all metrics</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
-            <p className="text-gray-600">Track your restaurant's performance</p>
+          
+          <div className="flex items-center gap-3">
+             <div className="flex bg-white p-1 rounded-xl ring-1 ring-gray-200 shadow-sm">
+                {['7days', '30days', '90days', 'all'].map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className={cn(
+                      "px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize",
+                      timeRange === range 
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/20" 
+                        : "text-gray-500 hover:bg-gray-50"
+                    )}
+                  >
+                    {range.replace('days', ' Days')}
+                  </button>
+                ))}
+             </div>
           </div>
         </div>
-        
-        <div className="flex gap-2">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7days">Last 7 days</SelectItem>
-              <SelectItem value="30days">Last 30 days</SelectItem>
-              <SelectItem value="90days">Last 90 days</SelectItem>
-              <SelectItem value="all">All Time (Monthly)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
       {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto lg:h-10 p-1 bg-gray-100/50">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="flex w-full overflow-x-auto no-scrollbar justify-start lg:grid lg:grid-cols-4 h-auto lg:h-12 p-1 bg-white ring-1 ring-gray-200 shadow-sm rounded-xl mb-8">
           <TabsTrigger value="overview" className="py-2.5">Overview</TabsTrigger>
           <TabsTrigger value="menu" className="py-2.5">Menu Performance</TabsTrigger>
           <TabsTrigger value="sales" className="py-2.5">Sales Analytics</TabsTrigger>
           <TabsTrigger value="customers" className="py-2.5">Customer Insights</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="overview" className="space-y-8 mt-4 outline-none">
           {/* Real-time Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-600">Total Views</p>
-                    <p className="text-2xl font-bold text-blue-900 mt-1">{realtimeData.totalViews.toLocaleString()}</p>
-                    <div className="flex items-center mt-2">
-                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                      <span className="text-xs text-green-600">+12.5% from last period</span>
-                    </div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center ring-1 ring-blue-100/50">
+                    <Eye className="w-5 h-5" />
                   </div>
-                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-                    <Eye className="w-6 h-6 text-white" />
+                  <Badge variant="outline" className="text-[10px] font-bold text-blue-600 border-blue-100 bg-blue-50/50">Views</Badge>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Views</p>
+                  <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{realtimeData.totalViews.toLocaleString()}</p>
+                  <div className="flex items-center mt-2 group">
+                    <div className="flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg ring-1 ring-emerald-100/50">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      <span>12.5%</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-600">Total Orders</p>
-                    <p className="text-2xl font-bold text-green-900 mt-1">{realtimeData.totalOrders.toLocaleString()}</p>
-                    <div className="flex items-center mt-2">
-                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                      <span className="text-xs text-green-600">+8.3% from last period</span>
-                    </div>
+            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center ring-1 ring-green-100/50">
+                    <ShoppingCart className="w-5 h-5" />
                   </div>
-                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
-                    <ShoppingCart className="w-6 h-6 text-white" />
+                  <Badge variant="outline" className="text-[10px] font-bold text-green-600 border-green-100 bg-green-50/50">Sales</Badge>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Orders</p>
+                  <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{realtimeData.totalOrders.toLocaleString()}</p>
+                  <div className="flex items-center mt-2 group">
+                    <div className="flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg ring-1 ring-emerald-100/50">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      <span>8.3%</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-600">Total Revenue</p>
-                    <p className="text-2xl font-bold text-purple-900 mt-1">{formatCurrency(realtimeData.totalRevenue)}</p>
-                    <div className="flex items-center mt-2">
-                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                      <span className="text-xs text-green-600">+15.7% from last period</span>
-                    </div>
+            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center ring-1 ring-purple-100/50">
+                    <DollarSign className="w-5 h-5" />
                   </div>
-                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-white" />
+                  <Badge variant="outline" className="text-[10px] font-bold text-purple-600 border-purple-100 bg-purple-50/50">Revenue</Badge>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Revenue</p>
+                  <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{formatCurrency(realtimeData.totalRevenue)}</p>
+                  <div className="flex items-center mt-2 group">
+                    <div className="flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg ring-1 ring-emerald-100/50">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      <span>15.7%</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-orange-100">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-orange-600">Active Users</p>
-                    <p className="text-2xl font-bold text-orange-900 mt-1">{realtimeData.activeUsers}</p>
-                    <div className="flex items-center mt-2">
-                      <Activity className="w-4 h-4 text-orange-500 mr-1" />
-                      <span className="text-xs text-orange-600">Live now</span>
-                    </div>
+            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center ring-1 ring-orange-100/50">
+                    <Users className="w-5 h-5" />
                   </div>
-                  <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
-                    <Users className="w-6 h-6 text-white" />
+                  <Badge variant="outline" className="text-[10px] font-bold text-orange-600 border-orange-100 bg-orange-50/50">Users</Badge>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Active Users</p>
+                  <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{realtimeData.activeUsers}</p>
+                  <div className="flex items-center mt-2 group">
+                    <div className="flex items-center text-[10px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-lg ring-1 ring-orange-100/50 animate-pulse">
+                      <Activity className="w-3 h-3 mr-1" />
+                      <span>Live</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-pink-50 to-pink-100">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-pink-600">Avg Order Value</p>
-                    <p className="text-2xl font-bold text-pink-900 mt-1">{formatCurrency(realtimeData.avgOrderValue)}</p>
-                    <div className="flex items-center mt-2">
-                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                      <span className="text-xs text-green-600">+5.2% from last period</span>
-                    </div>
+            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+              <CardContent className="p-4 md:p-6 md:col-span-1 lg:col-span-1">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center ring-1 ring-pink-100/50">
+                    <CreditCard className="w-5 h-5" />
                   </div>
-                  <div className="w-12 h-12 bg-pink-500 rounded-xl flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-white" />
+                  <Badge variant="outline" className="text-[10px] font-bold text-pink-600 border-pink-100 bg-pink-50/50">Values</Badge>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order Value</p>
+                  <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{formatCurrency(realtimeData.avgOrderValue)}</p>
+                  <div className="flex items-center mt-2 group">
+                    <div className="flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg ring-1 ring-emerald-100/50">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      <span>5.2%</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -490,7 +521,7 @@ export default function AnalyticsDashboard() {
               <CardContent className="pt-6">
                 <div className="h-[350px] w-full min-h-[350px] relative">
                   {isChartReady ? (
-                    <ResponsiveContainer width="100%" height="100%" minHeight={350} debounce={50}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={350} minWidth={0} debounce={50}>
                       <AreaChart data={revenueTrend}>
                         <defs>
                           <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -922,6 +953,7 @@ export default function AnalyticsDashboard() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  </div>
+)
 }
                                               

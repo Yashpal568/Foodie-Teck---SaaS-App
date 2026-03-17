@@ -14,6 +14,7 @@ import { formatPrice } from '@/components/ui/currency-selector'
 import CurrencySelector from '@/components/ui/currency-selector'
 import ImageStorage from '@/utils/imageStorage'
 import MenuNavbar from './MenuNavbar'
+import MenuMobileNavbar from './MenuMobileNavbar'
 
 // Load menu items from localStorage
 const loadMenuItems = () => {
@@ -104,7 +105,7 @@ const saveMenuItems = (items) => {
   }
 }
 
-export default function MenuManagement({ currency, onCurrencyChange }) {
+export default function MenuManagement({ currency, onCurrencyChange, activeItem, setActiveItem, navigate }) {
   const [menuItems, setMenuItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [showForm, setShowForm] = useState(false)
@@ -256,78 +257,23 @@ export default function MenuManagement({ currency, onCurrencyChange }) {
           onCategoriesChange={setDynamicCategories}
         />
 
+        <MenuMobileNavbar 
+          onAddNew={() => setShowForm(true)}
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+          currency={currency}
+          onCurrencyChange={onCurrencyChange}
+          onCategoriesChange={setDynamicCategories}
+          menuItems={menuItems}
+          onMenuItemsChange={(updatedItems) => {
+            setMenuItems(updatedItems)
+            saveMenuItems(updatedItems)
+          }}
+        />
+
         <div className="p-4 md:p-8 pb-24 md:pb-8 space-y-6 md:space-y-8">
-          {/* Header Section (Mobile Only) */}
-          <div className="space-y-6 lg:hidden">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div className="space-y-1.5 md:space-y-2">
-                <div className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-orange-600 uppercase tracking-[0.2em]">
-                  <ChefHat className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span>Inventory & Operations</span>
-                </div>
-                <h1 className="text-2xl md:text-4xl font-bold text-gray-900 tracking-tight leading-none">
-                  Menu Management
-                </h1>
-                <p className="text-gray-500 max-w-sm text-xs md:text-base font-semibold leading-relaxed">
-                  Refine your restaurant's digital storefront with precision item control.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                <Button 
-                  onClick={() => setShowForm(true)} 
-                  size="lg" 
-                  className="hidden md:flex bg-orange-600 hover:bg-orange-700 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-orange-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add New Item
-                </Button>
-                <div className="hidden md:block">
-                  <CurrencySelector 
-                    value={currency} 
-                    onChange={onCurrencyChange}
-                    className="h-12 border-none ring-1 ring-gray-200 rounded-xl bg-white shadow-sm font-bold"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions Strip (Mobile Only) */}
-            <div className="relative">
-              <div className="flex items-center gap-2 overflow-x-auto pb-3 -mx-4 px-4 md:mx-0 md:px-0 no-scrollbar">
-                <div className="flex items-center gap-2 min-w-max">
-                  <CategoryManager onCategoriesChange={setDynamicCategories} />
-                  <BulkImportExport 
-                    menuItems={menuItems} 
-                    onImport={(items) => {
-                      const updatedItems = [...menuItems, ...items]
-                      setMenuItems(updatedItems)
-                      saveMenuItems(updatedItems)
-                    }}
-                  />
-                  <MenuTemplates 
-                    onApplyTemplate={(items, categories) => {
-                      const updatedItems = [...menuItems, ...items]
-                      setMenuItems(updatedItems)
-                      saveMenuItems(updatedItems)
-                      setDynamicCategories(categories)
-                    }}
-                    currentItemsCount={menuItems.length}
-                  />
-                  <PriceHistory menuItems={menuItems} />
-                  
-                  <div className="md:hidden">
-                    <CurrencySelector 
-                      value={currency} 
-                      onChange={onCurrencyChange}
-                      className="h-10 border-none ring-1 ring-gray-100 rounded-xl bg-white min-w-[100px] font-bold text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="absolute right-[-4px] top-0 bottom-3 w-12 bg-gradient-to-l from-[#f8fafc] via-[#f8fafc]/90 to-transparent md:hidden pointer-events-none" />
-            </div>
-          </div>
+          {/* Stats Bar and List View */}
 
           {/* Executive Stats Panel */}
           <div className="md:px-0">

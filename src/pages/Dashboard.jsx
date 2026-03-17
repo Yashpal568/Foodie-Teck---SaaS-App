@@ -56,7 +56,13 @@ function Dashboard() {
         return <QRCodeManagement />
       
       case 'menu':
-        return <MenuManagement currency={currency} onCurrencyChange={setCurrency} />
+        return <MenuManagement 
+          currency={currency} 
+          onCurrencyChange={setCurrency} 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+        />
       
       case 'orders':
         return <OrderManagement 
@@ -81,7 +87,11 @@ function Dashboard() {
         )
       
       case 'analytics':
-        return <AnalyticsDashboard />
+        return <AnalyticsDashboard 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+        />
       
       case 'customers':
         return <CustomerManagement plan={profile.plan} />

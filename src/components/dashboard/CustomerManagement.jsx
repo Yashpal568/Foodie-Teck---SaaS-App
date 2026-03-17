@@ -256,7 +256,7 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
             <CardDescription className="text-xs md:text-sm">New customers acquired over the last 7 days</CardDescription>
           </CardHeader>
           <CardContent className="p-2 md:p-6 h-[250px] md:h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250} debounce={50}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
@@ -285,7 +285,7 @@ const CustomerManagement = ({ plan = 'Basic' }) => {
           </CardHeader>
           <CardContent className="p-4 md:p-6 flex flex-col items-center justify-center">
             <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={50}>
               <PieChart>
                 <Pie
                   data={[

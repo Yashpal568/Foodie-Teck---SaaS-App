@@ -15,7 +15,7 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
         setIsCollapsed={setIsCollapsed}
       />
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <div className={activeItem === 'orders' ? 'hidden lg:block' : 'block'}>
+        <div className={(activeItem === 'orders' || activeItem === 'menu' || activeItem === 'analytics') ? 'hidden lg:block' : 'block'}>
           <Navbar 
             activeItem={activeItem}
             setActiveItem={setActiveItem}
