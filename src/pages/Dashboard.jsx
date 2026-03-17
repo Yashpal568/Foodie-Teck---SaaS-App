@@ -74,15 +74,12 @@ function Dashboard() {
       
       case 'tables':
         return (
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Users className="w-8 h-8 text-green-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Table Sessions</h1>
-                <p className="text-gray-600">Monitor table occupancy and customer sessions in real-time</p>
-              </div>
-            </div>
-            <TableSessions />
+          <div className="h-full">
+            <TableSessions 
+              activeItem={activeItem}
+              setActiveItem={setActiveItem}
+              navigate={navigate}
+            />
           </div>
         )
       

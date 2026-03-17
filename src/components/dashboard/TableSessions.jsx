@@ -22,8 +22,10 @@ import {
   Eye,
   Edit,
   UserCheck,
-  Trash2
+  Trash2,
+  Activity
 } from 'lucide-react'
+import TableMobileNavbar from './TableMobileNavbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -42,7 +44,7 @@ import {
 } from '@/components/ui/navbar'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 
-const TableSessions = () => {
+const TableSessions = ({ activeItem, setActiveItem, navigate }) => {
   const { updateStatus } = useOrderManagement()
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
@@ -677,160 +679,162 @@ const TableSessions = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Professional Navbar */}
-      <Navbar className="bg-card border-border">
-        <NavbarContent>
-          <NavbarBrand className="flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-primary" />
-            <span className="text-xl font-bold text-foreground">Table Sessions</span>
-          </NavbarBrand>
-          
-          <div className="flex items-center gap-4 ml-auto">
-            <NavbarItem>
-              <Button variant="outline" size="sm" onClick={() => {
-                // Test: Force complete all orders
-                const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-                const updatedOrders = orders.map(order => ({
-                  ...order,
-                  status: 'FINISHED',
-                  updatedAt: new Date().toISOString()
-                }))
-                localStorage.setItem('orders', JSON.stringify(updatedOrders))
-                console.log('All orders marked as FINISHED for testing')
-                
-                // Emit completion events
-                updatedOrders.forEach(order => {
-                  window.dispatchEvent(new CustomEvent('orderCompleted', {
-                    detail: {
-                      tableNumber: parseInt(order.tableNumber),
-                      orderId: order.id
-                    }
-                  }))
-                })
-              }}>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Complete All Orders
-              </Button>
-            </NavbarItem>
-            
-            <NavbarItem>
-              <Button variant="outline" size="sm" onClick={() => {
-                // Mark all tables as available
-                const updatedTables = tables.map(table => ({
-                  ...table,
-                  status: 'available',
-                  customers: 0,
-                  currentOrder: null,
-                  sessionStart: null,
-                  sessionDuration: null,
-                  revenue: 0,
-                  needsCleaning: false,
-                  lastActivity: new Date().toISOString()
-                }))
-                setTables(updatedTables)
-                localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-                console.log('All tables marked as available')
-              }}>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Reset All Tables
-              </Button>
-            </NavbarItem>
-            
-            <NavbarItem>
-              <Button variant="outline" size="sm" onClick={() => setSettingsModalOpen(true)}>
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-            </NavbarItem>
-            
-            <NavbarItem>
-              <Button size="sm" onClick={handleAddTable}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Table
-              </Button>
-            </NavbarItem>
-          </div>
-        </NavbarContent>
-      </Navbar>
+    <div className="min-h-screen bg-gray-50/50">
+      <TableMobileNavbar 
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        navigate={navigate}
+        onRefresh={handleRefreshTables}
+        onAddTable={handleAddTable}
+      />
 
-      <div className="p-6">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          <Card className="border-0 shadow-sm bg-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Tables</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{stats.totalTables}</p>
-                  <p className="text-xs text-muted-foreground mt-1">All tables</p>
+      {/* Desktop Header - Hide on Mobile */}
+      <div className="hidden lg:block">
+        <Navbar className="bg-white border-b border-gray-100">
+          <NavbarContent>
+            <NavbarBrand className="flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-blue-600" />
+              <span className="text-xl font-bold text-gray-900 tracking-tight">Table Hub</span>
+            </NavbarBrand>
+            
+            <div className="flex items-center gap-4 ml-auto">
+              <NavbarItem>
+                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => {
+                  const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+                  const updatedOrders = orders.map(order => ({
+                    ...order,
+                    status: 'FINISHED',
+                    updatedAt: new Date().toISOString()
+                  }))
+                  localStorage.setItem('orders', JSON.stringify(updatedOrders))
+                  
+                  updatedOrders.forEach(order => {
+                    window.dispatchEvent(new CustomEvent('orderCompleted', {
+                      detail: {
+                        tableNumber: parseInt(order.tableNumber),
+                        orderId: order.id
+                      }
+                    }))
+                  })
+                }}>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Complete All
+                </Button>
+              </NavbarItem>
+              
+              <NavbarItem>
+                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => {
+                  const updatedTables = tables.map(table => ({
+                    ...table,
+                    status: 'available',
+                    customers: 0,
+                    currentOrder: null,
+                    sessionStart: null,
+                    sessionDuration: null,
+                    revenue: 0,
+                    needsCleaning: false,
+                    lastActivity: new Date().toISOString()
+                  }))
+                  setTables(updatedTables)
+                  localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
+                }}>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Reset Tables
+                </Button>
+              </NavbarItem>
+              
+              <NavbarItem>
+                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setSettingsModalOpen(true)}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </NavbarItem>
+              
+              <NavbarItem>
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20" onClick={handleAddTable}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Table
+                </Button>
+              </NavbarItem>
+            </div>
+          </NavbarContent>
+        </Navbar>
+      </div>
+
+      <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 pb-32 lg:pb-8">
+        {/* Professional Stats Overview */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 lg:gap-6">
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center ring-1 ring-blue-100/50">
+                  <Home className="w-5 h-5" />
                 </div>
-                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <Home className="w-6 h-6 text-primary" />
-                </div>
+                <Badge variant="outline" className="text-[10px] font-bold text-blue-600 border-blue-100 bg-blue-50/50">Capacity</Badge>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Tables</p>
+                <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{stats.totalTables}</p>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm bg-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Available Tables</p>
-                  <p className="text-2xl font-bold text-green-600 mt-1">{stats.available}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Ready for customers</p>
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center ring-1 ring-green-100/50">
+                  <CheckCircle className="w-5 h-5" />
                 </div>
-                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
+                <Badge variant="outline" className="text-[10px] font-bold text-green-600 border-green-100 bg-green-50/50">Ready</Badge>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Available</p>
+                <p className="text-xl md:text-2xl font-black text-emerald-600 mt-0.5">{stats.available}</p>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm bg-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Occupied Tables</p>
-                  <p className="text-2xl font-bold text-blue-600 mt-1">{stats.occupied}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Currently in use</p>
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center ring-1 ring-blue-100/50">
+                  <Users className="w-5 h-5" />
                 </div>
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
+                <Badge variant="outline" className="text-[10px] font-bold text-blue-600 border-blue-100 bg-blue-50/50">Live</Badge>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Occupied</p>
+                <p className="text-xl md:text-2xl font-black text-blue-600 mt-0.5">{stats.occupied}</p>
               </div>
             </CardContent>
           </Card>
-          
-          <Card className="border-0 shadow-sm bg-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Active Customers</p>
-                  <p className="text-2xl font-bold text-purple-600 mt-1">{stats.activeCustomers}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Across all tables</p>
+
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center ring-1 ring-orange-100/50">
+                  <Sparkles className="w-5 h-5" />
                 </div>
-                <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-                  <UserCheck className="w-6 h-6 text-purple-600" />
-                </div>
+                <Badge variant="outline" className="text-[10px] font-bold text-orange-600 border-orange-100 bg-orange-50/50">Cleanup</Badge>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cleaning</p>
+                <p className="text-xl md:text-2xl font-black text-orange-600 mt-0.5">{stats.needsCleaning}</p>
               </div>
             </CardContent>
           </Card>
-          
-          <Card className="border-0 shadow-sm bg-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Today's Revenue</p>
-                  <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(stats.totalRevenue)}</p>
-                  <div className="flex items-center mt-2">
-                    <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                    <span className="text-xs text-green-600">+12% from yesterday</span>
-                  </div>
+
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center ring-1 ring-purple-100/50">
+                  <Calendar className="w-5 h-5" />
                 </div>
-                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-green-600" />
-                </div>
+                <Badge variant="outline" className="text-[10px] font-bold text-purple-600 border-purple-100 bg-purple-50/50">Booked</Badge>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reserved</p>
+                <p className="text-xl md:text-2xl font-black text-purple-600 mt-0.5">{stats.reserved}</p>
               </div>
             </CardContent>
           </Card>
