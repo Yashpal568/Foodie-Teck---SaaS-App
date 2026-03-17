@@ -139,7 +139,7 @@ export default function PriceHistory({ menuItems, showLabel = true }) {
           {!showLabel ? (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
+                <TooltipTrigger asChild className="">
                   <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-gray-100 rounded-lg">
                     <TrendingUp className="w-4 h-4 text-gray-600" />
                   </Button>
@@ -220,7 +220,7 @@ export default function PriceHistory({ menuItems, showLabel = true }) {
             </Card>
           </div>
 
-          <Separator />
+          <Separator className="" />
 
           {/* Price History Table */}
           <Card className="shadow-sm border flex-1 flex flex-col">
@@ -228,8 +228,8 @@ export default function PriceHistory({ menuItems, showLabel = true }) {
               <CardTitle className="text-lg">Recent Price Changes</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto">
-              <Table>
-                <TableHeader>
+              <Table className="">
+                <TableHeader className="">
                     <TableRow className="">
                       <TableHead className="w-[25%]">Item Name</TableHead>
                       <TableHead className="w-[15%]">Old Price</TableHead>

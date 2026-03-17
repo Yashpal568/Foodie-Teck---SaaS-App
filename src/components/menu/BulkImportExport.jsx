@@ -213,7 +213,7 @@ export default function BulkImportExport({ menuItems, onImport, showLabel = true
                   </div>
 
                   <div>
-                    <Label htmlFor="importData">Paste Excel/CSV data:</Label>
+                    <Label htmlFor="importData" className="">Paste Excel/CSV data:</Label>
                     <Textarea
                       id="importData"
                       placeholder="Paste your Excel or CSV data here..."
@@ -225,9 +225,9 @@ export default function BulkImportExport({ menuItems, onImport, showLabel = true
                   </div>
 
                   {importErrors.length > 0 && (
-                    <Alert variant="destructive">
+                    <Alert variant="destructive" className="">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
+                      <AlertDescription className="">
                         <ul className="list-disc list-inside">
                           {importErrors.map((error, index) => (
                             <li key={index}>{error}</li>
@@ -247,8 +247,8 @@ export default function BulkImportExport({ menuItems, onImport, showLabel = true
                     </Button>
                   </div>
 
-                  <Alert>
-                    <AlertDescription>
+                  <Alert className="">
+                    <AlertDescription className="">
                       <strong>Supported Formats:</strong><br />
                       • Excel files (.xlsx, .xls)<br />
                       • CSV files (.csv)<br />
@@ -296,8 +296,8 @@ export default function BulkImportExport({ menuItems, onImport, showLabel = true
                     </Button>
                   </div>
 
-                  <Alert>
-                    <AlertDescription>
+                  <Alert className="">
+                    <AlertDescription className="">
                       <strong>Export Options:</strong><br />
                       • <strong>Excel (.xlsx):</strong> Opens directly in Microsoft Excel<br />
                       • <strong>JSON:</strong> For developers and data backup<br />
