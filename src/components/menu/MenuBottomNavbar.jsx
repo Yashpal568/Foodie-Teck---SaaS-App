@@ -28,27 +28,29 @@ export default function MenuBottomNavbar({
         className="bg-white/80 backdrop-blur-3xl rounded-[2.5rem] border border-white/40 shadow-[0_15px_40px_rgba(0,0,0,0.1)] p-2 flex items-center justify-between pointer-events-auto relative overflow-hidden"
       >
         {/* Animated Background Pill - White Glass Theme */}
-        <AnimatePresence>
-          {tabs.map((tab) => {
-            if (tab.id === activeTab) {
-              const visibleTabs = tabs.filter(t => !t.hidden)
-              const tabIndex = visibleTabs.findIndex(t => t.id === activeTab)
-              return (
-                <motion.div
-                  key="pill"
-                  layoutId="nav-pill"
-                  className="absolute h-[calc(100%-1rem)] rounded-[2.2rem] bg-slate-900 border border-slate-800 z-0"
-                  style={{ 
-                    width: `${(100 / visibleTabs.length) - 2}%`,
-                    left: `${(tabIndex * (100 / visibleTabs.length)) + 1}%`
-                  }}
-                  transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-                />
-              )
-            }
-            return null
-          })}
-        </AnimatePresence>
+        <div className="absolute inset-2 flex pointer-events-none">
+          <AnimatePresence>
+            {tabs.map((tab) => {
+              if (tab.id === activeTab) {
+                const visibleTabs = tabs.filter(t => !t.hidden)
+                const tabIndex = visibleTabs.findIndex(t => t.id === activeTab)
+                return (
+                  <motion.div
+                    key="pill"
+                    layoutId="nav-pill"
+                    className="h-full rounded-[2.2rem] bg-slate-900 border border-slate-800 z-0"
+                    style={{ 
+                      width: `${100 / visibleTabs.length}%`,
+                      marginLeft: `${(tabIndex * 100) / visibleTabs.length}%`
+                    }}
+                    transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+                  />
+                )
+              }
+              return null
+            })}
+          </AnimatePresence>
+        </div>
 
         {tabs.map((tab) => {
           if (tab.hidden) return null

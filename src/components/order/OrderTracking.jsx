@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Clock, ChefHat, CheckCircle, X, AlertCircle, DollarSign, Receipt, ArrowLeft, Home, Phone, Star, MapPin, Calendar, CreditCard, RefreshCw, Menu, Timer, Utensils } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Progress } from '@/components/ui/progress'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Navbar, 
-  NavbarContent, 
-  NavbarBrand, 
-  NavbarItem, 
-  NavbarMenuToggle, 
-  NavbarMenu, 
-  NavbarMenuItem 
-} from '@/components/ui/navbar'
+  ChefHat, 
+  CheckCircle, 
+  Receipt, 
+  ArrowLeft, 
+  Phone, 
+  Utensils,
+  Timer,
+  Clock,
+  Calendar,
+  CreditCard,
+  MapPin
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import Logo from '@/components/ui/Logo'
+import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import { ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { cn } from '@/lib/utils'
@@ -23,19 +26,51 @@ const OrderTracking = ({ orderId, onClose }) => {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [restaurantInfo, setRestaurantInfo] = useState({ restaurantId: 'restaurant-123', tableNumber: '' })
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [cart, setCart] = useState([])
+  
+  const [showThankYou, setShowThankYou] = useState(false)
   
   const { profile } = useRestaurantProfile(restaurantInfo.restaurantId)
 
-  // Load order details
+  // Handle auto-finalization delay (60 seconds after SERVED)
+  useEffect(() => {
+    // Only start timer if order is SERVED and NOT explicitly FINISHED
+    if (order?.status === ORDER_STATUS.SERVED && order?.status !== ORDER_STATUS.FINISHED && !showThankYou) {
+      const timer = setTimeout(() => {
+        setShowThankYou(true)
+      }, 60000) // 60 second delay
+      return () => clearTimeout(timer)
+    }
+  }, [order?.status, showThankYou])
+
+  // Load order details with table session auto-refresh logic
   useEffect(() => {
     const loadOrder = () => {
       try {
         const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-        const foundOrder = orders.find(o => o.id === orderId)
+        
+        // Find existing order for this ID
+        let foundOrder = orders.find(o => o.id === orderId)
+        
+        // SESSION REFRESH LOGIC: 
+        // If no active order for this ID (maybe it's a new QR scan), 
+        // or if the current order is FINISHED/CANCELLED, look for any 
+        // OTHER active order for the SAME table.
+        if (!foundOrder || [ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(foundOrder.status)) {
+            // Check if there's any other LATEST active order for this table
+            const tableOrders = orders.filter(o => 
+              o.tableNumber === restaurantInfo.tableNumber && 
+              o.restaurantId === restaurantInfo.restaurantId &&
+              ![ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(o.status)
+            ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+            if (tableOrders.length > 0) {
+              foundOrder = tableOrders[0]
+            }
+        }
+
         setOrder(foundOrder)
         
-        // Store restaurant and table info separately
         if (foundOrder) {
           setRestaurantInfo({
             restaurantId: foundOrder.restaurantId,
@@ -51,10 +86,17 @@ const OrderTracking = ({ orderId, onClose }) => {
 
     loadOrder()
 
-    // Listen for order updates
+    // Load cart to show count in navbar
+    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]')
+    setCart(savedCart)
+
+    // Listen for storage changes
     const handleStorageChange = (e) => {
       if (e.key === 'orders') {
         loadOrder()
+      }
+      if (e.key === 'cart') {
+        setCart(JSON.parse(e.newValue || '[]'))
       }
     }
 
@@ -92,10 +134,11 @@ const OrderTracking = ({ orderId, onClose }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-zinc-900 border-t-transparent animate-spin rounded-full mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-zinc-900">Loading order details...</h2>
+          <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent animate-spin rounded-full mx-auto mb-6 shadow-2xl shadow-slate-200"></div>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Authenticating Session...</h2>
+          <p className="text-sm text-slate-400 mt-2 font-medium">Retrieving your culinary journey details</p>
         </div>
       </div>
     )
@@ -103,29 +146,69 @@ const OrderTracking = ({ orderId, onClose }) => {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full border-zinc-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <CardContent className="p-8 text-center">
-            <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <X className="w-10 h-10 text-zinc-600" />
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-8">
+            <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-slate-100">
+               <Receipt className="w-10 h-10 text-slate-300" />
             </div>
-            <h2 className="text-2xl font-bold text-zinc-900 mb-2">Order Not Found</h2>
-            <p className="text-zinc-600 mb-6">We couldn't find your order details.</p>
+            <div className="space-y-2">
+               <h2 className="text-3xl font-bold text-slate-900 tracking-tighter">Session Unavailable</h2>
+               <p className="text-slate-500 font-medium">We were unable to locate your active order session in our system.</p>
+            </div>
             <Button
               onClick={onClose}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white"
+              className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-2xl shadow-slate-900/10 transition-all uppercase tracking-widest text-xs"
             >
-              Go Back to Menu
+              Return to Catalog
             </Button>
-          </CardContent>
-        </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Finalized Session Logic (Triggers after 60s of SERVED or when FINISHED, but only once)
+  const hasBeenThanked = localStorage.getItem(`thanked_${order?.id}`)
+  if ((order?.status === ORDER_STATUS.FINISHED || showThankYou) && !hasBeenThanked) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-6 selection:bg-slate-900 selection:text-white">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="max-w-md w-full text-center space-y-10"
+        >
+          <div className="relative inline-block">
+             <div className="absolute inset-0 bg-emerald-500/20 blur-[60px] rounded-full animate-pulse" />
+             <div className="relative w-32 h-32 bg-emerald-50 rounded-[3rem] border border-emerald-100 flex items-center justify-center mx-auto shadow-inner group">
+                <CheckCircle className="w-16 h-16 text-emerald-500 group-hover:scale-110 transition-transform duration-700" />
+             </div>
+          </div>
+          
+          <div className="space-y-4">
+            <h2 className="text-4xl font-bold text-slate-900 tracking-tighter text-balance">Thank You for Dining with Us!</h2>
+            <div className="space-y-2">
+               <p className="text-slate-500 font-medium">It was our pleasure hosting you at <span className="text-slate-900 font-bold">Servora</span> today.</p>
+               <p className="text-emerald-600 font-bold uppercase tracking-[0.2em] text-[10px]">Your session has been successfully concluded.</p>
+            </div>
+          </div>
+
+          <div className="pt-6">
+            <Button
+              onClick={() => {
+                localStorage.setItem(`thanked_${order.id}`, 'true')
+                onClose()
+              }}
+              className="w-full h-16 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-2xl shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest text-[11px]"
+            >
+              Finish Session
+            </Button>
+            <p className="mt-6 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Servora Experience Engine v1.0</p>
+          </div>
+        </motion.div>
       </div>
     )
   }
 
   const currentStatusConfig = ORDER_STATUS_CONFIG[order.status]
-  const isFinished = order.status === ORDER_STATUS.FINISHED
-  const isBillRequested = order.status === ORDER_STATUS.BILL_REQUESTED
   const isServed = order.status === ORDER_STATUS.SERVED
 
   // Calculate progress percentage
@@ -138,585 +221,506 @@ const OrderTracking = ({ orderId, onClose }) => {
     [ORDER_STATUS.FINISHED]: 100
   }
 
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2
+    }).format(price)
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* Shadcn Studio Navbar */}
-      <Navbar>
-        <NavbarContent className="max-w-6xl mx-auto px-4">
-          {/* Mobile Menu Toggle */}
-          <NavbarMenuToggle 
-            onClick={() => setMobileMenuOpen(true)}
-            className="lg:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </NavbarMenuToggle>
-
-          {/* Brand */}
-          <NavbarBrand className="flex-1">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-zinc-900 rounded-xl flex items-center justify-center">
-                <Receipt className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-zinc-900 hidden md:block">Order Tracking</h1>
-                <h1 className="text-base font-bold text-zinc-900 md:hidden">Order Tracking</h1>
-                <p className="text-xs text-zinc-600 hidden md:block">Order #{order.id}</p>
-              </div>
-            </div>
-          </NavbarBrand>
-
-          {/* Spacer for better spacing */}
-          <div className="flex-1 lg:hidden"></div>
-
-          {/* Desktop Items */}
-          <div className="hidden lg:flex items-center gap-4 flex-1 justify-end">
-            <Badge variant="outline" className="border-zinc-300 text-zinc-700 px-3 py-1">
-              Table {order.tableNumber}
-            </Badge>
-            <Avatar className="h-10 w-10 border-2 border-zinc-200">
-              <AvatarFallback className="bg-zinc-100 text-zinc-900 font-bold">
-                T{order.tableNumber}
-              </AvatarFallback>
-            </Avatar>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="border-zinc-300 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 transition-colors duration-200"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Menu
-            </Button>
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-slate-900 selection:text-white pb-20 overflow-x-hidden">
+      {/* Premium Navbar - Logo Left */}
+      <motion.nav 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="fixed top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/50 z-50 px-6"
+      >
+        <div className="max-w-screen-xl mx-auto h-full flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Logo showText={true} iconSize={26} className="scale-100" />
+            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+            <span className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Order Experience</span>
           </div>
 
-          {/* Mobile Items */}
-          <div className="lg:hidden flex items-center gap-3">
-            <Badge variant="outline" className="border-zinc-300 text-zinc-700 text-xs px-2 py-1">
-              Table {order.tableNumber}
-            </Badge>
-            <Avatar className="h-8 w-8 border border-zinc-200">
-              <AvatarFallback className="bg-zinc-100 text-zinc-900 font-bold text-sm">
-                T{order.tableNumber}
-              </AvatarFallback>
-            </Avatar>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onClose}
-              className="border-zinc-300 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 transition-colors duration-200 h-8 w-8"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </div>
-        </NavbarContent>
-
-        {/* Mobile Menu */}
-        <NavbarMenu isOpen={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <NavbarMenuItem onClick={() => setMobileMenuOpen(false)}>
-            <div className="flex items-center gap-3">
-              <Receipt className="h-5 w-5 text-zinc-600" />
-              <div>
-                <div className="font-medium">Order Tracking</div>
-                <div className="text-sm text-zinc-500">Order #{order.id}</div>
-              </div>
-            </div>
-          </NavbarMenuItem>
-          
-          <NavbarMenuItem onClick={() => {
-            onClose()
-            setMobileMenuOpen(false)
-          }}>
-            <div className="flex items-center gap-3">
-              <ArrowLeft className="h-5 w-5 text-zinc-600" />
-              <div>
-                <div className="font-medium">Back to Menu</div>
-                <div className="text-sm text-zinc-500">Return to restaurant menu</div>
-              </div>
-            </div>
-          </NavbarMenuItem>
-        </NavbarMenu>
-      </Navbar>
-
-      <div className="max-w-6xl mx-auto px-4 py-8 relative">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 left-1/4 -translate-x-1/2 w-full max-w-4xl h-96 bg-zinc-200/20 blur-[120px] -z-10 rounded-full" />
-        <div className="absolute bottom-0 right-1/4 w-full max-w-4xl h-96 bg-zinc-200/20 blur-[120px] -z-10 rounded-full" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Tracking */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Status Card */}
-            <Card className="border-zinc-200 shadow-xl overflow-hidden rounded-[2rem] bg-white/70 backdrop-blur-xl transition-all duration-300">
-              <div className={cn(
-                "p-6 transition-all duration-500",
-                order.status === ORDER_STATUS.ORDERED && "bg-gradient-to-br from-blue-600 to-blue-800",
-                order.status === ORDER_STATUS.PREPARING && "bg-gradient-to-br from-orange-500 to-red-600",
-                order.status === ORDER_STATUS.READY && "bg-gradient-to-br from-emerald-500 to-teal-700",
-                order.status === ORDER_STATUS.SERVED && "bg-gradient-to-br from-purple-600 to-indigo-800",
-                order.status === ORDER_STATUS.FINISHED && "bg-gradient-to-br from-zinc-700 to-zinc-900",
-                order.status === ORDER_STATUS.CANCELLED && "bg-gradient-to-br from-red-600 to-rose-800"
-              )}>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-white/30 animate-in fade-in zoom-in duration-500",
-                      order.status !== ORDER_STATUS.FINISHED && order.status !== ORDER_STATUS.CANCELLED && "animate-pulse"
-                    )}>
-                      {currentStatusConfig.icon}
-                    </div>
-                    <div className="text-white">
-                      <h2 className="text-2xl font-black tracking-tight">{currentStatusConfig.label}</h2>
-                      <p className="text-white/80 font-medium">{currentStatusConfig.description}</p>
-                    </div>
-                  </div>
-                  <div className="text-white/90 bg-black/10 backdrop-blur-sm px-4 py-2 rounded-2xl border border-white/10 self-start md:self-center">
-                    <p className="text-xs uppercase tracking-wider font-bold opacity-70">Order Time</p>
-                    <p className="text-lg font-mono font-bold">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <CardContent className="p-6">
-                {/* Progress Bar */}
-                <div className="mb-6">
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
-                    <span>Progress</span>
-                    <span className="text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded-lg border border-zinc-200">{statusProgress[order.status]}%</span>
-                  </div>
-                  <div className="relative">
-                    <Progress value={statusProgress[order.status]} className="h-4 rounded-full bg-zinc-100" />
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-white/20 blur-sm rounded-full transition-all duration-500" 
-                      style={{ width: `${statusProgress[order.status]}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Timeline */}
-                <div className="space-y-4 relative">
-                  <h3 className="font-black text-zinc-900 mb-4 uppercase tracking-tighter flex items-center gap-2 text-sm">
-                    <Timer className="w-4 h-4" />
-                    Journey
-                  </h3>
-                  
-                  {/* Vertical Line Connector */}
-                  <div className="absolute left-[19px] top-[40px] bottom-8 w-0.5 bg-zinc-100 rounded-full" />
-
-                  {order.statusHistory.map((history, index) => {
-                    const statusConfig = ORDER_STATUS_CONFIG[history.status]
-                    const isCurrent = history.status === order.status
-                    
-                    return (
-                      <div key={index} className="flex items-start gap-4 relative group">
-                        <div className="flex-shrink-0 z-10 transition-transform duration-300 group-hover:scale-105">
-                          <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-300 shadow-sm",
-                            isCurrent 
-                              ? "bg-zinc-900 border-[3px] border-white ring-1 ring-zinc-900 text-white" 
-                              : "bg-white border border-zinc-100 text-zinc-400"
-                          )}>
-                            {statusConfig.icon}
-                          </div>
-                        </div>
-                        <div className={cn(
-                          "flex-1 p-3 rounded-xl transition-all duration-300",
-                          isCurrent ? "bg-zinc-50 border border-zinc-200" : "bg-transparent"
-                        )}>
-                          <div className="flex items-center justify-between gap-2">
-                            <h3 className={cn(
-                              "font-bold transition-colors duration-200",
-                              isCurrent ? "text-zinc-900 text-lg" : "text-zinc-500"
-                            )}>
-                              {statusConfig.label}
-                            </h3>
-                            <span className="text-xs font-mono font-bold text-zinc-400 bg-white px-2 py-1 rounded-lg border border-zinc-100">
-                              {new Date(history.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </span>
-                          </div>
-                          <p className={cn(
-                            "text-sm mt-1 leading-relaxed",
-                            isCurrent ? "text-zinc-600 font-medium" : "text-zinc-400"
-                          )}>
-                            {history.note}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Action Buttons */}
-                {isServed && (
-                  <div className="mt-8 p-6 bg-gradient-to-br from-zinc-50 to-white rounded-[2rem] border border-zinc-100 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="flex items-center gap-4 text-zinc-900 mb-4">
-                      <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
-                        <CheckCircle className="w-6 h-6" />
-                      </div>
-                      <span className="font-black text-xl tracking-tight">Enjoy Your Meal!</span>
-                    </div>
-                    <p className="text-zinc-600 font-medium mb-6 leading-relaxed">
-                      Your order has been served with care. We hope you have a delightful dining experience!
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Button 
-                        onClick={() => {
-                          window.location.href = `/menu?restaurant=${restaurantInfo.restaurantId}&table=${restaurantInfo.tableNumber}`
-                        }}
-                        className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white font-bold h-12 rounded-2xl shadow-lg transition-all"
-                      >
-                        <Utensils className="w-4 h-4 mr-2" />
-                        Order More
-                      </Button>
-                      <Button 
-                        onClick={() => updateOrderStatus(ORDER_STATUS.BILL_REQUESTED)}
-                        className="flex-1 bg-white hover:bg-zinc-50 text-zinc-900 border-2 border-zinc-100 font-bold h-12 rounded-2xl transition-all"
-                      >
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        Request Bill
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {isBillRequested && (
-                  <div className="mt-8 p-6 bg-amber-50 rounded-[2rem] border border-amber-100/50 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="flex items-center gap-4 text-amber-900 mb-4">
-                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                        <DollarSign className="w-6 h-6 text-amber-500" />
-                      </div>
-                      <span className="font-black text-xl tracking-tight">Bill Requested!</span>
-                    </div>
-                    <p className="text-amber-800/80 font-medium mb-6 leading-relaxed">
-                      Our staff is preparing your bill. Please wait a moment while we process your request.
-                    </p>
-                    <div className="flex items-center justify-center p-4 bg-white/50 rounded-2xl border border-white/50">
-                      <div className="w-6 h-6 border-4 border-amber-500 border-t-transparent animate-spin rounded-full"></div>
-                      <p className="text-sm font-bold text-amber-900 ml-3">Processing your payment...</p>
-                    </div>
-                  </div>
-                )}
-
-                {isFinished && (
-                  <div className="mt-6 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
-                    <div className="flex items-center gap-3 text-zinc-800 mb-3">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="font-semibold">Thank you for your visit!</span>
-                    </div>
-                    <p className="text-sm text-zinc-600 mb-4">
-                      Payment completed and table closed. We hope to see you again soon!
-                    </p>
-                    <div className="mb-4 p-3 bg-zinc-100 rounded-lg">
-                      <div className="flex items-center justify-center mb-2">
-                        <div className="w-6 h-6 bg-zinc-900 rounded-lg flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">QR</span>
-                        </div>
-                        <p className="text-sm text-zinc-600 ml-3">
-                          Table is ready for new customers
-                        </p>
-                      </div>
-                      <p className="text-xs text-zinc-700 text-center">
-                        New customers can scan the QR code to start a fresh session
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <Button 
-                        onClick={onClose}
-                        className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3 transition-colors duration-200"
-                      >
-                        <Home className="w-4 h-4 mr-2" />
-                        Back to Menu
-                      </Button>
-                      <Button 
-                        onClick={() => window.location.reload()}
-                        variant="outline"
-                        className="flex-1 border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-semibold py-3 transition-colors duration-200"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Order Details */}
-            <Card className="border-zinc-200 shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-[2rem]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Receipt className="w-5 h-5" />
-                  Order Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-y-6">
-                  <div className="flex items-center gap-2 text-sm text-zinc-500 font-medium">
-                    <Calendar className="w-4 h-4" />
-                    <span>Order Date</span>
-                  </div>
-                  <div className="text-sm font-bold text-right md:text-left">{new Date(order.createdAt).toLocaleDateString()}</div>
-                  <div className="flex items-center gap-2 text-sm text-zinc-500 font-medium">
-                    <Clock className="w-4 h-4" />
-                    <span>Order Time</span>
-                  </div>
-                  <div className="text-sm font-bold text-right md:text-left">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                  <div className="flex items-center gap-2 text-sm text-zinc-500 font-medium">
-                    <MapPin className="w-4 h-4" />
-                    <span>Table</span>
-                  </div>
-                  <div className="text-sm font-bold text-right md:text-left">Table {order.tableNumber}</div>
-                  <div className="flex items-center gap-2 text-sm text-zinc-500 font-medium">
-                    <CreditCard className="w-4 h-4" />
-                    <span>Payment</span>
-                  </div>
-                  <div className="text-sm font-bold flex items-center justify-end md:justify-start gap-2">
-                    <span className={cn(
-                      "w-2 h-2 rounded-full",
-                      order.status === ORDER_STATUS.FINISHED ? "bg-emerald-500" : "bg-amber-500"
-                    )} />
-                    {order.status === ORDER_STATUS.FINISHED ? 'Paid' : 'Pending'}
-                  </div>
-                </div>
-                </div>
-
-                <div className="my-6 h-px bg-gradient-to-r from-transparent via-zinc-200 to-transparent" />
-
-                <div className="space-y-4">
-                  <h4 className="font-black text-zinc-900 uppercase tracking-tighter flex items-center gap-2 mb-2">
-                    <Utensils className="w-4 h-4" />
-                    Items Ordered
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {order.items.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-zinc-50/50 border border-zinc-100 rounded-2xl hover:bg-white hover:shadow-md transition-all duration-300 group">
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-100 flex items-center justify-center font-black text-zinc-900 overflow-hidden group-hover:scale-105 transition-transform">
-                              <span className="text-sm">×{item.quantity}</span>
-                            </div>
-                            {item.type === 'VEG' && (
-                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-zinc-900 leading-tight">{item.name}</h4>
-                            <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">{item.type}</p>
-                          </div>
-                        </div>
-                        <span className="font-black text-zinc-900">
-                          ₹{(item.price * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="my-6 h-px bg-gradient-to-r from-transparent via-zinc-200 to-transparent" />
-
-                <div className="p-6 bg-zinc-900 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-                  <div className="space-y-2 relative z-10">
-                    <div className="flex justify-between text-sm opacity-60 font-bold uppercase tracking-widest">
-                      <span>Subtotal</span>
-                      <span>₹{order.subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm opacity-60 font-bold uppercase tracking-widest">
-                      <span>Tax (5%)</span>
-                      <span>₹{order.tax.toFixed(2)}</span>
-                    </div>
-                    <div className="pt-2 mt-2 border-t border-white/10 flex justify-between items-end">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.2em] opacity-50 mb-1">Total Bill</p>
-                        <h4 className="text-3xl font-black tracking-tighter">₹{order.total.toFixed(2)}</h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0 py-1 px-3 backdrop-blur-md rounded-lg font-bold">
-                        {order.items.length} Items
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card className="border-0 shadow-xl rounded-[2rem] bg-zinc-900 text-white overflow-hidden group">
-              <CardHeader className="p-0">
-                <div className="h-24 bg-gradient-to-br from-zinc-700 to-zinc-900 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-                    <Star className="w-24 h-24 rotate-12" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-8 -mt-12 relative z-10 text-center">
-                <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-2xl border-4 border-zinc-900 group-hover:scale-105 transition-transform duration-300">
-                  <div className="w-16 h-16 bg-gradient-to-br from-zinc-100 to-zinc-300 rounded-2xl flex items-center justify-center">
-                    <span className="text-zinc-900 font-black text-2xl tracking-tighter">
-                      {profile.name.substring(0, 2).toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                <h3 className="font-black text-2xl tracking-tight">{profile.name}</h3>
-                <p className="text-zinc-400 text-sm font-medium mt-1">{profile.description}</p>
-                
-                <div className="mt-4 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center gap-2 group/status">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover/status:text-emerald-400 transition-colors">Restaurant is Open</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Premium Delivery Estimate */}
-            <Card className="border-0 shadow-2xl rounded-[2rem] bg-white overflow-hidden group hover:shadow-zinc-200 transition-all duration-500">
-              <div className="bg-gradient-to-br from-zinc-900 to-black p-8 text-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl -mr-16 -mt-16 animate-pulse" />
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-zinc-400/10 blur-3xl -ml-16 -mb-16" />
-                
-                <div className="relative z-10">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/10 mb-4">
-                    <Timer className="w-3 h-3 text-white/70" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/70">Estimated Delivery</span>
-                  </div>
-                  
-                  <div className="flex items-baseline justify-center gap-2">
-                    <span className="text-7xl font-black text-white tracking-tighter animate-in fade-in slide-in-from-bottom-2 duration-700">
-                      {order.estimatedTime || '15-20'}
-                    </span>
-                    <span className="text-xl font-black text-white/50 tracking-tight">MIN</span>
-                  </div>
-                  <p className="text-white/40 font-black uppercase tracking-widest text-[10px] mt-2">Arriving at your table</p>
-                </div>
-              </div>
-
-              <CardContent className="p-8">
-                <div className="space-y-6 relative">
-                  {/* Vertical line connector for stepper */}
-                  <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-zinc-100" />
-                  
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 transition-all duration-500",
-                      ["ORDERED", "PREPARING", "READY", "SERVED", "BILL_REQUESTED", "FINISHED"].includes(order.status) 
-                        ? "bg-zinc-900 border-zinc-900 scale-110 shadow-lg shadow-zinc-200" 
-                        : "bg-white border-zinc-200"
-                    )} />
-                    <span className={cn(
-                      "text-sm font-black tracking-tight transition-colors",
-                      ["ORDERED", "PREPARING", "READY", "SERVED", "BILL_REQUESTED", "FINISHED"].includes(order.status) ? "text-zinc-900" : "text-zinc-300"
-                    )}>Order Confirmed</span>
-                  </div>
-
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 transition-all duration-500",
-                      ["PREPARING", "READY", "SERVED", "BILL_REQUESTED", "FINISHED"].includes(order.status) 
-                        ? "bg-zinc-900 border-zinc-900 scale-110 shadow-lg shadow-zinc-200" 
-                        : "bg-white border-zinc-200"
-                    )} />
-                    <div className="flex flex-col">
-                      <span className={cn(
-                        "text-sm font-black tracking-tight transition-colors",
-                        ["PREPARING", "READY", "SERVED", "BILL_REQUESTED", "FINISHED"].includes(order.status) ? "text-zinc-900" : "text-zinc-300"
-                      )}>Preparing Meal</span>
-                      {order.status === ORDER_STATUS.PREPARING && (
-                        <span className="text-[10px] font-bold text-amber-600 animate-pulse">Chef is working on it</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 transition-all duration-500",
-                      ["READY", "SERVED", "BILL_REQUESTED", "FINISHED"].includes(order.status) 
-                        ? "bg-emerald-500 border-emerald-500 scale-110 shadow-lg shadow-emerald-100" 
-                        : "bg-white border-zinc-200"
-                    )} />
-                    <span className={cn(
-                      "text-sm font-black tracking-tight transition-colors",
-                      ["READY", "SERVED", "BILL_REQUESTED", "FINISHED"].includes(order.status) ? "text-emerald-600" : "text-zinc-300"
-                    )}>Ready for Service</span>
-                  </div>
-                </div>
-
-                <div className="mt-10 space-y-3">
-                  <Button className="w-full bg-white hover:bg-zinc-50 text-zinc-900 border-2 border-zinc-100 h-14 rounded-2xl transition-all font-black uppercase tracking-tight text-xs">
-                    <Phone className="w-4 h-4 mr-2" />
-                    Help & Support
-                  </Button>
-                  
-                  {/* Complete Order Button */}
-                  {order && (order.status === ORDER_STATUS.SERVED || order.status === ORDER_STATUS.READY) && (
-                    <Button 
-                      onClick={() => {
-                        console.log('Completing order:', order.id)
-                        
-                        // Update order status to FINISHED
-                        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-                        const updatedOrders = orders.map(o => {
-                          if (o.id === order.id) {
-                            return {
-                              ...o,
-                              status: ORDER_STATUS.FINISHED,
-                              updatedAt: new Date().toISOString()
-                            }
-                          }
-                          return o
-                        })
-                        localStorage.setItem('orders', JSON.stringify(updatedOrders))
-                        
-                        // Update table status to available
-                        const tableSessions = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-                        const updatedTables = tableSessions.map(table => {
-                          if (table.tableNumber === parseInt(order.tableNumber)) {
-                            return {
-                              ...table,
-                              status: 'available',
-                              customers: 0,
-                              currentOrder: null,
-                              sessionStart: null,
-                              sessionDuration: null,
-                              revenue: 0,
-                              needsCleaning: false,
-                              lastActivity: new Date().toISOString()
-                            }
-                          }
-                          return table
-                        })
-                        localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-                        
-                        // Emit event for table sessions
-                        window.dispatchEvent(new CustomEvent('orderUpdated', {
-                          detail: {
-                            tableNumber: parseInt(order.tableNumber),
-                            orderStatus: 'finished',
-                            customers: 0,
-                            orderId: null,
-                            revenue: 0
-                          }
-                        }))
-                        
-                        console.log('Order completed and table marked as available')
-                        
-                        // Update local order state
-                        setOrder({
-                          ...order,
-                          status: ORDER_STATUS.FINISHED
-                        })
-                      }}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white transition-colors duration-200"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Complete Order
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex items-center gap-3">
+             <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Table</span>
+                <span className="text-[10px] font-bold text-slate-900">{order.tableNumber}</span>
+             </div>
+             <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="h-9 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-all hover:bg-slate-50"
+             >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+             </Button>
           </div>
         </div>
-      </div>
+      </motion.nav>
+
+      <main className="max-w-6xl mx-auto pt-28 px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Main Visual Journey Column */}
+          <div className="lg:col-span-12 xl:col-span-8 space-y-8">
+            
+            {/* Live Tracking Hero Card */}
+            <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               transition={{ duration: 0.2 }}
+               className="relative rounded-[2.5rem] p-1 shadow-2xl shadow-slate-200 group overflow-hidden"
+            >
+               <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 opacity-100 z-0" />
+               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] -mr-32 -mt-32 rounded-full" />
+               <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 blur-[80px] -ml-24 -mb-24 rounded-full" />
+               
+               <div className="relative z-10 bg-white/5 backdrop-blur-md rounded-[2.4rem] p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-10">
+                  <div className="space-y-6 text-center md:text-left flex-1">
+                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
+                        <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Live Experience Hub</span>
+                     </div>
+                     
+                     <div className="space-y-4">
+                        <div className="space-y-1">
+                           <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
+                             {currentStatusConfig.label}
+                           </h2>
+                           <p className="text-slate-400 text-sm md:text-base font-medium max-w-sm">
+                             {currentStatusConfig.description}
+                           </p>
+                        </div>
+                        
+                        {/* Dynamic Progress Indicator */}
+                        <div className="pt-2 max-w-xs transition-all">
+                           <div className="flex justify-between items-center mb-2">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Journey Progress</span>
+                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{statusProgress[order.status]}%</span>
+                           </div>
+                           <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                              <motion.div 
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${statusProgress[order.status]}%` }}
+                                 transition={{ type: "spring", stiffness: 50, damping: 20 }}
+                                 className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]" 
+                              />
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="flex flex-wrap gap-4 pt-4 justify-center md:justify-start">
+                        <div className="flex items-center gap-3 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/5 backdrop-blur-sm">
+                           <div className="text-left">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Prep Time</p>
+                              <p className="text-base font-bold text-white leading-none mt-1">15-20 Mins</p>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-3 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/5 backdrop-blur-sm">
+                           <div className="text-left">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Order Reference</p>
+                              <p className="text-base font-bold text-white leading-none mt-1">#{order.id.slice(-6).toUpperCase()}</p>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="relative flex flex-col items-center">
+                     <div className="w-40 h-40 md:w-56 md:h-56 rounded-full border border-white/10 flex items-center justify-center relative">
+                        {/* Animated Pulses */}
+                        <div className="absolute inset-0 rounded-full border border-emerald-400/20 animate-ping opacity-50" />
+                        <div className="absolute inset-8 rounded-full border border-emerald-400/40 animate-[ping_4s_infinite] opacity-30" />
+                        
+                        <div className="w-32 h-32 md:w-44 md:h-44 bg-gradient-to-br from-slate-800 to-slate-900 rounded-full flex items-center justify-center text-5xl md:text-7xl shadow-2xl border border-white/10">
+                           {currentStatusConfig.icon}
+                        </div>
+                     </div>
+                     <span className="mt-8 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Pulse Status Active</span>
+                  </div>
+               </div>
+            </motion.div>
+
+            {/* Tracking Sequence & Relatable Content */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+               {/* Detail Roadmap - Premium Redesign */}
+               <motion.div 
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 transition={{ duration: 0.2, delay: 0.1 }}
+                 className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-xl shadow-slate-100/40 overflow-hidden"
+               >
+                  {/* Header */}
+                  <div className="flex items-center gap-4 mb-8">
+                     <div className="h-10 w-10 bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
+                        <Timer className="w-4.5 h-4.5" />
+                     </div>
+                     <div>
+                        <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Sequence</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Journey</p>
+                     </div>
+                     <div className="ml-auto flex items-center gap-1.5">
+                        <span className="relative flex h-2.5 w-2.5">
+                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Live</span>
+                     </div>
+                  </div>
+
+                  {/* Timeline */}
+                  <div className="relative space-y-1 px-1">
+                     {[...order.statusHistory].reverse().map((history, index) => {
+                       const statusConfig = ORDER_STATUS_CONFIG[history.status] || currentStatusConfig
+                       const isCurrent = history.status === order.status
+                       const isPast = !isCurrent
+                       const total = order.statusHistory.length
+                       const isLast = index === order.statusHistory.length - 1
+
+                       return (
+                         <motion.div
+                           key={index}
+                           initial={{ opacity: 0 }}
+                           animate={{ opacity: 1 }}
+                           transition={{ duration: 0.15, delay: index * 0.04 }}
+                           className="flex gap-4 relative"
+                         >
+                           {/* Connector Line */}
+                           {!isLast && (
+                             <div className="absolute left-[18px] top-12 bottom-0 w-[2px]">
+                               <div className={cn(
+                                 "h-full w-full rounded-full",
+                                 isCurrent ? "bg-gradient-to-b from-emerald-400 to-slate-100" : "bg-slate-100"
+                               )} />
+                             </div>
+                           )}
+
+                           {/* Step Icon */}
+                           <div className="relative flex-shrink-0 flex flex-col items-center">
+                             <motion.div
+                               animate={isCurrent ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                               transition={isCurrent ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" } : {}}
+                               className={cn(
+                                 "h-9 w-9 rounded-2xl flex items-center justify-center text-lg border-2 z-10 shadow-sm",
+                                 isCurrent
+                                   ? "bg-emerald-50 border-emerald-300 shadow-emerald-200/80 shadow-lg"
+                                   : "bg-slate-50 border-slate-100"
+                               )}
+                             >
+                               {statusConfig.icon}
+                             </motion.div>
+                             {isCurrent && (
+                               <div className="absolute -inset-1.5 rounded-[18px] bg-emerald-400/20 blur-sm animate-pulse" />
+                             )}
+                           </div>
+
+                           {/* Content */}
+                           <div className="flex-1 pb-7 transition-all duration-300">
+                             <div className={cn(
+                               "rounded-2xl p-4 border transition-all",
+                               isCurrent
+                                 ? "bg-gradient-to-br from-emerald-50/80 to-slate-50 border-emerald-100 shadow-sm"
+                                 : "bg-slate-50/70 border-slate-100"
+                             )}>
+                               <div className="flex items-center justify-between mb-1">
+                                 <h4 className={cn(
+                                   "text-sm font-bold tracking-tight",
+                                   isCurrent ? "text-slate-900" : "text-slate-600"
+                                 )}>
+                                   {statusConfig.label}
+                                 </h4>
+                                 <span className={cn(
+                                   "text-[10px] font-bold font-mono",
+                                   isCurrent ? "text-emerald-600" : "text-slate-400"
+                                 )}>
+                                   {new Date(history.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                 </span>
+                               </div>
+                               <p className={cn(
+                                 "text-[11px] leading-relaxed",
+                                 isCurrent ? "text-slate-500 font-medium" : "text-slate-400"
+                               )}>
+                                 {history.note}
+                               </p>
+                               {isCurrent && (
+                                 <div className="mt-3 flex items-center gap-1.5">
+                                   <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+                                   <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Current Status</span>
+                                 </div>
+                               )}
+                             </div>
+                           </div>
+                         </motion.div>
+                       )
+                     })}
+                  </div>
+               </motion.div>
+
+               {/* Relatable Context Card - Dynamic per status */}
+               {(() => {
+                 const contextByStatus = {
+                   [ORDER_STATUS.ORDERED]: {
+                     accent: 'bg-blue-500',
+                     glow: 'bg-blue-500/10',
+                     title: 'Order Received!',
+                     description: 'Your order is in the queue. Our kitchen team has been notified and will begin preparation shortly. Thank you for your patience.',
+                     metricLabel: 'Queue Status',
+                     metricValue: 'Confirmed',
+                     metricColor: 'text-blue-400',
+                     barColor: 'bg-blue-500',
+                     barGlow: 'shadow-[0_0_10px_rgba(59,130,246,0.5)]',
+                     barWidth: '20%',
+                     quote: '"Your culinary journey is about to begin."'
+                   },
+                   [ORDER_STATUS.PREPARING]: {
+                     accent: 'bg-orange-500',
+                     glow: 'bg-orange-500/10',
+                     title: 'Crafting Perfection',
+                     description: 'Our master chefs are handling your order with extreme precision. Each dish is made with the freshest ingredients and expert technique.',
+                     metricLabel: 'Kitchen Activity',
+                     metricValue: 'In Progress',
+                     metricColor: 'text-orange-400',
+                     barColor: 'bg-orange-500',
+                     barGlow: 'shadow-[0_0_10px_rgba(249,115,22,0.5)]',
+                     barWidth: '55%',
+                     quote: '"Savor the anticipation, the journey has just begun."'
+                   },
+                   [ORDER_STATUS.READY]: {
+                     accent: 'bg-emerald-500',
+                     glow: 'bg-emerald-500/10',
+                     title: 'Almost There!',
+                     description: 'Your dishes are fresh off the kitchen and ready to be served. A member of our team is on their way to your table right now.',
+                     metricLabel: 'Delivery Status',
+                     metricValue: 'Dispatched',
+                     metricColor: 'text-emerald-400',
+                     barColor: 'bg-emerald-500',
+                     barGlow: 'shadow-[0_0_10px_rgba(52,211,153,0.5)]',
+                     barWidth: '80%',
+                     quote: '"Your feast is moments away — enjoy every bite."'
+                   },
+                   [ORDER_STATUS.SERVED]: {
+                     accent: 'bg-purple-500',
+                     glow: 'bg-purple-500/10',
+                     title: 'Enjoy Your Meal!',
+                     description: 'Your meal has been served. Sit back, relax and enjoy. Our team is nearby if you need anything — just raise your hand!',
+                     metricLabel: 'Dining Status',
+                     metricValue: 'Enjoy Meal',
+                     metricColor: 'text-purple-400',
+                     barColor: 'bg-purple-500',
+                     barGlow: 'shadow-[0_0_10px_rgba(168,85,247,0.5)]',
+                     barWidth: '100%',
+                     quote: '"A meal shared is a memory made. Enjoy!"'
+                   },
+                   [ORDER_STATUS.BILL_REQUESTED]: {
+                     accent: 'bg-yellow-500',
+                     glow: 'bg-yellow-500/10',
+                     title: 'Bill On Its Way',
+                     description: 'Your bill has been requested. Our team is preparing your receipt. We hope you had a wonderful dining experience with us today.',
+                     metricLabel: 'Payment Status',
+                     metricValue: 'Pending',
+                     metricColor: 'text-yellow-400',
+                     barColor: 'bg-yellow-500',
+                     barGlow: 'shadow-[0_0_10px_rgba(234,179,8,0.5)]',
+                     barWidth: '95%',
+                     quote: '"Thank you for choosing Servora today."'
+                   },
+                   [ORDER_STATUS.FINISHED]: {
+                     accent: 'bg-slate-500',
+                     glow: 'bg-slate-500/10',
+                     title: 'Session Complete',
+                     description: 'Your dining session has been successfully concluded. We hope everything was to your satisfaction. Visit us again soon!',
+                     metricLabel: 'Session',
+                     metricValue: 'Closed',
+                     metricColor: 'text-slate-400',
+                     barColor: 'bg-slate-500',
+                     barGlow: '',
+                     barWidth: '100%',
+                     quote: '"See you next time at Servora!"'
+                   }
+                 }
+                 const ctx = contextByStatus[order.status] || contextByStatus[ORDER_STATUS.PREPARING]
+                 return (
+                   <motion.div 
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     transition={{ duration: 0.2, delay: 0.15 }}
+                     className="space-y-8"
+                   >
+                      <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-slate-900/10 h-full flex flex-col justify-center relative overflow-hidden group">
+                         <div className={`absolute top-0 right-0 w-48 h-48 ${ctx.glow} blur-[80px] -mr-24 -mt-24 rounded-full transition-transform group-hover:scale-125 duration-1000`} />
+                         <AnimatePresence mode="wait">
+                           <motion.div
+                             key={order.status}
+                             initial={{ opacity: 0, y: 8 }}
+                             animate={{ opacity: 1, y: 0 }}
+                             exit={{ opacity: 0, y: -8 }}
+                             transition={{ duration: 0.3 }}
+                             className="relative z-10 space-y-6"
+                           >
+                              <div className={`w-16 h-1 ${ctx.accent} rounded-full`} />
+                              <h3 className="text-3xl font-bold tracking-tight leading-tight">{ctx.title}</h3>
+                              <p className="text-slate-400 text-sm leading-relaxed font-medium">{ctx.description}</p>
+                              <div className="py-6 space-y-4 border-y border-white/5">
+                                 <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ctx.metricLabel}</span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-widest ${ctx.metricColor}`}>{ctx.metricValue}</span>
+                                 </div>
+                                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <motion.div 
+                                       initial={{ width: 0 }}
+                                       animate={{ width: ctx.barWidth }}
+                                       transition={{ duration: 1, ease: 'easeOut' }}
+                                       className={`h-full ${ctx.barColor} ${ctx.barGlow}`} 
+                                    />
+                                 </div>
+                              </div>
+                              <p className="text-slate-500 text-[11px] font-bold italic">{ctx.quote}</p>
+                           </motion.div>
+                         </AnimatePresence>
+                      </div>
+                   </motion.div>
+                 )
+               })()}
+            </div>
+          </div>
+
+          {/* Precision Sidebar */}
+          <div className="lg:col-span-12 xl:col-span-4 space-y-8">
+             {/* Dynamic Action Center */}
+             {isServed && (
+               <motion.div 
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 transition={{ duration: 0.2 }}
+                 className="bg-white rounded-[2.5rem] p-10 border border-slate-200/60 shadow-xl shadow-slate-100/50 space-y-8"
+               >
+                  <div className="space-y-2">
+                     <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Your Session is Live</h3>
+                     <p className="text-slate-500 text-xs font-medium">Everything you ordered has been served. How can we enhance your experience further?</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                     <Button 
+                       onClick={() => window.location.href = `/menu?restaurant=${restaurantInfo.restaurantId}&table=${restaurantInfo.tableNumber}`}
+                       className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
+                     >
+                        <Utensils className="w-5 h-5" />
+                        <span className="text-xs uppercase tracking-widest">Order More</span>
+                     </Button>
+                     <Button 
+                       variant="outline"
+                       onClick={() => updateOrderStatus(ORDER_STATUS.BILL_REQUESTED)}
+                       className="w-full h-14 bg-white hover:bg-slate-50 border-slate-200 text-slate-900 font-bold rounded-2xl transition-all h-14 flex items-center justify-center gap-3"
+                     >
+                        <Receipt className="w-5 h-5" />
+                        <span className="text-xs uppercase tracking-widest">Request Bill</span>
+                     </Button>
+                  </div>
+               </motion.div>
+             )}             {/* Order Receipt - Full Redesign */}
+             <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               transition={{ delay: 0.2 }}
+               className="rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 border border-slate-100"
+             >
+               {/* Receipt Header */}
+               <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+                 <div className="flex items-start justify-between mb-4">
+                   <div>
+                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Order Receipt</p>
+                     <p className="text-white font-mono font-bold text-lg tracking-widest">#{order.id.slice(-6).toUpperCase()}</p>
+                   </div>
+                   <div className="flex flex-col items-end gap-1.5">
+                     <span className="text-[9px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-full uppercase tracking-widest">
+                       ● Verified
+                     </span>
+                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                       Table {order.tableNumber}
+                     </span>
+                   </div>
+                 </div>
+                 <div className="h-px bg-white/5" />
+               </div>
+
+               {/* Items List */}
+               <div className="bg-white p-6 space-y-3">
+                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-4">Your Items</p>
+                 {order.items.map((item, index) => (
+                   <motion.div
+                     key={index}
+                     initial={{ opacity: 0, x: -8 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     transition={{ delay: 0.1 + index * 0.05 }}
+                     className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-colors group cursor-default"
+                   >
+                     <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xs group-hover:scale-110 transition-transform duration-300">
+                         {item.quantity}×
+                       </div>
+                       <div>
+                         <p className="text-sm font-bold text-slate-900 leading-tight">{item.name}</p>
+                         <p className="text-[10px] font-bold text-slate-400">{formatPrice(item.price)} each</p>
+                       </div>
+                     </div>
+                     <span className="text-sm font-black text-slate-900">{formatPrice(item.price * item.quantity)}</span>
+                   </motion.div>
+                 ))}
+               </div>
+
+               {/* Total & CTA */}
+               <div className="bg-slate-50 border-t border-slate-100 p-6 space-y-5">
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p>
+                     <p className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(order.total)}</p>
+                   </div>
+                   <div className="text-right">
+                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Items</p>
+                     <p className="text-xl font-black text-slate-900">{order.items.reduce((t, i) => t + i.quantity, 0)}</p>
+                   </div>
+                 </div>
+
+                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                   <Button className="w-full h-14 bg-slate-900 hover:bg-black text-white border border-white/5 rounded-[1.2rem] font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 group">
+                     <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10 group-hover:bg-white transition-all duration-500">
+                       <Phone className="w-3.5 h-3.5 text-white/70 group-hover:text-slate-900 transition-colors" />
+                     </div>
+                     Contact Concierge
+                   </Button>
+                 </motion.div>
+               </div>
+             </motion.div>
+
+              {/* Branding Footer */}
+              <div className="text-center pt-6 pb-16 space-y-3">
+                 <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="h-px flex-1 bg-slate-100" />
+                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Powered by</span>
+                    <div className="h-px flex-1 bg-slate-100" />
+                 </div>
+                 <div className="flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity duration-500">
+                    <Logo showText={true} iconSize={18} className="scale-90" />
+                 </div>
+                 <p className="text-[9px] font-bold text-slate-200 uppercase tracking-widest">Secure Session Protocol</p>
+              </div>
+           </div>
+         </div>
+       </main>
+
+      {/* Persistent Menu Navigation */}
+      <MenuBottomNavbar 
+        activeTab="orders"
+        setActiveTab={() => {}}
+        cartCount={cart.reduce((total, item) => total + item.quantity, 0)}
+        hasActiveOrder={true}
+        onCartClick={onClose}
+        onSearchClick={onClose}
+        onTrackClick={() => {}}
+        orderStatus={order.status}
+      />
     </div>
   )
 }
