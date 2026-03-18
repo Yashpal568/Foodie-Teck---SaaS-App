@@ -247,7 +247,7 @@ export default function BulkImportExport({ menuItems, onImport, showLabel = true
                     </Button>
                   </div>
 
-                  <Alert className="">
+                  <Alert variant="default" className="">
                     <AlertDescription className="">
                       <strong>Supported Formats:</strong><br />
                       • Excel files (.xlsx, .xls)<br />
@@ -296,7 +296,7 @@ export default function BulkImportExport({ menuItems, onImport, showLabel = true
                     </Button>
                   </div>
 
-                  <Alert className="">
+                  <Alert variant="default" className="">
                     <AlertDescription className="">
                       <strong>Export Options:</strong><br />
                       • <strong>Excel (.xlsx):</strong> Opens directly in Microsoft Excel<br />

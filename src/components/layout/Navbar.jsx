@@ -31,6 +31,26 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   const [searchQuery, setSearchQuery] = useState('')
   const [showResults, setShowResults] = useState(false)
   const searchRef = useRef(null)
+  
+  const [userProfile, setUserProfile] = useState({
+    name: 'John Doe',
+    email: 'restaurant_admin@foodie.tech',
+    avatar: ''
+  })
+
+  // Sync with LocalStorage
+  useEffect(() => {
+    const loadProfile = () => {
+      const saved = localStorage.getItem('userProfile')
+      if (saved) {
+        setUserProfile(JSON.parse(saved))
+      }
+    }
+
+    loadProfile()
+    window.addEventListener('storage', loadProfile)
+    return () => window.removeEventListener('storage', loadProfile)
+  }, [])
 
   // Combined searchable items
   const searchableItems = [
@@ -183,15 +203,15 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
               <Button variant="ghost" className="flex items-center gap-3 p-1.5 pr-4 h-12 rounded-2xl hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
                 <div className="relative">
                   <Avatar className="w-9 h-9 border-2 border-white shadow-xl shadow-blue-500/10">
-                    <AvatarImage src="/api/placeholder/32/32" alt="User" className="aspect-square h-full w-full" />
+                    <AvatarImage src={userProfile.avatar || "/api/placeholder/32/32"} alt="User" className="aspect-square h-full w-full object-cover" />
                     <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-black text-xs">
-                      JD
+                      {userProfile.name.charAt(0)}D
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
                 </div>
                 <div className="text-left hidden lg:block">
-                  <p className="text-sm font-black text-slate-900 tracking-tight leading-none">John Doe</p>
+                  <p className="text-sm font-black text-slate-900 tracking-tight leading-none">{userProfile.name}</p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Admin Account</p>
                 </div>
               </Button>
@@ -199,7 +219,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
             <DropdownMenuContent align="end" className="w-64 bg-white/95 backdrop-blur-md border border-slate-100 shadow-2xl rounded-[2rem] p-2 animate-in slide-in-from-top-2 duration-200 mt-2">
               <DropdownMenuLabel className="px-4 py-3" inset={undefined}>
                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Authenticated as</p>
-                 <p className="text-sm font-bold text-slate-900">restaurant_admin@foodie.tech</p>
+                 <p className="text-sm font-bold text-slate-900">{userProfile.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-slate-100/50 mx-2" />
               <div className="p-1 space-y-1">

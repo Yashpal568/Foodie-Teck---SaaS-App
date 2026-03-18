@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +23,7 @@ import { trackMenuVisit, trackItemView } from '@/components/menu/MenuAnalytics'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
 import MenuService from '@/services/menuService'
+import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 
 const restaurantData = {
   name: "Servora",
@@ -65,6 +66,8 @@ export default function CustomerMenu() {
   }) // Cart button position with offsets
   const [isDragging, setIsDragging] = useState(false) // Drag state
   const [customerName, setCustomerName] = useState('') // Name capture for CRM
+  const [activeTab, setActiveTab] = useState('menu')
+  const searchInputRef = useRef(null)
 
 
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
@@ -393,10 +396,18 @@ export default function CustomerMenu() {
     return <OrderTracking orderId={currentOrder.id} onClose={() => setShowOrderTracking(false)} />
   }
 
+  const handleSearchFocus = () => {
+    setActiveTab('search')
+    if (searchInputRef.current) {
+      searchInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      searchInputRef.current.focus()
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col">
-      {/* Shadcn Studio Navbar */}
-      <Navbar>
+    <div className="min-h-screen bg-zinc-50 flex flex-col pb-32 lg:pb-0">
+      {/* Shadcn Studio Navbar - Top Navigation */}
+      <Navbar className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-zinc-100">
         <NavbarContent className="max-w-7xl mx-auto px-4">
           {/* Mobile Menu Toggle */}
           <NavbarMenuToggle 
@@ -494,11 +505,14 @@ export default function CustomerMenu() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 h-4 w-4" />
             <Input 
+              ref={searchInputRef}
               type="text"
-              className="pl-10 h-12 bg-white border-zinc-200 focus:border-zinc-400" 
-              placeholder="Search for dishes..." 
+              className="pl-10 h-14 bg-white border-zinc-200 focus:border-slate-900 rounded-2xl shadow-sm transition-all text-base" 
+              placeholder="Hungry for something specific?" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setActiveTab('search')}
+              onBlur={() => setActiveTab('menu')}
             />
           </div>
 
@@ -675,30 +689,17 @@ export default function CustomerMenu() {
         </div>
       </div>
 
-      <div 
-        className={`lg:hidden fixed z-50 transition-all duration-200 ${isDragging ? 'scale-110 shadow-2xl' : 'hover:scale-105'} ${cart.length === 0 ? 'pointer-events-none opacity-0' : ''}`}
-        style={{
-          left: buttonPosition.x === 0 ? 'auto' : `${buttonPosition.x}px`,
-          right: buttonPosition.x === 0 ? '16px' : 'auto',
-          bottom: buttonPosition.y === 0 ? '96px' : 'auto',
-          top: buttonPosition.y === 0 ? 'auto' : `${buttonPosition.y}px`,
-          cursor: isDragging ? 'grabbing' : 'grab'
-        }}
-      >
-        <Button 
-          className="h-14 w-14 rounded-full bg-black hover:bg-zinc-800 text-white shadow-lg select-none"
-          onMouseDown={handleDragStart}
-          onTouchStart={handleDragStart}
-          style={{ touchAction: 'none' }}
-          onClick={() => cart.length > 0 && setShowConfirmModal(true)}
-          disabled={cart.length === 0}
-        >
-          <ShoppingCart className="h-6 w-6" />
-          <span className="absolute -top-1 -right-1 h-5 w-5 bg-zinc-900 text-white text-xs rounded-full flex items-center justify-center">
-            {getTotalItems()}
-          </span>
-        </Button>
-      </div>
+      {/* Premium Bottom Navigation - Zomato/Swiggy Style */}
+      <MenuBottomNavbar 
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        cartCount={getTotalItems()}
+        hasActiveOrder={!!activeOrderId}
+        onCartClick={() => cart.length > 0 && setShowConfirmModal(true)}
+        onSearchClick={handleSearchFocus}
+        onTrackClick={() => setShowOrderTracking(true)}
+        orderStatus={currentOrder?.status}
+      />
 
 
       {/* Checkout Modal Overlay - Polished Responsive Modal */}

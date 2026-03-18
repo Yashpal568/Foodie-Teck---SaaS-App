@@ -14,6 +14,7 @@ import HelpSupport from '../components/dashboard/HelpSupport'
 import Documentation from '../components/dashboard/Documentation'
 import ReleaseNotes from '../components/dashboard/ReleaseNotes'
 import VideoTutorials from '../components/dashboard/VideoTutorials'
+import SettingsPage from '../components/dashboard/Settings'
 import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
 import DashboardMobileNavbar from '../components/dashboard/DashboardMobileNavbar'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
@@ -160,20 +161,10 @@ function Dashboard() {
       
       case 'settings':
         return (
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Settings className="w-8 h-8 text-gray-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-                <p className="text-gray-600">Configure your restaurant settings</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-              <Settings className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Settings</h3>
-              <p className="text-gray-600">Manage restaurant configuration and preferences</p>
-            </div>
-          </div>
+          <SettingsPage 
+            activeItem={activeItem}
+            setActiveItem={setActiveItem}
+          />
         )
       
       default:

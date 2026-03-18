@@ -2,12 +2,14 @@ import { useState } from 'react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import MobileNavbar from './MobileNavbar'
+import OrderNotification from '../dashboard/OrderNotification'
 
 export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-x-hidden">
+      <OrderNotification />
       {activeItem !== 'docs' && (
         <Sidebar 
           activeItem={activeItem}
@@ -17,7 +19,7 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
         />
       )}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <div className={(activeItem === 'dashboard' || activeItem === 'orders' || activeItem === 'menu' || activeItem === 'analytics' || activeItem === 'tables' || activeItem === 'customers' || activeItem === 'qr-codes' || activeItem === 'help' || activeItem === 'docs') ? 'hidden lg:block' : 'block'}>
+        <div className={(activeItem === 'dashboard' || activeItem === 'orders' || activeItem === 'menu' || activeItem === 'analytics' || activeItem === 'tables' || activeItem === 'customers' || activeItem === 'qr-codes' || activeItem === 'help' || activeItem === 'docs' || activeItem === 'settings') ? 'hidden lg:block' : 'block'}>
           <Navbar 
             activeItem={activeItem}
             setActiveItem={setActiveItem}
