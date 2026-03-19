@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 export default function OrderNotification() {
   const [toast, setToast] = useState(null)
   const lastOrderRef = useRef(null)
+  const lastWaiterCallRef = useRef(null)
 
   // Initialize with current order count to avoid showing historical orders as new
   useEffect(() => {
@@ -13,6 +14,11 @@ export default function OrderNotification() {
       const orders = JSON.parse(localStorage.getItem('orders') || '[]')
       if (orders.length > 0) {
         lastOrderRef.current = orders[orders.length - 1].id
+      }
+      
+      const waiterCalls = JSON.parse(localStorage.getItem('waiterCalls') || '[]')
+      if (waiterCalls.length > 0) {
+        lastWaiterCallRef.current = waiterCalls[waiterCalls.length - 1].id
       }
     } catch (e) {
       console.error('Failed to parse orders for initialization', e)
@@ -46,6 +52,7 @@ export default function OrderNotification() {
     const showOrderToast = (order) => {
       setToast({
         id: order.id,
+        type: 'order',
         tableNumber: order.tableNumber,
         customerName: order.customerName || 'Guest',
         itemsCount: order.items?.reduce((acc, item) => acc + item.quantity, 0) || 0,
@@ -59,19 +66,55 @@ export default function OrderNotification() {
       }, 6000)
     }
 
+    const checkWaiterCalls = () => {
+      try {
+        const calls = JSON.parse(localStorage.getItem('waiterCalls') || '[]')
+        if (calls.length === 0) return
+
+        const latestCall = calls[calls.length - 1]
+        
+        if (latestCall.id !== lastWaiterCallRef.current) {
+          lastWaiterCallRef.current = latestCall.id
+          showWaiterToast(latestCall)
+        }
+      } catch (e) {
+        console.error('Error checking for waiter calls', e)
+      }
+    }
+
+    const showWaiterToast = (call) => {
+      setToast({
+        id: call.id,
+        type: 'waiter',
+        tableNumber: call.tableNumber,
+        customerName: call.customerName || 'Guest',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+
+      setTimeout(() => {
+        setToast(current => current?.id === call.id ? null : current)
+      }, 8000) // Stay slightly longer as it needs more immediate action
+    }
+
     // Listen for storage changes (across tabs)
     window.addEventListener('storage', (e) => {
       if (e.key === 'orders' || e.key === null) {
         checkNewOrders()
       }
+      if (e.key === 'waiterCalls' || e.key === null) {
+        checkWaiterCalls()
+      }
     })
 
-    // Listen for orderUpdated event (same tab)
+    // Listen for custom events (same tab)
     window.addEventListener('orderUpdated', checkNewOrders)
+    window.addEventListener('waiterCalled', checkWaiterCalls)
 
     return () => {
       window.removeEventListener('storage', checkNewOrders)
+      window.removeEventListener('storage', checkWaiterCalls)
       window.removeEventListener('orderUpdated', checkNewOrders)
+      window.removeEventListener('waiterCalled', checkWaiterCalls)
     }
   }, [])
 
@@ -87,18 +130,33 @@ export default function OrderNotification() {
         <div className="relative flex items-center gap-5 bg-white rounded-[2.2rem] p-5 border border-slate-100">
           {/* Executive Icon Stack */}
           <div className="relative">
-            <div className="w-16 h-16 bg-slate-900 rounded-[1.6rem] flex items-center justify-center shadow-xl shadow-slate-900/10 group-hover:scale-110 transition-transform duration-500">
-              <ShoppingBag className="w-8 h-8 text-white" />
+            <div className={cn(
+              "w-16 h-16 rounded-[1.6rem] flex items-center justify-center shadow-xl transition-transform duration-500 group-hover:scale-110",
+              toast.type === 'waiter' ? "bg-amber-500 shadow-amber-500/10" : "bg-slate-900 shadow-slate-900/10"
+            )}>
+              {toast.type === 'waiter' ? (
+                <BellRing className="w-8 h-8 text-white animate-bounce" />
+              ) : (
+                <ShoppingBag className="w-8 h-8 text-white" />
+              )}
             </div>
             {/* Pulsing Badge */}
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center animate-pulse">
+            <div className={cn(
+              "absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center animate-pulse",
+              toast.type === 'waiter' ? "bg-amber-600" : "bg-blue-600"
+            )}>
                <div className="w-1.5 h-1.5 bg-white rounded-full" />
             </div>
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">New Incoming Order</p>
+              <p className={cn(
+                "text-[10px] font-black uppercase tracking-[0.2em]",
+                toast.type === 'waiter' ? "text-amber-600" : "text-blue-600"
+              )}>
+                {toast.type === 'waiter' ? "Waiter Requested" : "New Incoming Order"}
+              </p>
               <button 
                 onClick={() => setToast(null)}
                 className="p-1 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
@@ -116,13 +174,22 @@ export default function OrderNotification() {
                 <Clock className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-bold">{toast.timestamp}</span>
               </div>
-              <div className="flex items-center gap-1.5 text-slate-500">
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-bold">{toast.itemsCount} Items</span>
-              </div>
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-0 text-[10px] px-2 py-0.5 font-black uppercase tracking-wider">
-                 ₹{toast.total.toLocaleString()}
-              </Badge>
+              {toast.type === 'order' ? (
+                <>
+                  <div className="flex items-center gap-1.5 text-slate-500">
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-bold">{toast.itemsCount} Items</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-0 text-[10px] px-2 py-0.5 font-black uppercase tracking-wider">
+                     ₹{toast.total.toLocaleString()}
+                  </Badge>
+                </>
+              ) : (
+                <div className="flex items-center gap-1.5 text-amber-600">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-black uppercase tracking-widest">Calling Now</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -135,7 +202,10 @@ export default function OrderNotification() {
 
         {/* Dynamic Progress Bar */}
         <div className="absolute bottom-0 left-6 right-6 h-1 bg-slate-50 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-600 w-full origin-right animate-[shrink_6s_linear_forwards]" />
+          <div className={cn(
+            "h-full w-full origin-right",
+            toast.type === 'waiter' ? "bg-amber-600 animate-[shrink_8s_linear_forwards]" : "bg-blue-600 animate-[shrink_6s_linear_forwards]"
+          )} />
         </div>
       </div>
 
