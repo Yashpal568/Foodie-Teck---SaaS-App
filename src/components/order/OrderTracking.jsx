@@ -258,24 +258,13 @@ const OrderTracking = ({ orderId, onClose }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] 2xl:bg-slate-950 font-sans text-slate-900 2xl:text-white selection:bg-slate-900 2xl:selection:bg-white 2xl:selection:text-slate-900 pb-20 overflow-x-hidden relative transition-colors duration-700">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-slate-900 pb-20 overflow-x-hidden relative transition-colors duration-700">
       
-      {/* PC ONLY - Premium Immersive Background */}
-      <div className="hidden 2xl:block fixed inset-0 z-0">
-          <div className="absolute inset-0 bg-[url('/backgrounds/premium_kitchen_background.png')] bg-cover bg-center bg-fixed" />
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-[2px]" />
-          <div className="absolute inset-0 bg-gradient-to-tr from-slate-950 via-transparent to-indigo-500/10" />
-          
-          {/* Subtle Grid Pattern */}
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-               style={{ backgroundImage: 'radial-gradient(white 1.5px, transparent 0)', backgroundSize: '60px 60px' }} />
-      </div>
-
       {/* Premium Navbar - Logo Left */}
       <motion.nav 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="fixed top-0 inset-x-0 h-16 bg-white/80 2xl:bg-slate-950/40 backdrop-blur-md 2xl:backdrop-blur-2xl border-b border-slate-200/50 2xl:border-white/5 z-50 px-6"
+        className="fixed top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/50 z-50 px-6"
       >
 
         <div className="max-w-screen-xl mx-auto h-full flex items-center justify-between">
@@ -286,15 +275,15 @@ const OrderTracking = ({ orderId, onClose }) => {
           </div>
 
           <div className="flex items-center gap-3">
-             <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 2xl:bg-white/5 rounded-full border border-slate-200 2xl:border-white/10">
+             <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Table</span>
-                <span className="text-[10px] font-bold text-slate-900 2xl:text-white">{order.tableNumber}</span>
+                <span className="text-[10px] font-bold text-slate-900">{order.tableNumber}</span>
              </div>
              <Button
                 variant="ghost"
                 size="sm"
                 onClick={onClose}
-                className="h-9 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-500 2xl:text-slate-400 hover:text-slate-900 2xl:hover:text-white transition-all hover:bg-slate-50 2xl:hover:bg-white/10"
+                className="h-9 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-all hover:bg-slate-50"
              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -401,7 +390,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                  initial={{ opacity: 0 }}
                  animate={{ opacity: 1 }}
                  transition={{ duration: 0.2, delay: 0.1 }}
-                 className="bg-white 2xl:bg-white/5 2xl:backdrop-blur-3xl rounded-[2.5rem] border border-slate-100 2xl:border-white/10 p-8 shadow-xl shadow-slate-100/40 2xl:shadow-none overflow-hidden"
+                 className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-xl shadow-slate-100/40 overflow-hidden"
                >
 
                   {/* Header */}
@@ -475,13 +464,13 @@ const OrderTracking = ({ orderId, onClose }) => {
                              <div className={cn(
                                "rounded-2xl p-4 border transition-all",
                                isCurrent
-                                 ? "bg-gradient-to-br from-emerald-50/80 to-slate-50 2xl:from-emerald-400/10 2xl:to-transparent border-emerald-100 2xl:border-emerald-400/20 shadow-sm"
-                                 : "bg-slate-50/70 2xl:bg-white/5 border-slate-100 2xl:border-white/5"
+                                 ? "bg-gradient-to-br from-emerald-50/80 to-slate-50 border-emerald-100 shadow-sm"
+                                 : "bg-slate-50/70 border-slate-100"
                              )}>
                                <div className="flex items-center justify-between mb-1">
                                  <h4 className={cn(
                                    "text-sm font-bold tracking-tight",
-                                   isCurrent ? "text-slate-900 2xl:text-white" : "text-slate-600 2xl:text-slate-400"
+                                   isCurrent ? "text-slate-900" : "text-slate-600"
                                  )}>
                                    {statusConfig.label}
                                  </h4>
@@ -582,7 +571,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                      quote: '"Thank you for choosing Servora today."'
                    },
                    [ORDER_STATUS.FINISHED]: {
-                     accent: 'bg-slate-500',
+                     accent: 'bg-slate-50',
                      glow: 'bg-slate-500/10',
                      title: 'Session Complete',
                      description: 'Your dining session has been successfully concluded. We hope everything was to your satisfaction. Visit us again soon!',
@@ -651,11 +640,11 @@ const OrderTracking = ({ orderId, onClose }) => {
                  initial={{ opacity: 0 }}
                  animate={{ opacity: 1 }}
                  transition={{ duration: 0.2 }}
-                 className="bg-white 2xl:bg-white/5 2xl:backdrop-blur-3xl rounded-[2.5rem] p-10 border border-slate-200/60 2xl:border-white/10 shadow-xl shadow-slate-100/50 2xl:shadow-none space-y-8"
+                 className="bg-white rounded-[2.5rem] p-10 border border-slate-200/60 shadow-xl shadow-slate-100/50 space-y-8"
                >
                   <div className="space-y-2">
-                     <h3 className="text-2xl font-bold text-slate-900 2xl:text-white tracking-tight">Your Session is Live</h3>
-                     <p className="text-slate-500 2xl:text-slate-400 text-xs font-medium">Everything you ordered has been served. How can we enhance your experience further?</p>
+                     <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Your Session is Live</h3>
+                     <p className="text-slate-500 text-xs font-medium">Everything you ordered has been served. How can we enhance your experience further?</p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4">
@@ -681,7 +670,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                transition={{ delay: 0.2 }}
-               className="rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 2xl:shadow-none border border-slate-100 2xl:border-white/10 bg-white 2xl:bg-white/5 2xl:backdrop-blur-3xl"
+               className="rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 border border-slate-100 bg-white"
              >
 
                {/* Receipt Header */}
@@ -704,7 +693,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                </div>
 
                {/* Items List */}
-               <div className="bg-white 2xl:bg-transparent p-6 space-y-3">
+               <div className="bg-white p-6 space-y-3">
                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-4">Your Items</p>
                  {order.items.map((item, index) => (
                    <motion.div
@@ -712,33 +701,33 @@ const OrderTracking = ({ orderId, onClose }) => {
                      initial={{ opacity: 0, x: -8 }}
                      animate={{ opacity: 1, x: 0 }}
                      transition={{ delay: 0.1 + index * 0.05 }}
-                     className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 2xl:hover:bg-white/5 transition-colors group cursor-default"
+                     className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-colors group cursor-default"
                    >
                      <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 bg-slate-900 2xl:bg-white/10 rounded-xl flex items-center justify-center text-white font-black text-xs group-hover:scale-110 transition-transform duration-300">
+                       <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xs group-hover:scale-110 transition-transform duration-300">
                          {item.quantity}×
                        </div>
                        <div>
-                         <p className="text-sm font-bold text-slate-900 2xl:text-white leading-tight">{item.name}</p>
+                         <p className="text-sm font-bold text-slate-900 leading-tight">{item.name}</p>
                          <p className="text-[10px] font-bold text-slate-400">{formatPrice(item.price)} each</p>
                        </div>
                      </div>
-                     <span className="text-sm font-black text-slate-900 2xl:text-white">{formatPrice(item.price * item.quantity)}</span>
+                     <span className="text-sm font-black text-slate-900">{formatPrice(item.price * item.quantity)}</span>
                    </motion.div>
                  ))}
                </div>
 
 
                {/* Total & CTA */}
-               <div className="bg-slate-50 2xl:bg-white/5 border-t border-slate-100 2xl:border-white/5 p-6 space-y-5">
+               <div className="bg-slate-50 border-t border-slate-100 p-6 space-y-5">
                  <div className="flex items-center justify-between">
                    <div>
                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p>
-                     <p className="text-3xl font-black text-slate-900 2xl:text-white tracking-tight">{formatPrice(order.total)}</p>
+                     <p className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(order.total)}</p>
                    </div>
                    <div className="text-right">
                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Items</p>
-                     <p className="text-xl font-black text-slate-900 2xl:text-white">{order.items.reduce((t, i) => t + i.quantity, 0)}</p>
+                     <p className="text-xl font-black text-slate-900">{order.items.reduce((t, i) => t + i.quantity, 0)}</p>
                    </div>
                  </div>
 
@@ -749,7 +738,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                      disabled={isCallingWaiter}
                      className={cn(
                        "w-full h-14 border border-white/5 rounded-[1.2rem] font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 group",
-                       isCallingWaiter ? "bg-emerald-600 border-emerald-500 text-white" : "bg-slate-900 2xl:bg-white 2xl:text-slate-950 hover:bg-black 2xl:hover:bg-indigo-50 text-white"
+                       isCallingWaiter ? "bg-emerald-600 border-emerald-500 text-white" : "bg-slate-900 hover:bg-black text-white"
                      )}
                    >
                      <div className={cn(
@@ -771,9 +760,9 @@ const OrderTracking = ({ orderId, onClose }) => {
               {/* Branding Footer */}
               <div className="text-center pt-6 pb-16 space-y-3">
                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-px flex-1 bg-slate-100 2xl:bg-white/5" />
+                    <div className="h-px flex-1 bg-slate-100" />
                     <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Powered by</span>
-                    <div className="h-px flex-1 bg-slate-100 2xl:bg-white/5" />
+                    <div className="h-px flex-1 bg-slate-100" />
                  </div>
                  <div className="flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity duration-500">
                     <Logo showText={true} iconSize={18} className="scale-90" />

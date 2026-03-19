@@ -184,21 +184,27 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
   // Real-time data updates
   useEffect(() => {
     const updateRealtimeData = () => {
-      const currentAnalytics = loadAnalytics()
+      const activeOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
       const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const savedAnalytics = JSON.parse(localStorage.getItem('menuAnalytics') || '{"totalViews": 0, "itemViews": {}, "itemOrders": {}}')
+      
       const todayStr = new Date().toLocaleDateString('en-CA')
       
-      // Calculate today's orders and revenue from orderHistory
-      const todayOrdersArr = (currentAnalytics.orderHistory || []).filter(order => 
-        order.completedAt && order.completedAt.split('T')[0] === todayStr
+      // Filter out finished/cancelled to avoid double counting with history
+      const activeOrdersOnly = activeOrders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
+      const combinedOrders = [...activeOrdersOnly, ...orderHistory]
+
+      // Calculate today's orders and revenue
+      const todayOrdersArr = combinedOrders.filter(order => 
+        new Date(order.createdAt).toLocaleDateString('en-CA') === todayStr
       )
       
-      const totalRevenueToday = todayOrdersArr.reduce((sum, order) => sum + (order.revenue || 0), 0)
+      const totalRevenueToday = todayOrdersArr.reduce((sum, order) => sum + (order.total || 0), 0)
       const totalOrdersToday = todayOrdersArr.length
       
-      const totalViews = currentAnalytics.totalViews || 0
-      const activeUsers = tables.filter(t => t.status === 'occupied').length
+      const totalViews = savedAnalytics.totalViews || 0
+      const activeUsers = tables.filter(t => t.status === 'occupied' || t.status === 'billing').length
       const avgOrderValueToday = totalOrdersToday > 0 ? totalRevenueToday / totalOrdersToday : 0
       
       setRealtimeData({
@@ -209,8 +215,11 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
         avgOrderValue: avgOrderValueToday
       })
 
-      // Ensure full analytics state updates in real-time for detailed view/order lists
-      setAnalytics(currentAnalytics)
+      setAnalytics({
+        ...savedAnalytics,
+        orderHistory,
+        totalRevenue: combinedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+      })
     }
 
     updateRealtimeData()

@@ -219,10 +219,15 @@ const updateOrderStatus = (orderId, newStatus, note = '') => {
     // Update analytics if the order is newly finished
     if (newStatus === ORDER_STATUS.FINISHED && oldStatus !== ORDER_STATUS.FINISHED) {
       updateAnalytics(orders[orderIndex])
+      // Remove finished orders from active orders list
+      orders.splice(orderIndex, 1)
+    } else if (newStatus === ORDER_STATUS.CANCELLED) {
+      // Also remove cancelled orders from active list
+      orders.splice(orderIndex, 1)
     }
 
     saveOrders(orders)
-    return orders[orderIndex]
+    return orders[orderIndex] || null
   }
 
   return null

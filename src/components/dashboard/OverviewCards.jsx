@@ -26,33 +26,59 @@ export default function OverviewCards() {
     const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
     const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]')
     // tableSessions is the correct source used by TableSessions component
+    // tableSessions is the correct source used by TableSessions component
     const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]') 
 
-    // 2. Calculate Total Revenue
-    // Filter out FINISHED and CANCELLED from orders to avoid double-counting with orderHistory
-    const activeOrdersOnly = orders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
-    const allOrders = [...activeOrdersOnly, ...orderHistory]
-    const totalRevenue = allOrders.reduce((sum, order) => sum + (order.total || 0), 0)
+    // 2. Dates
+    const today = new Date().toLocaleDateString('en-CA')
+    const yesterdayDate = new Date()
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterday = yesterdayDate.toLocaleDateString('en-CA')
 
-    // 3. Today's Orders
-    const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD for reliable comparison
-    const todayOrdersCount = allOrders.filter(order => {
+    // 3. Revenue
+    const activeOrdersOnly = orders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
+    const allHistory = orderHistory
+    const totalRevenue = [...activeOrdersOnly, ...allHistory].reduce((sum, order) => sum + (order.total || 0), 0)
+
+    const todayRevenue = [...activeOrdersOnly, ...allHistory]
+      .filter(order => new Date(order.createdAt).toLocaleDateString('en-CA') === today)
+      .reduce((sum, order) => sum + (order.total || 0), 0)
+
+    const yesterdayRevenue = allHistory
+      .filter(order => new Date(order.createdAt).toLocaleDateString('en-CA') === yesterday)
+      .reduce((sum, order) => sum + (order.total || 0), 0)
+
+    const revenueDiff = yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : 100
+    const revenueTrend = todayRevenue >= yesterdayRevenue ? 'up' : 'down'
+
+    // 4. Today's Orders
+    const todayOrdersCount = [...activeOrdersOnly, ...allHistory].filter(order => {
       const orderDate = new Date(order.createdAt).toLocaleDateString('en-CA')
       return orderDate === today
     }).length
+    const yesterdayOrdersCount = allHistory.filter(order => {
+      const orderDate = new Date(order.createdAt).toLocaleDateString('en-CA')
+      return orderDate === yesterday
+    }).length
+    const ordersDiff = yesterdayOrdersCount > 0 ? ((todayOrdersCount - yesterdayOrdersCount) / yesterdayOrdersCount) * 100 : 100
+    const ordersTrend = todayOrdersCount >= yesterdayOrdersCount ? 'up' : 'down'
 
-    // 4. Active Tables
-    const activeTablesCount = tables.filter(t => t.status === 'occupied').length
+    // 5. Active Tables
+    const activeTablesCount = tables.filter(t => t.status === 'occupied' || t.status === 'billing').length
+    // Since we don't have table history, we'll use a semi-random but small realistic trend or just 0
+    // In a real app, this would come from a database query
+    const activeTablesTrend = activeTablesCount > 0 ? 'up' : 'down'
+    const activeTablesDiff = activeTablesCount > 0 ? `+${activeTablesCount}` : '0'
 
-    // 5. Menu Items
+    // 6. Menu Items
     const menuCount = menuItems.length 
 
     return [
       {
         title: 'Total Revenue',
         value: `₹${totalRevenue.toLocaleString()}`,
-        change: '+12.5%',
-        trend: 'up',
+        change: `${revenueDiff >= 0 ? '+' : ''}${revenueDiff.toFixed(1)}%`,
+        trend: revenueTrend,
         icon: DollarSign,
         color: 'text-green-600',
         bgColor: 'bg-green-50'
@@ -60,8 +86,8 @@ export default function OverviewCards() {
       {
         title: 'Active Tables',
         value: activeTablesCount.toString(),
-        change: '+2',
-        trend: 'up',
+        change: activeTablesDiff,
+        trend: activeTablesTrend,
         icon: Users,
         color: 'text-blue-600',
         bgColor: 'bg-blue-50'
@@ -69,8 +95,8 @@ export default function OverviewCards() {
       {
         title: 'Today\'s Orders',
         value: todayOrdersCount.toString(),
-        change: '+8.3%',
-        trend: 'up',
+        change: `${ordersDiff >= 0 ? '+' : ''}${ordersDiff.toFixed(1)}%`,
+        trend: ordersTrend,
         icon: ShoppingCart,
         color: 'text-purple-600',
         bgColor: 'bg-purple-50'
@@ -78,13 +104,14 @@ export default function OverviewCards() {
       {
         title: 'Menu Items',
         value: menuCount.toString(),
-        change: '+4',
+        change: `Total ${menuCount}`,
         trend: 'up',
         icon: ChefHat,
         color: 'text-orange-600',
         bgColor: 'bg-orange-50'
       }
     ]
+
   }, [refreshTrigger])
 
   return (
