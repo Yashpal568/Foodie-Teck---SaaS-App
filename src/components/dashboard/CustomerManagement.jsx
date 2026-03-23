@@ -74,7 +74,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigate }) => {
-  const isPremium = plan === 'Premium'
+  const isPremium = plan && (typeof plan === 'object' ? plan?.name === 'Enterprise' : plan === 'Enterprise')
   const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(null)

@@ -7,7 +7,7 @@ import {
   Smartphone, Eye, EyeOff, CheckCircle2,
   ChevronRight, Sparkles, Building2, Languages,
   DollarSign, Plus, RefreshCcw, Loader2, ArrowLeft,
-  ShoppingCart, Users, X, Instagram, Twitter, Facebook, Clock, Activity, ExternalLink, AlertCircle
+  ShoppingCart, Users, X, Instagram, Twitter, Facebook, Clock, Activity, ExternalLink, AlertCircle, LogOut
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { 
@@ -39,7 +39,7 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import SettingsMobileNavbar from './SettingsMobileNavbar'
-
+import { saveAndClearWorkspace } from '@/utils/workspace'
 export default function Settings({ activeItem, setActiveItem, navigate }) {
   const profileRef = useRef(null)
   const coverRef = useRef(null)
@@ -164,6 +164,14 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
       ...prev,
       cards: prev.cards.filter(card => card.id !== id)
     }))
+  }
+
+  const handleSignOut = () => {
+    // Terminate secure session state and save snapshot
+    saveAndClearWorkspace()
+    localStorage.removeItem('servora_user')
+    // Reroute to authentication gate
+    navigate('/login')
   }
 
   const handleAddCard = (e) => {
@@ -490,6 +498,18 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
                         className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-indigo-500/50" 
                       />
                     </div>
+                  </div>
+
+                  {/* Red Button Sign Out for Mobile Users */}
+                  <div className="mt-8">
+                     <Button 
+                        onClick={handleSignOut}
+                        variant="destructive"
+                        className="w-full sm:w-auto h-16 sm:h-auto sm:px-8 py-3 rounded-2xl sm:rounded-xl font-black uppercase tracking-widest text-xs sm:text-[10px] bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100/50 shadow-xl shadow-rose-500/10 transition-all flex items-center justify-center gap-3 active:scale-95 group mx-auto sm:mx-0 sm:ml-auto"
+                     >
+                        <LogOut className="w-5 h-5 sm:w-4 sm:h-4 opacity-70 group-hover:opacity-100 group-hover:-translate-x-1 transition-all" />
+                        Secure Session Logout
+                     </Button>
                   </div>
                 </CardContent>
               </Card>

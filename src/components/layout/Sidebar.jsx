@@ -10,11 +10,13 @@ import {
   Menu,
   X,
   Receipt,
-  Table
+  Table,
+  LogOut
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import Logo from '@/components/ui/Logo'
+import { saveAndClearWorkspace } from '@/utils/workspace'
 
 export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
@@ -62,6 +64,12 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   const handleNavigation = (item) => {
     setActiveItem(item.id)
     navigate(item.route)
+  }
+
+  const handleSignOut = () => {
+    saveAndClearWorkspace()
+    localStorage.removeItem('servora_user')
+    navigate('/login')
   }
 
   return (
@@ -131,8 +139,18 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
         </div>
       </nav>
 
+      <div className="p-4 border-t border-gray-100">
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-3 px-3 py-2.5 rounded-lg text-rose-600 hover:bg-rose-50 font-bold transition-colors group mb-2"
+        >
+          <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          {!isCollapsed && <span>Sign Out</span>}
+        </button>
+      </div>
+
       {/* Collapse Toggle */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-100">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors"

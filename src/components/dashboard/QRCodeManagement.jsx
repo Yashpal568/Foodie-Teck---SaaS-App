@@ -98,8 +98,9 @@ const loadQRCodesFromStorage = (restaurantId) => {
   return []
 }
 
-export default function QRCodeManagement({ activeItem, setActiveItem, navigate }) {
-  const [tableCount, setTableCount] = useState(10)
+export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan }) {
+  const tableLimit = plan?.name === 'Enterprise' ? 1000 : plan?.name === 'Professional' ? 30 : 10
+  const [tableCount, setTableCount] = useState(tableLimit > 10 ? 10 : tableLimit)
   const [qrCodes, setQrCodes] = useState([])
   const [restaurantId, setRestaurantId] = useState('restaurant-123')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -133,6 +134,10 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate }
   }, [qrCodes, restaurantId])
 
   const generateAllQRCodes = async () => {
+    if (tableCount > tableLimit) {
+      alert(`Your current plan only supports up to ${tableLimit} tables.`)
+      return
+    }
     setIsGenerating(true)
     try {
       const codes = []
@@ -382,13 +387,13 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate }
                     id="tableCount"
                     type="number"
                     min="1"
-                    max="100"
+                    max={tableLimit}
                     value={tableCount}
-                    onChange={(e) => setTableCount(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setTableCount(Math.min(parseInt(e.target.value) || 1, tableLimit))}
                     disabled={isGenerating}
                     className="h-11"
                   />
-                  <p className="text-xs text-gray-500">Generate QR codes for this many tables</p>
+                  <p className="text-xs text-gray-500">Your current plan supports up to {tableLimit} tables.</p>
                 </div>
               </div>
               

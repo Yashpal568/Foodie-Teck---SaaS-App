@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { menuItems, supportItems } from './Sidebar'
+import { saveAndClearWorkspace } from '@/utils/workspace'
 
 export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange }) {
   const navigate = useNavigate()
@@ -90,6 +91,15 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
     }
     setShowResults(false)
     setSearchQuery('')
+  }
+
+  const handleSignOut = () => {
+    // Terminate secure session state and snapshot workspace to database
+    saveAndClearWorkspace()
+    localStorage.removeItem('servora_user')
+    
+    // Reroute to authentication gate
+    navigate('/login')
   }
 
   return (
@@ -238,7 +248,11 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
               </div>
               <DropdownMenuSeparator className="bg-slate-100/50 mx-2" />
               <div className="p-1">
-                <DropdownMenuItem className="cursor-pointer text-rose-600 flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-rose-50 hover:text-rose-700 transition-colors focus:bg-rose-50 focus:text-rose-700" inset={undefined}>
+                <DropdownMenuItem 
+                  onClick={handleSignOut}
+                  className="cursor-pointer text-rose-600 flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-rose-50 hover:text-rose-700 transition-colors focus:bg-rose-50 focus:text-rose-700" 
+                  inset={undefined}
+                >
                   <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-100">
                     <LogOut className="w-4 h-4" />
                   </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/layout/Layout'
 import OverviewCards from '../components/dashboard/OverviewCards'
@@ -17,6 +17,8 @@ import VideoTutorials from '../components/dashboard/VideoTutorials'
 import SettingsPage from '../components/dashboard/Settings'
 import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
 import DashboardMobileNavbar from '../components/dashboard/DashboardMobileNavbar'
+import PlanLockOverlay from '../components/dashboard/PlanLockOverlay'
+import ModuleLockOverlay from '../components/dashboard/ModuleLockOverlay'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 
 function Dashboard() {
@@ -24,7 +26,31 @@ function Dashboard() {
   const [activeItem, setActiveItem] = useState('dashboard')
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [plan, setPlan] = useState(null)
   const { profile } = useRestaurantProfile('restaurant-123')
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // 1. Check for Authentication
+    const user = localStorage.getItem('servora_user')
+    if (!user) {
+      navigate('/register')
+      return
+    }
+
+    // 2. Check for Plan Entitlement
+    const savedPlan = localStorage.getItem('servora_plan')
+    if (savedPlan) {
+      setPlan(JSON.parse(savedPlan))
+    }
+    setIsLoading(false)
+  }, [navigate])
+
+  if (isLoading) return null // Quick flash prevention
+
+  if (!plan) {
+    return <PlanLockOverlay />
+  }
 
   const handleRefresh = () => {
     setIsRefreshing(true)
@@ -83,6 +109,7 @@ function Dashboard() {
       
       case 'qr-codes':
         return <QRCodeManagement 
+          plan={plan}
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
@@ -124,8 +151,18 @@ function Dashboard() {
         />
       
       case 'customers':
+        if (plan?.name !== 'Enterprise') {
+          return (
+            <ModuleLockOverlay 
+              featureName="Customer Management & CRM"
+              requiredPlan="Enterprise"
+              price="₹4,999"
+              setActiveItem={setActiveItem}
+            />
+          )
+        }
         return <CustomerManagement 
-          plan={profile.plan} 
+          plan={plan} 
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
@@ -164,6 +201,7 @@ function Dashboard() {
           <SettingsPage 
             activeItem={activeItem}
             setActiveItem={setActiveItem}
+            navigate={navigate}
           />
         )
       
