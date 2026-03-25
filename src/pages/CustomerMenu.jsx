@@ -58,8 +58,10 @@ export default function CustomerMenu() {
   const [menuItems, setMenuItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeOrderId, setActiveOrderId] = useState(null) // Track active order for this session
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false) // Mobile menu state
+  const [activeOrderId, setActiveOrderId] = useState(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [gstRate, setGstRate] = useState(0)   // 0 = no GST
+  const [gstLabel, setGstLabel] = useState('GST')
   const [buttonPosition, setButtonPosition] = useState({ 
     x: 0, 
     y: 0,
@@ -87,43 +89,54 @@ export default function CustomerMenu() {
         setLoading(true)
         setError(null)
         
-        // Load menu items from localStorage (persistent storage)
-        const savedItems = localStorage.getItem('menuItems')
+        const params = new URLSearchParams(window.location.search)
+        const resId = params.get('restaurant') || 'default'
+        setRestaurantId(resId)
+        setTableNumber(params.get('table') || 'N/A')
+
+        // Load menu items from Identity-Scoped localStorage
+        const key = `servora_db_menu_${resId}`
+        const savedItems = localStorage.getItem(key)
         
-        console.log('Raw localStorage data:', savedItems)
+        console.log(`Loading scoped menu for node: ${resId}`)
         
         if (savedItems) {
           const items = JSON.parse(savedItems)
-          console.log('Parsed menu items:', items)
-          
-          // Validate that items have required fields
           const validItems = items.filter(item => 
             item && item._id && item.name && item.price !== undefined && item.category && item.isInStock !== undefined
           )
-          
-          console.log('Valid menu items:', validItems)
           setMenuItems(validItems)
-          console.log('Loaded dynamic menu items from localStorage')
+          console.log(`Loaded ${validItems.length} items from ${key}`)
         } else {
-          // Start with empty menu - no hardcoded items
           setMenuItems([])
-          console.log('No menu items found - empty menu ready for dynamic data')
+          console.log('No menu items found for this specific node.')
+        }
+
+        // Load GST Config for this restaurant node
+        const gstKey = `servora_db_gst_${resId}`
+        const savedGst = localStorage.getItem(gstKey)
+        if (savedGst) {
+          const gst = JSON.parse(savedGst)
+          if (gst.enabled && Number(gst.rate) > 0) {
+            setGstRate(Number(gst.rate))
+            setGstLabel(gst.label || 'GST')
+          } else {
+            setGstRate(0)
+          }
+        } else {
+          setGstRate(0)
         }
         
       } catch (error) {
         console.error('Error loading menu items:', error)
-        setError('Unable to load menu items. Please add menu items through the dashboard.')
-        setMenuItems([]) // Ensure no hardcoded items are shown
+        setError('Unable to load menu items. Please check the restaurant ID.')
+        setMenuItems([])
       } finally {
         setLoading(false)
       }
     }
 
     fetchMenuItems()
-
-    const params = new URLSearchParams(window.location.search)
-    setTableNumber(params.get('table') || 'N/A')
-    setRestaurantId(params.get('restaurant') || 'default')
   }, [])
 
   // Emit table session start event when customer scans QR code
@@ -369,14 +382,17 @@ export default function CustomerMenu() {
   const placeOrder = () => {
     if (cart.length === 0) return
     
+    const taxAmount = getTotalPrice() * (gstRate / 100)
     const orderData = {
       restaurantId,
       tableNumber,
       customerName: customerName || 'Guest Customer',
       items: cart,
       subtotal: getTotalPrice(),
-      tax: getTotalPrice() * 0.05,
-      total: getTotalPrice() * 1.05,
+      tax: taxAmount,
+      gstRate,
+      gstLabel,
+      total: getTotalPrice() + taxAmount,
       type: 'DINE-IN'
     }
 
@@ -1086,13 +1102,17 @@ export default function CustomerMenu() {
                   <span>Subtotal</span>
                   <span className="font-medium">{formatPrice(getTotalPrice())}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm text-zinc-600">
-                  <span>Tax & Fees (5%)</span>
-                  <span className="font-medium">{formatPrice(getTotalPrice() * 0.05)}</span>
-                </div>
+                {gstRate > 0 && (
+                  <div className="flex justify-between items-center text-sm text-emerald-700">
+                    <span>{gstLabel} ({gstRate}%)</span>
+                    <span className="font-bold">{formatPrice(getTotalPrice() * gstRate / 100)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-lg font-bold text-black">Total Amount</span>
-                  <span className="text-2xl font-black text-black tabular-nums">{formatPrice(getTotalPrice() * 1.05)}</span>
+                  <span className="text-2xl font-black text-black tabular-nums">
+                    {formatPrice(getTotalPrice() + getTotalPrice() * gstRate / 100)}
+                  </span>
                 </div>
               </div>
 

@@ -16,89 +16,32 @@ import ImageStorage from '@/utils/imageStorage'
 import MenuNavbar from './MenuNavbar'
 import MenuMobileNavbar from './MenuMobileNavbar'
 
-// Load menu items from localStorage
-const loadMenuItems = () => {
+// Scoped Storage Helpers
+const getMenuKey = (id) => `servora_db_menu_${id || 'default'}`
+
+// Load menu items from scoped localStorage
+const loadMenuItems = (restaurantId) => {
   try {
-    const savedItems = localStorage.getItem('menuItems')
+    const key = getMenuKey(restaurantId)
+    const savedItems = localStorage.getItem(key)
     if (savedItems) {
       return JSON.parse(savedItems)
     }
-    // Return default items if no saved items
-    return [
-      {
-        _id: '1',
-        name: 'Butter Chicken',
-        description: 'Tender chicken pieces cooked in a rich, creamy tomato-based curry with aromatic spices.',
-        price: 250,
-        category: 'Main Course',
-        type: 'NON_VEG',
-        isInStock: true,
-        restaurantId: 'restaurant-123',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        _id: '2',
-        name: 'Paneer Tikka',
-        description: 'Soft cubes of paneer marinated in spices and grilled to perfection.',
-        price: 180,
-        category: 'Starters',
-        type: 'VEG',
-        isInStock: true,
-        restaurantId: 'restaurant-123',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        _id: '3',
-        name: 'Dal Makhani',
-        description: 'Creamy black lentils cooked with butter and aromatic spices.',
-        price: 150,
-        category: 'Main Course',
-        type: 'VEG',
-        isInStock: true,
-        restaurantId: 'restaurant-123',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        _id: '4',
-        name: 'Gulab Jamun',
-        description: 'Soft and spongy milk solids soaked in sugar syrup.',
-        price: 60,
-        category: 'Desserts',
-        type: 'VEG',
-        isInStock: true,
-        restaurantId: 'restaurant-123',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ]
+    return [] // Start with empty menu for new nodes
   } catch (error) {
     console.error('Error loading menu items:', error)
     return []
   }
 }
 
-// Save menu items to localStorage
-const saveMenuItems = (items) => {
+// Save menu items to scoped localStorage
+const saveMenuItems = (items, restaurantId) => {
   try {
-    localStorage.setItem('menuItems', JSON.stringify(items))
+    const key = getMenuKey(restaurantId)
+    localStorage.setItem(key, JSON.stringify(items))
   } catch (error) {
     if (error.name === 'QuotaExceededError') {
-      console.warn('LocalStorage quota exceeded, clearing old data...')
-      try {
-        const keys = Object.keys(localStorage)
-        for (const key of keys) {
-          if (key.startsWith('temp_') || key.startsWith('image_')) {
-            localStorage.removeItem(key)
-          }
-        }
-        localStorage.setItem('menuItems', JSON.stringify(items))
-      } catch (retryError) {
-        console.error('Still unable to save to localStorage:', retryError)
-        alert('Storage quota exceeded. Please clear some data or try again later.')
-      }
+      console.warn('LocalStorage quota exceeded')
     } else {
       console.error('Error saving menu items:', error)
     }
@@ -112,6 +55,9 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
   const [editingItem, setEditingItem] = useState(null)
   const [dynamicCategories, setDynamicCategories] = useState(['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads'])
   
+  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+  const resId = user.email || 'guest'
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
@@ -120,13 +66,9 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
 
   // Load menu items on mount
   useEffect(() => {
-    const items = loadMenuItems()
+    const items = loadMenuItems(resId)
     setMenuItems(items)
     setFilteredItems(items)
-    
-    if (!localStorage.getItem('menuItems')) {
-      saveMenuItems(items)
-    }
     
     const savedImages = ImageStorage.getAllImages()
     setMenuItems(items => 
@@ -135,7 +77,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
         photo: savedImages[item._id] || item.photo
       }))
     )
-  }, [])
+  }, [resId])
 
   // Apply filters
   useEffect(() => {
@@ -167,7 +109,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
         item._id === editingItem._id ? { ...itemData, updatedAt: new Date() } : item
       )
       setMenuItems(updatedItems)
-      saveMenuItems(updatedItems)
+      saveMenuItems(updatedItems, resId)
       if (oldItem && oldItem.price !== itemData.price) {
         recordPriceChange(editingItem._id, itemData.name, oldItem.price, itemData.price)
       }
@@ -178,13 +120,13 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
       const newItem = {
         ...itemData,
         _id: Date.now().toString(),
-        restaurantId: 'restaurant-123',
+        restaurantId: resId,
         createdAt: new Date(),
         updatedAt: new Date()
       }
       const updatedItems = [...menuItems, newItem]
       setMenuItems(updatedItems)
-      saveMenuItems(updatedItems)
+      saveMenuItems(updatedItems, resId)
       if (itemData.tempPhoto) {
         ImageStorage.saveImage(newItem._id, itemData.tempPhoto)
         newItem.photo = itemData.tempPhoto
@@ -206,7 +148,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     if (confirm('Are you sure you want to delete this menu item?')) {
       const updatedItems = menuItems.filter(item => item._id !== itemId)
       setMenuItems(updatedItems)
-      saveMenuItems(updatedItems)
+      saveMenuItems(updatedItems, resId)
       ImageStorage.removeImage(itemId)
     }
   }
@@ -216,7 +158,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
       item._id === itemId ? { ...item, isInStock: newStockStatus, updatedAt: new Date() } : item
     )
     setMenuItems(updatedItems)
-    saveMenuItems(updatedItems)
+    saveMenuItems(updatedItems, resId)
   }
 
   const totalItems = menuItems.length
@@ -252,7 +194,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           menuItems={menuItems}
           onMenuItemsChange={(updatedItems) => {
             setMenuItems(updatedItems)
-            saveMenuItems(updatedItems)
+            saveMenuItems(updatedItems, resId)
           }}
           onCategoriesChange={setDynamicCategories}
         />
@@ -268,7 +210,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           menuItems={menuItems}
           onMenuItemsChange={(updatedItems) => {
             setMenuItems(updatedItems)
-            saveMenuItems(updatedItems)
+            saveMenuItems(updatedItems, resId)
           }}
         />
 

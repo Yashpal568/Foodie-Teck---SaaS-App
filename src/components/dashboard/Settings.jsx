@@ -7,7 +7,8 @@ import {
   Smartphone, Eye, EyeOff, CheckCircle2,
   ChevronRight, Sparkles, Building2, Languages,
   DollarSign, Plus, RefreshCcw, Loader2, ArrowLeft,
-  ShoppingCart, Users, X, Instagram, Twitter, Facebook, Clock, Activity, ExternalLink, AlertCircle, LogOut
+  ShoppingCart, Users, X, Instagram, Twitter, Facebook, Clock, Activity, ExternalLink, AlertCircle, LogOut,
+  Percent, Receipt, ToggleLeft, ToggleRight, Info
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { 
@@ -72,6 +73,13 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
     price: '...'
   })
 
+  // GST / Tax Configuration State
+  const [gstData, setGstData] = useState({
+    enabled: false,
+    rate: '',
+    label: 'GST'
+  })
+
   // Notification Overlay State
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
   const showToast = (message, type = 'success') => {
@@ -89,7 +97,7 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
     cvv: ''
   })
 
-  // Hydration: Restore Identity, Alert, Security, and Billing Preferences
+  // Hydration: Restore Identity, Alert, Security, Billing, and GST Preferences
   useEffect(() => {
     const savedProfile = localStorage.getItem('userProfile')
     const savedNotifications = localStorage.getItem('userNotifications')
@@ -136,6 +144,13 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
          price: activePlan.price.toLocaleString()
       }))
     }
+
+    // GST Hydration — scoped to authenticated user
+    const gstKey = `servora_db_gst_${authUser.email || 'guest'}`
+    const savedGst = localStorage.getItem(gstKey)
+    if (savedGst) {
+      setGstData(JSON.parse(savedGst))
+    }
   }, [])
 
   const [notifications, setNotifications] = useState({
@@ -164,7 +179,6 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
 
   const handleSave = async () => {
     setIsSaving(true)
-    // Artificial delay to simulate secure endpoint synchronization
     await new Promise(resolve => setTimeout(resolve, 1500))
     
     // Persist to Nexus Storage
@@ -172,6 +186,11 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
     localStorage.setItem('userNotifications', JSON.stringify(notifications))
     localStorage.setItem('userSecurity', JSON.stringify(securityData))
     localStorage.setItem('userBilling', JSON.stringify(billingData))
+
+    // Persist GST config — scoped to authenticated user
+    const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
+    const gstKey = `servora_db_gst_${authUser.email || 'guest'}`
+    localStorage.setItem(gstKey, JSON.stringify(gstData))
     
     // Trigger architectural broadcast for global UI synchronization
     window.dispatchEvent(new Event('storage'))
@@ -304,7 +323,8 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
                   { id: 'profile', label: 'Identity', icon: User },
                   { id: 'notifications', label: 'Alerts', icon: Bell },
                   { id: 'security', label: 'Defenses', icon: ShieldCheck },
-                  { id: 'billing', label: 'Treasury', icon: CreditCard }
+                  { id: 'billing', label: 'Treasury', icon: CreditCard },
+                  { id: 'tax', label: 'GST / Tax', icon: Percent }
                 ].map(tab => (
                   <TabsTrigger 
                     key={tab.id}
@@ -364,7 +384,8 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
                   { id: 'profile', label: 'Profile', icon: User },
                   { id: 'notifications', label: 'Alerts', icon: Bell },
                   { id: 'security', label: 'Security', icon: ShieldCheck },
-                  { id: 'billing', label: 'Billing', icon: CreditCard }
+                  { id: 'billing', label: 'Billing', icon: CreditCard },
+                  { id: 'tax', label: 'GST / Tax', icon: Percent }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -805,6 +826,129 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* ─── GST / TAX CONFIGURATION TAB ─── */}
+            <TabsContent value="tax" className="mt-0 outline-none animate-in fade-in duration-500">
+              <div className="space-y-8">
+                {/* Hero Card */}
+                <Card className="border-0 shadow-2xl shadow-emerald-500/5 ring-1 ring-gray-100 rounded-[3rem] overflow-hidden bg-white">
+                  <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 p-10 sm:p-14 text-white relative overflow-hidden">
+                    <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl" />
+                    <Percent className="absolute right-10 top-10 w-32 h-32 text-white/5" />
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                          <Receipt className="w-6 h-6 text-emerald-400" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-black uppercase tracking-tighter">GST / Tax Configuration</h2>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Billing Engine</p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold text-slate-400 leading-relaxed max-w-xl">
+                        Define your restaurant's tax policy. When enabled, the configured GST rate will be applied automatically on every customer order and displayed transparently in the checkout modal.
+                        <span className="block mt-2 text-emerald-400 italic">This field is optional — if disabled or set to 0%, no tax will be charged.</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <CardContent className="p-8 sm:p-14 space-y-10">
+                    {/* Enable/Disable Toggle */}
+                    <div className="flex items-center justify-between p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${ gstData.enabled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          <Percent className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{gstData.enabled ? 'GST Collection Active' : 'GST Disabled'}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Toggle to {gstData.enabled ? 'disable' : 'enable'} tax on orders</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={gstData.enabled}
+                        onCheckedChange={(val) => setGstData(p => ({...p, enabled: val}))}
+                        className="data-[state=checked]:bg-emerald-500 scale-150 mx-2"
+                      />
+                    </div>
+
+                    {/* GST Rate Input */}
+                    <div className={`space-y-4 transition-all duration-500 ${gstData.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
+                            <Percent className="w-3 h-3" /> GST Rate (%)
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="28"
+                              step="0.5"
+                              placeholder="e.g. 5, 12, 18, 28"
+                              value={gstData.rate}
+                              onChange={(e) => setGstData(p => ({...p, rate: e.target.value}))}
+                              className="h-16 bg-white border-slate-100 border-2 rounded-2xl font-black text-2xl text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all px-6 pr-16 shadow-sm"
+                            />
+                            <span className="absolute right-5 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300">%</span>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 pl-1">Common rates: 5% · 12% · 18% · 28%</p>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
+                            <Receipt className="w-3 h-3" /> Tax Label (shown on bill)
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. GST, SGST+CGST, VAT"
+                            value={gstData.label}
+                            onChange={(e) => setGstData(p => ({...p, label: e.target.value}))}
+                            className="h-16 bg-white border-slate-100 border-2 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all px-6 shadow-sm"
+                          />
+                          <p className="text-[10px] font-bold text-slate-400 pl-1">This label appears in the customer's order summary.</p>
+                        </div>
+                      </div>
+
+                      {/* Live Preview */}
+                      {gstData.enabled && Number(gstData.rate) > 0 && (
+                        <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-3">
+                          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-4">Live Preview — Customer Bill</p>
+                          <div className="flex justify-between text-sm text-slate-600 font-bold">
+                            <span>Subtotal</span><span>₹100.00</span>
+                          </div>
+                          <div className="flex justify-between text-sm text-emerald-700 font-black">
+                            <span>{gstData.label || 'GST'} ({gstData.rate}%)</span>
+                            <span>₹{(100 * Number(gstData.rate) / 100).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-emerald-100">
+                            <span>Total Amount</span>
+                            <span>₹{(100 + 100 * Number(gstData.rate) / 100).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info Banner */}
+                    <div className="flex items-start gap-4 p-5 bg-blue-50/50 border border-blue-100 rounded-2xl">
+                      <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                      <p className="text-[11px] font-bold text-blue-700 leading-relaxed">
+                        GST is optional and fully controllable. If you do not set a rate or disable this toggle, <strong>no tax will be shown or charged</strong> to your customers. Each restaurant operates under an isolated tax policy.
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="w-full sm:w-auto h-14 px-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all"
+                    >
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      {isSaving ? 'Saving GST Policy...' : 'Save Tax Configuration'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
             </div>
           </div>
         </Tabs>
