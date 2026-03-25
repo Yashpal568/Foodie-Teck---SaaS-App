@@ -93,10 +93,28 @@ const loadQRCodesFromStorage = (restaurantId) => {
 
 export default function QRCodePage() {
   const navigate = useNavigate()
+  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+  // Identity Lock: Enforce authenticated session context
+  const [restaurantId] = useState(user.email || 'servora-guest')
+  
   const [tableCount, setTableCount] = useState(10)
   const [qrCodes, setQrCodes] = useState([])
-  const [restaurantId, setRestaurantId] = useState('restaurant-123')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [activeLimit, setActiveLimit] = useState(10)
+
+  useEffect(() => {
+     // Security Guard: Prevent unauthorized access to generator
+     if (!user.email) {
+        navigate('/login')
+        return
+     }
+
+     const plan = JSON.parse(localStorage.getItem('servora_plan'))
+     if (plan && plan.tableLimit) {
+        setActiveLimit(plan.tableLimit)
+        if (tableCount > plan.tableLimit) setTableCount(plan.tableLimit)
+     }
+  }, [navigate])
 
   // Load QR codes from localStorage on component mount
   useEffect(() => {
@@ -208,7 +226,7 @@ export default function QRCodePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" onClick={() => navigate('/')} className="p-2">
+          <Button variant="ghost" onClick={() => navigate(`/console/${user.email}`)} className="p-2">
             <Home className="w-5 h-5" />
           </Button>
           <div>
@@ -229,14 +247,14 @@ export default function QRCodePage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="tableCount">Number of Tables</Label>
+              <Label htmlFor="tableCount">Number of Tables (Max limit: {activeLimit === 9999 ? 'Unlimited' : activeLimit})</Label>
               <Input
                 id="tableCount"
                 type="number"
                 min="1"
-                max="100"
+                max={activeLimit}
                 value={tableCount}
-                onChange={(e) => setTableCount(parseInt(e.target.value) || 1)}
+                onChange={(e) => setTableCount(Math.min(parseInt(e.target.value) || 1, activeLimit))}
                 disabled={isGenerating}
               />
             </div>
@@ -245,9 +263,10 @@ export default function QRCodePage() {
               <Input
                 id="restaurantId"
                 value={restaurantId}
-                onChange={(e) => setRestaurantId(e.target.value)}
+                readOnly
                 placeholder="Enter your restaurant ID"
                 disabled={isGenerating}
+                className="bg-slate-50 text-slate-500 font-bold border-dashed cursor-not-allowed uppercase tracking-widest text-[10px]"
               />
             </div>
           </div>

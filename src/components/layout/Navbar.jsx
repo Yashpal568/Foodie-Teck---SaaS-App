@@ -34,8 +34,8 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   const searchRef = useRef(null)
   
   const [userProfile, setUserProfile] = useState({
-    name: 'John Doe',
-    email: 'restaurant_admin@foodie.tech',
+    name: 'Loading...',
+    email: '',
     avatar: ''
   })
 
@@ -43,8 +43,24 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   useEffect(() => {
     const loadProfile = () => {
       const saved = localStorage.getItem('userProfile')
+      const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
+
       if (saved) {
         setUserProfile(JSON.parse(saved))
+      } else if (authUser && authUser.email) {
+        // Automatically sync fresh registrations with their actual authentication payload
+        setUserProfile({
+          name: authUser.businessName || authUser.name || 'Merchant Admin',
+          email: authUser.email,
+          avatar: ''
+        })
+      } else {
+        // Fallback only if literally everything is strictly stripped
+        setUserProfile({
+           name: 'System Admin',
+           email: 'admin@servora.tech',
+           avatar: ''
+        })
       }
     }
 

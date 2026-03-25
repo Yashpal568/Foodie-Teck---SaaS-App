@@ -42,7 +42,7 @@ const statusConfig = {
   }
 }
 
-export default function RecentOrders() {
+export default function RecentOrders({ restaurantId = 'default' }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // Listen for storage changes to update in real-time
@@ -60,9 +60,14 @@ export default function RecentOrders() {
 
   const orders = useMemo(() => {
     try {
-      const currentOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+      const rawOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const rawHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
       
+      // ISO-LEVEL FILTERING: Only show this merchant's orders
+      const normalizedId = restaurantId.toString().toLowerCase().trim()
+      const currentOrders = rawOrders.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId)
+      const orderHistory = rawHistory.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId)
+
       // Filter out FINISHED and CANCELLED from currentOrders to avoid double-counting with orderHistory
       const activeOrdersOnly = currentOrders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
       
@@ -74,7 +79,7 @@ export default function RecentOrders() {
       console.error('Error loading orders:', e)
       return []
     }
-  }, [refreshTrigger])
+  }, [refreshTrigger, restaurantId])
 
   return (
     <Card className="border-gray-100 shadow-sm overflow-hidden">

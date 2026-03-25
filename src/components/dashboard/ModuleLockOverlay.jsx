@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion'
-import { Lock, Sparkles, ArrowRight, ShieldCheck, Users } from 'lucide-react'
+import { Lock, ArrowRight, ShieldCheck, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useNavigate } from 'react-router-dom'
 
-export default function ModuleLockOverlay({ featureName, requiredPlan, price, setActiveItem }) {
+export default function ModuleLockOverlay({ featureName, requiredPlan, price }) {
+  const navigate = useNavigate()
+
   return (
     <div className="flex-1 flex items-center justify-center p-8 bg-gray-50/30">
       <motion.div 
@@ -48,7 +51,7 @@ export default function ModuleLockOverlay({ featureName, requiredPlan, price, se
 
           <div className="pt-2 flex flex-col gap-4">
             <Button 
-               onClick={() => setActiveItem('pricing')} 
+               onClick={() => navigate('/pricing')} 
                className="h-16 rounded-2xl bg-slate-950 hover:bg-black text-white font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all group w-full"
             >
                Upgrade to {requiredPlan}
@@ -61,3 +64,4 @@ export default function ModuleLockOverlay({ featureName, requiredPlan, price, se
     </div>
   )
 }
+

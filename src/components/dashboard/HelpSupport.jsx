@@ -19,13 +19,12 @@ import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 
 // ─── Ticket Helpers (localStorage) ───────────────────────────────────────────
-const TICKETS_KEY = 'support_tickets'
+const TICKETS_KEY = 'servora_db_tickets'
 
 const generateTicketId = () => {
-  const prefix = 'TKT'
-  const ts = Date.now().toString(36).toUpperCase()
-  const rand = Math.random().toString(36).substring(2, 5).toUpperCase()
-  return `${prefix}-${ts}-${rand}`
+  const prefix = 'TCK'
+  const ts = Date.now().toString(10)
+  return `${prefix}-${ts}`
 }
 
 const loadTickets = () => {
@@ -44,14 +43,19 @@ const createTicket = ({ name, email, subject, message }) => {
   const ticket = {
     id: generateTicketId(),
     name,
+    businessName: name, // For Admin Compatibility
     email,
+    restaurantId: email, // For Admin Identity Check
     subject,
     message,
-    status: 'open',          // open | in-progress | resolved | closed
-    priority: 'normal',      // low | normal | high | urgent
+    description: message, // For Admin Compatibility
+    status: 'OPEN',          // Aligned with Admin's OPEN/RESOLVED
+    priority: 'MEDIUM',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    replies: []              // admin replies go here
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    replies: []
   }
   tickets.unshift(ticket)
   saveTickets(tickets)
@@ -128,12 +132,11 @@ const quickLinks = [
   { icon: FileText, title: 'Release Notes', desc: 'Latest updates and changes', color: 'purple', badge: 'v2.1', action: 'releases' },
 ]
 
-// ─── Status Helpers ──────────────────────────────────────────────────────────
 const statusConfig = {
-  'open':        { label: 'Open',        color: 'blue',   icon: AlertCircle },
-  'in-progress': { label: 'In Progress', color: 'amber',  icon: RefreshCw },
-  'resolved':    { label: 'Resolved',    color: 'emerald', icon: CheckCircle },
-  'closed':      { label: 'Closed',      color: 'gray',   icon: CheckCircle },
+  'OPEN':        { label: 'Open',        color: 'blue',   icon: AlertCircle },
+  'IN-PROGRESS': { label: 'In Progress', color: 'amber',  icon: RefreshCw },
+  'RESOLVED':    { label: 'Resolved',    color: 'emerald', icon: CheckCircle },
+  'CLOSED':      { label: 'Closed',      color: 'gray',   icon: CheckCircle },
 }
 
 const formatDate = (iso) => {
@@ -160,9 +163,11 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('faq')
 
+  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+
   // Contact form state
-  const [contactName, setContactName] = useState('')
-  const [contactEmail, setContactEmail] = useState('')
+  const [contactName, setContactName] = useState(user.businessName || '')
+  const [contactEmail, setContactEmail] = useState(user.email || '')
   const [contactSubject, setContactSubject] = useState('')
   const [contactMessage, setContactMessage] = useState('')
   const [messageSent, setMessageSent] = useState(false)
@@ -171,21 +176,26 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
   // Tickets state
   const [tickets, setTickets] = useState([])
   const [selectedTicket, setSelectedTicket] = useState(null)
-  const [ticketFilter, setTicketFilter] = useState('all')
+  const [ticketFilter, setTicketFilter] = useState('ALL')
 
-  // Load tickets
+  // Load tickets (isolated by user)
   useEffect(() => {
-    setTickets(loadTickets())
-    const handler = () => setTickets(loadTickets())
+    const all = loadTickets()
+    setTickets(all.filter(t => t.restaurantId === user.email))
+
+    const handler = () => {
+      const freshAll = loadTickets()
+      setTickets(freshAll.filter(t => t.restaurantId === user.email))
+    }
     window.addEventListener('ticketsUpdated', handler)
     window.addEventListener('storage', handler)
     return () => {
       window.removeEventListener('ticketsUpdated', handler)
       window.removeEventListener('storage', handler)
     }
-  }, [])
+  }, [user.email])
 
-  const openTicketCount = tickets.filter(t => t.status === 'open' || t.status === 'in-progress').length
+  const openTicketCount = tickets.filter(t => t.status === 'OPEN' || t.status === 'IN-PROGRESS').length
 
   const filteredFaqs = faqs.map(category => ({
     ...category,
@@ -195,7 +205,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
     )
   })).filter(category => category.questions.length > 0)
 
-  const filteredTickets = ticketFilter === 'all' 
+  const filteredTickets = ticketFilter === 'ALL' 
     ? tickets 
     : tickets.filter(t => t.status === ticketFilter)
 
@@ -809,15 +819,15 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
             {/* Ticket Filter Bar */}
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                {['all', 'open', 'in-progress', 'resolved', 'closed'].map(filter => (
+                {['ALL', 'OPEN', 'IN-PROGRESS', 'RESOLVED', 'CLOSED'].map(filter => (
                   <Button 
                     key={filter} 
                     variant={ticketFilter === filter ? 'default' : 'outline'} 
                     size="sm" 
-                    className={`rounded-xl text-xs font-semibold capitalize ${ticketFilter === filter ? 'bg-gray-900 text-white' : 'bg-white'}`}
+                    className={`rounded-xl text-xs font-semibold uppercase tracking-widest ${ticketFilter === filter ? 'bg-gray-900 text-white shadow-lg' : 'bg-white text-gray-400 hover:text-gray-900'}`}
                     onClick={() => setTicketFilter(filter)}
                   >
-                    {filter === 'all' ? `All (${tickets.length})` : `${filter.replace('-', ' ')} (${tickets.filter(t => t.status === filter).length})`}
+                    {filter === 'ALL' ? `All (${tickets.length})` : `${filter.replace('-', ' ')} (${tickets.filter(t => t.status === filter).length})`}
                   </Button>
                 ))}
               </div>

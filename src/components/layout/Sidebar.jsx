@@ -14,6 +14,7 @@ import {
   LogOut
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import Logo from '@/components/ui/Logo'
 import { saveAndClearWorkspace } from '@/utils/workspace'
@@ -63,7 +64,20 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
 
   const handleNavigation = (item) => {
     setActiveItem(item.id)
-    navigate(item.route)
+    
+    // Identity-Safe Navigation: Redirect to isolated console if departing from legacy routes
+    if (item.route === '/dashboard') {
+      const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+      if (user.email && !window.location.pathname.startsWith('/console')) {
+        navigate(`/console/${user.email}`)
+        return
+      }
+    }
+    
+    // If we're already in the console, we don't need to navigate, just set the state (handled above)
+    if (!window.location.pathname.startsWith('/console')) {
+      navigate(item.route)
+    }
   }
 
   const handleSignOut = () => {
@@ -71,6 +85,24 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     localStorage.removeItem('servora_user')
     navigate('/login')
   }
+  const [subData, setSubData] = useState({ daysLeft: 30, planName: 'Starter' })
+
+  useEffect(() => {
+    const checkSub = () => {
+      const savedPlan = localStorage.getItem('servora_plan')
+      if (savedPlan) {
+        const planData = JSON.parse(savedPlan)
+        const purchaseDate = new Date(planData.purchaseDate || planData.activeSince || Date.now())
+        const expiryDate = new Date(purchaseDate.getTime() + (30 * 24 * 60 * 60 * 1000))
+        const now = new Date()
+        const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        setSubData({ daysLeft, planName: planData.name })
+      }
+    }
+    checkSub()
+    window.addEventListener('storage', checkSub)
+    return () => window.removeEventListener('storage', checkSub)
+  }, [])
 
   return (
     <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col ${isMobile ? 'flex' : 'hidden lg:flex'}`}>
@@ -84,8 +116,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4">
-        <div className="space-y-2">
+      <nav className="flex-1 p-4 overflow-y-auto no-scrollbar">
+        <div className="space-y-2 mb-8">
           {menuItems.map((item) => {
             const Icon = item.icon
             const badgeCount = item.id === 'orders' ? counts.orders : item.id === 'tables' ? counts.tables : null
@@ -116,7 +148,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
           })}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 mb-10">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-3 mb-2">Support & Ops</p>
           {supportItems.map((item) => {
             const Icon = item.icon
             return (
@@ -137,6 +170,33 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
             )
           })}
         </div>
+
+        {/* Subscription Status Widget */}
+        {!isCollapsed && (
+           <div className="mt-auto px-3 py-6 bg-slate-50 border border-slate-100 rounded-[2rem] space-y-4">
+              <div className="flex items-center justify-between">
+                 <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-white border-slate-200 text-slate-500">{subData.planName} Plan</Badge>
+                 <span className={`text-[10px] font-black uppercase tracking-widest ${subData.daysLeft <= 5 ? 'text-rose-600' : 'text-blue-600'}`}>
+                    {subData.daysLeft} Days Left
+                 </span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                 <div 
+                    className={`h-full rounded-full transition-all duration-1000 ${subData.daysLeft <= 5 ? 'bg-rose-500 animate-pulse' : 'bg-blue-600'}`} 
+                    style={{ width: `${(subData.daysLeft / 30) * 100}%` }}
+                 />
+              </div>
+
+              {subData.daysLeft <= 5 && (
+                 <Button 
+                    onClick={() => navigate('/pricing')}
+                    className="w-full h-10 rounded-xl bg-slate-950 hover:bg-black text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all"
+                 >
+                    Renew Now
+                 </Button>
+              )}
+           </div>
+        )}
       </nav>
 
       <div className="p-4 border-t border-gray-100">

@@ -73,7 +73,7 @@ import {
 } from 'recharts'
 import { cn } from '@/lib/utils'
 
-const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigate }) => {
+const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigate, restaurantId = 'default' }) => {
   const isPremium = plan && (typeof plan === 'object' ? plan?.name === 'Enterprise' : plan === 'Enterprise')
   const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
@@ -89,8 +89,12 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
 
   // Dynamic Data Calculation
   const { customers, chartData, stats } = useMemo(() => {
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+    const rawOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+    const rawHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+    
+    // ISO-LEVEL FILTERING: Ensure only this merchant's customers surface
+    const orders = rawOrders.filter(o => o.restaurantId === restaurantId)
+    const orderHistory = rawHistory.filter(o => o.restaurantId === restaurantId)
     
     // Deduplicate orders by ID to prevent double counting between current orders and history
     const allOrdersMap = {}

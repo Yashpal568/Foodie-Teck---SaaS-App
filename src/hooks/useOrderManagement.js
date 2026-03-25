@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 
 // Order status constants
 export const ORDER_STATUS = {
@@ -100,9 +100,11 @@ const loadOrders = () => {
   }
 }
 
-// Generate unique order ID
+// Generate unique order ID - Short & Unique for UI readability
 const generateOrderId = () => {
-  return `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  const stamp = Date.now().toString().slice(-6)
+  const random = Math.random().toString(36).substring(2, 5).toUpperCase()
+  return `ORD-${stamp}-${random}`
 }
 
 // Create new order
@@ -110,6 +112,7 @@ const createOrder = (orderData) => {
   const order = {
     id: generateOrderId(),
     ...orderData,
+    restaurantId: (orderData.restaurantId || 'default').toString().toLowerCase().trim(),
     status: ORDER_STATUS.ORDERED,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -236,7 +239,23 @@ const updateOrderStatus = (orderId, newStatus, note = '') => {
 // Get orders by restaurant
 const getOrdersByRestaurant = (restaurantId) => {
   const orders = loadOrders()
-  return orders.filter(order => order.restaurantId === restaurantId)
+  const normalizedId = (restaurantId || 'default').toString().toLowerCase().trim()
+  return orders.filter(order => {
+    const orderRid = (order.restaurantId || 'default').toString().toLowerCase().trim()
+    return orderRid === normalizedId
+  })
+}
+
+// Get TOTAL order volume (Active + History) for persistent telemetry
+export const getTotalOrderVolume = (restaurantId) => {
+  const normalizedId = (restaurantId || 'default').toString().toLowerCase().trim()
+  const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+  const history = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+  
+  const activeCount = orders.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId).length
+  const historyCount = history.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId).length
+  
+  return activeCount + historyCount
 }
 
 // Get orders by table
@@ -259,37 +278,54 @@ const getOrderById = (orderId) => {
 // Custom hook for order management
 export const useOrderManagement = (restaurantId) => {
   const [orders, setOrders] = useState([])
+  const [orderHistory, setOrderHistory] = useState([])
   const [loading, setLoading] = useState(false)
 
   // Load orders
-  const refreshOrders = () => {
+  const refreshOrders = useCallback(() => {
     setLoading(true)
     try {
       const restaurantOrders = getOrdersByRestaurant(restaurantId)
       setOrders(restaurantOrders)
+
+      // Load History
+      const allHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+      const normalizedId = (restaurantId || 'default').toString().toLowerCase().trim()
+      const filteredHistory = allHistory.filter(order => 
+        (order.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId
+      )
+      setOrderHistory(filteredHistory)
+
     } catch (error) {
       console.error('Error loading orders:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [restaurantId])
 
   // Initial load
   useEffect(() => {
     refreshOrders()
-  }, [restaurantId])
+  }, [refreshOrders])
 
   // Listen for storage changes
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'orders') {
+      if (e.key === 'orders' || e.key === 'orderHistory' || !e.key) {
         refreshOrders()
       }
     }
 
     window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [restaurantId])
+    window.addEventListener('orderUpdated', refreshOrders)
+    window.addEventListener('orderHistoryUpdated', refreshOrders)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('orderUpdated', refreshOrders)
+      window.removeEventListener('orderHistoryUpdated', refreshOrders)
+    }
+  }, [refreshOrders])
 
   // Create order
   const createNewOrder = (orderData) => {
@@ -297,6 +333,11 @@ export const useOrderManagement = (restaurantId) => {
       ...orderData,
       restaurantId
     })
+    
+    // Manual event dispatching to ensure ALL components catch this immediately
+    window.dispatchEvent(new Event('storage'))
+    window.dispatchEvent(new Event('orderUpdated'))
+    
     refreshOrders()
     return order
   }
@@ -305,11 +346,16 @@ export const useOrderManagement = (restaurantId) => {
   const updateStatus = (orderId, newStatus, note) => {
     const updatedOrder = updateOrderStatus(orderId, newStatus, note)
     refreshOrders()
+    // If order was moved to history, notify others
+    if (newStatus === ORDER_STATUS.FINISHED || newStatus === ORDER_STATUS.CANCELLED) {
+       window.dispatchEvent(new Event('orderHistoryUpdated'))
+    }
     return updatedOrder
   }
 
   return {
     orders,
+    orderHistory,
     loading,
     refreshOrders,
     createOrder: createNewOrder,
@@ -318,3 +364,4 @@ export const useOrderManagement = (restaurantId) => {
     getOrderById
   }
 }
+

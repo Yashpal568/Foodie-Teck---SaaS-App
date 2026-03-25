@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/layout/Layout'
 import OverviewCards from '../components/dashboard/OverviewCards'
 import RecentOrders from '../components/dashboard/RecentOrders'
@@ -19,29 +19,67 @@ import { useRestaurantProfile } from '../hooks/useRestaurantProfile'
 import DashboardMobileNavbar from '../components/dashboard/DashboardMobileNavbar'
 import PlanLockOverlay from '../components/dashboard/PlanLockOverlay'
 import ModuleLockOverlay from '../components/dashboard/ModuleLockOverlay'
+import SubscriptionLockOverlay from '../components/dashboard/SubscriptionLockOverlay'
+import SuspensionOverlay from '../components/dashboard/SuspensionOverlay'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 
 function Dashboard() {
+  const { restaurantId: urlId } = useParams()
   const navigate = useNavigate()
   const [activeItem, setActiveItem] = useState('dashboard')
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [plan, setPlan] = useState(null)
-  const { profile } = useRestaurantProfile('restaurant-123')
+  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+  const dashboardOwner = user.email || 'guest'
+  const { profile } = useRestaurantProfile(dashboardOwner)
   const [isLoading, setIsLoading] = useState(true)
 
+  const [daysRemaining, setDaysRemaining] = useState(30)
+  const [isExpired, setIsExpired] = useState(false)
+  const [isSuspended, setIsSuspended] = useState(false)
+
   useEffect(() => {
-    // 1. Check for Authentication
-    const user = localStorage.getItem('servora_user')
-    if (!user) {
-      navigate('/register')
+    // 1. Mandatory Identity Sovereignty Check
+    const userJson = localStorage.getItem('servora_user')
+    if (!userJson) {
+      navigate('/login')
       return
     }
+    const currentUser = JSON.parse(userJson)
 
-    // 2. Check for Plan Entitlement
+    // High-Security: Ensure URL context matches authorized merchant node
+    if (urlId !== currentUser.email) {
+       console.warn('Identity Displacement Detected. Redirecting to authorized console...')
+       navigate(`/console/${currentUser.email}`, { replace: true })
+       return
+    }
+
+    // Check for Global Suspension
+    const allUsers = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
+    const globalStatus = allUsers.find(u => u.email === currentUser.email)?.status
+    if (globalStatus === 'Suspended') {
+       setIsSuspended(true)
+    }
+
+    // 2. Check for Plan Entitlement & Subscription Cycle
     const savedPlan = localStorage.getItem('servora_plan')
     if (savedPlan) {
-      setPlan(JSON.parse(savedPlan))
+      const planData = JSON.parse(savedPlan)
+      setPlan(planData)
+      
+      // Calculate Subscription Cycle (30 Days)
+      const purchaseDate = new Date(planData.purchaseDate || planData.activeSince || Date.now())
+      const expiryDate = new Date(purchaseDate.getTime() + (30 * 24 * 60 * 60 * 1000))
+      const now = new Date()
+      
+      const timeDiff = expiryDate.getTime() - now.getTime()
+      const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24))
+      
+      setDaysRemaining(daysLeft)
+      if (daysLeft <= 0) {
+        setIsExpired(true)
+      }
     }
     setIsLoading(false)
   }, [navigate])
@@ -50,6 +88,14 @@ function Dashboard() {
 
   if (!plan) {
     return <PlanLockOverlay />
+  }
+
+  if (isSuspended) {
+    return <SuspensionOverlay />
+  }
+
+  if (isExpired) {
+    return <SubscriptionLockOverlay planName={plan.name} expiredSince={plan.purchaseDate} />
   }
 
   const handleRefresh = () => {
@@ -63,7 +109,7 @@ function Dashboard() {
     switch (activeItem) {
       case 'dashboard':
         return (
-          <div className="flex flex-col min-h-screen bg-gray-50/50 pb-20 lg:pb-0">
+          <div className="flex flex-col min-h-screen bg-[#f8fafc]/50 pb-20 lg:pb-0 font-sans">
             <DashboardMobileNavbar 
               activeItem={activeItem}
               setActiveItem={setActiveItem}
@@ -71,36 +117,62 @@ function Dashboard() {
               isRefreshing={isRefreshing}
             />
             
-            <div className="p-4 md:p-8 space-y-6">
-              <div className="hidden lg:flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Dashboard Overview</h1>
-                  <p className="text-sm md:text-base text-gray-500 font-medium mt-1 uppercase tracking-widest text-[10px]">Welcome back! Monitoring your restaurant's performance.</p>
+            <div className="p-4 md:p-10 space-y-10">
+              {/* Premium Dashboard Header */}
+              <div className="hidden lg:flex items-end justify-between gap-6">
+                <div className="space-y-1.5 translate-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-8 bg-blue-600 rounded-full" />
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none">
+                      Dashboard
+                    </h1>
+                  </div>
+                  <p className="text-slate-500 font-bold uppercase tracking-widest text-[11px] pl-5 opacity-70">
+                    Welcome back! Monitoring your restaurant's performance.
+                  </p>
                 </div>
-                <div className="flex gap-2 w-full md:w-auto">
+
+                <div className="flex items-center gap-4 bg-white/50 backdrop-blur-md p-2 rounded-3xl border border-white shadow-sm">
                   <button 
-                    onClick={() => setActiveItem('orders')}
-                    className="flex-1 md:flex-none px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-2xl hover:shadow-lg hover:shadow-blue-500/20 transition-all active:scale-95 shadow-md"
+                    onClick={() => window.open(`/menu?restaurant=${dashboardOwner}&table=1`, '_blank')}
+                    className="px-6 py-3 text-slate-600 text-[13px] font-black uppercase tracking-wider rounded-2xl hover:bg-slate-100 transition-all flex items-center gap-2"
                   >
-                    Quick Order
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                    Live Menu
                   </button>
                   <button 
                     onClick={() => setActiveItem('analytics')}
-                    className="flex-1 md:flex-none px-6 py-3 bg-white text-gray-700 text-sm font-bold rounded-2xl border border-gray-100 hover:bg-gray-50 shadow-sm transition-all active:scale-95"
+                    className="px-6 py-3 text-slate-600 text-[13px] font-black uppercase tracking-wider rounded-2xl hover:bg-slate-100 transition-all"
                   >
-                    View Reports
+                    Analytics
+                  </button>
+                  <button 
+                    onClick={() => setActiveItem('orders')}
+                    className="px-8 py-4 bg-slate-900 text-white text-[13px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    New Order
                   </button>
                 </div>
               </div>
 
-              <OverviewCards />
-              
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <TableStatus />
-                </div>
-                <div>
-                  <RecentOrders />
+              {/* Responsive Grid Layout */}
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-10">
+                  <div className="lg:col-span-8 space-y-10">
+                    <OverviewCards restaurantId={dashboardOwner} />
+                    
+                    <div className="space-y-4">
+                       <div className="flex items-center justify-between px-2">
+                         <h3 className="text-xl font-black text-slate-900 leading-none">Activity Feed</h3>
+                         <button onClick={() => setActiveItem('orders')} className="text-[11px] font-black text-blue-600 uppercase tracking-widest hover:underline">View All</button>
+                       </div>
+                       <RecentOrders restaurantId={dashboardOwner} />
+                    </div>
+                  </div>
+                  
+                  <div className="lg:col-span-4 lg:sticky lg:top-10 h-fit">
+                    <TableStatus restaurantId={dashboardOwner} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -126,7 +198,7 @@ function Dashboard() {
       
       case 'orders':
         return <OrderManagement 
-          restaurantId="restaurant-123" 
+          restaurantId={dashboardOwner} 
           activeItem={activeItem} 
           setActiveItem={setActiveItem} 
           navigate={navigate}
@@ -157,7 +229,6 @@ function Dashboard() {
               featureName="Customer Management & CRM"
               requiredPlan="Enterprise"
               price="₹4,999"
-              setActiveItem={setActiveItem}
             />
           )
         }
@@ -166,6 +237,7 @@ function Dashboard() {
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
+          restaurantId={dashboardOwner}
         />
       
       case 'help':

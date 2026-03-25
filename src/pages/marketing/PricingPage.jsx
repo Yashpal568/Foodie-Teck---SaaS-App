@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, ArrowRight, Zap, ShieldCheck, BarChart3, Users, QrCode, Smartphone, MessageCircle } from 'lucide-react'
@@ -7,64 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 
-const plans = [
-  {
-    name: "Starter",
-    price: "₹1,499",
-    billing: "per month",
-    desc: "Essential features for smaller venues.",
-    features: [
-      "Up to 10 Tables",
-      "Digital Menu with QR",
-      "Real-time Order Feed",
-      "Basic Sales Reports",
-      "Email Support",
-      "Manual Table Status",
-      "Daily Backups"
-    ],
-    cta: "Purchase Starter",
-    popular: false,
-    color: "slate"
-  },
-  {
-    name: "Professional",
-    price: "₹2,999",
-    billing: "per month",
-    desc: "The sweet spot for active dining rooms.",
-    features: [
-      "Up to 30 Tables",
-      "AI-Optimized Digital Menu",
-      "Advanced Revenue Analytics",
-      "Kitchen Performance KDS",
-      "Priority 24/7 Support",
-      "Automated Table Hub",
-      "Multi-User Staff CRM",
-      "Custom Brand Colors"
-    ],
-    cta: "Purchase Professional",
-    popular: true,
-    color: "blue"
-  },
-  {
-    name: "Enterprise",
-    price: "₹4,999",
-    billing: "per month",
-    desc: "Maximum control for high-volume chains.",
-    features: [
-      "Unlimited Tables",
-      "Full Customer CRM Access",
-      "Multi-Location Hub",
-      "Dedicated Solutions Architect",
-      "Custom API Access",
-      "White-Label Interface",
-      "On-site Deployment & Training",
-      "Enterprise SLA Guarantee",
-      "Infinite Scaling"
-    ],
-    cta: "Purchase Enterprise",
-    popular: false,
-    color: "indigo"
-  }
+const defaultPlans = [
+  { id: 'PLN-1', name: "Starter", price: 1499, tableLimit: 10, color: "slate", popular: false, desc: "Essential features for smaller venues." },
+  { id: 'PLN-2', name: "Professional", price: 2999, tableLimit: 30, color: "blue", popular: true, desc: "The sweet spot for active dining rooms." },
+  { id: 'PLN-3', name: "Enterprise", price: 4999, tableLimit: 9999, color: "indigo", popular: false, desc: "Maximum control for high-volume chains." },
 ]
 
 const faqs = [
@@ -88,8 +34,18 @@ const faqs = [
 
 export default function PricingPage() {
   const navigate = useNavigate()
+  const [plans, setPlans] = useState(defaultPlans)
   const [isProcessing, setIsProcessing] = useState(false)
   const [targetPlan, setTargetPlan] = useState(null)
+
+  useEffect(() => {
+     const stored = JSON.parse(localStorage.getItem('servora_subscription_plans'))
+     if (stored && stored.length > 0) {
+        setPlans(stored)
+     } else {
+        localStorage.setItem('servora_subscription_plans', JSON.stringify(defaultPlans))
+     }
+  }, [])
 
   const selectPlan = async (plan) => {
     // 1. Mandatory Authentication Check
@@ -104,17 +60,42 @@ export default function PricingPage() {
     setTargetPlan(plan)
 
     // Simulate Payment Gateway Link (Razorpay/Stripe)
-    await new Promise(resolve => setTimeout(resolve, 3000))
+    await new Promise(resolve => setTimeout(resolve, 800))
 
     // 3. Finalize Entitlement
     localStorage.setItem('servora_plan', JSON.stringify({
       name: plan.name,
       price: plan.price,
+      tableLimit: plan.tableLimit,
       purchaseDate: new Date().toISOString()
     }))
 
-    // 4. Redirect to Activated Dashboard
-    navigate('/dashboard')
+    const activeSubs = JSON.parse(localStorage.getItem('servora_db_subscriptions') || '[]')
+    activeSubs.push({
+        tier: plan.name,
+        price: plan.price,
+        limit: plan.tableLimit,
+        activeSince: new Date().toISOString()
+    })
+    localStorage.setItem('servora_db_subscriptions', JSON.stringify(activeSubs))
+
+    // 4. Manual Workspace Sync for Real-Time Admin Visibility
+    const user = JSON.parse(localStorage.getItem('servora_user'))
+    if (user && user.email) {
+       const workspaces = JSON.parse(localStorage.getItem('servora_db_workspaces') || '{}')
+       const userWorkspace = workspaces[user.email] || {}
+       userWorkspace['servora_plan'] = JSON.stringify({
+         name: plan.name,
+         price: plan.price,
+         tableLimit: plan.tableLimit,
+         purchaseDate: new Date().toISOString()
+       })
+       workspaces[user.email] = userWorkspace
+       localStorage.setItem('servora_db_workspaces', JSON.stringify(workspaces))
+    }
+
+    // 5. Redirect to Activated Isolated Console
+    navigate(`/console/${user.email}`)
     window.location.reload()
   }
 
@@ -162,11 +143,11 @@ export default function PricingPage() {
                   p.popular ? "text-blue-400" : "text-slate-500"
                 )}>{p.name}</h3>
                 <div className="flex items-baseline gap-3 mb-6">
-                  <span className="text-6xl font-black tracking-tightest">{p.price}</span>
+                  <span className="text-6xl font-black tracking-tightest">₹{p.price}</span>
                   <span className={cn(
                     "text-sm font-bold opacity-60",
                     p.popular ? "text-slate-400" : "text-slate-500"
-                  )}>{p.billing}</span>
+                  )}>per month</span>
                 </div>
                 <p className={cn(
                   "text-lg font-medium leading-relaxed max-w-[240px]",
@@ -180,7 +161,15 @@ export default function PricingPage() {
               )} />
 
               <div className="space-y-6 mb-16 flex-1">
-                {p.features.map(f => (
+                {[
+                  `Up to ${p.tableLimit === 9999 ? 'Unlimited' : p.tableLimit} Tables`,
+                  "Digital Menu with QR",
+                  "Real-time Order Feed",
+                  "Basic Sales Reports",
+                  p.price > 2000 ? "Priority 24/7 Support" : "Email Support",
+                  p.tableLimit > 50 ? "Multi-Location Hub" : "Manual Table Status",
+                  "Daily Backups"
+                ].map(f => (
                   <div key={f} className="flex items-center gap-4">
                     <div className={cn(
                       "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
@@ -203,9 +192,10 @@ export default function PricingPage() {
                     ? "bg-blue-600 text-white hover:bg-white hover:text-blue-600" 
                     : "bg-slate-950 text-white hover:bg-black"
                 )}
+                disabled={isProcessing}
                 onClick={() => selectPlan(p)}
               >
-                {p.cta}
+                {isProcessing ? 'Processing Transaction...' : `Purchase ${p.name}`}
                 <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
               </Button>
             </motion.div>

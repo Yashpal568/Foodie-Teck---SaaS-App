@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Users, DollarSign, ShoppingCart, ChefHat } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-export default function OverviewCards() {
+export default function OverviewCards({ restaurantId = 'default' }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // Listen for storage changes to update metrics in real-time
@@ -22,12 +22,15 @@ export default function OverviewCards() {
   // Dynamic Data Calculation
   const stats = useMemo(() => {
     // 1. Fetch data from localStorage
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+    const rawOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+    const rawHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
     const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]')
-    // tableSessions is the correct source used by TableSessions component
-    // tableSessions is the correct source used by TableSessions component
-    const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]') 
+    const rawTables = JSON.parse(localStorage.getItem('tableSessions') || '[]') 
+
+    // ISO-LEVEL FILTERING: Ensure only this merchant's metrics are computed
+    const orders = rawOrders.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === restaurantId.toString().toLowerCase().trim())
+    const orderHistory = rawHistory.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === restaurantId.toString().toLowerCase().trim())
+    const tables = rawTables.filter(t => (t.restaurantId || 'default').toString().toLowerCase().trim() === restaurantId.toString().toLowerCase().trim())
 
     // 2. Dates
     const today = new Date().toLocaleDateString('en-CA')
@@ -37,14 +40,13 @@ export default function OverviewCards() {
 
     // 3. Revenue
     const activeOrdersOnly = orders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
-    const allHistory = orderHistory
-    const totalRevenue = [...activeOrdersOnly, ...allHistory].reduce((sum, order) => sum + (order.total || 0), 0)
+    const totalRevenue = [...activeOrdersOnly, ...orderHistory].reduce((sum, order) => sum + (order.total || 0), 0)
 
-    const todayRevenue = [...activeOrdersOnly, ...allHistory]
+    const todayRevenue = [...activeOrdersOnly, ...orderHistory]
       .filter(order => new Date(order.createdAt).toLocaleDateString('en-CA') === today)
       .reduce((sum, order) => sum + (order.total || 0), 0)
 
-    const yesterdayRevenue = allHistory
+    const yesterdayRevenue = orderHistory
       .filter(order => new Date(order.createdAt).toLocaleDateString('en-CA') === yesterday)
       .reduce((sum, order) => sum + (order.total || 0), 0)
 
@@ -52,11 +54,11 @@ export default function OverviewCards() {
     const revenueTrend = todayRevenue >= yesterdayRevenue ? 'up' : 'down'
 
     // 4. Today's Orders
-    const todayOrdersCount = [...activeOrdersOnly, ...allHistory].filter(order => {
+    const todayOrdersCount = [...activeOrdersOnly, ...orderHistory].filter(order => {
       const orderDate = new Date(order.createdAt).toLocaleDateString('en-CA')
       return orderDate === today
     }).length
-    const yesterdayOrdersCount = allHistory.filter(order => {
+    const yesterdayOrdersCount = orderHistory.filter(order => {
       const orderDate = new Date(order.createdAt).toLocaleDateString('en-CA')
       return orderDate === yesterday
     }).length

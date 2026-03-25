@@ -14,6 +14,16 @@ export default function MobileNavbar({ activeItem, setActiveItem }) {
   
   const handleNavigation = (item) => {
     setActiveItem(item.id)
+    
+    // Identity-Safe Mobile Navigation: Redirect to isolated console
+    if (item.route === '/dashboard') {
+      const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+      if (user.email) {
+        navigate(`/console/${user.email}`)
+        return
+      }
+    }
+    
     navigate(item.route)
   }
 

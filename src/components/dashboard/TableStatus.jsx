@@ -1,18 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { Users, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { Users, CheckCircle, Clock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-
-const defaultTables = [
-  { id: 1, name: 'Table 1', status: 'occupied', customers: 4, time: '45 min', order: 'ORD-002' },
-  { id: 2, name: 'Table 2', status: 'occupied', customers: 2, time: '30 min', order: 'ORD-004' },
-  { id: 3, name: 'Table 3', status: 'available', customers: 0, time: '-', order: null },
-  { id: 4, name: 'Table 4', status: 'occupied', customers: 6, time: '1h 15min', order: 'ORD-005' },
-  { id: 5, name: 'Table 5', status: 'needs-cleaning', customers: 0, time: '10 min ago', order: null },
-  { id: 6, name: 'Table 6', status: 'available', customers: 0, time: '-', order: null },
-  { id: 7, name: 'Table 7', status: 'occupied', customers: 3, time: '20 min', order: 'ORD-006' },
-  { id: 8, name: 'Table 8', status: 'reserved', customers: 2, time: '7:00 PM', order: null }
-]
 
 const statusConfig = {
   occupied: {
@@ -34,171 +23,121 @@ const statusConfig = {
     label: 'Reserved',
     color: 'bg-blue-100 text-blue-800',
     bgColor: 'bg-blue-50 border-blue-200'
+  },
+  billing: {
+    label: 'Billing',
+    color: 'bg-purple-100 text-purple-800',
+    bgColor: 'bg-purple-50 border-purple-200'
   }
 }
 
-export default function TableStatus() {
-  const [tableData, setTableData] = useState([])
+const TableStatus = ({ restaurantId = 'default' }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  // Load and sync table data
+  // Listen for storage changes to update table status in real-time
   useEffect(() => {
-    const syncTableStatuses = () => {
-      try {
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-        const currentTables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-        
-        let tablesChanged = false
-        const updatedTables = currentTables.map(table => {
-          // If table is occupied and has a current order
-          if ((table.status === 'occupied' || table.status === 'billing') && table.currentOrder) {
-            const order = orders.find(o => o.id === table.currentOrder)
-            // If order is finished or cancelled, table should be available
-            if (!order || order.status === 'FINISHED' || order.status === 'CANCELLED') {
-              tablesChanged = true
-              return {
-                ...table,
-                status: 'available',
-                customers: 0,
-                currentOrder: null,
-                sessionStart: null,
-                sessionDuration: null,
-                revenue: 0,
-                needsCleaning: false,
-                lastActivity: new Date().toISOString()
-              }
-            }
-          }
-          return table
-        })
-
-        if (tablesChanged) {
-          localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-          setTableData(updatedTables)
-        } else if (JSON.stringify(currentTables) !== JSON.stringify(tableData)) {
-          setTableData(currentTables)
-        }
-      } catch (err) {
-        console.error('Error syncing table statuses:', err)
-      }
-    }
-
-    const loadData = () => {
-      const saved = localStorage.getItem('tableSessions')
-      if (saved) {
-        syncTableStatuses() // This also sets table data
-      } else {
-        setTableData(defaultTables)
-      }
-    }
-
-    loadData()
-
-    const handleStorage = () => {
-      setRefreshTrigger(prev => prev + 1)
-      syncTableStatuses()
-    }
-
+    const handleStorage = () => setRefreshTrigger(prev => prev + 1)
     window.addEventListener('storage', handleStorage)
     window.addEventListener('orderUpdated', handleStorage)
     window.addEventListener('orderHistoryUpdated', handleStorage)
-    
     return () => {
       window.removeEventListener('storage', handleStorage)
       window.removeEventListener('orderUpdated', handleStorage)
       window.removeEventListener('orderHistoryUpdated', handleStorage)
     }
-  }, [refreshTrigger, tableData])
+  }, [])
 
-  const stats = useMemo(() => ({
-    occupied: tableData.filter(t => t.status === 'occupied' || t.status === 'billing').length,
-    available: tableData.filter(t => t.status === 'available').length,
-    'needs-cleaning': tableData.filter(t => t.status === 'needs-cleaning' || t.needsCleaning).length,
-    reserved: tableData.filter(t => t.status === 'reserved').length
-  }), [tableData])
+  const { tables, stats } = useMemo(() => {
+    try {
+      const rawSessions = JSON.parse(localStorage.getItem('tableSessions') || '[]')
+      
+      // ISO-LEVEL FILTERING: Ensure only this merchant's tables surface
+      const normalizedId = restaurantId.toString().toLowerCase().trim()
+      const sessions = rawSessions.filter(t => (t.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId)
+      
+      const tablesStats = {
+        occupied: sessions.filter(t => t.status === 'occupied').length,
+        available: sessions.filter(t => t.status === 'available').length,
+        'needs-cleaning': sessions.filter(t => t.status === 'needs-cleaning' || t.needsCleaning).length,
+        reserved: sessions.filter(t => t.status === 'reserved').length,
+        billing: sessions.filter(t => t.status === 'billing').length
+      }
+
+      return { tables: sessions, stats: tablesStats }
+    } catch (e) {
+      console.error('Error loading table sessions:', e)
+      return { 
+        tables: [], 
+        stats: { occupied: 0, available: 0, 'needs-cleaning': 0, reserved: 0, billing: 0 } 
+      }
+    }
+  }, [refreshTrigger, restaurantId])
 
   return (
     <div className="space-y-6">
-      {/* Table Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Object.entries(statusConfig).map(([status, config]) => (
-          <Card key={status} className={config.bgColor}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats[status]}</p>
-                  <p className="text-sm text-gray-600">{config.label}</p>
-                </div>
-                <Users className="w-8 h-8 text-gray-400" />
-              </div>
-            </CardContent>
-          </Card>
+      {/* Table Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {['available', 'occupied', 'billing', 'needs-cleaning'].map((status) => (
+          <div key={status} className={statusConfig[status].bgColor + " p-4 rounded-2xl border flex flex-col items-center justify-center text-center"}>
+             <p className="text-xl font-black text-slate-900 leading-none">{stats[status] || 0}</p>
+             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{statusConfig[status].label}</p>
+          </div>
         ))}
       </div>
 
-      {/* Table Grid */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Table Status Overview
+      {/* Table Grid Card */}
+      <Card className="border-gray-100 shadow-sm overflow-hidden rounded-[2rem]">
+        <CardHeader className="pb-3 px-6">
+          <CardTitle className="flex items-center gap-2 text-lg font-black text-gray-800">
+            <Users className="w-5 h-5 text-blue-600" />
+            Live Floor Plan
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {tableData.map((table) => {
-              const status = statusConfig[table.status]
-              
-              return (
-                <div
-                  key={table.id}
-                  className={`p-4 rounded-lg border-2 ${status.bgColor} hover:shadow-md transition-shadow cursor-pointer`}
-                >
-                  <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
-                    <h4 className="font-bold text-gray-900">{table.name}</h4>
-                    <Badge className={`${status.color} shadow-sm border-none`}>
-                      {status.label}
-                    </Badge>
+        <CardContent className="px-6 pb-6 pt-2">
+          {tables.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
+              {tables.map((table) => {
+                const status = statusConfig[table.status] || statusConfig.available
+                
+                return (
+                  <div
+                    key={table.id || table.tableNumber}
+                    className={`p-4 rounded-3xl border-2 ${status.bgColor} hover:shadow-md transition-all group`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-black text-gray-900 text-sm">T-{table.tableNumber}</h4>
+                      <Badge className={`${status.color} shadow-sm border-none rounded-lg px-2 py-0.5 text-[8px] font-black uppercase`}>
+                        {status.label}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-1.5 mt-3">
+                       <div className="flex items-center gap-2">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-[11px] font-bold text-slate-600">{table.customers || 0} Guests</span>
+                       </div>
+                       {table.revenue > 0 && (
+                          <div className="flex items-center gap-2">
+                             <Clock className="w-3.5 h-3.5 text-slate-400" />
+                             <span className="text-[11px] font-bold text-slate-600">₹{table.revenue}</span>
+                          </div>
+                       )}
+                    </div>
                   </div>
-                  
-                  {table.customers > 0 && (
-                    <div className="space-y-1 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-gray-500" />
-                        <span className="text-gray-700">{table.customers} customers</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        <span className="text-gray-700">{table.sessionDuration || table.time}</span>
-                      </div>
-                      {(table.currentOrder || table.order) && (
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-blue-500" />
-                          <span className="text-blue-600 font-medium">{table.currentOrder || table.order}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {table.status === 'reserved' && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="w-4 h-4 text-gray-500" />
-                      <span className="text-gray-700">{table.reservedTime || table.time}</span>
-                    </div>
-                  )}
-                  
-                  {(table.status === 'needs-cleaning' || table.needsCleaning) && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-yellow-500" />
-                      <span className="text-yellow-700">Needs Cleaning</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="py-12 text-center bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-100">
+               <Users className="w-8 h-8 text-slate-200 mx-auto mb-3" />
+               <p className="text-xs text-slate-400 font-black uppercase tracking-widest">No Tables Configured</p>
+               <p className="text-[10px] text-slate-400 font-medium px-4 mt-1">Generate QR codes to initialize your restaurant floor plan.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   )
 }
+
+export default TableStatus

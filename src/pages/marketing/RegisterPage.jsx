@@ -51,7 +51,17 @@ export default function RegisterPage() {
     }
 
     // Safety check: if someone is partially logged in or caching exists, cleanly save and prep.
-    saveAndClearWorkspace()
+    try {
+        saveAndClearWorkspace()
+    } catch (finalQuotaError) {
+        console.error("Critical System Memory Overload. Taking physical administrative control and wiping local environment...", finalQuotaError)
+        // Hard-clear all bloated test variables directly from the component root
+        localStorage.clear()
+        
+        // Re-inject the necessary simulated platform metrics since we wiped the system
+        localStorage.setItem('servora_db_users', '[]')
+        localStorage.setItem('servora_db_subscriptions', '[]')
+    }
 
     setIsInitializing(true)
     setError(null)
@@ -87,8 +97,8 @@ export default function RegisterPage() {
     // Start active session
     localStorage.setItem('servora_user', JSON.stringify(newUser))
 
-    // Redirect to dashboard (will be locked)
-    navigate('/dashboard')
+    // Redirect to unique merchant console
+    navigate(`/console/${newUser.email}`)
   }
 
   return (

@@ -5,6 +5,7 @@ import {
   BarChart3, 
   Users, 
   ShieldAlert, 
+  HelpCircle,
   Settings2, 
   PackageSearch,
   LogOut,
@@ -18,7 +19,9 @@ const navLinks = [
   { name: 'System Overview', icon: BarChart3, path: '/admin/dashboard' },
   { name: 'Merchants & Users', icon: Users, path: '/admin/customers' },
   { name: 'Subscription Plans', icon: PackageSearch, path: '/admin/plans' },
-  { name: 'Revenue Tracking', icon: Building2, path: '/admin/revenue' },
+  { name: 'Revenue Tracking', icon: BarChart3, path: '/admin/revenue' },
+  { name: 'System Audit', icon: ShieldAlert, path: '/admin/audit' },
+  { name: 'Support Tickets', icon: HelpCircle, path: '/admin/support' },
   { name: 'Platform Settings', icon: Settings2, path: '/admin/settings' },
 ]
 

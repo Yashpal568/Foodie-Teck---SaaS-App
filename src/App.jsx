@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import CustomerMenu from './pages/CustomerMenu'
 import DocumentationPage from './pages/DocumentationPage'
@@ -23,10 +24,41 @@ import AdminCustomersPage from './pages/admin/AdminCustomersPage'
 import AdminPlansPage from './pages/admin/AdminPlansPage'
 import AdminRevenuePage from './pages/admin/AdminRevenuePage'
 import AdminSettingsPage from './pages/admin/AdminSettingsPage'
+import AdminAuditPage from './pages/admin/AdminAuditPage'
+import AdminSupportPage from './pages/admin/AdminSupportPage'
+import MaintenanceNode from './pages/MaintenanceNode'
+
+function MaintenanceGuard({ children }) {
+  const [isMaintenance, setIsMaintenance] = useState(false)
+  const location = useLocation()
+
+  useEffect(() => {
+    const checkMaintenance = () => {
+      const config = JSON.parse(localStorage.getItem('servora_platform_config') || '{}')
+      const adminSession = localStorage.getItem('servora_admin_session')
+      
+      // EXEMPT: Admins and Admin Login Page
+      if (adminSession || location.pathname.startsWith('/admin')) {
+        setIsMaintenance(false)
+        return
+      }
+      
+      setIsMaintenance(config.maintenanceMode === true)
+    }
+
+    checkMaintenance()
+    window.addEventListener('platformConfigUpdated', checkMaintenance)
+    return () => window.removeEventListener('platformConfigUpdated', checkMaintenance)
+  }, [location])
+
+  if (isMaintenance) return <MaintenanceNode />
+  return children
+}
 
 function App() {
   return (
     <Router>
+      <MaintenanceGuard>
       <Routes>
         {/* Marketing Routes */}
         <Route element={<MarketingLayout />}>
@@ -40,8 +72,9 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Console / Dashboard Routes */}
-        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Console / Dashboard Routes (Multi-Tenant Isolated) */}
+        <Route path="/console/:restaurantId" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Navigate to="/login" replace />} />
         <Route path="/menu" element={<CustomerMenu />} />
         <Route path="/docs/articles" element={<DocumentationPage />} />
         <Route path="/internal-docs" element={<DocumentationPage />} />
@@ -58,11 +91,12 @@ function App() {
             <Route path="/admin/customers" element={<AdminCustomersPage />} />
             <Route path="/admin/plans" element={<AdminPlansPage />} />
             <Route path="/admin/revenue" element={<AdminRevenuePage />} />
+            <Route path="/admin/audit" element={<AdminAuditPage />} />
+            <Route path="/admin/support" element={<AdminSupportPage />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
           </Route>
         </Route>
 
-        {/* Catch-all route for debugging */}
         <Route path="*" element={<div className="flex min-h-svh flex-col items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">404 - Page Not Found</h1>
@@ -78,6 +112,7 @@ function App() {
           </div>
         </div>} />
       </Routes>
+      </MaintenanceGuard>
     </Router>
   )
 }

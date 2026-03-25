@@ -100,9 +100,13 @@ const loadQRCodesFromStorage = (restaurantId) => {
 
 export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan }) {
   const tableLimit = plan?.name === 'Enterprise' ? 1000 : plan?.name === 'Professional' ? 30 : 10
+  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+  // Primary Identity Lock for Multi-Tenancy
+  const authenticatedIdentity = user.email || 'servora-guest'
+  const [restaurantId] = useState(authenticatedIdentity)
+
   const [tableCount, setTableCount] = useState(tableLimit > 10 ? 10 : tableLimit)
   const [qrCodes, setQrCodes] = useState([])
-  const [restaurantId, setRestaurantId] = useState('restaurant-123')
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeTab, setActiveTab] = useState('generate')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -142,7 +146,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     try {
       const codes = []
       for (let i = 1; i <= tableCount; i++) {
-        const qrCode = await generateQRCode(restaurantId, i)
+        const qrCode = await generateQRCode(restaurantId || user.email, i)
         codes.push(qrCode)
       }
       setQrCodes(codes)
@@ -373,10 +377,10 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                   <Input
                     id="restaurantId"
                     value={restaurantId}
-                    onChange={(e) => setRestaurantId(e.target.value)}
+                    readOnly
                     placeholder="Enter your restaurant ID"
                     disabled={isGenerating}
-                    className="h-11"
+                    className="h-11 bg-slate-50 text-slate-500 font-bold border-dashed cursor-not-allowed uppercase tracking-widest text-[10px]"
                   />
                   <p className="text-xs text-gray-500">This ID will be used in the QR code URLs</p>
                 </div>

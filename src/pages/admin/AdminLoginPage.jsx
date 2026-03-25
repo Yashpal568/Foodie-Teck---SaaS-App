@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Lock, ShieldAlert, ArrowRight } from 'lucide-react'
+import { Lock, ShieldAlert, ArrowRight, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,15 +13,25 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
+  useEffect(() => {
+    // Automatically let admins through if they already have an active session
+    const adminToken = localStorage.getItem('servora_admin_token')
+    if (adminToken) {
+       navigate('/admin/dashboard', { replace: true })
+    }
+  }, [navigate])
+
   const handleLogin = (e) => {
     e.preventDefault()
     
+    // Sanitize payload to prevent trailing white-space failures
+    const secureEmail = email.trim().toLowerCase()
+    
     // Simulate secure platform owner verification
-    if (email === 'admin@servora.com' && password === 'admin123') {
+    if (secureEmail === 'admin@servora.com' && password === 'admin123') {
       localStorage.setItem('servora_admin_token', 'SECURE_DUMMY_TOKEN_2026')
       localStorage.setItem('servora_admin_user', JSON.stringify({ name: 'System Owner', role: 'SUPER_ADMIN' }))
       navigate('/admin/dashboard')
-      window.location.reload()
     } else {
       setError('Invalid platform credentials. Access denied.')
     }
@@ -93,9 +103,10 @@ export default function AdminLoginPage() {
               </Button>
            </form>
 
-           <div className="text-center pt-4 border-t border-slate-800">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                 Demos use: admin@servora.com / admin123
+           <div className="text-center pt-6 border-t border-slate-800 flex items-center justify-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                 Secure Encrypted Channel
               </p>
            </div>
         </div>

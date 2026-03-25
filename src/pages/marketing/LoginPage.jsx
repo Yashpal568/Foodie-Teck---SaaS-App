@@ -56,8 +56,8 @@ export default function LoginPage() {
     // Load workspace payload for user
     loadWorkspace(user.email)
 
-    // Redirect to dashboard
-    navigate('/dashboard')
+    // Redirect to unique merchant console
+    navigate(`/console/${user.email}`)
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Clock, ChefHat, CheckCircle, X, AlertCircle, RefreshCw, Filter, Users, DollarSign, TrendingUp, Calendar, Bell, Receipt, Search, MoreVertical, ArrowUpRight, ArrowDownRight, Minus, Package, Utensils, Coffee, Pizza } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -10,26 +10,32 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
+import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG, getTotalOrderVolume } from '@/hooks/useOrderManagement'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import OrderNavbar from './OrderNavbar'
 import OrderMobileNavbar from './OrderMobileNavbar'
 
 const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) => {
-  const { orders, loading, refreshOrders, updateStatus } = useOrderManagement(restaurantId)
+  const { orders, orderHistory, loading, refreshOrders, updateStatus } = useOrderManagement(restaurantId)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [showOrderHistory, setShowOrderHistory] = useState(false)
 
+  // Merge active orders and history for the main view
+  const allAvailableOrders = useMemo(() => {
+    return [...orders, ...orderHistory].sort((a, b) => 
+      new Date(b.createdAt || b.completedAt || 0).getTime() - new Date(a.createdAt || a.completedAt || 0).getTime()
+    )
+  }, [orders, orderHistory])
+
   // Filter orders by status
   const filteredOrders = statusFilter === 'ALL' 
-    ? orders 
-    : orders.filter(order => order.status === statusFilter)
+    ? allAvailableOrders 
+    : allAvailableOrders.filter(order => order.status === statusFilter)
 
-  // Sort orders by creation time (newest first)
-  const sortedOrders = [...filteredOrders].sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  )
+  // Final sorted list for display
+  const sortedOrders = filteredOrders
+
 
   // Update order status
   const handleStatusUpdate = (orderId, newStatus) => {
@@ -56,7 +62,7 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
 
   // Calculate statistics
   const stats = {
-    total: orders.length,
+    total: getTotalOrderVolume(restaurantId),
     ordered: orders.filter(o => o.status === ORDER_STATUS.ORDERED).length,
     preparing: orders.filter(o => o.status === ORDER_STATUS.PREPARING).length,
     ready: orders.filter(o => o.status === ORDER_STATUS.READY).length,
@@ -66,10 +72,11 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
     cancelled: orders.filter(o => o.status === ORDER_STATUS.CANCELLED).length
   }
 
-  // Calculate total revenue
-  const totalRevenue = orders
+
+  // Calculate total revenue from all history and active finished orders
+  const totalRevenue = allAvailableOrders
     .filter(o => o.status === ORDER_STATUS.FINISHED)
-    .reduce((sum, order) => sum + order.total, 0)
+    .reduce((sum, order) => sum + (order.total || 0), 0)
 
   return (
     <div className="min-h-screen bg-[#f8fafc]/50">
@@ -425,15 +432,15 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
             </div>
             
             <div className="p-6 overflow-y-auto max-h-[60vh]">
-              {orders.length === 0 ? (
+              {orderHistory.length === 0 ? (
                 <div className="text-center py-8">
                   <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No orders found</p>
+                  <p className="text-gray-500">No history found</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {orders
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  {orderHistory
+                    .sort((a, b) => new Date(b.completedAt || b.updatedAt).getTime() - new Date(a.completedAt || a.updatedAt).getTime())
                     .map((order) => (
                       <Card key={order.id} className="border border-gray-200">
                         <CardContent className="p-4">

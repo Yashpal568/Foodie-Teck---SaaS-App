@@ -50,10 +50,10 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
 
   // Data States
   const [profileData, setProfileData] = useState({
-    name: 'John Doe',
-    email: 'restaurant_admin@foodie.tech',
-    phone: '+1 (555) 000-0000',
-    department: 'Management',
+    name: 'Fetching Data...',
+    email: '',
+    phone: '',
+    department: '',
     avatar: '',
     cover: ''
   })
@@ -68,8 +68,8 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
     cards: [
       { id: 1, type: 'Visa', last4: '8849', expiry: '12/28', logo: 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg' }
     ],
-    plan: 'Enterprise',
-    price: '12,500'
+    plan: 'Loading...',
+    price: '...'
   })
 
   // Notification Overlay State
@@ -95,18 +95,46 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
     const savedNotifications = localStorage.getItem('userNotifications')
     const savedSecurity = localStorage.getItem('userSecurity')
     const savedBilling = localStorage.getItem('userBilling')
+    const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
+    const activePlan = JSON.parse(localStorage.getItem('servora_plan') || '{}')
     
+    // Identity Hydration
     if (savedProfile) {
       setProfileData(prev => ({...prev, ...JSON.parse(savedProfile)}))
+    } else if (authUser && authUser.email) {
+      setProfileData(prev => ({
+        ...prev,
+        name: authUser.businessName || authUser.name || 'Merchant Administrator',
+        email: authUser.email,
+        phone: authUser.phone || '+1 (555) 000-0000',
+        department: 'Restaurant Management'
+      }))
+    } else {
+      setProfileData(prev => ({
+        ...prev,
+        name: 'John Doe',
+        email: 'restaurant_admin@foodie.tech',
+        phone: '+1 (555) 000-0000',
+        department: 'Administration'
+      }))
     }
+
     if (savedNotifications) {
       setNotifications(prev => ({...prev, ...JSON.parse(savedNotifications)}))
     }
     if (savedSecurity) {
       setSecurityData(prev => ({...prev, ...JSON.parse(savedSecurity)}))
     }
+
+    // Billing Hydration
     if (savedBilling) {
       setBillingData(prev => ({...prev, ...JSON.parse(savedBilling)}))
+    } else if (activePlan && activePlan.name) {
+      setBillingData(prev => ({
+         ...prev,
+         plan: activePlan.name,
+         price: activePlan.price.toLocaleString()
+      }))
     }
   }, [])
 
