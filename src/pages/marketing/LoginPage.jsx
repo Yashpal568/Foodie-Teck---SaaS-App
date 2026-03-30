@@ -56,16 +56,8 @@ export default function LoginPage() {
       .eq('owner_id', data.user.id)
       .single()
 
-    // Store session info for UI use
-    localStorage.setItem('servora_user', JSON.stringify({
-      email: data.user.email,
-      id: data.user.id,
-      businessName: restaurant?.business_name || data.user.user_metadata?.business_name || 'My Restaurant',
-      restaurantId: restaurant?.id
-    }))
-
-    // Redirect to merchant console
-    navigate(`/console/${data.user.email}`)
+    // Redirect to merchant console directly via authenticated UUID
+    navigate(`/console/${restaurant?.id || data.user.id}`)
   }
 
 

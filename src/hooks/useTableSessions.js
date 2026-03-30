@@ -36,7 +36,7 @@ export const useTableSessions = (restaurantId) => {
     } finally {
       setLoading(false)
     }
-  }, [restaurantId])
+  }, [resolvedId])
 
   useEffect(() => {
     if (!resolvedId) return

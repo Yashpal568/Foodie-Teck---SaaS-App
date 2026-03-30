@@ -240,10 +240,11 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     }))
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     // Terminate secure session state and save snapshot
     saveAndClearWorkspace()
-    localStorage.removeItem('servora_user')
+    localStorage.removeItem('userProfile')
+    await supabase.auth.signOut()
     // Reroute to authentication gate
     navigate('/login')
   }

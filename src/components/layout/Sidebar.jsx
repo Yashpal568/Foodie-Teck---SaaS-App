@@ -139,9 +139,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     
     // Identity-Safe Navigation: Redirect to isolated console if departing from legacy routes
     if (item.route === '/dashboard') {
-      const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-      if (user.email && !window.location.pathname.startsWith('/console')) {
-        navigate(`/console/${user.email}`)
+      if (restaurantId && !window.location.pathname.startsWith('/console')) {
+        navigate(`/console/${restaurantId}`)
         return
       }
     }
@@ -152,9 +151,10 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     }
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     saveAndClearWorkspace()
     localStorage.removeItem('servora_user')
+    await supabase.auth.signOut()
     navigate('/login')
   }
   const [subData, setSubData] = useState({ daysLeft: 30, planName: 'Starter' })

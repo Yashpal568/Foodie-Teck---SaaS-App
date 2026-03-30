@@ -22,6 +22,8 @@ import ModuleLockOverlay from '../components/dashboard/ModuleLockOverlay'
 import SubscriptionLockOverlay from '../components/dashboard/SubscriptionLockOverlay'
 import SuspensionOverlay from '../components/dashboard/SuspensionOverlay'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
+import { supabase } from '../lib/api'
+
 
 function Dashboard() {
   const { restaurantId: urlId } = useParams()
@@ -30,8 +32,9 @@ function Dashboard() {
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [plan, setPlan] = useState(null)
-  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-  const dashboardEmail = user.email || urlId || 'guest'
+  
+  // Database-First: Derive context completely from the authenticated URL and Supabase session
+  const dashboardEmail = urlId || 'guest'
   const [resolvedId, setResolvedId] = useState(null)
   const { profile } = useRestaurantProfile(dashboardEmail)
   const [isLoading, setIsLoading] = useState(true)
@@ -298,6 +301,7 @@ function Dashboard() {
             activeItem={activeItem}
             setActiveItem={setActiveItem}
             navigate={navigate}
+            restaurantId={restaurantId}
           />
         )
       

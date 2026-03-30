@@ -14,7 +14,9 @@ export default function OverviewCards({ restaurantId = 'default' }) {
   // Fetch Menu Items Count
   useEffect(() => {
     if (restaurantId && !restaurantId.includes('@')) {
-      getMenuItems(restaurantId).then(items => setMenuCount(items?.length || 0))
+      getMenuItems(restaurantId)
+        .then(items => setMenuCount(items?.length || 0))
+        .catch(err => console.error('Error fetching menu items count:', err))
     }
   }, [restaurantId])
 
@@ -45,6 +47,10 @@ export default function OverviewCards({ restaurantId = 'default' }) {
     const yesterdayOrdersCount = orderHistory.filter(o => new Date(o.createdAt).toLocaleDateString('en-CA') === yesterday).length
     const ordersDiff = yesterdayOrdersCount > 0 ? ((todayOrdersCount - yesterdayOrdersCount) / yesterdayOrdersCount) * 100 : 100
 
+    // Compute active vs total tables for better UI transparency
+    const activeTables = (tableStats.occupied || 0) + (tableStats.billing || 0)
+    const totalTables = tableStats.total || 0
+
     return [
       {
         title: 'Total Revenue',
@@ -57,9 +63,9 @@ export default function OverviewCards({ restaurantId = 'default' }) {
       },
       {
         title: 'Active Tables',
-        value: (tableStats.occupied || 0).toString(),
-        change: `+${tableStats.occupied || 0}`,
-        trend: (tableStats.occupied || 0) > 0 ? 'up' : 'down',
+        value: activeTables.toString(),
+        change: `of ${totalTables} tables`,
+        trend: activeTables > 0 ? 'up' : 'down',
         icon: Users,
         color: 'text-blue-600',
         bgColor: 'bg-blue-50'

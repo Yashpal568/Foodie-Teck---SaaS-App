@@ -86,17 +86,8 @@ export default function RegisterPage() {
       .eq('owner_id', data.user.id)
       .single()
 
-    // Store full session info including the real database ID
-    localStorage.setItem('servora_user', JSON.stringify({
-      email: formData.email,
-      businessName: restaurant?.business_name || formData.businessName,
-      restaurantType: formData.restaurantType,
-      id: data.user?.id,
-      restaurantId: restaurant?.id // THIS IS CRITICAL FOR FETCHING MENU
-    }))
-
-    // Redirect to merchant console
-    navigate(`/console/${formData.email}`)
+    // Redirect to merchant console directly via authenticated UUID
+    navigate(`/console/${restaurant?.id || data.user.id}`)
   }
 
 

@@ -53,10 +53,9 @@ export const getRestaurantByEmail = async (email) => {
   return data
 }
 
-/** Get restaurantId cached from localStorage (fast, for UI) */
+/** Legacy LocalStorage Cache (Now removed for DB-First Auth) */
 export const getCachedRestaurantId = () => {
-  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-  return user.restaurantId || null
+  return null
 }
 
 
@@ -658,18 +657,34 @@ export const getQRCodes = async (restaurantId) => {
 export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
   if (!qrCodes || qrCodes.length === 0) return
   
-  const payloads = qrCodes.map(qr => ({
+  // 1. Sync QR Codes
+  const qrPayloads = qrCodes.map(qr => ({
     restaurant_id: restaurantId,
     table_number: parseInt(qr.tableNumber),
     url: qr.url,
     created_at: qr.generatedAt || new Date().toISOString()
   }))
 
-  const { error } = await supabase
+  const { error: qrError } = await supabase
     .from('qr_codes')
-    .upsert(payloads, { onConflict: 'restaurant_id, table_number' })
+    .upsert(qrPayloads, { onConflict: 'restaurant_id, table_number' })
 
-  if (error) throw error
+  if (qrError) throw qrError
+
+  // 2. Initialize Table Sessions (Ensures Dashboard/Floor plan visibility)
+  const sessionPayloads = qrCodes.map(qr => ({
+    restaurant_id: restaurantId,
+    table_number: parseInt(qr.tableNumber),
+    status: 'available',
+    last_activity: new Date().toISOString()
+  }))
+
+  const { error: sessionError } = await supabase
+    .from('table_sessions')
+    .upsert(sessionPayloads, { onConflict: 'restaurant_id, table_number' })
+
+  if (sessionError) throw sessionError
+
   return true
 }
 

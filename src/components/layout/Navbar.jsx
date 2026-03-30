@@ -27,6 +27,8 @@ import { Separator } from '@/components/ui/separator'
 import { menuItems, supportItems } from './Sidebar'
 import { saveAndClearWorkspace } from '@/utils/workspace'
 
+import { supabase } from '@/lib/api'
+
 export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
@@ -41,17 +43,18 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
 
   // Sync with LocalStorage
   useEffect(() => {
-    const loadProfile = () => {
+    const loadProfile = async () => {
       const saved = localStorage.getItem('userProfile')
-      const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
+      // Removed dependency on local storage user mapping -> rely on active Supabase Session explicitly
+      const { data: { user } } = await supabase.auth.getUser()
 
       if (saved) {
         setUserProfile(JSON.parse(saved))
-      } else if (authUser && authUser.email) {
+      } else if (user && user.email) {
         // Automatically sync fresh registrations with their actual authentication payload
         setUserProfile({
-          name: authUser.businessName || authUser.name || 'Merchant Admin',
-          email: authUser.email,
+          name: user.user_metadata?.business_name || 'Merchant Admin',
+          email: user.email,
           avatar: ''
         })
       } else {
@@ -109,10 +112,11 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
     setSearchQuery('')
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     // Terminate secure session state and snapshot workspace to database
     saveAndClearWorkspace()
-    localStorage.removeItem('servora_user')
+    localStorage.removeItem('userProfile')
+    await supabase.auth.signOut()
     
     // Reroute to authentication gate
     navigate('/login')
