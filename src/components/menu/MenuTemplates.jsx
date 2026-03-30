@@ -59,14 +59,14 @@ const menuTemplates = {
   }
 }
 
-export default function MenuTemplates({ onApplyTemplate, currentItemsCount, showLabel = true }) {
+export default function MenuTemplates({ restaurantId, onApplyTemplate, currentItemsCount, showLabel = true }) {
   const [isOpen, setIsOpen] = useState(false)
 
   const applyTemplate = (templateKey) => {
     const template = menuTemplates[templateKey]
     const items = template.sampleItems.map((item, index) => ({
       _id: Date.now().toString() + index,
-      restaurantId: 'restaurant-123',
+      restaurantId: restaurantId,
       name: item.name,
       description: `Delicious ${item.name.toLowerCase()} from our ${template.name.toLowerCase()} menu`,
       price: item.price,

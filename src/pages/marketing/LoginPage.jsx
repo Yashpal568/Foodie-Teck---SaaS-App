@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import Logo from '@/components/ui/Logo'
-import { loadWorkspace } from '@/utils/workspace'
+import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -29,36 +29,45 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Simple validation
     if (!formData.email || !formData.password) {
       setError('Please provide both email and password.')
       return
     }
 
-    // Check simulated database
-    const existingUsers = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-    const user = existingUsers.find(u => u.email === formData.email && u.password === formData.password)
+    setIsAuthenticating(true)
+    setError(null)
 
-    if (!user) {
-      setError('Invalid credentials. Please verify your email and password.')
+    // ── Real Supabase Auth ──
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: formData.email,
+      password: formData.password
+    })
+
+    if (signInError) {
+      setIsAuthenticating(false)
+      setError(signInError.message) // Use the real Supabase error message
       return
     }
 
-    setIsAuthenticating(true)
-    setError(null)
-    
-    // Simulate authentication delay
-    await new Promise(r => setTimeout(r, 1200))
+    // Fetch restaurant profile from DB
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('*')
+      .eq('owner_id', data.user.id)
+      .single()
 
-    // Start active session
-    localStorage.setItem('servora_user', JSON.stringify(user))
-    
-    // Load workspace payload for user
-    loadWorkspace(user.email)
+    // Store session info for UI use
+    localStorage.setItem('servora_user', JSON.stringify({
+      email: data.user.email,
+      id: data.user.id,
+      businessName: restaurant?.business_name || data.user.user_metadata?.business_name || 'My Restaurant',
+      restaurantId: restaurant?.id
+    }))
 
-    // Redirect to unique merchant console
-    navigate(`/console/${user.email}`)
+    // Redirect to merchant console
+    navigate(`/console/${data.user.email}`)
   }
+
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row overflow-hidden font-sans">
@@ -199,10 +208,11 @@ export default function LoginPage() {
 
                   <Button 
                      type="submit"
-                     className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 group mt-4"
+                     disabled={isAuthenticating}
+                     className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 group mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                     Access Dashboard
-                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                     {isAuthenticating ? 'Authenticating...' : 'Access Dashboard'}
+                     {!isAuthenticating && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                   </Button>
                </div>
             </form>

@@ -18,7 +18,9 @@ export default function MenuNavbar({
   onCurrencyChange,
   menuItems,
   onMenuItemsChange,
-  onCategoriesChange 
+  onMenuItemsAppend,
+  onCategoriesChange,
+  restaurantId
 }) {
   return (
     <div className="hidden lg:flex items-center gap-4 lg:gap-5 xl:gap-6 px-4 lg:px-6 py-5 bg-white/70 backdrop-blur-md border-b border-gray-100 sticky top-0 z-40 transition-all">
@@ -48,21 +50,24 @@ export default function MenuNavbar({
         <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100 shadow-sm">
           <TooltipProvider delayDuration={0}>
             <div className="flex items-center gap-0.5 lg:gap-1">
-              <CategoryManager onCategoriesChange={onCategoriesChange} showLabel={false} />
+              <CategoryManager onCategoriesChange={onCategoriesChange} restaurantId={restaurantId} showLabel={false} />
               <BulkImportExport 
-                menuItems={menuItems} 
-                onImport={(items) => {
-                  const updatedItems = [...menuItems, ...items]
-                  onMenuItemsChange(updatedItems)
-                }}
+                menuItems={menuItems}
+                restaurantId={restaurantId}
+                onImport={onMenuItemsChange}
                 showLabel={false}
               />
               <MenuTemplates 
                 onApplyTemplate={(items, categories) => {
-                  const updatedItems = [...menuItems, ...items]
-                  onMenuItemsChange(updatedItems)
-                  onCategoriesChange(categories)
+                  if (onMenuItemsAppend) {
+                    onMenuItemsAppend(items)
+                    onCategoriesChange(prev => {
+                      const newCats = [...new Set([...prev, ...categories])]
+                      return newCats
+                    })
+                  }
                 }}
+                restaurantId={restaurantId}
                 currentItemsCount={menuItems.length}
                 showLabel={false}
               />

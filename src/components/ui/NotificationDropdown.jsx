@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useNotifications } from '@/hooks/useNotifications'
 
-const NotificationDropdown = () => {
+const NotificationDropdown = ({ restaurantId }) => {
   const { 
     notifications, 
     unreadCount, 
@@ -16,7 +16,7 @@ const NotificationDropdown = () => {
     clearNotification, 
     clearAllNotifications,
     toggleNotifications 
-  } = useNotifications()
+  } = useNotifications(restaurantId)
 
   const getNotificationIcon = (type) => {
     switch (type) {

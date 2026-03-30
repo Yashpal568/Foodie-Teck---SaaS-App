@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '@/lib/supabase'
 import { 
   ChefHat, 
   CheckCircle, 
@@ -18,113 +19,114 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Logo from '@/components/ui/Logo'
 import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
-import { ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
+import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { cn } from '@/lib/utils'
 
-const OrderTracking = ({ orderId, onClose }) => {
+const OrderTracking = ({ orderId, restaurantId, onClose }) => {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [restaurantInfo, setRestaurantInfo] = useState({ restaurantId: 'restaurant-123', tableNumber: '' })
   const [cart, setCart] = useState([])
   const [isCallingWaiter, setIsCallingWaiter] = useState(false)
   const [showThankYou, setShowThankYou] = useState(false)
   
-  const { profile } = useRestaurantProfile(restaurantInfo.restaurantId)
+  const { orders, orderHistory, refreshOrders, updateStatus: apiUpdateStatus, loading: hookLoading } = useOrderManagement(restaurantId)
+  
+  const { profile } = useRestaurantProfile(restaurantId)
 
-  // Handle auto-finalization delay (60 seconds after SERVED)
-  useEffect(() => {
-    // Only start timer if order is SERVED and NOT explicitly FINISHED
-    if (order?.status === ORDER_STATUS.SERVED && order?.status !== ORDER_STATUS.FINISHED && !showThankYou) {
-      const timer = setTimeout(() => {
-        setShowThankYou(true)
-      }, 60000) // 60 second delay
-      return () => clearTimeout(timer)
-    }
-  }, [order?.status, showThankYou])
+  const [journey, setJourney] = useState([]);
 
   // Load order details with table session auto-refresh logic
   useEffect(() => {
-    const loadOrder = () => {
-      try {
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-        
-        // Find existing order for this ID
-        let foundOrder = orders.find(o => o.id === orderId)
-        
-        // SESSION REFRESH LOGIC: 
-        // If no active order for this ID (maybe it's a new QR scan), 
-        // or if the current order is FINISHED/CANCELLED, look for any 
-        // OTHER active order for the SAME table.
-        if (!foundOrder || [ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(foundOrder.status)) {
-            // Check if there's any other LATEST active order for this table
-            const tableOrders = orders.filter(o => 
-              o.tableNumber === restaurantInfo.tableNumber && 
-              o.restaurantId === restaurantInfo.restaurantId &&
-              ![ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(o.status)
-            ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-            if (tableOrders.length > 0) {
-              foundOrder = tableOrders[0]
-            }
-        }
-
+    // If hook finished loading, we definitely want to stop our local spinner
+    if (!hookLoading) {
+      const allOrders = [...orders, ...orderHistory]
+      const foundOrder = allOrders.find(o => String(o.id) === String(orderId))
+      
+      if (foundOrder) {
         setOrder(foundOrder)
         
-        if (foundOrder) {
-          setRestaurantInfo({
-            restaurantId: foundOrder.restaurantId,
-            tableNumber: foundOrder.tableNumber
-          })
+        // ── Client-Side Journey Fallback ──
+        // Since the DB lacks a status_history column, we simulate it in the session
+        const storedJourney = JSON.parse(sessionStorage.getItem(`order_journey_${orderId}`) || '[]');
+        
+        // If we have nothing yet, initialize from current status
+        if (storedJourney.length === 0) {
+           const initialStep = { 
+              status: foundOrder.status || 'PENDING', 
+              timestamp: foundOrder.createdAt || new Date().toISOString(),
+              note: 'Tracking initialized'
+           };
+           setJourney([initialStep]);
+           sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify([initialStep]));
+        } else {
+           // If the current status is NEWER than our last journey step, append it
+           const lastStep = storedJourney[storedJourney.length - 1];
+           if (lastStep.status !== foundOrder.status) {
+              const updated = [...storedJourney, {
+                 status: foundOrder.status,
+                 timestamp: new Date().toISOString(),
+                 note: `Order marked as ${foundOrder.status.toLowerCase()}`
+              }];
+              setJourney(updated);
+              sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify(updated));
+           } else {
+              setJourney(storedJourney);
+           }
         }
-      } catch (error) {
-        console.error('Error loading order:', error)
-      } finally {
-        setLoading(false)
       }
+      setLoading(false)
     }
+  }, [orders, orderHistory, orderId, hookLoading])
 
-    loadOrder()
+  useEffect(() => {
+    // ── Primary: Real-time via hook ──
+    // ── Secondary: Safety Poll ──
+    const safetyPoll = setInterval(() => {
+      console.log('🔄 Performing safety status refresh...')
+      refreshOrders()
+    }, 30000)
 
-    // Load cart to show count in navbar
+    // Listen for cart changes for the navbar
     const savedCart = JSON.parse(localStorage.getItem('cart') || '[]')
     setCart(savedCart)
 
-    // Listen for storage changes
     const handleStorageChange = (e) => {
-      if (e.key === 'orders') {
-        loadOrder()
-      }
       if (e.key === 'cart') {
         setCart(JSON.parse(e.newValue || '[]'))
       }
     }
 
     window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [orderId])
+    return () => {
+      clearInterval(safetyPoll)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
-  const handleCallConcierge = () => {
-    if (isCallingWaiter) return;
+  const handleCallConcierge = async () => {
+    if (isCallingWaiter || !profile?.id) return;
     
     setIsCallingWaiter(true);
     
-    // Create notification data
-    const notification = {
-      id: `waiter-${Date.now()}`,
-      type: 'waiter_call',
-      tableNumber: order?.tableNumber || restaurantInfo.tableNumber,
-      customerName: order?.customerName || 'Guest',
-      timestamp: new Date().toISOString()
-    };
-    
-    // Store in localStorage for the dashboard to see
-    const existingNotifications = JSON.parse(localStorage.getItem('waiterCalls') || '[]');
-    localStorage.setItem('waiterCalls', JSON.stringify([...existingNotifications.slice(-20), notification]));
-    
-    // Dispatch events to notify other tabs/components
-    window.dispatchEvent(new Event('storage'));
-    window.dispatchEvent(new Event('waiterCalled'));
+    try {
+      const { error } = await supabase
+        .from('waiter_calls')
+        .insert([{
+          restaurant_id: profile.id,
+          table_number: order?.tableNumber || order?.table_number || '?',
+          customer_name: order?.customerName || order?.customer_name || 'Guest'
+        }]);
+
+      if (error) throw error;
+      
+      // Also keep local event for immediate local UI feedback if any
+      window.dispatchEvent(new Event('waiterCalled'));
+      
+    } catch (err) {
+      console.error('Waiter call failed:', err);
+      setIsCallingWaiter(false);
+    }
     
     // Cooldown
     setTimeout(() => {
@@ -132,29 +134,12 @@ const OrderTracking = ({ orderId, onClose }) => {
     }, 30000); // 30 second cooldown
   };
 
-  // Update order status
-  const updateOrderStatus = (newStatus) => {
+  // Update order status via Cloud
+  const updateOrderStatus = async (newStatus) => {
     try {
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const updatedOrders = orders.map(o => 
-        o.id === order.id 
-          ? { 
-              ...o, 
-              status: newStatus, 
-              updatedAt: new Date().toISOString(),
-              statusHistory: [
-                ...o.statusHistory,
-                {
-                  status: newStatus,
-                  timestamp: new Date().toISOString(),
-                  note: `Status changed to ${newStatus}`
-                }
-              ]
-            }
-          : o
-      )
-      localStorage.setItem('orders', JSON.stringify(updatedOrders))
-      setOrder({ ...order, status: newStatus })
+      if (!order?.id) return
+      await apiUpdateStatus(order.id, newStatus)
+      // The hook's real-time subscription will update the 'order' state automatically
     } catch (error) {
       console.error('Error updating order status:', error)
     }
@@ -236,8 +221,12 @@ const OrderTracking = ({ orderId, onClose }) => {
     )
   }
 
-  const currentStatusConfig = ORDER_STATUS_CONFIG[order.status]
-  const isServed = order.status === ORDER_STATUS.SERVED
+  const currentStatusConfig = ORDER_STATUS_CONFIG[order?.status] || {
+    icon: '⏳',
+    label: order?.status || 'Processing',
+    description: 'We are updating your order status'
+  }
+  const isServed = order?.status === ORDER_STATUS.SERVED
 
   // Calculate progress percentage
   const statusProgress = {
@@ -256,6 +245,8 @@ const OrderTracking = ({ orderId, onClose }) => {
       maximumFractionDigits: 2
     }).format(price)
   }
+
+  const currentProgress = statusProgress[order?.status] || 0
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-slate-900 pb-20 overflow-x-hidden relative transition-colors duration-700">
@@ -334,12 +325,12 @@ const OrderTracking = ({ orderId, onClose }) => {
                         <div className="pt-2 max-w-xs transition-all">
                            <div className="flex justify-between items-center mb-2">
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Journey Progress</span>
-                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{statusProgress[order.status]}%</span>
+                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{currentProgress}%</span>
                            </div>
                            <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/10">
                               <motion.div 
                                  initial={{ width: 0 }}
-                                 animate={{ width: `${statusProgress[order.status]}%` }}
+                                 animate={{ width: `${currentProgress}%` }}
                                  transition={{ type: "spring", stiffness: 50, damping: 20 }}
                                  className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]" 
                               />
@@ -394,7 +385,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                >
 
                   {/* Header */}
-                  <div className="flex items-center gap-4 mb-8">
+                  <div className="flex items-center justify-between mb-8">
                      <div className="h-10 w-10 bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
                         <Timer className="w-4.5 h-4.5" />
                      </div>
@@ -402,7 +393,6 @@ const OrderTracking = ({ orderId, onClose }) => {
                         <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Sequence</h3>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Journey</p>
                      </div>
-
 
                      <div className="ml-auto flex items-center gap-1.5">
                         <span className="relative flex h-2.5 w-2.5">
@@ -415,12 +405,16 @@ const OrderTracking = ({ orderId, onClose }) => {
 
                   {/* Timeline */}
                   <div className="relative space-y-1 px-1">
-                     {[...order.statusHistory].reverse().map((history, index) => {
-                       const statusConfig = ORDER_STATUS_CONFIG[history.status] || currentStatusConfig
-                       const isCurrent = history.status === order.status
+                     {(journey || []).slice().reverse().map((history, index) => {
+                       const statusConfig = ORDER_STATUS_CONFIG[history.status] || {
+                         icon: '🕒',
+                         label: history.status,
+                         description: 'Status update recorded'
+                       }
+                       const isCurrent = history.status === order?.status
                        const isPast = !isCurrent
-                       const total = order.statusHistory.length
-                       const isLast = index === order.statusHistory.length - 1
+                       const historyArray = journey || []
+                       const isLast = index === historyArray.length - 1
 
                        return (
                          <motion.div
@@ -469,8 +463,8 @@ const OrderTracking = ({ orderId, onClose }) => {
                              )}>
                                <div className="flex items-center justify-between mb-1">
                                  <h4 className={cn(
-                                   "text-sm font-bold tracking-tight",
-                                   isCurrent ? "text-slate-900" : "text-slate-600"
+                                    "text-sm font-bold tracking-tight",
+                                    isCurrent ? "text-slate-900" : "text-slate-600"
                                  )}>
                                    {statusConfig.label}
                                  </h4>
@@ -486,7 +480,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                                  "text-[11px] leading-relaxed",
                                  isCurrent ? "text-slate-500 font-medium" : "text-slate-400"
                                )}>
-                                 {history.note}
+                                 {history.note || 'Order state updated'}
                                </p>
                                {isCurrent && (
                                  <div className="mt-3 flex items-center gap-1.5">
@@ -649,7 +643,7 @@ const OrderTracking = ({ orderId, onClose }) => {
 
                   <div className="grid grid-cols-1 gap-4">
                      <Button 
-                       onClick={() => window.location.href = `/menu?restaurant=${restaurantInfo.restaurantId}&table=${restaurantInfo.tableNumber}`}
+                       onClick={() => window.location.href = `/menu?restaurant=${restaurantId}&table=${order?.tableNumber || ''}`}
                        className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
                      >
                         <Utensils className="w-5 h-5" />
@@ -695,7 +689,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                {/* Items List */}
                <div className="bg-white p-6 space-y-3">
                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-4">Your Items</p>
-                 {order.items.map((item, index) => (
+                  {(order.items || []).map((item, index) => (
                    <motion.div
                      key={index}
                      initial={{ opacity: 0, x: -8 }}
@@ -718,44 +712,43 @@ const OrderTracking = ({ orderId, onClose }) => {
                </div>
 
 
-               {/* Total & CTA */}
-               <div className="bg-slate-50 border-t border-slate-100 p-6 space-y-5">
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p>
-                     <p className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(order.total)}</p>
-                   </div>
-                   <div className="text-right">
-                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Items</p>
-                     <p className="text-xl font-black text-slate-900">{order.items.reduce((t, i) => t + i.quantity, 0)}</p>
-                   </div>
-                 </div>
+                {/* Total & CTA */}
+                <div className="bg-slate-50 border-t border-slate-100 p-6 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p>
+                      <p className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(order?.total || 0)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Items</p>
+                      <p className="text-xl font-black text-slate-900">{(order.items || []).reduce((t, i) => t + (i.quantity || 1), 0)}</p>
+                    </div>
+                  </div>
 
-
-                 <motion.div whileHover={!isCallingWaiter ? { scale: 1.02 } : {}} whileTap={!isCallingWaiter ? { scale: 0.98 } : {}}>
-                   <Button 
-                     onClick={handleCallConcierge}
-                     disabled={isCallingWaiter}
-                     className={cn(
-                       "w-full h-14 border border-white/5 rounded-[1.2rem] font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 group",
-                       isCallingWaiter ? "bg-emerald-600 border-emerald-500 text-white" : "bg-slate-900 hover:bg-black text-white"
-                     )}
-                   >
-                     <div className={cn(
-                       "w-8 h-8 rounded-full flex items-center justify-center border border-white/10 transition-all duration-500",
-                       isCallingWaiter ? "bg-white/20" : "bg-white/10 group-hover:bg-white"
-                     )}>
-                       {isCallingWaiter ? (
-                         <CheckCircle className="w-3.5 h-3.5 text-white" />
-                       ) : (
-                         <Phone className="w-3.5 h-3.5 text-white/70 group-hover:text-slate-900 transition-colors" />
-                       )}
-                     </div>
-                     {isCallingWaiter ? "Concierge Notified" : "Contact Concierge"}
-                   </Button>
-                 </motion.div>
-               </div>
-             </motion.div>
+                  <motion.div whileHover={!isCallingWaiter ? { scale: 1.02 } : {}} whileTap={!isCallingWaiter ? { scale: 0.98 } : {}}>
+                    <Button 
+                      onClick={handleCallConcierge}
+                      disabled={isCallingWaiter}
+                      className={cn(
+                        "w-full h-14 border border-white/5 rounded-[1.2rem] font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 group",
+                        isCallingWaiter ? "bg-emerald-600 border-emerald-500 text-white" : "bg-slate-900 hover:bg-black text-white"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center border border-white/10 transition-all duration-500",
+                        isCallingWaiter ? "bg-white/20" : "bg-white/10 group-hover:bg-white"
+                      )}>
+                        {isCallingWaiter ? (
+                          <CheckCircle className="w-3.5 h-3.5 text-white" />
+                        ) : (
+                          <Phone className="w-3.5 h-3.5 text-white/70 group-hover:text-slate-900 transition-colors" />
+                        )}
+                      </div>
+                      {isCallingWaiter ? "Concierge Notified" : "Contact Concierge"}
+                    </Button>
+                  </motion.div>
+                </div>
+              </motion.div>
 
               {/* Branding Footer */}
               <div className="text-center pt-6 pb-16 space-y-3">
@@ -769,9 +762,9 @@ const OrderTracking = ({ orderId, onClose }) => {
                  </div>
                  <p className="text-[9px] font-bold text-slate-200 uppercase tracking-widest">Secure Session Protocol</p>
               </div>
-           </div>
-         </div>
-       </main>
+            </div>
+          </div>
+        </main>
 
       {/* Persistent Menu Navigation */}
       <MenuBottomNavbar 
@@ -782,7 +775,7 @@ const OrderTracking = ({ orderId, onClose }) => {
         onCartClick={onClose}
         onSearchClick={onClose}
         onTrackClick={() => {}}
-        orderStatus={order.status}
+        orderStatus={order?.status}
       />
     </div>
   )

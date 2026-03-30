@@ -33,7 +33,9 @@ export default function MenuMobileNavbar({
   onCurrencyChange,
   onCategoriesChange,
   menuItems,
-  onMenuItemsChange
+  onMenuItemsChange,
+  onMenuItemsAppend,
+  restaurantId
 }) {
   
   const handleNavigation = (item) => {
@@ -85,24 +87,27 @@ export default function MenuMobileNavbar({
                <DropdownMenuLabel inset={false} className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 py-1.5">Management</DropdownMenuLabel>
                <div className="space-y-1">
                  <DropdownMenuItem inset={false} asChild className="p-0 focus:bg-transparent">
-                   <CategoryManager onCategoriesChange={onCategoriesChange} />
+                   <CategoryManager onCategoriesChange={onCategoriesChange} restaurantId={restaurantId}/>
                  </DropdownMenuItem>
                  <DropdownMenuItem inset={false} asChild className="p-0 focus:bg-transparent">
                    <BulkImportExport 
-                    menuItems={menuItems} 
-                    onImport={(items) => {
-                      const updatedItems = [...menuItems, ...items]
-                      onMenuItemsChange(updatedItems)
-                    }}
+                    menuItems={menuItems}
+                    restaurantId={restaurantId}
+                    onImport={onMenuItemsChange}
                    />
                  </DropdownMenuItem>
                  <DropdownMenuItem inset={false} asChild className="p-0 focus:bg-transparent">
                    <MenuTemplates 
                     onApplyTemplate={(items, categories) => {
-                      const updatedItems = [...menuItems, ...items]
-                      onMenuItemsChange(updatedItems)
-                      onCategoriesChange(categories)
+                      if (onMenuItemsAppend) {
+                        onMenuItemsAppend(items)
+                        onCategoriesChange(prev => {
+                          const newCats = [...new Set([...prev, ...categories])]
+                          return newCats
+                        })
+                      }
                     }}
+                    restaurantId={restaurantId}
                     currentItemsCount={menuItems?.length || 0}
                    />
                  </DropdownMenuItem>

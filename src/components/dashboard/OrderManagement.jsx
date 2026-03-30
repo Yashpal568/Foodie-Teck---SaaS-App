@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG, getTotalOrderVolume } from '@/hooks/useOrderManagement'
+import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import OrderNavbar from './OrderNavbar'
 import OrderMobileNavbar from './OrderMobileNavbar'
@@ -38,10 +38,14 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
 
 
   // Update order status
-  const handleStatusUpdate = (orderId, newStatus) => {
-    const updatedOrder = updateStatus(orderId, newStatus)
-    if (updatedOrder) {
-      console.log('Order status updated:', updatedOrder)
+  const handleStatusUpdate = async (orderId, newStatus) => {
+    try {
+      const updatedOrder = await updateStatus(orderId, newStatus)
+      if (updatedOrder) {
+        console.log('Order status updated:', updatedOrder)
+      }
+    } catch (e) {
+      console.error('Failed to update status:', e)
     }
   }
 
@@ -62,14 +66,14 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
 
   // Calculate statistics
   const stats = {
-    total: getTotalOrderVolume(restaurantId),
-    ordered: orders.filter(o => o.status === ORDER_STATUS.ORDERED).length,
+    total: allAvailableOrders.length,
+    ordered: orders.filter(o => [ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(o.status)).length,
     preparing: orders.filter(o => o.status === ORDER_STATUS.PREPARING).length,
     ready: orders.filter(o => o.status === ORDER_STATUS.READY).length,
     served: orders.filter(o => o.status === ORDER_STATUS.SERVED).length,
     billRequested: orders.filter(o => o.status === ORDER_STATUS.BILL_REQUESTED).length,
-    finished: orders.filter(o => o.status === ORDER_STATUS.FINISHED).length,
-    cancelled: orders.filter(o => o.status === ORDER_STATUS.CANCELLED).length
+    finished: orderHistory.filter(o => o.status === ORDER_STATUS.FINISHED).length,
+    cancelled: orderHistory.filter(o => o.status === ORDER_STATUS.CANCELLED).length
   }
 
 
@@ -222,10 +226,10 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
+          {loading && sortedOrders.length === 0 ? (
             <div className="p-8 text-center">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent animate-spin rounded-full mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading orders...</p>
+              <p className="text-gray-600 font-medium">Synchronizing orders...</p>
             </div>
           ) : sortedOrders.length === 0 ? (
             <div className="p-8 text-center">
@@ -249,12 +253,12 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                       <div className="flex items-start gap-3">
                         <Avatar className="h-10 w-10 shrink-0">
                           <AvatarFallback className="bg-blue-100 text-blue-600 font-bold border border-blue-200">
-                            T{order.tableNumber}
+                            T{order.tableNumber || order.table_number}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-bold text-gray-900">Table {order.tableNumber}</h3>
+                            <h3 className="font-bold text-gray-900">Table {order.tableNumber || order.table_number}</h3>
                             <Badge className={`${getStatusColor(order.status)} border-none shadow-sm h-6 text-[10px] font-bold uppercase tracking-wider`}>
                               <span className="mr-1">{getStatusIcon(order.status)}</span>
                               {getStatusLabel(order.status)}
@@ -320,8 +324,9 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                       </div>
                       
                       <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-50">
-                        {order.status === ORDER_STATUS.ORDERED && (
+                        {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status) && (
                           <Button
+                            type="button"
                             size="sm"
                             onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.PREPARING)}
                             className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 px-4"
@@ -385,7 +390,7 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                           </Button>
                         )}
                         
-                        {(order.status === ORDER_STATUS.ORDERED || order.status === ORDER_STATUS.PREPARING) && (
+                        {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING, ORDER_STATUS.PREPARING].includes(order.status) && (
                           <Button
                             size="sm"
                             variant="outline"

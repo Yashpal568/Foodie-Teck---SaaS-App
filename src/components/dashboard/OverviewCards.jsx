@@ -2,94 +2,64 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Users, DollarSign, ShoppingCart, ChefHat } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-export default function OverviewCards({ restaurantId = 'default' }) {
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
+import { useOrderManagement } from '@/hooks/useOrderManagement'
+import { useTableSessions } from '@/hooks/useTableSessions'
+import { getMenuItems, supabase } from '@/lib/api'
 
-  // Listen for storage changes to update metrics in real-time
+export default function OverviewCards({ restaurantId = 'default' }) {
+  const { stats: orderStats, orders: activeOrders, orderHistory } = useOrderManagement(restaurantId)
+  const { stats: tableStats } = useTableSessions(restaurantId)
+  const [menuCount, setMenuCount] = useState(0)
+
+  // Fetch Menu Items Count
   useEffect(() => {
-    const handleStorage = () => setRefreshTrigger(prev => prev + 1)
-    window.addEventListener('storage', handleStorage)
-    // Custom events from other components
-    window.addEventListener('orderUpdated', handleStorage)
-    window.addEventListener('orderHistoryUpdated', handleStorage)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener('orderUpdated', handleStorage)
-      window.removeEventListener('orderHistoryUpdated', handleStorage)
+    if (restaurantId && !restaurantId.includes('@')) {
+      getMenuItems(restaurantId).then(items => setMenuCount(items?.length || 0))
     }
-  }, [])
+  }, [restaurantId])
 
   // Dynamic Data Calculation
   const stats = useMemo(() => {
-    // 1. Fetch data from localStorage
-    const rawOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const rawHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
-    const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]')
-    const rawTables = JSON.parse(localStorage.getItem('tableSessions') || '[]') 
-
-    // ISO-LEVEL FILTERING: Ensure only this merchant's metrics are computed
-    const orders = rawOrders.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === restaurantId.toString().toLowerCase().trim())
-    const orderHistory = rawHistory.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === restaurantId.toString().toLowerCase().trim())
-    const tables = rawTables.filter(t => (t.restaurantId || 'default').toString().toLowerCase().trim() === restaurantId.toString().toLowerCase().trim())
-
-    // 2. Dates
+    // 1. Revenue Calculations
+    const totalRevenue = orderStats.totalRevenue || 0
+    
+    // Today vs Yesterday
     const today = new Date().toLocaleDateString('en-CA')
     const yesterdayDate = new Date()
     yesterdayDate.setDate(yesterdayDate.getDate() - 1)
     const yesterday = yesterdayDate.toLocaleDateString('en-CA')
 
-    // 3. Revenue
-    const activeOrdersOnly = orders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
-    const totalRevenue = [...activeOrdersOnly, ...orderHistory].reduce((sum, order) => sum + (order.total || 0), 0)
-
-    const todayRevenue = [...activeOrdersOnly, ...orderHistory]
-      .filter(order => new Date(order.createdAt).toLocaleDateString('en-CA') === today)
-      .reduce((sum, order) => sum + (order.total || 0), 0)
-
+    const allOrders = [...activeOrders, ...orderHistory]
+    const todayRevenue = allOrders
+      .filter(o => new Date(o.createdAt).toLocaleDateString('en-CA') === today)
+      .reduce((sum, o) => sum + (o.total || 0), 0)
+    
     const yesterdayRevenue = orderHistory
-      .filter(order => new Date(order.createdAt).toLocaleDateString('en-CA') === yesterday)
-      .reduce((sum, order) => sum + (order.total || 0), 0)
+      .filter(o => new Date(o.createdAt).toLocaleDateString('en-CA') === yesterday)
+      .reduce((sum, o) => sum + (o.total || 0), 0)
 
     const revenueDiff = yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : 100
-    const revenueTrend = todayRevenue >= yesterdayRevenue ? 'up' : 'down'
-
-    // 4. Today's Orders
-    const todayOrdersCount = [...activeOrdersOnly, ...orderHistory].filter(order => {
-      const orderDate = new Date(order.createdAt).toLocaleDateString('en-CA')
-      return orderDate === today
-    }).length
-    const yesterdayOrdersCount = orderHistory.filter(order => {
-      const orderDate = new Date(order.createdAt).toLocaleDateString('en-CA')
-      return orderDate === yesterday
-    }).length
+    
+    // Order Counts
+    const todayOrdersCount = allOrders.filter(o => new Date(o.createdAt).toLocaleDateString('en-CA') === today).length
+    const yesterdayOrdersCount = orderHistory.filter(o => new Date(o.createdAt).toLocaleDateString('en-CA') === yesterday).length
     const ordersDiff = yesterdayOrdersCount > 0 ? ((todayOrdersCount - yesterdayOrdersCount) / yesterdayOrdersCount) * 100 : 100
-    const ordersTrend = todayOrdersCount >= yesterdayOrdersCount ? 'up' : 'down'
-
-    // 5. Active Tables
-    const activeTablesCount = tables.filter(t => t.status === 'occupied' || t.status === 'billing').length
-    // Since we don't have table history, we'll use a semi-random but small realistic trend or just 0
-    // In a real app, this would come from a database query
-    const activeTablesTrend = activeTablesCount > 0 ? 'up' : 'down'
-    const activeTablesDiff = activeTablesCount > 0 ? `+${activeTablesCount}` : '0'
-
-    // 6. Menu Items
-    const menuCount = menuItems.length 
 
     return [
       {
         title: 'Total Revenue',
         value: `₹${totalRevenue.toLocaleString()}`,
         change: `${revenueDiff >= 0 ? '+' : ''}${revenueDiff.toFixed(1)}%`,
-        trend: revenueTrend,
+        trend: todayRevenue >= yesterdayRevenue ? 'up' : 'down',
         icon: DollarSign,
         color: 'text-green-600',
         bgColor: 'bg-green-50'
       },
       {
         title: 'Active Tables',
-        value: activeTablesCount.toString(),
-        change: activeTablesDiff,
-        trend: activeTablesTrend,
+        value: (tableStats.occupied || 0).toString(),
+        change: `+${tableStats.occupied || 0}`,
+        trend: (tableStats.occupied || 0) > 0 ? 'up' : 'down',
         icon: Users,
         color: 'text-blue-600',
         bgColor: 'bg-blue-50'
@@ -98,7 +68,7 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         title: 'Today\'s Orders',
         value: todayOrdersCount.toString(),
         change: `${ordersDiff >= 0 ? '+' : ''}${ordersDiff.toFixed(1)}%`,
-        trend: ordersTrend,
+        trend: todayOrdersCount >= yesterdayOrdersCount ? 'up' : 'down',
         icon: ShoppingCart,
         color: 'text-purple-600',
         bgColor: 'bg-purple-50'
@@ -113,8 +83,7 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         bgColor: 'bg-orange-50'
       }
     ]
-
-  }, [refreshTrigger])
+  }, [orderStats, activeOrders, orderHistory, tableStats, menuCount])
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

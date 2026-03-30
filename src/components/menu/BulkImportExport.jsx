@@ -40,44 +40,7 @@ const exportToExcel = (data, filename) => {
   URL.revokeObjectURL(url)
 }
 
-// Parse Excel/CSV data
-const parseExcelData = (csvText) => {
-  const lines = csvText.split('\n').filter(line => line.trim())
-  if (lines.length < 2) return []
 
-  // Remove BOM if present
-  const firstLine = lines[0].replace(/^\uFEFF/, '')
-
-  const headers = firstLine.split(',').map(h => h.replace(/"/g, '').trim())
-  const items = []
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim())
-    if (values.length >= 3) { // At least name, description, price
-      const item = {
-        _id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        name: values[0] || '',
-        description: values[1] || '',
-        price: parseFloat(values[2]) || 0,
-        category: values[3] || 'Main Course',
-        type: values[4] ? values[4].toUpperCase() : 'VEG',
-        isInStock: values[5] ? values[5].toLowerCase() === 'yes' : true,
-        restaurantId: values[6] || 'restaurant-123',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-
-      // Validate type
-      if (item.type !== 'VEG' && item.type !== 'NON_VEG') {
-        item.type = 'VEG'
-      }
-
-      items.push(item)
-    }
-  }
-
-  return items
-}
 
 // Create Excel template
 const createExcelTemplate = () => {
@@ -100,7 +63,7 @@ const createExcelTemplate = () => {
   URL.revokeObjectURL(url)
 }
 
-export default function BulkImportExport({ menuItems, onImport, showLabel = true }) {
+export default function BulkImportExport({ restaurantId, menuItems, onImport, showLabel = true }) {
   const [isOpen, setIsOpen] = useState(false)
   const [importData, setImportData] = useState('')
   const [importErrors, setImportErrors] = useState([])
@@ -110,20 +73,41 @@ export default function BulkImportExport({ menuItems, onImport, showLabel = true
     setImportErrors([])
     let items = []
 
+    // Helper functions moved inside to access props
+    const parseExcelWithId = (csvText) => {
+      const lines = csvText.split('\n').filter(line => line.trim())
+      if (lines.length < 2) return []
+      const firstLine = lines[0].replace(/^\uFEFF/, '')
+      const headers = firstLine.split(',').map(h => h.replace(/"/g, '').trim())
+      const result = []
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim())
+        if (values.length >= 3) {
+          result.push({
+            name: values[0] || '',
+            description: values[1] || '',
+            price: parseFloat(values[2]) || 0,
+            category: values[3] || 'Main Course',
+            type: values[4] ? values[4].toUpperCase() : 'VEG',
+            isInStock: values[5] ? values[5].toLowerCase() === 'yes' : true,
+            restaurantId: restaurantId // FIXED: Use prop!
+          })
+        }
+      }
+      return result
+    }
+
     try {
       if (importData.trim().startsWith('[')) {
-        // Try to parse as JSON array
+        // ... previous JSON logic
         const parsed = JSON.parse(importData)
         items = Array.isArray(parsed) ? parsed.map(item => ({
           ...item,
-          _id: item._id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
-          restaurantId: item.restaurantId || 'restaurant-123',
-          createdAt: item.createdAt || new Date(),
-          updatedAt: new Date()
+          restaurantId: restaurantId
         })) : []
       } else {
-        // Parse as CSV/Excel format
-        items = parseExcelData(importData)
+        items = parseExcelWithId(importData)
       }
 
       if (items.length === 0) {

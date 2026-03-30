@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import Logo from '@/components/ui/Logo'
-import { saveAndClearWorkspace } from '@/utils/workspace'
+import { supabase } from '@/lib/supabase'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -35,32 +35,9 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Simple validation
     if (!formData.businessName || !formData.email || (step === 2 && !formData.password)) {
       setError('Please complete all fields to initialize your system.')
       return
-    }
-
-    // Check simulated database
-    const existingUsers = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-    const userExists = existingUsers.find(u => u.email === formData.email)
-
-    if (userExists) {
-      setError('A merchant account with this email already exists.')
-      return
-    }
-
-    // Safety check: if someone is partially logged in or caching exists, cleanly save and prep.
-    try {
-        saveAndClearWorkspace()
-    } catch (finalQuotaError) {
-        console.error("Critical System Memory Overload. Taking physical administrative control and wiping local environment...", finalQuotaError)
-        // Hard-clear all bloated test variables directly from the component root
-        localStorage.clear()
-        
-        // Re-inject the necessary simulated platform metrics since we wiped the system
-        localStorage.setItem('servora_db_users', '[]')
-        localStorage.setItem('servora_db_subscriptions', '[]')
     }
 
     setIsInitializing(true)
@@ -74,32 +51,55 @@ export default function RegisterPage() {
        "Finalizing merchant environment..."
     ]
 
-    for (let i = 0; i < statuses.length; i++) {
+    // Animate status messages
+    for (let i = 0; i < statuses.length - 1; i++) {
        setInitStatus(statuses[i])
-       await new Promise(r => setTimeout(r, 800))
+       await new Promise(r => setTimeout(r, 700))
     }
+    setInitStatus(statuses[statuses.length - 1])
 
-    // Save to simulated database
-    const newUser = {
-      name: 'Merchant',
+    // ── Real Supabase Auth ──
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
-      businessName: formData.businessName,
-      restaurantType: formData.restaurantType,
-      joinedAt: new Date().toISOString()
+      options: {
+        data: {
+          business_name: formData.businessName,
+          restaurant_type: formData.restaurantType
+        }
+      }
+    })
+
+    if (signUpError) {
+      setIsInitializing(false)
+      setError(signUpError.message) // Show exact Supabase error
+      return
     }
-    existingUsers.push(newUser)
-    localStorage.setItem('servora_db_users', JSON.stringify(existingUsers))
 
-    // Reset any existing session state
-    localStorage.removeItem('servora_plan')
+    // Wait a brief moment for the DB trigger to finish creating the restaurant
+    await new Promise(r => setTimeout(r, 1000))
 
-    // Start active session
-    localStorage.setItem('servora_user', JSON.stringify(newUser))
+    // Fetch the auto-created restaurant
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('id, business_name')
+      .eq('owner_id', data.user.id)
+      .single()
 
-    // Redirect to unique merchant console
-    navigate(`/console/${newUser.email}`)
+    // Store full session info including the real database ID
+    localStorage.setItem('servora_user', JSON.stringify({
+      email: formData.email,
+      businessName: restaurant?.business_name || formData.businessName,
+      restaurantType: formData.restaurantType,
+      id: data.user?.id,
+      restaurantId: restaurant?.id // THIS IS CRITICAL FOR FETCHING MENU
+    }))
+
+    // Redirect to merchant console
+    navigate(`/console/${formData.email}`)
   }
+
+
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row overflow-hidden font-sans">
@@ -306,9 +306,10 @@ export default function RegisterPage() {
                         </Button>
                         <Button 
                            type="submit"
-                           className="flex-[2] h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
+                           disabled={isInitializing}
+                           className="flex-[2] h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                           Initialize System
+                           {isInitializing ? 'Processing...' : 'Initialize System'}
                         </Button>
                      </div>
                   </div>

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { getCachedRestaurantId } from '@/lib/api'
+import { Loader2 } from 'lucide-react'
 
 // Load price history from localStorage
 const loadPriceHistory = () => {
@@ -104,10 +106,29 @@ export const recordPriceChange = (itemId, itemName, oldPrice, newPrice) => {
 export default function PriceHistory({ menuItems, showLabel = true }) {
   const [isOpen, setIsOpen] = useState(false)
   const [priceHistory, setPriceHistory] = useState({})
+  const [isLoading, setIsLoading] = useState(false)
+
+  const loadRealTimeHistory = async () => {
+    const rid = getCachedRestaurantId()
+    if (!rid) return
+    
+    setIsLoading(true)
+    try {
+      const { fetchPriceHistory } = await import('@/lib/api')
+      const history = await fetchPriceHistory(rid)
+      setPriceHistory(history)
+    } catch (err) {
+      console.error('Failed to fetch real-time price history:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    setPriceHistory(loadPriceHistory())
-  }, [])
+    if (isOpen) {
+      loadRealTimeHistory()
+    }
+  }, [isOpen])
 
   const getItemHistory = (itemId) => {
     return priceHistory[itemId] || { itemName: '', changes: [] }
@@ -225,9 +246,17 @@ export default function PriceHistory({ menuItems, showLabel = true }) {
           {/* Price History Table */}
           <Card className="shadow-sm border flex-1 flex flex-col">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Recent Price Changes</CardTitle>
+              <CardTitle className="text-lg flex justify-between items-center">
+                <span>Recent Price Changes</span>
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin text-blue-600" />}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 overflow-auto">
+            <CardContent className="flex-1 overflow-auto relative">
+              {isLoading && Object.keys(priceHistory).length === 0 && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                </div>
+              )}
               <Table className="">
                 <TableHeader className="">
                     <TableRow className="">
@@ -238,7 +267,7 @@ export default function PriceHistory({ menuItems, showLabel = true }) {
                       <TableHead className="w-[25%]">Date</TableHead>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="">
                   {Object.entries(priceHistory)
                     .filter(([_, data]) => data.changes.length > 0)
                     .sort(([_, a], [__, b]) => (new Date(b.changes[0].date)).getTime() - (new Date(a.changes[0].date)).getTime())

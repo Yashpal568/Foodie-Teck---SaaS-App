@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { useOrderManagement } from '@/hooks/useOrderManagement'
 import { 
   AreaChart, 
   Area, 
@@ -106,8 +107,9 @@ const generateRevenueTrend = (orderHistory, timeRange) => {
     // Monthly aggregation for long-term view
     const monthlyStats = {}
     orderHistory.forEach(order => {
-      if (order.completedAt) {
-        const date = new Date(order.completedAt)
+      const orderDate = order.createdAt || order.created_at;
+      if (orderDate) {
+        const date = new Date(orderDate)
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         if (!monthlyStats[monthKey]) {
           monthlyStats[monthKey] = { 
@@ -118,7 +120,7 @@ const generateRevenueTrend = (orderHistory, timeRange) => {
             timestamp: date.getTime()
           }
         }
-        monthlyStats[monthKey].revenue += (order.revenue || 0)
+        monthlyStats[monthKey].revenue += (order.total || 0)
         monthlyStats[monthKey].orders += 1
       }
     })
@@ -136,10 +138,16 @@ const generateRevenueTrend = (orderHistory, timeRange) => {
     
     // Aggregate revenue for this specific local day
     const dayRevenue = orderHistory
-      .filter(order => order.completedAt && order.completedAt.split('T')[0] === dateStr)
-      .reduce((sum, order) => sum + (order.revenue || 0), 0)
+      .filter(order => {
+        const orderDate = order.createdAt || order.created_at;
+        return orderDate && orderDate.split('T')[0] === dateStr;
+      })
+      .reduce((sum, order) => sum + (order.total || 0), 0)
     
-    const dayOrders = orderHistory.filter(order => order.completedAt && order.completedAt.split('T')[0] === dateStr).length
+    const dayOrders = orderHistory.filter(order => {
+      const orderDate = order.createdAt || order.created_at;
+      return orderDate && orderDate.split('T')[0] === dateStr;
+    }).length
 
     trend.push({
       name: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
@@ -153,19 +161,14 @@ const generateRevenueTrend = (orderHistory, timeRange) => {
   return trend
 }
 
-export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate }) {
-  const [analytics, setAnalytics] = useState({
-    itemViews: {},
-    itemOrders: {},
-    totalViews: 0,
-    totalOrders: 0,
-    totalRevenue: 0,
-    orderHistory: []
-  })
+export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate, restaurantId }) {
+  const { orders, orderHistory, loading, stats } = useOrderManagement(restaurantId)
+  
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('7days')
   const [activeTab, setActiveTab] = useState('overview')
   const [isChartReady, setIsChartReady] = useState(false)
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
   
   // Custom Date Range State
   const [customDateRange, setCustomDateRange] = useState({
@@ -181,71 +184,80 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     avgOrderValue: 0
   })
 
-  // Real-time data updates
-  useEffect(() => {
-    const updateRealtimeData = () => {
-      const activeOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
-      const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-      const savedAnalytics = JSON.parse(localStorage.getItem('menuAnalytics') || '{"totalViews": 0, "itemViews": {}, "itemOrders": {}}')
-      
-      const todayStr = new Date().toLocaleDateString('en-CA')
-      
-      // Filter out finished/cancelled to avoid double counting with history
-      const activeOrdersOnly = activeOrders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
-      const combinedOrders = [...activeOrdersOnly, ...orderHistory]
-
-      // Calculate today's orders and revenue
-      const todayOrdersArr = combinedOrders.filter(order => 
-        new Date(order.createdAt).toLocaleDateString('en-CA') === todayStr
-      )
-      
-      const totalRevenueToday = todayOrdersArr.reduce((sum, order) => sum + (order.total || 0), 0)
-      const totalOrdersToday = todayOrdersArr.length
-      
-      const totalViews = savedAnalytics.totalViews || 0
-      const activeUsers = tables.filter(t => t.status === 'occupied' || t.status === 'billing').length
-      const avgOrderValueToday = totalOrdersToday > 0 ? totalRevenueToday / totalOrdersToday : 0
-      
-      setRealtimeData({
-        totalViews,
-        totalOrders: totalOrdersToday,
-        totalRevenue: totalRevenueToday,
-        activeUsers,
-        avgOrderValue: avgOrderValueToday
-      })
-
-      setAnalytics({
-        ...savedAnalytics,
-        orderHistory,
-        totalRevenue: combinedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
-      })
-    }
-
-    updateRealtimeData()
-    const interval = setInterval(updateRealtimeData, 5000) // Update every 5 seconds
+  // Update: Calculate itemOrders and itemViews from real order history
+  const analytics = useMemo(() => {
+    const orders = orderHistory || []
+    const itemOrdersMap = {}
+    const itemViewsMap = {} // Views would come from a separate 'item_views' table, using orders as proxy for now
     
-    // Add storage listener for immediate updates
-    window.addEventListener('storage', updateRealtimeData)
-    
-    return () => {
-      clearInterval(interval)
-      window.removeEventListener('storage', updateRealtimeData)
+    orders.forEach(order => {
+      const items = order.items || []
+      items.forEach(item => {
+        const id = item.menu_item_id || item.id
+        if (id) {
+          itemOrdersMap[id] = (itemOrdersMap[id] || 0) + (item.quantity || 1)
+          // We can use orders as a proxy for views if views table isn't ready
+          itemViewsMap[id] = (itemViewsMap[id] || 0) + ((item.quantity || 1) * 1.5) 
+        }
+      })
+    })
+
+    return {
+      orderHistory: orders,
+      totalRevenue: stats.totalRevenue,
+      totalOrders: orders.length,
+      totalViews: Object.values(itemViewsMap).reduce((a, b) => a + b, 0),
+      itemViews: itemViewsMap,
+      itemOrders: itemOrdersMap,
     }
-  }, [])
+  }, [orderHistory, stats.totalRevenue, realtimeData.totalViews])
+
+  // Real-time data updates (now deriving from hook)
+  useEffect(() => {
+    if (loading) return
+    
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const combinedOrders = [...orders, ...orderHistory]
+
+    // Calculate today's orders and revenue
+    const todayOrdersArr = combinedOrders.filter(order => 
+      new Date(order.created_at || order.createdAt).toLocaleDateString('en-CA') === todayStr
+    )
+    
+    const totalRevenueToday = todayOrdersArr.reduce((sum, order) => sum + (order.total || 0), 0)
+    const totalOrdersToday = todayOrdersArr.length
+    
+    const activeUsersCount = orders.length // Simply active orders as proxy for users
+    const avgOrderValueToday = totalOrdersToday > 0 ? totalRevenueToday / totalOrdersToday : 0
+    
+    setRealtimeData({
+      totalViews: 0, // Placeholder for Phase 2 supastats
+      totalOrders: totalOrdersToday,
+      totalRevenue: totalRevenueToday,
+      activeUsers: activeUsersCount,
+      avgOrderValue: avgOrderValueToday
+    })
+  }, [orders, orderHistory, loading])
 
   useEffect(() => {
-    setAnalytics(loadAnalytics())
-    // Load menu items
-    const savedItems = localStorage.getItem('menuItems')
-    if (savedItems) {
-      setMenuItems(JSON.parse(savedItems))
+    // Load menu items from Supabase
+    const loadMenu = async () => {
+      if (!restaurantId) return
+      try {
+        const { getMenuItems } = await import('@/lib/api')
+        const items = await getMenuItems(restaurantId)
+        setMenuItems(items || [])
+      } catch (err) {
+        console.error('Failed to load menu items for analytics:', err)
+      }
     }
+    
+    loadMenu()
 
     // Small delay to ensure parent dimensions are calculated for Recharts
     const timer = setTimeout(() => setIsChartReady(true), 100)
     return () => clearTimeout(timer)
-  }, [])
+  }, [restaurantId])
 
   // Memoized calculations for performance
   const revenueTrend = useMemo(() => {
@@ -259,7 +271,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     orderHistory.forEach(order => {
       // This would need to be enhanced based on your order structure
       const category = 'Dine-in' // Default category
-      distribution[category] = (distribution[category] || 0) + (order.revenue || 0)
+      distribution[category] = (distribution[category] || 0) + (order.total || 0)
     })
     
     return Object.entries(distribution).map(([category, revenue]) => ({
@@ -275,11 +287,11 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
       .sort(([_, a], [__, b]) => b - a)
       .slice(0, limit)
       .map(([itemId, count]) => {
-        const item = menuItems.find(i => i._id === itemId)
+        const item = menuItems.find(i => i.id === itemId || i._id === itemId)
         return {
           item,
           count,
-          percentage: analytics.totalViews > 0 ? (count / (type === 'views' ? analytics.totalViews : analytics.totalOrders) * 100).toFixed(1) : 0
+          percentage: analytics.totalOrders > 0 ? (count / (type === 'views' ? (analytics.totalViews || 1) : (analytics.totalOrders || 1)) * 100).toFixed(1) : 0
         }
       })
       .filter(entry => entry.item)
@@ -300,8 +312,9 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
       }
       
       categoryStats[item.category].items++
-      categoryStats[item.category].views += (analytics && analytics.itemViews && analytics.itemViews[item._id]) ? analytics.itemViews[item._id] : 0
-      categoryStats[item.category].orders += (analytics && analytics.itemOrders && analytics.itemOrders[item._id]) ? analytics.itemOrders[item._id] : 0
+      const itemId = item.id || item._id
+      categoryStats[item.category].views += (analytics && analytics.itemViews && itemId && analytics.itemViews[itemId]) ? analytics.itemViews[itemId] : 0
+      categoryStats[item.category].orders += (analytics && analytics.itemOrders && itemId && analytics.itemOrders[itemId]) ? analytics.itemOrders[itemId] : 0
       categoryStats[item.category].totalPrice += item.price
     })
     
@@ -331,12 +344,13 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     if (customDateRange.endDate) endObj.setHours(23, 59, 59, 999)
 
     const filteredOrders = orderHistory.filter(order => {
-      if (!order.completedAt) return false
-      const orderDate = new Date(order.completedAt)
+      const orderDateRaw = order.createdAt || order.created_at;
+      if (!orderDateRaw) return false
+      const orderDate = new Date(orderDateRaw)
       return orderDate >= startObj && orderDate <= endObj
     })
 
-    const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.revenue || 0), 0)
+    const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0)
     const totalOrders = filteredOrders.length
 
     return {
@@ -587,8 +601,8 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                 <CardTitle className="text-lg font-bold text-slate-800">Growth Breakdown</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y">
-                  {revenueTrend.slice(-5).reverse().map((day, index) => (
+                <div className={cn("divide-y overflow-y-auto", isHistoryExpanded ? "max-h-[600px]" : "")}>
+                  {revenueTrend.slice(isHistoryExpanded ? 0 : -5).reverse().map((day, index) => (
                     <div key={index} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div className="space-y-1">
                         <p className="text-sm font-semibold text-slate-700">{day.name}</p>
@@ -605,8 +619,22 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                   ))}
                 </div>
                 <div className="p-4">
-                  <Button variant="ghost" className="w-full text-slate-600 text-xs py-2 h-auto" onClick={() => setTimeRange('all')}>
-                    View Full History
+                  <Button 
+                    variant="ghost" 
+                    className="w-full text-slate-600 font-bold text-xs py-2 h-auto hover:bg-slate-100 flex items-center justify-center gap-2" 
+                    onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                  >
+                    {isHistoryExpanded ? (
+                      <>
+                        <Filter className="w-3 h-3" />
+                        SHOW LESS
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="w-3 h-3" />
+                        VIEW FULL HISTORY
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>

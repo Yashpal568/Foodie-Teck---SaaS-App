@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { QrCode, Download, Plus, Table, Smartphone, Scan, CheckCircle, AlertCircle, RefreshCw, Menu } from 'lucide-react'
+import { QrCode, Download, Plus, Table, Smartphone, Scan, CheckCircle, AlertCircle, RefreshCw, Menu, Cloud } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import Sidebar from '../layout/Sidebar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
+import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes } from '@/lib/api'
 
 // Convert blob to base64 data URL
 const blobToBase64 = (blob) => {
@@ -26,7 +27,7 @@ const blobToBase64 = (blob) => {
 
 // QR Code generator using QRServer API
 const generateQRCode = async (restaurantId, tableNumber) => {
-  const url = `http://localhost:5173/menu?restaurant=${restaurantId}&table=${tableNumber}`
+  const url = `${window.location.origin}/menu?restaurant=${restaurantId}&table=${tableNumber}`
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
   
   try {
@@ -101,9 +102,25 @@ const loadQRCodesFromStorage = (restaurantId) => {
 export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan }) {
   const tableLimit = plan?.name === 'Enterprise' ? 1000 : plan?.name === 'Professional' ? 30 : 10
   const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-  // Primary Identity Lock for Multi-Tenancy
-  const authenticatedIdentity = user.email || 'servora-guest'
-  const [restaurantId] = useState(authenticatedIdentity)
+  const [restaurantId, setRestaurantId] = useState(getCachedRestaurantId())
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState('idle')
+
+  // Initial ID Fixer: If we only have an email, go get the UUID
+  useEffect(() => {
+    const repairSession = async () => {
+      if (!restaurantId || restaurantId.includes('@')) {
+        console.log('Detected legacy ID (email). Fetching UUID...')
+        const profile = await getMyRestaurant()
+        if (profile) {
+          setRestaurantId(profile.id)
+          // Update session for the whole app
+          localStorage.setItem('servora_user', JSON.stringify({ ...user, restaurantId: profile.id }))
+        }
+      }
+    }
+    repairSession()
+  }, [])
 
   const [tableCount, setTableCount] = useState(tableLimit > 10 ? 10 : tableLimit)
   const [qrCodes, setQrCodes] = useState([])
@@ -137,6 +154,27 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     }
   }, [qrCodes, restaurantId])
 
+  const handleSyncToCloud = async (codesToSync = qrCodes) => {
+    if (!restaurantId || codesToSync.length === 0) return
+    setIsSyncing(true)
+    setSyncStatus('syncing')
+    try {
+      await bulkSaveQRCodes(restaurantId, codesToSync)
+      setSyncStatus('success')
+      setTimeout(() => setSyncStatus('idle'), 3000)
+    } catch (error) {
+      console.error('Cloud Sync Error:', error)
+      setSyncStatus('idle')
+      if (error.code === '42501' || error.status === 403) {
+        alert('CRITICAL: Supabase RLS Violation! Your "qr_codes" table is locked. Please enable "INSERT" and "UPDATE" permissions for researchers/owners in your Supabase dashboard SQL Editor.')
+      } else {
+        alert(`Cloud Sync Failed: ${error.message || 'Check connection'}`)
+      }
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const generateAllQRCodes = async () => {
     if (tableCount > tableLimit) {
       alert(`Your current plan only supports up to ${tableLimit} tables.`)
@@ -150,7 +188,11 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         codes.push(qrCode)
       }
       setQrCodes(codes)
-      console.log('Generated QR codes:', codes.length, 'codes')
+      
+      // SYNC TO CLOUD IMMEDIATELY
+      await handleSyncToCloud(codes)
+      
+      console.log('Generated and Synced QR codes:', codes.length, 'codes')
       // Emit event to notify TableSessions component
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: codes } }))
@@ -253,13 +295,14 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                 isCollapsed={false}
                 setIsCollapsed={() => {}}
                 isMobile={true}
+                restaurantId={restaurantId}
               />
             </SheetContent>
           </Sheet>
           <Logo subtitle="QR Codes" />
         </div>
         <div className="flex items-center gap-1">
-          <NotificationDropdown />
+          <NotificationDropdown restaurantId={restaurantId} />
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
             <span className="text-[10px] font-bold text-blue-700">JD</span>
           </div>
@@ -286,11 +329,31 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
             {/* Action Tools */}
             <div className="flex items-center gap-2 self-end sm:self-center">
-              <Badge variant="outline" className="h-9 px-3 text-xs font-semibold text-purple-700 border-purple-200 bg-purple-50/50">
-                {qrCodes.length} Generated
+              <Badge 
+                variant="outline" 
+                className={`h-9 px-3 text-xs font-semibold transition-all ${syncStatus === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-purple-700 border-purple-200 bg-purple-50/50'}`}
+              >
+                {isSyncing ? (
+                  <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                ) : syncStatus === 'success' ? (
+                  <CheckCircle className="w-3 h-3 mr-2" />
+                ) : (
+                  <QrCode className="w-3.5 h-3.5 mr-2" />
+                )}
+                {isSyncing ? 'Syncing...' : syncStatus === 'success' ? 'Cloud Verified' : `${qrCodes.length} Generated`}
               </Badge>
               {qrCodes.length > 0 && (
                 <>
+                  <Button 
+                    onClick={() => handleSyncToCloud()} 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={isSyncing}
+                    className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all font-bold text-[10px] uppercase tracking-wider"
+                  >
+                    <Cloud className="w-3.5 h-3.5 mr-2" />
+                    Force Sync
+                  </Button>
                   <Button onClick={downloadAllQRCodes} variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all">
                     <Download className="w-4 h-4 mr-2" />
                     Download All

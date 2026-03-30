@@ -27,7 +27,7 @@ import { Separator } from '@/components/ui/separator'
 import { menuItems, supportItems } from './Sidebar'
 import { saveAndClearWorkspace } from '@/utils/workspace'
 
-export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange }) {
+export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [showResults, setShowResults] = useState(false)
@@ -221,7 +221,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
           </div>
 
           {/* Notifications Center */}
-          <NotificationDropdown />
+          <NotificationDropdown restaurantId={restaurantId} />
 
           {/* User Profile */}
           <DropdownMenu>

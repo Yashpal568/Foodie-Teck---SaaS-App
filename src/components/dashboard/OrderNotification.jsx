@@ -1,127 +1,114 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { ShoppingBag, X, ChevronRight, Clock, MapPin, BellRing } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { supabase } from '@/lib/supabase'
 
-export default function OrderNotification() {
+export default function OrderNotification({ restaurantId, onOrderClick }) {
   const [toast, setToast] = useState(null)
-  const lastOrderRef = useRef(null)
-  const lastWaiterCallRef = useRef(null)
+  const [resolvedId, setResolvedId] = useState(null)
 
-  // Initialize with current order count to avoid showing historical orders as new
+  // Resolve Identity (Email to UUID)
   useEffect(() => {
-    try {
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-      if (orders.length > 0) {
-        lastOrderRef.current = orders[orders.length - 1].id
+    async function resolve() {
+      if (!restaurantId) return
+      if (!restaurantId.includes('@')) {
+        setResolvedId(restaurantId)
+        return
       }
       
-      const waiterCalls = JSON.parse(localStorage.getItem('waiterCalls') || '[]')
-      if (waiterCalls.length > 0) {
-        lastWaiterCallRef.current = waiterCalls[waiterCalls.length - 1].id
+      const { data } = await supabase
+        .from('restaurants')
+        .select('id')
+        .eq('email', restaurantId.toLowerCase())
+        .single()
+      
+      if (data?.id) {
+        setResolvedId(data.id)
       }
-    } catch (e) {
-      console.error('Failed to parse orders for initialization', e)
     }
-  }, [])
+    resolve()
+  }, [restaurantId])
 
   useEffect(() => {
-    const checkNewOrders = () => {
-      try {
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-        if (orders.length === 0) return
+    if (!resolvedId) return
 
-        const latestOrder = orders[orders.length - 1]
-        
-        // If it's a new order ID we haven't seen in this session
-        if (latestOrder.id !== lastOrderRef.current) {
-          lastOrderRef.current = latestOrder.id
-          
-          // Show the toast
-          showOrderToast(latestOrder)
-          
-          // Play a subtle notification sound (optional, but premium)
-          // const audio = new Audio('/notification.mp3')
-          // audio.play().catch(e => console.log('Audio play prevented'))
+    // ── 1. Order Subscription ──
+    const orderChannel = supabase
+      .channel(`order-toasts:rid=${resolvedId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${resolvedId}`
+        },
+        (payload) => {
+          console.log('🍞 Fresh Order for Toast:', payload)
+          const order = payload.new
+          const itemsCount = order.items_count || order.itemsCount || 
+                            (Array.isArray(order.items) ? order.items.length : 0) || 1
+
+          setToast({
+            id: order.id,
+            type: 'order',
+            tableNumber: order.table_number || order.tableNumber || '?',
+            customerName: order.customer_name || order.customerName || 'Guest',
+            itemsCount: itemsCount,
+            total: order.total || 0,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+
+          setTimeout(() => setToast(current => current?.id === order.id ? null : current), 8000)
         }
-      } catch (e) {
-        console.error('Error checking for new orders', e)
-      }
-    }
+      )
+      .subscribe()
 
-    const showOrderToast = (order) => {
-      setToast({
-        id: order.id,
-        type: 'order',
-        tableNumber: order.tableNumber,
-        customerName: order.customerName || 'Guest',
-        itemsCount: order.items?.reduce((acc, item) => acc + item.quantity, 0) || 0,
-        total: order.total,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
+    // ── 2. Waiter Call Subscription ──
+    const waiterChannel = supabase
+      .channel(`waiter-toasts:rid=${resolvedId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'waiter_calls',
+          filter: `restaurant_id=eq.${resolvedId}`
+        },
+        (payload) => {
+          console.log('🔔 Live Waiter Call:', payload)
+          const call = payload.new
+          
+          setToast({
+            id: call.id,
+            type: 'waiter',
+            tableNumber: call.table_number || '?',
+            customerName: call.customer_name || 'Guest',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
 
-      // Auto-dismiss after 6 seconds
-      setTimeout(() => {
-        setToast(current => current?.id === order.id ? null : current)
-      }, 6000)
-    }
-
-    const checkWaiterCalls = () => {
-      try {
-        const calls = JSON.parse(localStorage.getItem('waiterCalls') || '[]')
-        if (calls.length === 0) return
-
-        const latestCall = calls[calls.length - 1]
-        
-        if (latestCall.id !== lastWaiterCallRef.current) {
-          lastWaiterCallRef.current = latestCall.id
-          showWaiterToast(latestCall)
+          setTimeout(() => setToast(current => current?.id === call.id ? null : current), 8000)
         }
-      } catch (e) {
-        console.error('Error checking for waiter calls', e)
-      }
-    }
-
-    const showWaiterToast = (call) => {
-      setToast({
-        id: call.id,
-        type: 'waiter',
-        tableNumber: call.tableNumber,
-        customerName: call.customerName || 'Guest',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-
-      setTimeout(() => {
-        setToast(current => current?.id === call.id ? null : current)
-      }, 8000) // Stay slightly longer as it needs more immediate action
-    }
-
-    // Listen for storage changes (across tabs)
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'orders' || e.key === null) {
-        checkNewOrders()
-      }
-      if (e.key === 'waiterCalls' || e.key === null) {
-        checkWaiterCalls()
-      }
-    })
-
-    // Listen for custom events (same tab)
-    window.addEventListener('orderUpdated', checkNewOrders)
-    window.addEventListener('waiterCalled', checkWaiterCalls)
+      )
+      .subscribe()
 
     return () => {
-      window.removeEventListener('storage', checkNewOrders)
-      window.removeEventListener('storage', checkWaiterCalls)
-      window.removeEventListener('orderUpdated', checkNewOrders)
-      window.removeEventListener('waiterCalled', checkWaiterCalls)
+      supabase.removeChannel(orderChannel)
+      supabase.removeChannel(waiterChannel)
     }
-  }, [])
+  }, [resolvedId])
 
   if (!toast) return null
 
   return (
-    <div className="fixed top-6 right-6 z-[9999] w-full max-w-sm animate-in fade-in slide-in-from-right-8 duration-500">
+    <div 
+      className="fixed top-6 right-6 z-[9999] w-full max-w-sm animate-in fade-in slide-in-from-right-8 duration-500 cursor-pointer group/modal"
+      onClick={() => {
+        if (typeof onOrderClick === 'function') onOrderClick(toast)
+        setToast(null)
+      }}
+    >
       <div className="relative group overflow-hidden bg-white/90 backdrop-blur-2xl rounded-[2.5rem] border border-white/20 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)] p-1">
         {/* Animated Background Gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-indigo-500/5 transition-opacity group-hover:opacity-100" />

@@ -31,9 +31,30 @@ function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [plan, setPlan] = useState(null)
   const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-  const dashboardOwner = user.email || 'guest'
-  const { profile } = useRestaurantProfile(dashboardOwner)
+  const dashboardEmail = user.email || urlId || 'guest'
+  const [resolvedId, setResolvedId] = useState(null)
+  const { profile } = useRestaurantProfile(dashboardEmail)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Resolve ID (Email -> UUID)
+  useEffect(() => {
+    async function resolve() {
+      if (!dashboardEmail || dashboardEmail === 'guest') return
+      if (dashboardEmail.includes('@')) {
+        const { data } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('email', dashboardEmail.toLowerCase())
+          .single()
+        if (data?.id) setResolvedId(data.id)
+      } else {
+        setResolvedId(dashboardEmail)
+      }
+    }
+    resolve()
+  }, [dashboardEmail])
+
+  const restaurantId = resolvedId || dashboardEmail
 
   const [daysRemaining, setDaysRemaining] = useState(30)
   const [isExpired, setIsExpired] = useState(false)
@@ -134,7 +155,7 @@ function Dashboard() {
 
                 <div className="flex items-center gap-4 bg-white/50 backdrop-blur-md p-2 rounded-3xl border border-white shadow-sm">
                   <button 
-                    onClick={() => window.open(`/menu?restaurant=${dashboardOwner}&table=1`, '_blank')}
+                    onClick={() => window.open(`/menu?restaurant=${restaurantId}&table=1`, '_blank')}
                     className="px-6 py-3 text-slate-600 text-[13px] font-black uppercase tracking-wider rounded-2xl hover:bg-slate-100 transition-all flex items-center gap-2"
                   >
                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
@@ -159,19 +180,19 @@ function Dashboard() {
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-10">
                   <div className="lg:col-span-8 space-y-10">
-                    <OverviewCards restaurantId={dashboardOwner} />
+                    <OverviewCards restaurantId={restaurantId} />
                     
                     <div className="space-y-4">
                        <div className="flex items-center justify-between px-2">
                          <h3 className="text-xl font-black text-slate-900 leading-none">Activity Feed</h3>
                          <button onClick={() => setActiveItem('orders')} className="text-[11px] font-black text-blue-600 uppercase tracking-widest hover:underline">View All</button>
                        </div>
-                       <RecentOrders restaurantId={dashboardOwner} />
+                       <RecentOrders restaurantId={restaurantId} />
                     </div>
                   </div>
                   
                   <div className="lg:col-span-4 lg:sticky lg:top-10 h-fit">
-                    <TableStatus restaurantId={dashboardOwner} />
+                    <TableStatus restaurantId={restaurantId} />
                   </div>
                 </div>
               </div>
@@ -198,7 +219,7 @@ function Dashboard() {
       
       case 'orders':
         return <OrderManagement 
-          restaurantId={dashboardOwner} 
+          restaurantId={restaurantId} 
           activeItem={activeItem} 
           setActiveItem={setActiveItem} 
           navigate={navigate}
@@ -211,6 +232,7 @@ function Dashboard() {
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               navigate={navigate}
+              restaurantId={profile?.id}
             />
           </div>
         )
@@ -220,6 +242,7 @@ function Dashboard() {
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
+          restaurantId={profile?.id}
         />
       
       case 'customers':
@@ -237,7 +260,7 @@ function Dashboard() {
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
-          restaurantId={dashboardOwner}
+          restaurantId={restaurantId}
         />
       
       case 'help':
@@ -245,6 +268,7 @@ function Dashboard() {
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
+          restaurantId={profile?.id || restaurantId}
         />
       
       case 'docs':
@@ -303,7 +327,13 @@ function Dashboard() {
   }
 
   return (
-    <Layout activeItem={activeItem} setActiveItem={setActiveItem} currency={currency} onCurrencyChange={setCurrency}>
+    <Layout 
+      activeItem={activeItem}
+      setActiveItem={setActiveItem}
+      currency={currency}
+      onCurrencyChange={setCurrency}
+      restaurantId={urlId}
+    >
       {renderContent()}
     </Layout>
   )

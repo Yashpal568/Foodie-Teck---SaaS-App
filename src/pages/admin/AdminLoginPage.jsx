@@ -24,12 +24,14 @@ export default function AdminLoginPage() {
   const handleLogin = (e) => {
     e.preventDefault()
     
-    // Sanitize payload to prevent trailing white-space failures
     const secureEmail = email.trim().toLowerCase()
     
-    // Simulate secure platform owner verification
-    if (secureEmail === 'admin@servora.com' && password === 'admin123') {
-      localStorage.setItem('servora_admin_token', 'SECURE_DUMMY_TOKEN_2026')
+    // Load credentials from environment variables
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@servora.com'
+    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
+
+    if (secureEmail === adminEmail && password === adminPassword) {
+      localStorage.setItem('servora_admin_token', 'SERVORA_PLATFORM_OWNER_2026')
       localStorage.setItem('servora_admin_user', JSON.stringify({ name: 'System Owner', role: 'SUPER_ADMIN' }))
       navigate('/admin/dashboard')
     } else {

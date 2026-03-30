@@ -9,75 +9,68 @@ import MenuListView from './MenuListView'
 import CategoryManager from './CategoryManager'
 import BulkImportExport from './BulkImportExport'
 import MenuTemplates from './MenuTemplates'
-import PriceHistory, { recordPriceChange } from './PriceHistory'
+import PriceHistory from './PriceHistory'
 import { formatPrice } from '@/components/ui/currency-selector'
 import CurrencySelector from '@/components/ui/currency-selector'
 import ImageStorage from '@/utils/imageStorage'
 import MenuNavbar from './MenuNavbar'
 import MenuMobileNavbar from './MenuMobileNavbar'
+import { fetchMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemStock, bulkReplaceMenuItems, bulkAddMenuItems, getCachedRestaurantId, getMyRestaurant, fetchPriceHistory, recordPriceChange } from '@/lib/api'
+import { Loader2 } from 'lucide-react'
 
-// Scoped Storage Helpers
-const getMenuKey = (id) => `servora_db_menu_${id || 'default'}`
-
-// Load menu items from scoped localStorage
-const loadMenuItems = (restaurantId) => {
-  try {
-    const key = getMenuKey(restaurantId)
-    const savedItems = localStorage.getItem(key)
-    if (savedItems) {
-      return JSON.parse(savedItems)
-    }
-    return [] // Start with empty menu for new nodes
-  } catch (error) {
-    console.error('Error loading menu items:', error)
-    return []
-  }
-}
-
-// Save menu items to scoped localStorage
-const saveMenuItems = (items, restaurantId) => {
-  try {
-    const key = getMenuKey(restaurantId)
-    localStorage.setItem(key, JSON.stringify(items))
-  } catch (error) {
-    if (error.name === 'QuotaExceededError') {
-      console.warn('LocalStorage quota exceeded')
-    } else {
-      console.error('Error saving menu items:', error)
-    }
-  }
-}
 
 export default function MenuManagement({ currency, onCurrencyChange, activeItem, setActiveItem, navigate }) {
   const [menuItems, setMenuItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [currentRid, setCurrentRid] = useState(null)
   const [dynamicCategories, setDynamicCategories] = useState(['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads'])
   
-  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-  const resId = user.email || 'guest'
-
   // Filter states
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [typeFilter, setTypeFilter] = useState('All')
   const [stockFilter, setStockFilter] = useState('All')
 
-  // Load menu items on mount
+  // ── Smart Data Fetching: Handle missing restaurantId automatically ──
   useEffect(() => {
-    const items = loadMenuItems(resId)
-    setMenuItems(items)
-    setFilteredItems(items)
-    
-    const savedImages = ImageStorage.getAllImages()
-    setMenuItems(items => 
-      items.map(item => ({
-        ...item,
-        photo: savedImages[item._id] || item.photo
-      }))
-    )
-  }, [resId])
+    const init = async () => {
+      let rid = getCachedRestaurantId()
+      
+      // Fail-safe: If ID is missing OR it's a legacy ID (email), fetch the real UUID
+      if (!rid || rid.includes('@')) {
+        console.log('Session cache issue (missing or email ID). Fetching from database...')
+        try {
+          const profile = await getMyRestaurant()
+          if (profile) {
+            rid = profile.id
+            // Repair the session cache for other components
+            const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
+            localStorage.setItem('servora_user', JSON.stringify({ ...authUser, restaurantId: rid }))
+          }
+        } catch (e) { 
+          console.error('Profile fetch failed', e) 
+        }
+      }
+
+      if (rid) {
+        setCurrentRid(rid)
+        try {
+          const items = await fetchMenuItems(rid)
+          setMenuItems(items)
+          setFilteredItems(items)
+        } catch (err) { 
+          console.error('Menu load error:', err) 
+        }
+      }
+      setIsLoading(false)
+    }
+
+    init()
+  }, [])
 
   // Apply filters
   useEffect(() => {
@@ -85,7 +78,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     if (searchTerm) {
       filtered = filtered.filter(item =>
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchTerm.toLowerCase())
+        (item.description || '').toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
     if (categoryFilter !== 'All') {
@@ -102,41 +95,63 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     setFilteredItems(filtered)
   }, [menuItems, searchTerm, categoryFilter, typeFilter, stockFilter])
 
-  const handleSaveItem = (itemData) => {
-    if (editingItem) {
-      const oldItem = menuItems.find(item => item._id === editingItem._id)
-      const updatedItems = menuItems.map(item => 
-        item._id === editingItem._id ? { ...itemData, updatedAt: new Date() } : item
-      )
-      setMenuItems(updatedItems)
-      saveMenuItems(updatedItems, resId)
-      if (oldItem && oldItem.price !== itemData.price) {
-        recordPriceChange(editingItem._id, itemData.name, oldItem.price, itemData.price)
+  // ── Create or Update menu item via Supabase ──
+  const handleSaveItem = async (itemData) => {
+    if (!currentRid) return
+    setIsSaving(true)
+    try {
+      if (editingItem) {
+        // UPDATE
+        const oldItem = menuItems.find(item => item.id === editingItem.id)
+        const updated = await updateMenuItem(editingItem.id, itemData)
+        setMenuItems(prev => prev.map(i => i.id === editingItem.id ? updated : i))
+        if (oldItem && Number(oldItem.price) !== Number(itemData.price)) {
+          recordPriceChange(currentRid, itemData.name, oldItem.price, itemData.price, editingItem.id)
+        }
+        if (itemData.photo) ImageStorage.saveImage(editingItem.id, itemData.photo)
+      } else {
+        // CREATE
+        const created = await createMenuItem(currentRid, itemData)
+        setMenuItems(prev => [...prev, created])
+        if (itemData.photo) ImageStorage.saveImage(created.id, itemData.photo)
       }
-      if (itemData.photo) {
-        ImageStorage.saveImage(editingItem._id, itemData.photo)
-      }
-    } else {
-      const newItem = {
-        ...itemData,
-        _id: Date.now().toString(),
-        restaurantId: resId,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-      const updatedItems = [...menuItems, newItem]
-      setMenuItems(updatedItems)
-      saveMenuItems(updatedItems, resId)
-      if (itemData.tempPhoto) {
-        ImageStorage.saveImage(newItem._id, itemData.tempPhoto)
-        newItem.photo = itemData.tempPhoto
-        delete newItem.tempPhoto
-      } else if (itemData.photo) {
-        ImageStorage.saveImage(newItem._id, itemData.photo)
-      }
+    } catch (err) {
+      console.error('Save menu item error:', err)
+    } finally {
+      setIsSaving(false)
+      setShowForm(false)
+      setEditingItem(null)
     }
-    setShowForm(false)
-    setEditingItem(null)
+  }
+
+  // ── Bulk Create via Supabase ──
+  const handleBulkImport = async (items) => {
+    if (!currentRid) return
+    setIsLoading(true)
+    try {
+      const savedItems = await bulkReplaceMenuItems(currentRid, items)
+      setMenuItems(savedItems)
+      setFilteredItems(savedItems)
+    } catch (err) {
+      console.error('Bulk import error:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ── Bulk Append via Supabase ──
+  const handleBulkAppend = async (items) => {
+    if (!currentRid) return
+    setIsLoading(true)
+    try {
+      const savedItems = await bulkAddMenuItems(currentRid, items)
+      // Merge new items with current menuItems
+      setMenuItems(prev => [...prev, ...savedItems])
+    } catch (err) {
+      console.error('Bulk append error:', err)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleEditItem = (item) => {
@@ -144,21 +159,26 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     setShowForm(true)
   }
 
-  const handleDeleteItem = (itemId) => {
-    if (confirm('Are you sure you want to delete this menu item?')) {
-      const updatedItems = menuItems.filter(item => item._id !== itemId)
-      setMenuItems(updatedItems)
-      saveMenuItems(updatedItems, resId)
+  // ── Delete via Supabase ──
+  const handleDeleteItem = async (itemId) => {
+    if (!confirm('Are you sure you want to delete this menu item?')) return
+    try {
+      await deleteMenuItem(itemId)
+      setMenuItems(prev => prev.filter(i => i._id !== itemId))
       ImageStorage.removeImage(itemId)
+    } catch (err) {
+      console.error('Delete error:', err)
     }
   }
 
-  const handleToggleStock = (itemId, newStockStatus) => {
-    const updatedItems = menuItems.map(item =>
-      item._id === itemId ? { ...item, isInStock: newStockStatus, updatedAt: new Date() } : item
-    )
-    setMenuItems(updatedItems)
-    saveMenuItems(updatedItems, resId)
+  // ── Toggle stock via Supabase ──
+  const handleToggleStock = async (itemId, newStockStatus) => {
+    try {
+      const updated = await toggleMenuItemStock(itemId, newStockStatus)
+      setMenuItems(prev => prev.map(i => i._id === itemId ? updated : i))
+    } catch (err) {
+      console.error('Toggle stock error:', err)
+    }
   }
 
   const totalItems = menuItems.length
@@ -192,10 +212,9 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           currency={currency}
           onCurrencyChange={onCurrencyChange}
           menuItems={menuItems}
-          onMenuItemsChange={(updatedItems) => {
-            setMenuItems(updatedItems)
-            saveMenuItems(updatedItems, resId)
-          }}
+          restaurantId={currentRid}
+          onMenuItemsChange={handleBulkImport}
+          onMenuItemsAppend={handleBulkAppend}
           onCategoriesChange={setDynamicCategories}
         />
 
@@ -208,10 +227,9 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           onCurrencyChange={onCurrencyChange}
           onCategoriesChange={setDynamicCategories}
           menuItems={menuItems}
-          onMenuItemsChange={(updatedItems) => {
-            setMenuItems(updatedItems)
-            saveMenuItems(updatedItems, resId)
-          }}
+          restaurantId={currentRid}
+          onMenuItemsChange={handleBulkImport}
+          onMenuItemsAppend={handleBulkAppend}
         />
 
         <div className="p-4 md:p-8 pb-24 md:pb-8 space-y-6 md:space-y-8">

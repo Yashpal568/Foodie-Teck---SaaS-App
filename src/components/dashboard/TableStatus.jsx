@@ -31,47 +31,10 @@ const statusConfig = {
   }
 }
 
+import { useTableSessions } from '@/hooks/useTableSessions'
+
 const TableStatus = ({ restaurantId = 'default' }) => {
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-
-  // Listen for storage changes to update table status in real-time
-  useEffect(() => {
-    const handleStorage = () => setRefreshTrigger(prev => prev + 1)
-    window.addEventListener('storage', handleStorage)
-    window.addEventListener('orderUpdated', handleStorage)
-    window.addEventListener('orderHistoryUpdated', handleStorage)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener('orderUpdated', handleStorage)
-      window.removeEventListener('orderHistoryUpdated', handleStorage)
-    }
-  }, [])
-
-  const { tables, stats } = useMemo(() => {
-    try {
-      const rawSessions = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-      
-      // ISO-LEVEL FILTERING: Ensure only this merchant's tables surface
-      const normalizedId = restaurantId.toString().toLowerCase().trim()
-      const sessions = rawSessions.filter(t => (t.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId)
-      
-      const tablesStats = {
-        occupied: sessions.filter(t => t.status === 'occupied').length,
-        available: sessions.filter(t => t.status === 'available').length,
-        'needs-cleaning': sessions.filter(t => t.status === 'needs-cleaning' || t.needsCleaning).length,
-        reserved: sessions.filter(t => t.status === 'reserved').length,
-        billing: sessions.filter(t => t.status === 'billing').length
-      }
-
-      return { tables: sessions, stats: tablesStats }
-    } catch (e) {
-      console.error('Error loading table sessions:', e)
-      return { 
-        tables: [], 
-        stats: { occupied: 0, available: 0, 'needs-cleaning': 0, reserved: 0, billing: 0 } 
-      }
-    }
-  }, [refreshTrigger, restaurantId])
+  const { tables, stats, loading } = useTableSessions(restaurantId)
 
   return (
     <div className="space-y-6">

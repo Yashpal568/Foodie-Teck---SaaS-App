@@ -1,9 +1,38 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
 
-export const useNotifications = () => {
+export const useNotifications = (restaurantId) => {
+  const [resolvedId, setResolvedId] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
+  const audioRef = useRef(null)
+
+  // Initialize audio for notifications
+  useEffect(() => {
+    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+  }, [])
+
+  // Resolve restaurant ID (Email to UUID)
+  useEffect(() => {
+    async function resolve() {
+      if (!restaurantId || !restaurantId.includes('@')) {
+        setResolvedId(restaurantId)
+        return
+      }
+      
+      const { data } = await supabase
+        .from('restaurants')
+        .select('id')
+        .eq('email', restaurantId.toLowerCase())
+        .single()
+      
+      if (data?.id) {
+        setResolvedId(data.id)
+      }
+    }
+    resolve()
+  }, [restaurantId])
 
   // Load notifications from localStorage on mount
   useEffect(() => {
@@ -28,92 +57,73 @@ export const useNotifications = () => {
     setUnreadCount(prev => prev + 1)
   }, [])
 
-  // Listen for new orders
+  // ── Listen for real-time Supabase Table Events ──
   useEffect(() => {
-    const checkForNewOrders = () => {
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const lastOrderCheck = localStorage.getItem('lastOrderCheck') || '0'
-      
-      const newOrders = orders.filter(order => 
-        new Date(order.createdAt).getTime() > new Date(lastOrderCheck).getTime() && 
-        order.status === 'ORDERED'
+    if (!resolvedId) return
+
+    const channel = supabase
+      .channel(`notifications:rid=${resolvedId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for ALL: insert, update
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${resolvedId}`
+        },
+        (payload) => {
+          console.log('🔔 Notification Triggered:', payload)
+          
+          if (payload.eventType === 'INSERT') {
+             const order = payload.new
+             addNotification({
+               id: `order-${order.id}-${Date.now()}`,
+               type: 'new_order',
+               title: '🔔 New Order Received',
+               message: `Order #${order.id.slice(-6)} from Table ${order.table_number || order.tableNumber}`,
+               orderId: order.id,
+               tableNumber: order.table_number || order.tableNumber,
+               timestamp: new Date().toISOString(),
+               read: false
+             })
+             // Play notification sound
+             audioRef.current?.play().catch(() => {})
+          } else if (payload.eventType === 'UPDATE') {
+             const order = payload.new
+             const oldStatus = payload.old?.status
+             
+             if (order.status !== oldStatus) {
+                const statusConfig = {
+                  'PREPARING': { title: 'Order Started Preparing', icon: '👨‍🍳' },
+                  'READY': { title: 'Order Ready for Pickup', icon: '✅' },
+                  'SERVED': { title: 'Order Served', icon: '🎉' },
+                  'BILL_REQUESTED': { title: 'Bill Requested', icon: '💳' },
+                  'FINISHED': { title: 'Order Completed', icon: '🔚' },
+                  'CANCELLED': { title: 'Order Cancelled', icon: '❌' }
+                }
+
+                const config = statusConfig[order.status]
+                if (config) {
+                  addNotification({
+                    id: `status-${order.id}-${Date.now()}`,
+                    type: 'order_status',
+                    title: `${config.icon} ${config.title}`,
+                    message: `Order #${order.id.slice(-6)} Table ${order.table_number || order.tableNumber} is now ${order.status}`,
+                    orderId: order.id,
+                    timestamp: new Date().toISOString(),
+                    read: false
+                  })
+                }
+             }
+          }
+        }
       )
+      .subscribe()
 
-      if (newOrders.length > 0) {
-        newOrders.forEach(order => {
-          addNotification({
-            id: `order-${order.id}-${Date.now()}`,
-            type: 'new_order',
-            title: '🔔 New Order Received',
-            message: `Order #${order.id.slice(-6)} from Table ${order.tableNumber}`,
-            orderId: order.id,
-            tableNumber: order.tableNumber,
-            timestamp: new Date().toISOString(),
-            read: false
-          })
-        })
-        
-        localStorage.setItem('lastOrderCheck', new Date().toISOString())
-      }
+    return () => {
+      supabase.removeChannel(channel)
     }
-
-    // Check immediately
-    checkForNewOrders()
-
-    // Set up interval to check for new orders
-    const interval = setInterval(checkForNewOrders, 5000) // Check every 5 seconds
-
-    return () => clearInterval(interval)
-  }, [addNotification])
-
-  // Listen for order status changes
-  useEffect(() => {
-    const checkOrderStatusChanges = () => {
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const lastStatusCheck = localStorage.getItem('lastStatusCheck') || '0'
-      
-      const recentOrders = orders.filter(order => {
-        const isRecent = new Date(order.updatedAt).getTime() > new Date(lastStatusCheck).getTime();
-        const isStatusChange = order.updatedAt !== order.createdAt;
-        return isRecent && isStatusChange;
-      })
-
-      if (recentOrders.length > 0) {
-        recentOrders.forEach(order => {
-          const statusConfig = {
-            'PREPARING': { title: 'Order Started Preparing', icon: '👨‍🍳', color: 'orange' },
-            'READY': { title: 'Order Ready for Pickup', icon: '✅', color: 'green' },
-            'SERVED': { title: 'Order Served', icon: '🎉', color: 'purple' },
-            'BILL_REQUESTED': { title: 'Bill Requested', icon: '💳', color: 'yellow' },
-            'FINISHED': { title: 'Order Completed', icon: '🔚', color: 'gray' },
-            'CANCELLED': { title: 'Order Cancelled', icon: '❌', color: 'red' }
-          }
-
-          const config = statusConfig[order.status]
-          if (config) {
-            addNotification({
-              id: `status-${order.id}-${Date.now()}`,
-              type: 'order_status',
-              title: `${config.icon} ${config.title}`,
-              message: `Order #${order.id.slice(-6)} from Table ${order.tableNumber} is now ${order.status.replace('_', ' ')}`,
-              orderId: order.id,
-              tableNumber: order.tableNumber,
-              status: order.status,
-              timestamp: new Date().toISOString(),
-              read: false
-            })
-          }
-        })
-        
-        localStorage.setItem('lastStatusCheck', new Date().toISOString())
-      }
-    }
-
-    // Set up interval to check for status changes
-    const interval = setInterval(checkOrderStatusChanges, 3000) // Check every 3 seconds
-
-    return () => clearInterval(interval)
-  }, [addNotification])
+  }, [resolvedId, addNotification])
 
   const markAsRead = useCallback((id) => {
     setNotifications(prev => 

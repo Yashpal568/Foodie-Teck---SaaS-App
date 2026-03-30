@@ -1,25 +1,17 @@
 import { useState, useEffect } from 'react'
-import { QrCode, Download, Plus, Table, ArrowLeft, Home } from 'lucide-react'
+import { QrCode, Download, Plus, Table, ArrowLeft, Home, Cloud, Check, RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { useNavigate } from 'react-router-dom'
-
-// Convert blob to base64 data URL
-const blobToBase64 = (blob) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
-}
+import { getMyRestaurant, bulkSaveQRCodes, getQRCodes } from '@/lib/api'
 
 // QR Code generator using QRServer API
 const generateQRCode = async (restaurantId, tableNumber) => {
-  const url = `http://localhost:5173/menu?restaurant=${restaurantId}&table=${tableNumber}`
+  const url = `${window.location.origin}/menu?restaurant=${restaurantId}&table=${tableNumber}`
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&format=jpeg&margin=10`
   
   try {
@@ -28,86 +20,56 @@ const generateQRCode = async (restaurantId, tableNumber) => {
     
     const blob = await response.blob()
     const qrImageUrl = URL.createObjectURL(blob)
-    const qrDataUrl = await blobToBase64(blob)
     
     return {
       url,
       qrImageUrl,
-      qrDataUrl, // Store base64 data URL for persistence
-      qrBlob: blob,
       tableNumber,
       restaurantId,
       generatedAt: new Date().toISOString()
     }
   } catch (error) {
     console.error('Error generating QR code:', error)
-    // Fallback to placeholder
-    return {
-      url,
-      qrImageUrl: null,
-      qrDataUrl: null,
-      qrBlob: null,
-      tableNumber,
-      restaurantId,
-      generatedAt: new Date().toISOString()
-    }
+    return { url, qrImageUrl: null, tableNumber, restaurantId, generatedAt: new Date().toISOString() }
   }
-}
-
-// Save QR codes to localStorage
-const saveQRCodesToStorage = (restaurantId, qrCodes) => {
-  try {
-    // Convert QR codes to storable format (exclude blobs, keep data URLs)
-    const storableQRCodes = qrCodes.map(qr => ({
-      url: qr.url,
-      qrDataUrl: qr.qrDataUrl,
-      tableNumber: qr.tableNumber,
-      restaurantId: qr.restaurantId,
-      generatedAt: qr.generatedAt
-    }))
-    
-    const data = {
-      restaurantId,
-      qrCodes: storableQRCodes,
-      savedAt: new Date().toISOString()
-    }
-    localStorage.setItem(`qrCodes_${restaurantId}`, JSON.stringify(data))
-  } catch (error) {
-    console.error('Error saving QR codes:', error)
-  }
-}
-
-// Load QR codes from localStorage
-const loadQRCodesFromStorage = (restaurantId) => {
-  try {
-    const saved = localStorage.getItem(`qrCodes_${restaurantId}`)
-    if (saved) {
-      const data = JSON.parse(saved)
-      return data.qrCodes || []
-    }
-  } catch (error) {
-    console.error('Error loading QR codes:', error)
-  }
-  return []
 }
 
 export default function QRCodePage() {
   const navigate = useNavigate()
   const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-  // Identity Lock: Enforce authenticated session context
-  const [restaurantId] = useState(user.email || 'servora-guest')
   
+  const [restaurantData, setRestaurantData] = useState(null)
   const [tableCount, setTableCount] = useState(10)
   const [qrCodes, setQrCodes] = useState([])
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState('idle') // idle | syncing | success
   const [activeLimit, setActiveLimit] = useState(10)
 
   useEffect(() => {
-     // Security Guard: Prevent unauthorized access to generator
      if (!user.email) {
         navigate('/login')
         return
      }
+
+     const fetchId = async () => {
+        const data = await getMyRestaurant()
+        setRestaurantData(data)
+        
+        // Load existing from cloud
+        if (data) {
+           const existing = await getQRCodes(data.id)
+           if (existing.length > 0) {
+              setQrCodes(existing.map(qr => ({
+                ...qr,
+                qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qr.url)}&format=jpeg&margin=10`,
+                tableNumber: qr.table_number,
+                url: qr.url
+              })))
+           }
+        }
+     }
+     fetchId()
 
      const plan = JSON.parse(localStorage.getItem('servora_plan'))
      if (plan && plan.tableLimit) {
@@ -116,87 +78,58 @@ export default function QRCodePage() {
      }
   }, [navigate])
 
-  // Load QR codes from localStorage on component mount
-  useEffect(() => {
-    const savedQRCodes = loadQRCodesFromStorage(restaurantId)
-    if (savedQRCodes.length > 0) {
-      // Recreate blob URLs from stored data URLs
-      const restoredQRCodes = savedQRCodes.map(qr => ({
-        ...qr,
-        qrImageUrl: qr.qrDataUrl, // Use data URL as image source
-        qrBlob: null // Blob is not needed for display
-      }))
-      setQrCodes(restoredQRCodes)
-    }
-  }, [restaurantId])
-
-  // Save QR codes to localStorage whenever they change
-  useEffect(() => {
-    if (qrCodes.length > 0) {
-      saveQRCodesToStorage(restaurantId, qrCodes)
-    }
-  }, [qrCodes, restaurantId])
-
-  const generateAllQRCodes = async () => {
+  const generateAndSync = async () => {
+    if (!restaurantData) return
     setIsGenerating(true)
+    setSyncStatus('idle')
     try {
       const codes = []
       for (let i = 1; i <= tableCount; i++) {
-        const qrCode = await generateQRCode(restaurantId, i)
+        const qrCode = await generateQRCode(restaurantData.id, i)
         codes.push(qrCode)
       }
       setQrCodes(codes)
-    } catch (error) {
-      console.error('Error generating QR codes:', error)
+      
+      // Auto-sync to cloud
+      await handleSyncToCloud(codes)
     } finally {
       setIsGenerating(false)
     }
   }
 
+  const handleSyncToCloud = async (codesToSync = qrCodes) => {
+    if (!restaurantData || codesToSync.length === 0) return
+    setIsSyncing(true)
+    setSyncStatus('syncing')
+    try {
+      await bulkSaveQRCodes(restaurantData.id, codesToSync)
+      setSyncStatus('success')
+      setTimeout(() => setSyncStatus('idle'), 3000)
+    } catch (err) {
+      console.error('Cloud sync failed:', err)
+      setSyncStatus('idle')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const clearQRCodes = () => {
     setQrCodes([])
-    try {
-      localStorage.removeItem(`qrCodes_${restaurantId}`)
-    } catch (error) {
-      console.error('Error clearing QR codes:', error)
-    }
+    setSyncStatus('idle')
   }
 
   const downloadQRCode = async (qrCode) => {
     try {
-      console.log('Downloading QR code for table:', qrCode.tableNumber)
-      
-      let blob
-      
-      if (qrCode.qrDataUrl) {
-        // Convert data URL back to blob
-        const response = await fetch(qrCode.qrDataUrl)
-        blob = await response.blob()
-      } else if (qrCode.qrBlob) {
-        // Use existing blob
-        blob = qrCode.qrBlob
-      } else {
-        throw new Error('No QR code data available')
-      }
-      
-      // Create download link
+      const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(qrCode.url)}&format=jpeg&margin=10`)
+      const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `qr-table-${qrCode.tableNumber}-${qrCode.restaurantId}.jpeg`
-      a.style.display = 'none'
-      
-      // Trigger download
+      a.download = `qr-table-${qrCode.tableNumber}-${restaurantData?.id.substring(0,8)}.jpeg`
       document.body.appendChild(a)
       a.click()
-      
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-      }, 100)
-      
-      console.log('QR code downloaded successfully')
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Error downloading QR code:', error)
       alert('Failed to download QR code. Please try again.')
@@ -205,17 +138,12 @@ export default function QRCodePage() {
 
   const downloadAllQRCodes = async () => {
     if (qrCodes.length === 0) return
-    
     setIsGenerating(true)
     try {
-      // Create a ZIP file with all QR codes (simplified version)
       for (const qrCode of qrCodes) {
-        downloadQRCode(qrCode)
-        // Small delay between downloads
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await downloadQRCode(qrCode)
+        await new Promise(resolve => setTimeout(resolve, 300))
       }
-    } catch (error) {
-      console.error('Error downloading QR codes:', error)
     } finally {
       setIsGenerating(false)
     }
@@ -223,31 +151,43 @@ export default function QRCodePage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" onClick={() => navigate(`/console/${user.email}`)} className="p-2">
             <Home className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">QR Code Generator</h1>
-            <p className="text-gray-600">Generate QR codes for your restaurant tables</p>
+            <h1 className="text-3xl font-bold text-gray-900 font-black uppercase tracking-tight">QR Studio</h1>
+            <p className="text-slate-500 font-medium text-sm">Generate and sync table sessions to your live floor plan.</p>
           </div>
         </div>
       </div>
 
-      {/* Configuration */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <QrCode className="w-5 h-5" />
-            QR Code Configuration
+      <Card className="border-0 shadow-xl shadow-slate-200/50 rounded-[2rem] overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+          <CardTitle className="text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-blue-600" />
+              <span className="font-black uppercase tracking-widest text-[10px] text-slate-400">Configuration</span>
+            </div>
+            {qrCodes.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleSyncToCloud()} 
+                disabled={isSyncing}
+                className={`transition-all rounded-xl h-9 px-4 border-slate-200 font-bold text-[10px] uppercase tracking-wider ${syncStatus === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : ''}`}
+              >
+                {isSyncing ? <RefreshCw className="w-3 h-3 mr-2 animate-spin" /> : syncStatus === 'success' ? <Check className="w-3 h-3 mr-2" /> : <Cloud className="w-3 h-3 mr-2" />}
+                {isSyncing ? 'Syncing...' : syncStatus === 'success' ? 'Cloud Verified' : 'Force Sync'}
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="tableCount">Number of Tables (Max limit: {activeLimit === 9999 ? 'Unlimited' : activeLimit})</Label>
+        <CardContent className="p-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <Label htmlFor="tableCount" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Table Batch Size</Label>
               <Input
                 id="tableCount"
                 type="number"
@@ -256,100 +196,100 @@ export default function QRCodePage() {
                 value={tableCount}
                 onChange={(e) => setTableCount(Math.min(parseInt(e.target.value) || 1, activeLimit))}
                 disabled={isGenerating}
+                className="h-14 rounded-2xl border-slate-100 bg-slate-50/30 text-lg font-bold"
               />
+              <p className="text-[10px] text-slate-400 font-medium">Your current plan limit is {activeLimit} tables.</p>
             </div>
-            <div>
-              <Label htmlFor="restaurantId">Restaurant ID</Label>
-              <Input
-                id="restaurantId"
-                value={restaurantId}
-                readOnly
-                placeholder="Enter your restaurant ID"
-                disabled={isGenerating}
-                className="bg-slate-50 text-slate-500 font-bold border-dashed cursor-not-allowed uppercase tracking-widest text-[10px]"
-              />
+            <div className="space-y-3">
+              <Label htmlFor="restaurantId" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Merchant Authority</Label>
+              <div className="h-14 bg-slate-100 rounded-2xl flex items-center px-6 border border-slate-200/50">
+                 <span className="text-[10px] font-mono text-slate-500 truncate">{restaurantData?.id || 'IDENTIFYING...'}</span>
+              </div>
             </div>
           </div>
           
           <Button 
-            onClick={generateAllQRCodes} 
-            className="w-full"
-            disabled={isGenerating}
+            onClick={generateAndSync} 
+            className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-[1.25rem] shadow-2xl shadow-blue-200/50 font-black uppercase tracking-[0.2em] text-xs transition-all hover:-translate-y-1 active:scale-[0.98]"
+            disabled={isGenerating || !restaurantData}
           >
             {isGenerating ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full mr-2"></div>
-                Generating QR Codes...
+                <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
+                Initializing Cloud Sessions...
               </>
             ) : (
               <>
-                <QrCode className="w-4 h-4 mr-2" />
-                Generate QR Codes for {tableCount} Tables
+                <QrCode className="w-5 h-5 mr-3" />
+                Generate {tableCount} Table Entries
               </>
             )}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Generated QR Codes */}
       {qrCodes.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-lg">Generated QR Codes ({qrCodes.length})</CardTitle>
-              <div className="flex gap-2">
-                <Button onClick={downloadAllQRCodes} variant="outline">
+        <Card className="border-0 shadow-2xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
+          <CardHeader className="p-8 pb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="space-y-1">
+                 <Badge className="bg-blue-600 text-white rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-widest mb-2">Live Cloud Data</Badge>
+                 <CardTitle className="text-2xl font-black text-slate-900">Digital Floor Plan</CardTitle>
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={downloadAllQRCodes} variant="outline" className="rounded-2xl h-12 px-6 border-slate-200 font-bold text-xs uppercase tracking-wider">
                   <Download className="w-4 h-4 mr-2" />
-                  Download All
+                  Print All
                 </Button>
-                <Button onClick={clearQRCodes} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-                  Clear All
+                <Button onClick={clearQRCodes} variant="ghost" className="rounded-2xl h-12 px-6 text-red-500 hover:bg-red-50 font-bold text-xs uppercase tracking-wider">
+                  <X className="w-4 h-4 mr-2" />
+                  Reset
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <Alert>
-              <AlertDescription>
-                <strong>QR Codes Generated:</strong> Each QR code will open your menu with the correct table number when scanned by customers.
-              </AlertDescription>
+          <CardContent className="p-8">
+            <Alert className="bg-blue-600 text-white border-0 rounded-2xl mb-8 p-6 shadow-xl shadow-blue-200">
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                    <Cloud className="w-6 h-6 text-white" />
+                 </div>
+                 <AlertDescription className="text-sm font-bold tracking-wide">
+                    SUCCESS: All {qrCodes.length} table sessions have been synchronized with your live database. Scans will now be tracked in the Table Hub.
+                 </AlertDescription>
+              </div>
             </Alert>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-4">
               {qrCodes.map((qrCode) => (
-                <Card key={qrCode.tableNumber} className="border-dashed">
-                  <CardContent className="p-4">
-                    <div className="text-center space-y-3">
-                      <div className="w-32 h-32 bg-gray-100 rounded-lg mx-auto flex items-center justify-center overflow-hidden">
+                <Card key={qrCode.tableNumber} className="border-0 shadow-sm ring-1 ring-slate-100 rounded-[2rem] overflow-hidden group hover:ring-blue-600/20 hover:shadow-xl transition-all duration-300">
+                  <CardContent className="p-8">
+                    <div className="text-center space-y-6">
+                      <div className="aspect-square bg-slate-50 rounded-[1.5rem] mx-auto flex items-center justify-center overflow-hidden border border-slate-100 group-hover:bg-white transition-colors p-4">
                         {qrCode.qrImageUrl ? (
                           <img 
                             src={qrCode.qrImageUrl} 
-                            alt={`QR Code for Table ${qrCode.tableNumber}`}
+                            alt={`Table ${qrCode.tableNumber}`}
                             className="w-full h-full object-contain"
                           />
                         ) : (
-                          <div className="text-center">
-                            <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                            <p className="text-xs text-gray-500">QR Code</p>
-                          </div>
+                          <QrCode className="w-12 h-12 text-slate-200" />
                         )}
                       </div>
                       
-                      <div>
-                        <p className="font-medium">Table {qrCode.tableNumber}</p>
-                        <p className="text-xs text-gray-500 truncate">{qrCode.url}</p>
-                        <p className="text-xs text-gray-400">Restaurant: {qrCode.restaurantId}</p>
+                      <div className="space-y-1">
+                        <p className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Registry ID: {qrCode.tableNumber}</p>
+                        <p className="text-[10px] text-slate-400 font-mono truncate px-2 opacity-50">{qrCode.url}</p>
                       </div>
                       
                       <Button 
                         size="sm" 
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => downloadQRCode(qrCode)}
-                        className="w-full"
-                        disabled={!qrCode.qrDataUrl && !qrCode.qrBlob}
+                        className="w-full h-12 rounded-xl bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-900 font-black text-[10px] uppercase tracking-widest border-0 transition-all shadow-none group-hover:shadow-lg group-hover:shadow-blue-200"
                       >
-                        <Download className="w-3 h-3 mr-1" />
-                        Download JPEG
+                        <Download className="w-3.5 h-3.5 mr-2" />
+                        Get Tag
                       </Button>
                     </div>
                   </CardContent>
@@ -360,17 +300,25 @@ export default function QRCodePage() {
         </Card>
       )}
 
-      {/* Instructions */}
-      <Alert>
-        <AlertDescription>
-          <strong>How to use QR codes:</strong><br />
-          1. Generate QR codes for each table<br />
-          2. Download and print the QR codes<br />
-          3. Place them on each table<br />
-          4. Customers scan to view your menu<br />
-          5. Each QR code opens the menu with the correct table number
-        </AlertDescription>
-      </Alert>
+      <div className="bg-slate-900 rounded-[3rem] p-12 text-white">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+              <div className="space-y-4">
+                 <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center font-black text-sm">1</div>
+                 <h4 className="font-black uppercase tracking-widest text-[10px] text-blue-400">Initialize</h4>
+                 <p className="text-sm font-medium text-slate-400 leading-relaxed">Tables are instantly registered to your Cloud Dashboard across all devices with zero configuration.</p>
+              </div>
+              <div className="space-y-4">
+                 <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center font-black text-sm">2</div>
+                 <h4 className="font-black uppercase tracking-widest text-[10px] text-emerald-400">Deploy</h4>
+                 <p className="text-sm font-medium text-slate-400 leading-relaxed">Download high-definition table tags. Print and place them securely for customer scanned access.</p>
+              </div>
+              <div className="space-y-4">
+                 <div className="w-10 h-10 rounded-2xl bg-purple-600 flex items-center justify-center font-black text-sm">3</div>
+                 <h4 className="font-black uppercase tracking-widest text-[10px] text-purple-400">Monitor</h4>
+                 <p className="text-sm font-medium text-slate-400 leading-relaxed">Watch sessions go live in your Table Hub as soon as a customer scanned the QR code.</p>
+              </div>
+          </div>
+      </div>
     </div>
   )
 }

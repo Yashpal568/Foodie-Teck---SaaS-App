@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import Logo from '@/components/ui/Logo'
 import { saveAndClearWorkspace } from '@/utils/workspace'
+import { supabase } from '@/lib/supabase'
 
 export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
@@ -34,33 +35,104 @@ export const supportItems = [
   { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' },
 ]
 
-export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed, isMobile = false }) {
+export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed, isMobile = false, restaurantId }) {
   const navigate = useNavigate()
   const [counts, setCounts] = useState({ orders: 0, tables: 0 })
 
+  const [resolvedId, setResolvedId] = useState(null)
+  
+  // Resolve Identity (Email to UUID)
   useEffect(() => {
-    const updateCounts = () => {
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const activeOrders = orders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
+    async function resolve() {
+      if (!restaurantId) return
+      if (!restaurantId.includes('@')) {
+        setResolvedId(restaurantId)
+        return
+      }
       
-      const tables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-      const activeTables = tables.filter(t => t.status === 'occupied' || t.status === 'billing')
+      const { data } = await supabase
+        .from('restaurants')
+        .select('id')
+        .eq('email', restaurantId.toLowerCase())
+        .single()
       
+      if (data?.id) {
+        setResolvedId(data.id)
+      }
+    }
+    resolve()
+  }, [restaurantId])
+
+  useEffect(() => {
+    if (!resolvedId) return
+
+    const fetchActiveCounts = async () => {
+      // 1. Fetch Orders count (Pending & Preparing)
+      const { count: orderCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('restaurant_id', resolvedId)
+        .in('status', ['PENDING', 'PREPARING'])
+
+      // 2. Fetch Active Tables count
+      const { count: tableCount } = await supabase
+        .from('table_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('restaurant_id', resolvedId)
+        .in('status', ['occupied', 'billing'])
+
+      // 3. Fetch Active Waiter Calls count
+      const { count: waiterCount } = await supabase
+        .from('waiter_calls')
+        .select('*', { count: 'exact', head: true })
+        .eq('restaurant_id', resolvedId)
+        .eq('is_handled', false)
+
       setCounts({
-        orders: activeOrders.length,
-        tables: activeTables.length
+        orders: (orderCount || 0) + (waiterCount || 0), // Include service requests in the orders alert
+        tables: tableCount || 0
       })
     }
 
-    updateCounts()
-    window.addEventListener('storage', updateCounts)
-    window.addEventListener('orderUpdated', updateCounts)
-    
+    fetchActiveCounts()
+
+    // 🏆 Subscribe to Real-time Changes
+    const orderChannel = supabase
+      .channel('sidebar-orders')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'orders',
+        filter: `restaurant_id=eq.${resolvedId}`
+      }, () => fetchActiveCounts())
+      .subscribe()
+
+    const tableChannel = supabase
+      .channel('sidebar-tables')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'table_sessions',
+        filter: `restaurant_id=eq.${resolvedId}`
+      }, () => fetchActiveCounts())
+      .subscribe()
+
+    const waiterChannel = supabase
+      .channel('sidebar-waiter')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'waiter_calls',
+        filter: `restaurant_id=eq.${resolvedId}`
+      }, () => fetchActiveCounts())
+      .subscribe()
+
     return () => {
-      window.removeEventListener('storage', updateCounts)
-      window.removeEventListener('orderUpdated', updateCounts)
+      supabase.removeChannel(orderChannel)
+      supabase.removeChannel(tableChannel)
+      supabase.removeChannel(waiterChannel)
     }
-  }, [])
+  }, [resolvedId])
 
   const handleNavigation = (item) => {
     setActiveItem(item.id)

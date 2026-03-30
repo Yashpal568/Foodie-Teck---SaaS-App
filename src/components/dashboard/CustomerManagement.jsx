@@ -23,8 +23,9 @@ import {
   Activity,
   CreditCard,
   PieChart as PieIcon,
-  RefreshCw
+  RefreshCw 
 } from 'lucide-react'
+import { useOrderManagement } from '@/hooks/useOrderManagement'
 import CustomerMobileNavbar from './CustomerMobileNavbar'
 import PremiumLock from './PremiumLock'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -82,46 +83,55 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
   const [showReport, setShowReport] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  
+  // Real-time Cloud Sync
+  const { orderHistory, loading: ordersLoading, refreshOrders } = useOrderManagement(restaurantId)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // Dynamic Data Calculation
+  // Dynamic Data Calculation (Derived from Cloud orderHistory)
   const { customers, chartData, stats } = useMemo(() => {
-    const rawOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const rawHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
+    // If we have no history yet, return empty
+    if (!orderHistory || orderHistory.length === 0) {
+      return { customers: [], chartData: [], stats: { total: 0, vip: 0, new: 0, retention: "0.0", revenue: 0 } }
+    }
     
-    // ISO-LEVEL FILTERING: Ensure only this merchant's customers surface
-    const orders = rawOrders.filter(o => o.restaurantId === restaurantId)
-    const orderHistory = rawHistory.filter(o => o.restaurantId === restaurantId)
-    
-    // Deduplicate orders by ID to prevent double counting between current orders and history
-    const allOrdersMap = {}
-    ;[...orders, ...orderHistory].forEach(order => {
-      if (order?.id && !allOrdersMap[order.id]) {
-        allOrdersMap[order.id] = order
+    // 1. First, find individual customer acquisition dates (first order date)
+    const firstOrders = {}
+    orderHistory.forEach(order => {
+      const name = order.customerName || 'Guest Customer'
+      const dateRaw = order.createdAt || order.created_at
+      if (!dateRaw) return
+      
+      const d = new Date(dateRaw)
+      if (!firstOrders[name] || d < new Date(firstOrders[name])) {
+        firstOrders[name] = dateRaw
       }
     })
-    const allOrders = Object.values(allOrdersMap)
+
+    // 2. Count signups per day using normalized format
+    const dailySignups = {}
+    Object.values(firstOrders).forEach(dateRaw => {
+      const dateObj = new Date(dateRaw)
+      const dateKey = dateObj.toISOString().split('T')[0] // YYYY-MM-DD
+      dailySignups[dateKey] = (dailySignups[dateKey] || 0) + 1
+    })
 
     const customerMap = {}
-    const dailySignups = {}
-
-    allOrders.forEach(order => {
+    orderHistory.forEach(order => {
       const name = order.customerName || 'Guest Customer'
-      const date = new Date(order.createdAt).toLocaleDateString()
+      const dateRaw = order.createdAt || order.created_at
+      if (!dateRaw) return
       
-      // Tracking Growth Chart
-      dailySignups[date] = (dailySignups[date] || 0) + (customerMap[name] ? 0 : 1)
-
       if (!customerMap[name]) {
         customerMap[name] = {
           name,
           visits: 0,
           totalSpent: 0,
-          lastVisit: order.createdAt,
-          firstVisit: order.createdAt,
+          lastVisit: dateRaw,
+          firstVisit: dateRaw,
           email: name.toLowerCase().replace(' ', '.') + '@example.com',
           phone: '+91 9' + Math.floor(100000000 + Math.random() * 900000000),
           orders: [],
@@ -129,10 +139,10 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
         }
       }
       customerMap[name].visits += 1
-      customerMap[name].totalSpent += (order.total || order.revenue || 0)
+      customerMap[name].totalSpent += (order.total || 0)
       customerMap[name].orders.push(order)
-      if (new Date(order.createdAt) > new Date(customerMap[name].lastVisit)) {
-        customerMap[name].lastVisit = order.createdAt
+      if (new Date(dateRaw) > new Date(customerMap[name].lastVisit)) {
+        customerMap[name].lastVisit = dateRaw
       }
     })
 
@@ -155,14 +165,14 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
-      const dateStr = d.toLocaleDateString()
+      const dateKey = d.toISOString().split('T')[0]
+      const displayDate = d.toLocaleDateString()
+      
       last7Days.push({
-        date: dateStr,
-        count: dailySignups[dateStr] || 0
+        date: displayDate,
+        count: dailySignups[dateKey] || 0
       })
     }
-    
-    const cData = last7Days
     
     const retentionRate = customerList.length > 0 
         ? (customerList.filter(c => c.visits > 1).length / customerList.length) * 100 
@@ -170,7 +180,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
     
     return { 
         customers: customerList,
-        chartData: cData,
+        chartData: last7Days,
         stats: {
             total: customerList.length,
             vip: customerList.filter(c => c.tag === 'VIP').length,
@@ -179,7 +189,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
             revenue: customerList.reduce((sum, c) => sum + c.totalSpent, 0)
         }
     }
-  }, [])
+  }, [orderHistory])
 
   const filteredCustomers = customers.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -603,6 +613,17 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
       </div>
     </div>
   )
+
+  if (ordersLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 w-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-10 h-10 text-teal-600 animate-spin" />
+          <p className="font-bold text-slate-500 uppercase tracking-widest text-xs">Synchronizing Database...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 w-full pb-32 lg:pb-12 relative overflow-hidden">

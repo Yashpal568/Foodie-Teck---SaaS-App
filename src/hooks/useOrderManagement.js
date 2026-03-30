@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { supabase } from '@/lib/supabase'
+import { 
+  fetchOrders, 
+  createOrder as apiCreateOrder, 
+  updateOrderStatus as apiUpdateStatus 
+} from '@/lib/api'
 
 // Order status constants
 export const ORDER_STATUS = {
+  PENDING: 'PENDING',
   ORDERED: 'ORDERED',
   PREPARING: 'PREPARING',
   READY: 'READY',
@@ -13,6 +20,12 @@ export const ORDER_STATUS = {
 
 // Order status colors and icons
 export const ORDER_STATUS_CONFIG = {
+  [ORDER_STATUS.PENDING]: {
+    color: 'bg-slate-100 text-slate-800',
+    icon: '⏳',
+    label: 'Pending',
+    description: 'We have received your order'
+  },
   [ORDER_STATUS.ORDERED]: {
     color: 'bg-blue-100 text-blue-800',
     icon: '📝',
@@ -57,301 +70,168 @@ export const ORDER_STATUS_CONFIG = {
   }
 }
 
-// Save orders to localStorage with pruning for QuotaExceededError
-const saveOrders = (orders) => {
-  try {
-    localStorage.setItem('orders', JSON.stringify(orders))
-  } catch (error) {
-    if (error.name === 'QuotaExceededError') {
-      console.warn('LocalStorage quota exceeded. Pruning old orders...')
-      // Prune: Keep only the most recent 50 orders
-      // Prefer keeping active orders over FINISHED/CANCELLED
-      const sortedOrders = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      const activeOrders = sortedOrders.filter(o =>
-        ![ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(o.status)
-      )
-      const historicalOrders = sortedOrders.filter(o =>
-        [ORDER_STATUS.FINISHED, ORDER_STATUS.CANCELLED].includes(o.status)
-      )
 
-      // Keep all active, but limit historical to fill up to 50 total
-      const prunedOrders = [...activeOrders, ...historicalOrders.slice(0, Math.max(0, 50 - activeOrders.length))]
-
-      try {
-        localStorage.setItem('orders', JSON.stringify(prunedOrders))
-        console.log(`Pruned orders from ${orders.length} to ${prunedOrders.length}`)
-      } catch (retryError) {
-        console.error('Pruning failed to resolve QuotaExceededError:', retryError)
-      }
-    } else {
-      console.error('Error saving orders:', error)
-    }
-  }
-}
-
-// Load orders from localStorage
-const loadOrders = () => {
-  try {
-    const saved = localStorage.getItem('orders')
-    return saved ? JSON.parse(saved) : []
-  } catch (error) {
-    console.error('Error loading orders:', error)
-    return []
-  }
-}
-
-// Generate unique order ID - Short & Unique for UI readability
-const generateOrderId = () => {
-  const stamp = Date.now().toString().slice(-6)
-  const random = Math.random().toString(36).substring(2, 5).toUpperCase()
-  return `ORD-${stamp}-${random}`
-}
-
-// Create new order
-const createOrder = (orderData) => {
-  const order = {
-    id: generateOrderId(),
-    ...orderData,
-    restaurantId: (orderData.restaurantId || 'default').toString().toLowerCase().trim(),
-    status: ORDER_STATUS.ORDERED,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    statusHistory: [
-      {
-        status: ORDER_STATUS.ORDERED,
-        timestamp: new Date().toISOString(),
-        note: 'Order placed'
-      }
-    ]
-  }
-
-  const orders = loadOrders()
-  orders.push(order)
-  saveOrders(orders)
-
-  return order
-}
-
-// Check if a daily reset is needed
-const checkDailyReset = () => {
-  try {
-    const lastReset = localStorage.getItem('lastAnalyticsReset')
-    const today = new Date().toLocaleDateString('en-CA')
-
-    if (!lastReset || lastReset !== today) {
-      localStorage.setItem('totalRevenue', '0')
-      const savedAnalytics = localStorage.getItem('menuAnalytics')
-      if (savedAnalytics) {
-        const analytics = JSON.parse(savedAnalytics)
-        analytics.totalOrders = 0
-        analytics.totalViews = 0
-        localStorage.setItem('menuAnalytics', JSON.stringify(analytics))
-      }
-      localStorage.setItem('lastAnalyticsReset', today)
-      return true
-    }
-    return false
-  } catch (error) {
-    console.error('Error checking daily reset:', error)
-    return false
-  }
-}
-
-// Update analytics data when an order is finished
-const updateAnalytics = (order) => {
-  try {
-    checkDailyReset()
-    // Update totalRevenue
-    const currentRevenue = parseFloat(localStorage.getItem('totalRevenue') || '0')
-    localStorage.setItem('totalRevenue', (currentRevenue + order.total).toString())
-
-    // Update orderHistory with pruning (keep last 100)
-    const savedOrderHistory = localStorage.getItem('orderHistory')
-    let orderHistory = savedOrderHistory ? JSON.parse(savedOrderHistory) : []
-    orderHistory.unshift({
-      ...order,
-      completedAt: new Date().toISOString(),
-      revenue: order.total
-    })
-
-    // Limit to 100 entries to save space
-    if (orderHistory.length > 100) {
-      orderHistory = orderHistory.slice(0, 100)
-    }
-
-    localStorage.setItem('orderHistory', JSON.stringify(orderHistory))
-
-    // Update menuAnalytics
-    const savedAnalytics = localStorage.getItem('menuAnalytics')
-    const analytics = savedAnalytics ? JSON.parse(savedAnalytics) : {
-      itemViews: {},
-      itemOrders: {},
-      totalViews: 0,
-      totalOrders: 0
-    }
-
-    analytics.totalOrders = (analytics.totalOrders || 0) + 1
-    order.items.forEach(item => {
-      analytics.itemOrders[item._id] = (analytics.itemOrders[item._id] || 0) + 1
-    })
-
-    localStorage.setItem('menuAnalytics', JSON.stringify(analytics))
-
-    // Dispatch storage event manually for same-tab updates
-    window.dispatchEvent(new Event('storage'))
-  } catch (error) {
-    console.error('Error updating analytics:', error)
-  }
-}
-
-// Update order status
-const updateOrderStatus = (orderId, newStatus, note = '') => {
-  const orders = loadOrders()
-  const orderIndex = orders.findIndex(order => order.id === orderId)
-
-  if (orderIndex !== -1) {
-    const oldStatus = orders[orderIndex].status
-    orders[orderIndex].status = newStatus
-    orders[orderIndex].updatedAt = new Date().toISOString()
-    orders[orderIndex].statusHistory.push({
-      status: newStatus,
-      timestamp: new Date().toISOString(),
-      note: note || `Status changed to ${newStatus}`
-    })
-
-    // Update analytics if the order is newly finished
-    if (newStatus === ORDER_STATUS.FINISHED && oldStatus !== ORDER_STATUS.FINISHED) {
-      updateAnalytics(orders[orderIndex])
-      // Remove finished orders from active orders list
-      orders.splice(orderIndex, 1)
-    } else if (newStatus === ORDER_STATUS.CANCELLED) {
-      // Also remove cancelled orders from active list
-      orders.splice(orderIndex, 1)
-    }
-
-    saveOrders(orders)
-    return orders[orderIndex] || null
-  }
-
-  return null
-}
-
-// Get orders by restaurant
-const getOrdersByRestaurant = (restaurantId) => {
-  const orders = loadOrders()
-  const normalizedId = (restaurantId || 'default').toString().toLowerCase().trim()
-  return orders.filter(order => {
-    const orderRid = (order.restaurantId || 'default').toString().toLowerCase().trim()
-    return orderRid === normalizedId
-  })
-}
-
-// Get TOTAL order volume (Active + History) for persistent telemetry
-export const getTotalOrderVolume = (restaurantId) => {
-  const normalizedId = (restaurantId || 'default').toString().toLowerCase().trim()
-  const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-  const history = JSON.parse(localStorage.getItem('orderHistory') || '[]')
-  
-  const activeCount = orders.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId).length
-  const historyCount = history.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId).length
-  
-  return activeCount + historyCount
-}
-
-// Get orders by table
-const getOrdersByTable = (restaurantId, tableNumber) => {
-  const orders = loadOrders()
-  return orders.filter(order =>
-    order.restaurantId === restaurantId &&
-    order.tableNumber === tableNumber &&
-    order.status !== ORDER_STATUS.SERVED &&
-    order.status !== ORDER_STATUS.CANCELLED
-  )
-}
-
-// Get order by ID
-const getOrderById = (orderId) => {
-  const orders = loadOrders()
-  return orders.find(order => order.id === orderId)
-}
-
-// Custom hook for order management
+// Custom hook for order management (SUPABASE POWERED)
 export const useOrderManagement = (restaurantId) => {
+  const [resolvedId, setResolvedId] = useState(null)
   const [orders, setOrders] = useState([])
   const [orderHistory, setOrderHistory] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  // Load orders
-  const refreshOrders = useCallback(() => {
-    setLoading(true)
+  // ── Sync: Resolve Restaurant Identity ──
+  useEffect(() => {
+    let isMounted = true
+    async function resolve() {
+      if (!restaurantId) {
+        if (isMounted) setLoading(false)
+        return
+      }
+      
+      try {
+        // If it looks like an email, we need to resolve the UUID from DB
+        if (restaurantId.includes('@')) {
+          const { data, error } = await supabase
+            .from('restaurants')
+            .select('id')
+            .eq('email', restaurantId.toLowerCase())
+            .single()
+          
+          if (isMounted) {
+            if (data?.id) {
+              setResolvedId(data.id)
+            } else {
+              setLoading(false) // No restaurant found, stop loading
+            }
+          }
+        } else {
+          // Already a UUID or some other ID format
+          if (isMounted) {
+            setResolvedId(restaurantId)
+          }
+        }
+      } catch (err) {
+        console.error('Identity resolution failed:', err)
+        if (isMounted) setLoading(false)
+      }
+    }
+    resolve()
+    return () => { isMounted = false }
+  }, [restaurantId])
+
+  // ── 1. Fetch Orders from Database ──
+  const refreshOrders = useCallback(async (showLoading = true) => {
+    const idToUse = resolvedId || (!restaurantId?.includes('@') ? restaurantId : null)
+    if (!idToUse) return
+    
+    if (showLoading) setLoading(true)
     try {
-      const restaurantOrders = getOrdersByRestaurant(restaurantId)
-      setOrders(restaurantOrders)
-
-      // Load History
-      const allHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
-      const normalizedId = (restaurantId || 'default').toString().toLowerCase().trim()
-      const filteredHistory = allHistory.filter(order => 
-        (order.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId
+      const resp = await fetchOrders(idToUse)
+      const allOrders = (resp || []).map(o => ({
+        ...o,
+        id: o.id,
+        tableNumber: o.table_number || o.tableNumber,
+        customerName: o.customer_name || o.customerName || 'Guest',
+        items: o.order_items || o.items || [],
+        total: o.total || 0,
+        status: o.status || 'PENDING',
+        createdAt: o.created_at,
+        statusHistory: o.status_history || o.statusHistory || [
+          { status: o.status || 'PENDING', timestamp: o.created_at, note: 'Order received' }
+        ]
+      }))
+      
+      // Separate Active vs History
+      const active = allOrders.filter(o => 
+        !['FINISHED', 'CANCELLED'].includes(o.status)
       )
-      setOrderHistory(filteredHistory)
-
+      const history = allOrders.filter(o => 
+        ['FINISHED', 'CANCELLED'].includes(o.status)
+      )
+      
+      setOrders(active)
+      setOrderHistory(history)
     } catch (error) {
       console.error('Error loading orders:', error)
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
     }
-  }, [restaurantId])
+  }, [restaurantId, resolvedId])
 
-  // Initial load
+  // ── 2. Real-time Subscription ──
   useEffect(() => {
-    refreshOrders()
-  }, [refreshOrders])
+    const effectiveSubscriptionId = resolvedId || (!restaurantId?.includes('@') ? restaurantId : null)
+    
+    if (!effectiveSubscriptionId) return
 
-  // Listen for storage changes
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'orders' || e.key === 'orderHistory' || !e.key) {
-        refreshOrders()
-      }
-    }
+    console.log(`📡 Initializing Real-time Sub for: ${effectiveSubscriptionId}`)
+    refreshOrders(true)
 
-    window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('orderUpdated', refreshOrders)
-    window.addEventListener('orderHistoryUpdated', refreshOrders)
+    // Listen for real-time changes to the 'orders' table
+    const channel = supabase
+      .channel(`public:orders:rid=${effectiveSubscriptionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', 
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${effectiveSubscriptionId}`
+        },
+        (payload) => {
+          console.log('🔔 Live Order Event:', payload)
+          refreshOrders(false) // BACKGROUND REFRESH (NO LOADING SPINNER)
+        }
+      )
+      .subscribe()
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('orderUpdated', refreshOrders)
-      window.removeEventListener('orderHistoryUpdated', refreshOrders)
+      supabase.removeChannel(channel)
     }
-  }, [refreshOrders])
+  }, [resolvedId, restaurantId, refreshOrders])
 
-  // Create order
-  const createNewOrder = (orderData) => {
-    const order = createOrder({
-      ...orderData,
-      restaurantId
-    })
-    
-    // Manual event dispatching to ensure ALL components catch this immediately
-    window.dispatchEvent(new Event('storage'))
-    window.dispatchEvent(new Event('orderUpdated'))
-    
-    refreshOrders()
-    return order
+  // ── 3. Create Order via DB ──
+  const createNewOrder = async (orderData) => {
+    try {
+      const order = await apiCreateOrder({
+        ...orderData,
+        restaurantId: resolvedId || restaurantId
+      })
+      return order
+    } catch (e) {
+      console.error('Order creation failed:', e)
+      throw e
+    }
   }
 
-  // Update status
-  const updateStatus = (orderId, newStatus, note) => {
-    const updatedOrder = updateOrderStatus(orderId, newStatus, note)
-    refreshOrders()
-    // If order was moved to history, notify others
-    if (newStatus === ORDER_STATUS.FINISHED || newStatus === ORDER_STATUS.CANCELLED) {
-       window.dispatchEvent(new Event('orderHistoryUpdated'))
+  // ── 4. Update Status via DB – WITH OPTIMISTIC UPDATES ──
+  const updateStatus = async (orderId, newStatus) => {
+    // 1. Optimistic Update (Immediate UI feedback)
+    setOrders(prev => prev.map(o => 
+      o.id === orderId ? { ...o, status: newStatus } : o
+    ))
+
+    try {
+      const updated = await apiUpdateStatus(orderId, newStatus)
+      // 2. Trigger a full refresh SILENTLY to ensure we are in sync
+      await refreshOrders(false)
+      return updated
+    } catch (e) {
+      console.error('Status update failed, rolling back:', e)
+      // 3. Rollback on failure SILENTLY
+      refreshOrders(false)
+      throw e
     }
-    return updatedOrder
   }
+
+  // ── 5. Analytics Helper (Stats) ──
+  const stats = useMemo(() => {
+    const totalRevenue = orderHistory.reduce((sum, o) => sum + (o.total || 0), 0)
+    return {
+      totalRevenue,
+      activeOrders: orders.length,
+      historyCount: orderHistory.length
+    }
+  }, [orders, orderHistory])
 
   return {
     orders,
@@ -360,8 +240,9 @@ export const useOrderManagement = (restaurantId) => {
     refreshOrders,
     createOrder: createNewOrder,
     updateStatus,
-    getOrdersByTable: (tableNumber) => getOrdersByTable(restaurantId, tableNumber),
-    getOrderById
+    stats,
+    // Helper to get orders for a specific table
+    getOrdersByTable: (tableNumber) => orders.filter(o => o.table_number === String(tableNumber))
   }
 }
 

@@ -41,20 +41,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import SettingsMobileNavbar from './SettingsMobileNavbar'
 import { saveAndClearWorkspace } from '@/utils/workspace'
-export default function Settings({ activeItem, setActiveItem, navigate }) {
+import { 
+  fetchGstSettings, 
+  saveGstSettings, 
+  getCachedRestaurantId,
+  getMyRestaurant,
+  updateRestaurantProfile,
+  supabase
+} from '@/lib/api'
+export default function Settings({ activeItem, setActiveItem, navigate, restaurantId }) {
   const profileRef = useRef(null)
   const coverRef = useRef(null)
 
   const [isSaving, setIsSaving] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTabState] = useState('profile')
 
   // Data States
   const [profileData, setProfileData] = useState({
-    name: 'Fetching Data...',
+    name: '',
     email: '',
     phone: '',
-    department: '',
+    address: '',
+    description: '',
     avatar: '',
     cover: ''
   })
@@ -97,60 +107,62 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
     cvv: ''
   })
 
-  // Hydration: Restore Identity, Alert, Security, Billing, and GST Preferences
+  // Load Configuration from Supabase
+  const loadCloudConfig = async () => {
+    try {
+      setLoading(true)
+      const restaurant = await getMyRestaurant()
+      if (restaurant) {
+        setProfileData({
+          name: restaurant.business_name || '',
+          email: restaurant.email || '',
+          phone: restaurant.phone || '',
+          address: restaurant.address || '',
+          description: restaurant.description || '',
+          avatar: restaurant.logo_url || '',
+          cover: restaurant.cover_url || ''
+        })
+
+        // Hydrate GST
+        const gst = await fetchGstSettings(restaurant.id)
+        if (gst) {
+          setGstData({
+            enabled: gst.enabled,
+            rate: (gst.rate || 0).toString(),
+            label: gst.label || 'GST'
+          })
+        }
+
+        // Hydrate Plan (from subscriptions relation if exists, fallback to localStorage cache)
+        const sub = restaurant.subscriptions?.[0]
+        if (sub) {
+          setBillingData(prev => ({
+            ...prev,
+            plan: sub.plan_name,
+            price: sub.price.toLocaleString()
+          }))
+        } else {
+          // Fallback to local cache for plan if not in DB yet
+          const activePlan = JSON.parse(localStorage.getItem('servora_plan') || '{}')
+          if (activePlan.name) {
+            setBillingData(prev => ({
+              ...prev,
+              plan: activePlan.name,
+              price: activePlan.price.toLocaleString()
+            }))
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load settings:', err)
+      showToast('Synchronization error: Cloud unavailable.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const savedProfile = localStorage.getItem('userProfile')
-    const savedNotifications = localStorage.getItem('userNotifications')
-    const savedSecurity = localStorage.getItem('userSecurity')
-    const savedBilling = localStorage.getItem('userBilling')
-    const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
-    const activePlan = JSON.parse(localStorage.getItem('servora_plan') || '{}')
-    
-    // Identity Hydration
-    if (savedProfile) {
-      setProfileData(prev => ({...prev, ...JSON.parse(savedProfile)}))
-    } else if (authUser && authUser.email) {
-      setProfileData(prev => ({
-        ...prev,
-        name: authUser.businessName || authUser.name || 'Merchant Administrator',
-        email: authUser.email,
-        phone: authUser.phone || '+1 (555) 000-0000',
-        department: 'Restaurant Management'
-      }))
-    } else {
-      setProfileData(prev => ({
-        ...prev,
-        name: 'John Doe',
-        email: 'restaurant_admin@foodie.tech',
-        phone: '+1 (555) 000-0000',
-        department: 'Administration'
-      }))
-    }
-
-    if (savedNotifications) {
-      setNotifications(prev => ({...prev, ...JSON.parse(savedNotifications)}))
-    }
-    if (savedSecurity) {
-      setSecurityData(prev => ({...prev, ...JSON.parse(savedSecurity)}))
-    }
-
-    // Billing Hydration
-    if (savedBilling) {
-      setBillingData(prev => ({...prev, ...JSON.parse(savedBilling)}))
-    } else if (activePlan && activePlan.name) {
-      setBillingData(prev => ({
-         ...prev,
-         plan: activePlan.name,
-         price: activePlan.price.toLocaleString()
-      }))
-    }
-
-    // GST Hydration — scoped to authenticated user
-    const gstKey = `servora_db_gst_${authUser.email || 'guest'}`
-    const savedGst = localStorage.getItem(gstKey)
-    if (savedGst) {
-      setGstData(JSON.parse(savedGst))
-    }
+    loadCloudConfig()
   }, [])
 
   const [notifications, setNotifications] = useState({
@@ -179,24 +191,39 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
 
   const handleSave = async () => {
     setIsSaving(true)
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    const restaurantId = getCachedRestaurantId()
     
-    // Persist to Nexus Storage
-    localStorage.setItem('userProfile', JSON.stringify(profileData))
-    localStorage.setItem('userNotifications', JSON.stringify(notifications))
-    localStorage.setItem('userSecurity', JSON.stringify(securityData))
-    localStorage.setItem('userBilling', JSON.stringify(billingData))
+    try {
+      if (restaurantId) {
+        // 1. Update Profile in Supabase
+        await updateRestaurantProfile(restaurantId, {
+          name: profileData.name,
+          phone: profileData.phone,
+          address: profileData.address,
+          description: profileData.description,
+          avatar: profileData.avatar,
+          cover: profileData.cover
+        })
 
-    // Persist GST config — scoped to authenticated user
-    const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
-    const gstKey = `servora_db_gst_${authUser.email || 'guest'}`
-    localStorage.setItem(gstKey, JSON.stringify(gstData))
-    
-    // Trigger architectural broadcast for global UI synchronization
-    window.dispatchEvent(new Event('storage'))
-    
-    setIsSaving(false)
-    showToast('Dashboard configurations successfully synchronized to Nexus Storage.', 'success')
+        // 2. Update GST in Supabase
+        await saveGstSettings(restaurantId, gstData)
+
+        // 3. Optional: Sync local storage for faster UI identity
+        const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+        localStorage.setItem('servora_user', JSON.stringify({
+          ...user,
+          businessName: profileData.name,
+          phone: profileData.phone
+        }))
+
+        showToast('Settings successfully synchronized to Supabase Cloud.', 'success')
+      }
+    } catch (err) {
+      console.error('Save failed:', err)
+      showToast('Synchronization failed: Cloud database update error.', 'error')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleDiscard = () => {
@@ -486,8 +513,8 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
                           {profileData.email}
                         </div>
                         <div className="flex items-center gap-3 text-slate-500 font-bold text-[11px] uppercase tracking-wider bg-slate-50/80 backdrop-blur-sm px-5 py-3 rounded-2xl border border-slate-100/50 shadow-sm">
-                          <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                          {profileData.department}
+                          <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                          {profileData.address || 'Address not set'}
                         </div>
                       </div>
                     </div>
@@ -538,13 +565,24 @@ export default function Settings({ activeItem, setActiveItem, navigate }) {
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between px-2">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Organizational Tier</Label>
-                        <Building2 className="w-3 h-3 text-indigo-500 opacity-40" />
+                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Restaurant Description</Label>
+                        <Info className="w-3 h-3 text-indigo-500 opacity-40" />
                       </div>
                       <Input 
-                        value={profileData.department} 
-                        onChange={(e) => setProfileData({...profileData, department: e.target.value})}
+                        value={profileData.description} 
+                        onChange={(e) => setProfileData({...profileData, description: e.target.value})}
                         className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-indigo-500/50" 
+                      />
+                    </div>
+                    <div className="space-y-3 md:col-span-2">
+                      <div className="flex items-center justify-between px-2">
+                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Physical Address</Label>
+                        <MapPin className="w-3 h-3 text-blue-500 opacity-40" />
+                      </div>
+                      <Input 
+                        value={profileData.address} 
+                        onChange={(e) => setProfileData({...profileData, address: e.target.value})}
+                        className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-blue-500/50" 
                       />
                     </div>
                   </div>

@@ -18,49 +18,13 @@ import Sidebar from '../layout/Sidebar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 
-// ─── Ticket Helpers (localStorage) ───────────────────────────────────────────
-const TICKETS_KEY = 'servora_db_tickets'
+import { 
+  fetchTickets, 
+  createTicket as createCloudTicket,
+  addTicketReply as addCloudReply 
+} from '@/lib/api'
 
-const generateTicketId = () => {
-  const prefix = 'TCK'
-  const ts = Date.now().toString(10)
-  return `${prefix}-${ts}`
-}
-
-const loadTickets = () => {
-  try {
-    return JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]')
-  } catch { return [] }
-}
-
-const saveTickets = (tickets) => {
-  localStorage.setItem(TICKETS_KEY, JSON.stringify(tickets))
-  window.dispatchEvent(new Event('ticketsUpdated'))
-}
-
-const createTicket = ({ name, email, subject, message }) => {
-  const tickets = loadTickets()
-  const ticket = {
-    id: generateTicketId(),
-    name,
-    businessName: name, // For Admin Compatibility
-    email,
-    restaurantId: email, // For Admin Identity Check
-    subject,
-    message,
-    description: message, // For Admin Compatibility
-    status: 'OPEN',          // Aligned with Admin's OPEN/RESOLVED
-    priority: 'MEDIUM',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    replies: []
-  }
-  tickets.unshift(ticket)
-  saveTickets(tickets)
-  return ticket
-}
+// ─── FAQ Data ────────────────────────────────────────────────────────────────
 
 // ─── FAQ Data ────────────────────────────────────────────────────────────────
 const faqs = [
@@ -157,11 +121,12 @@ const timeAgo = (iso) => {
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
+export default function HelpSupport({ activeItem, setActiveItem, navigate, restaurantId }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedFaq, setExpandedFaq] = useState(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('faq')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
 
@@ -177,23 +142,39 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
   const [tickets, setTickets] = useState([])
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [ticketFilter, setTicketFilter] = useState('ALL')
+  const [loading, setLoading] = useState(true)
 
-  // Load tickets (isolated by user)
+  // Load tickets from Supabase
+  const loadCloudTickets = async () => {
+    if (!restaurantId) return
+    try {
+      setLoading(true)
+      const data = await fetchTickets(restaurantId)
+      // Normalize Supabase fields to match component expectations if needed
+      const normalized = (data || []).map(t => ({
+        ...t,
+        name: t.business_name || 'Merchant',
+        message: t.description,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at || t.created_at,
+        replies: (t.ticket_replies || []).map(r => ({
+           author: r.sender_role === 'admin' ? 'Support Team' : 'You',
+           message: r.message,
+           createdAt: r.created_at,
+           isAdmin: r.sender_role === 'admin'
+        }))
+      }))
+      setTickets(normalized)
+    } catch (err) {
+      console.error('Failed to fetch tickets:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const all = loadTickets()
-    setTickets(all.filter(t => t.restaurantId === user.email))
-
-    const handler = () => {
-      const freshAll = loadTickets()
-      setTickets(freshAll.filter(t => t.restaurantId === user.email))
-    }
-    window.addEventListener('ticketsUpdated', handler)
-    window.addEventListener('storage', handler)
-    return () => {
-      window.removeEventListener('ticketsUpdated', handler)
-      window.removeEventListener('storage', handler)
-    }
-  }, [user.email])
+    loadCloudTickets()
+  }, [restaurantId])
 
   const openTicketCount = tickets.filter(t => t.status === 'OPEN' || t.status === 'IN-PROGRESS').length
 
@@ -209,30 +190,36 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
     ? tickets 
     : tickets.filter(t => t.status === ticketFilter)
 
-  // Submit ticket
-  const handleSendMessage = (e) => {
+  // Submit ticket to Cloud
+  const handleSendMessage = async (e) => {
     e.preventDefault()
     if (!contactName || !contactEmail || !contactSubject || !contactMessage) return
     
-    const ticket = createTicket({
-      name: contactName,
-      email: contactEmail,
-      subject: contactSubject,
-      message: contactMessage
-    })
-    
-    setNewTicketId(ticket.id)
-    setMessageSent(true)
-    setTickets(loadTickets())
+    setIsRefreshing(true)
+    try {
+      const ticket = await createCloudTicket(restaurantId, {
+        businessName: contactName,
+        subject: contactSubject,
+        description: contactMessage,
+        category: 'Support',
+        priority: 'MEDIUM'
+      })
+      
+      setNewTicketId(ticket.id)
+      setMessageSent(true)
+      await loadCloudTickets()
 
-    setTimeout(() => {
-      setContactName('')
-      setContactEmail('')
-      setContactSubject('')
-      setContactMessage('')
-      setMessageSent(false)
-      setNewTicketId(null)
-    }, 4000)
+      setTimeout(() => {
+        setContactSubject('')
+        setContactMessage('')
+        setMessageSent(false)
+        setNewTicketId(null)
+      }, 4000)
+    } catch (err) {
+      console.error('Failed to create ticket:', err)
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   // ─── Ticket Detail View ──────────────────────────────────────────────────
@@ -419,13 +406,14 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate }) {
                 isCollapsed={false}
                 setIsCollapsed={() => {}}
                 isMobile={true}
+                restaurantId={restaurantId}
               />
             </SheetContent>
           </Sheet>
           <Logo subtitle="Help Center" />
         </div>
         <div className="flex items-center gap-1">
-          <NotificationDropdown />
+          <NotificationDropdown restaurantId={restaurantId} />
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
             <span className="text-[10px] font-bold text-blue-700">JD</span>
           </div>

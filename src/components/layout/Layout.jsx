@@ -4,18 +4,22 @@ import Navbar from './Navbar'
 import MobileNavbar from './MobileNavbar'
 import OrderNotification from '../dashboard/OrderNotification'
 
-export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange }) {
+export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange, restaurantId }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-x-hidden">
-      <OrderNotification />
+      <OrderNotification 
+        restaurantId={restaurantId} 
+        onOrderClick={() => setActiveItem('orders')} 
+      />
       {activeItem !== 'docs' && (
         <Sidebar 
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           isCollapsed={isCollapsed}
           setIsCollapsed={setIsCollapsed}
+          restaurantId={restaurantId}
         />
       )}
       <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -25,6 +29,7 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
             setActiveItem={setActiveItem}
             currency={currency}
             onCurrencyChange={onCurrencyChange}
+            restaurantId={restaurantId}
           />
         </div>
         <main className="flex-1 overflow-auto pb-20 lg:pb-0">

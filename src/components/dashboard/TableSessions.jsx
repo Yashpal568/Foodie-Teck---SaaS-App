@@ -3,27 +3,23 @@ import {
   Users, 
   Clock, 
   DollarSign, 
-  TrendingUp, 
   Calendar, 
   CheckCircle, 
   AlertCircle, 
   Settings, 
   Plus, 
   X, 
-  Search, 
-  Filter, 
   RefreshCw, 
   Grid, 
-  List,
-  Save,
-  CreditCard,
-  Sparkles,
+  Filter,
   Home,
-  Eye,
   Edit,
-  UserCheck,
-  Trash2,
-  Activity
+  Sparkles,
+  Activity,
+  Search,
+  Eye,
+  CreditCard,
+  QrCode
 } from 'lucide-react'
 import TableMobileNavbar from './TableMobileNavbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,639 +30,288 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
+import { 
+  getTableSessions, 
+  updateTableStatus as updateTableAPI, 
+  getQRCodes,
+  supabase 
+} from '@/lib/api'
 
-const TableSessions = ({ activeItem, setActiveItem, navigate }) => {
+const statusConfig = {
+  available: {
+    label: 'Available',
+    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    bgColor: 'bg-emerald-50/30',
+    icon: <CheckCircle className="w-5 h-5 text-emerald-500" />,
+    description: 'Ready for seating'
+  },
+  occupied: {
+    label: 'Occupied',
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    bgColor: 'bg-blue-50/30',
+    icon: <Users className="w-5 h-5 text-blue-500" />,
+    description: 'Active dining session'
+  },
+  billing: {
+    label: 'Billing',
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    bgColor: 'bg-amber-50/30',
+    icon: <CreditCard className="w-5 h-5 text-amber-500" />,
+    description: 'Reviewing guest check'
+  },
+  'needs-cleaning': {
+    label: 'Cleanup',
+    color: 'bg-orange-100 text-orange-700 border-orange-200',
+    bgColor: 'bg-orange-50/30',
+    icon: <Sparkles className="w-5 h-5 text-orange-500" />,
+    description: 'Turnover in progress'
+  },
+  reserved: {
+    label: 'Reserved',
+    color: 'bg-purple-100 text-purple-700 border-purple-200',
+    bgColor: 'bg-purple-50/30',
+    icon: <Calendar className="w-5 h-5 text-purple-500" />,
+    description: 'Upcoming booking'
+  }
+};
+
+const formatDuration = (isoString) => {
+  if (!isoString) return '0 min';
+  const start = new Date(isoString).getTime();
+  const now = new Date().getTime();
+  const diff = Math.floor((now - start) / 60000);
+  return `${diff} min`;
+};
+
+const formatCurrency = (val) => `₹${val || 0}`;
+
+const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId }) => {
   const { updateStatus } = useOrderManagement()
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedTable, setSelectedTable] = useState(null)
-  const [showReserveModal, setShowReserveModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [reserveData, setReserveData] = useState({ customerName: '', notes: '', reservationTime: '' })
-  const [showAddTableModal, setShowAddTableModal] = useState(false)
-  const [newTableData, setNewTableData] = useState({ tableNumber: '', capacity: 4, location: '' })
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
-  const [settings, setSettings] = useState({
-    autoRefresh: true,
-    refreshInterval: 3,
-    autoCompleteOrders: true,
-    autoCompleteMinutes: 60,
-    notifications: true,
-    theme: 'light'
-  })
-  const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [activeTab, setActiveTab] = useState('overview')
 
-  // Load tables from localStorage and sync with QR codes on mount
-  useEffect(() => {
-    console.log('TableSessions component mounting...')
-    
-    const loadTables = () => {
-      try {
-        // Get QR codes to determine table count - use restaurant-specific key
-        const restaurantId = 'restaurant-123' // Default restaurant ID
-        const savedQRCodes = localStorage.getItem(`qrCodes_${restaurantId}`)
-        
-        let qrCodes = []
-        if (savedQRCodes) {
-          const parsed = JSON.parse(savedQRCodes)
-          // Handle nested structure { qrCodes: [...] }
-          qrCodes = parsed.qrCodes || parsed || []
-        }
-        
-        console.log('Loading QR codes for table sessions:', qrCodes.length, 'QR codes found')
-        console.log('QR codes data:', qrCodes)
-        
-        // Get existing table sessions
-        const savedTables = localStorage.getItem('tableSessions')
-        let existingTables = savedTables ? JSON.parse(savedTables) : []
-        
-        console.log('Existing tables:', existingTables.length, 'tables found')
-        
-        // Create tables based on QR codes
-        if (qrCodes.length > 0) {
-          const newTables = qrCodes.map((qr, index) => {
-            // Find existing table for this table number
-            const existingTable = existingTables.find(t => t.tableNumber === qr.tableNumber)
-            
-            if (existingTable) {
-              // Update existing table with current QR info
-              console.log('Updating existing table:', qr.tableNumber)
-              return {
-                ...existingTable,
-                id: qr.tableNumber,
-                name: `Table ${qr.tableNumber}`,
-                tableNumber: qr.tableNumber,
-                restaurantId: qr.restaurantId,
-                qrUrl: qr.url,
-                lastUpdated: new Date().toISOString()
-              }
-            } else {
-              // Create new table
-              console.log('Creating new table:', qr.tableNumber)
-              return {
-                id: qr.tableNumber,
-                name: `Table ${qr.tableNumber}`,
-                tableNumber: qr.tableNumber,
-                restaurantId: qr.restaurantId,
-                qrUrl: qr.url,
-                status: 'available',
-                customers: 0,
-                currentOrder: null,
-                sessionStart: null,
-                sessionDuration: null,
-                lastActivity: null,
-                revenue: 0,
-                reservedBy: null,
-                reservedTime: null,
-                needsCleaning: false,
-                createdAt: new Date().toISOString(),
-                lastUpdated: new Date().toISOString()
-              }
-            }
-          })
-          
-          console.log('Final tables to save:', newTables.length, 'tables')
-          setTables(newTables)
-          localStorage.setItem('tableSessions', JSON.stringify(newTables))
-        } else {
-          // No QR codes, no tables
-          console.log('No QR codes found, creating empty table list')
-          setTables([])
-          localStorage.setItem('tableSessions', JSON.stringify([]))
-        }
-        
-        setLoading(false)
-      } catch (error) {
-        console.error('Error loading table sessions:', error)
-        setLoading(false)
-      }
-    }
-
-    loadTables()
-    
-    // Listen for QR code changes
-    const handleQRCodeChange = () => {
-      console.log('QR code change detected, reloading tables')
-      loadTables()
-    }
-    
-    // Listen for order updates to change table status
-    const handleOrderUpdate = (event) => {
-      console.log('ORDER UPDATE EVENT RECEIVED!')
-      const { tableNumber, orderStatus, customers, orderId, revenue } = event.detail
-      
-      console.log('Order update received:', { tableNumber, orderStatus, customers, orderId, revenue })
-      console.log('Current tables:', tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, status: t.status })))
-      
-      setTables(prev => {
-        const updatedTables = prev.map(table => {
-          console.log('Checking table:', table.tableNumber, 'against order table:', tableNumber)
-          if (table.tableNumber === tableNumber) {
-            console.log('Found matching table, updating status...')
-            let newStatus = table.status
-            let sessionStart = table.sessionStart
-            let sessionDuration = table.sessionDuration
-            
-            switch (orderStatus) {
-              case 'created':
-                newStatus = 'occupied'
-                sessionStart = new Date().toISOString()
-                break
-              case 'preparing':
-                newStatus = 'occupied'
-                break
-              case 'ready':
-                newStatus = 'occupied'
-                break
-              case 'served':
-                newStatus = 'occupied'
-                break
-              case 'billing':
-                newStatus = 'billing'
-                break
-              case 'paid':
-                newStatus = 'needs-cleaning'
-                break
-              case 'finished':
-                newStatus = 'available'
-                break
-            }
-            
-            const updatedTable = {
-              ...table,
-              status: newStatus,
-              customers: customers || table.customers,
-              currentOrder: orderId,
-              sessionStart,
-              sessionDuration: sessionStart ? 
-                Math.floor((new Date().getTime() - new Date(sessionStart).getTime()) / 60000) + ' min' : null,
-              lastActivity: new Date().toISOString(),
-              revenue: revenue || table.revenue
-            }
-            
-            console.log('Updated table:', updatedTable)
-            return updatedTable
-          }
-          return table
-        })
-        
-        console.log('Final updated tables:', updatedTables.map(t => ({ id: t.id, tableNumber: t.tableNumber, status: t.status })))
-        
-        // Save to localStorage immediately
-        localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-        return updatedTables
-      })
-    }
-    
-    console.log('Setting up event listeners...')
-    window.addEventListener('qrCodesUpdated', handleQRCodeChange)
-    window.addEventListener('orderUpdated', handleOrderUpdate)
-    
-    console.log('Event listeners set up successfully')
-    
-    return () => {
-      console.log('Cleaning up event listeners...')
-      window.removeEventListener('qrCodesUpdated', handleQRCodeChange)
-      window.removeEventListener('orderUpdated', handleOrderUpdate)
-    }
-  }, [])
-
-  // Add global event listener test
-  useEffect(() => {
-    const globalTestListener = (event) => {
-      console.log('GLOBAL EVENT LISTENER - Event received:', event.type, event.detail)
-      
-      // Direct table update - bypass event system issues
-      if (event.type === 'orderUpdated') {
-        const { tableNumber, orderStatus, customers, orderId, revenue } = event.detail
-        console.log('Directly updating table:', tableNumber, 'to status:', orderStatus)
-        
-        // Update tables directly
-        setTables(prev => {
-          const updatedTables = prev.map(table => {
-            if (table.tableNumber === tableNumber) {
-              let newStatus = table.status
-              let sessionStart = table.sessionStart
-              let sessionDuration = table.sessionDuration
-              
-              switch (orderStatus) {
-                case 'created':
-                  newStatus = 'occupied'
-                  sessionStart = new Date().toISOString()
-                  break
-                case 'preparing':
-                  newStatus = 'occupied'
-                  break
-                case 'ready':
-                  newStatus = 'occupied'
-                  break
-                case 'served':
-                  newStatus = 'occupied'
-                  break
-                case 'billing':
-                  newStatus = 'billing'
-                  break
-                case 'paid':
-                  newStatus = 'needs-cleaning'
-                  break
-                case 'finished':
-                  newStatus = 'available'
-                  break
-              }
-              
-              const updatedTable = {
-                ...table,
-                status: newStatus,
-                customers: customers || table.customers,
-                currentOrder: orderId,
-                sessionStart,
-                sessionDuration: sessionStart ? 
-                  Math.floor((new Date().getTime() - new Date(sessionStart).getTime()) / 60000) + ' min' : null,
-                lastActivity: new Date().toISOString(),
-                revenue: revenue || table.revenue
-              }
-              
-              console.log('Table updated directly:', updatedTable)
-              return updatedTable
-            }
-            return table
-          })
-          
-          // Save to localStorage immediately
-          localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-          console.log('Tables saved to localStorage')
-          return updatedTables
-        })
-      }
-    }
-    
-    window.addEventListener('orderUpdated', globalTestListener)
-    
-    return () => {
-      window.removeEventListener('orderUpdated', globalTestListener)
-    }
-  }, [])
-
-  // Also listen for order completion events
-  useEffect(() => {
-    const handleOrderCompleted = (event) => {
-      console.log('Order completion event received:', event.detail)
-      const { tableNumber, orderId } = event.detail
-      
-      // Update table to available
-      setTables(prev => {
-        const updatedTables = prev.map(table => {
-          if (table.tableNumber === tableNumber) {
-            return {
-              ...table,
-              status: 'available',
-              customers: 0,
-              currentOrder: null,
-              sessionStart: null,
-              sessionDuration: null,
-              revenue: 0,
-              needsCleaning: false,
-              lastActivity: new Date().toISOString()
-            }
-          }
-          return table
-        })
-        
-        localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-        return updatedTables
-      })
-    }
-    
-    window.addEventListener('orderCompleted', handleOrderCompleted)
-    
-    return () => {
-      window.removeEventListener('orderCompleted', handleOrderCompleted)
-    }
-  }, [])
-
-  // Check for recent orders every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing tables...')
-      
-      // Force reload from localStorage
-      const savedTables = localStorage.getItem('tableSessions')
-      if (savedTables) {
-        const tables = JSON.parse(savedTables)
-        setTables(tables)
-        console.log('Tables refreshed from localStorage')
-      }
-      
-      // Check for completed orders and update tables
-      checkForCompletedOrders()
-      
-      // Also check for any orders that should be auto-completed
-      autoCompleteOldOrders()
-    }, 2000) // Check every 2 seconds for faster response
-    
-    return () => clearInterval(interval)
-  }, [])
-
-  const autoCompleteOldOrders = () => {
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const currentTables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-    
-    let ordersUpdated = false
-    let tablesUpdated = false
-    
-    const updatedOrders = orders.map(order => {
-      // Auto-complete orders that are more than 1 hour old
-      const orderTime = new Date(order.createdAt)
-      const now = new Date()
-      const timeDiff = (now.getTime() - orderTime.getTime()) / (1000 * 60) // minutes
-      
-      if (timeDiff > 60 && order.status !== 'FINISHED' && order.status !== 'CANCELLED') {
-        console.log(`Auto-completing old order ${order.id} after ${timeDiff.toFixed(0)} minutes`)
-        order.status = 'FINISHED'
-        order.updatedAt = new Date().toISOString()
-        ordersUpdated = true
-        
-        // Update corresponding table
-        const tableIndex = currentTables.findIndex(t => t.tableNumber === parseInt(order.tableNumber))
-        if (tableIndex !== -1) {
-          currentTables[tableIndex] = {
-            ...currentTables[tableIndex],
-            status: 'available',
-            customers: 0,
-            currentOrder: null,
-            sessionStart: null,
-            sessionDuration: null,
-            revenue: 0,
-            needsCleaning: false,
-            lastActivity: new Date().toISOString()
-          }
-          tablesUpdated = true
-        }
-      }
-      
-      return order
-    })
-    
-    if (ordersUpdated) {
-      localStorage.setItem('orders', JSON.stringify(updatedOrders))
-      console.log('Old orders auto-completed')
-    }
-    
-    if (tablesUpdated) {
-      localStorage.setItem('tableSessions', JSON.stringify(currentTables))
-      setTables(currentTables)
-      console.log('Tables updated for auto-completed orders')
-    }
-  }
-
-  const checkForCompletedOrders = () => {
-    // Get all orders
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-    
-    // Get current tables
-    let currentTables = JSON.parse(localStorage.getItem('tableSessions') || '[]')
-    
-    let tablesUpdated = false
-    
-    // Check each table for completed orders
-    const updatedTables = currentTables.map(table => {
-      if (table.status === 'occupied' && table.currentOrder) {
-        const order = orders.find(o => o.id === table.currentOrder)
-        
-        // If order is finished, cancelled, or doesn't exist, mark table as available
-        if (!order || order.status === 'FINISHED' || order.status === 'CANCELLED') {
-          console.log(`Table ${table.tableNumber} order is completed, marking table as available`)
-          
-          tablesUpdated = true
-          return {
-            ...table,
-            status: 'available',
-            customers: 0,
-            currentOrder: null,
-            sessionStart: null,
-            sessionDuration: null,
-            revenue: 0,
-            needsCleaning: false,
-            lastActivity: new Date().toISOString()
-          }
-        }
-      }
-      return table
-    })
-    
-    // Save if any tables were updated
-    if (tablesUpdated) {
-      localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-      setTables(updatedTables)
-      console.log('Tables updated based on completed orders')
-    }
-  }
-
-  const statusConfig = {
-    available: {
-      label: 'Available',
-      color: 'bg-green-100 text-green-800 border-green-200',
-      bgColor: 'bg-green-50 border-green-200',
-      icon: <CheckCircle className="w-4 h-4" />,
-      description: 'Ready for customers'
-    },
-    occupied: {
-      label: 'Occupied',
-      color: 'bg-blue-100 text-blue-800 border-blue-200',
-      bgColor: 'bg-blue-50 border-blue-200',
-      icon: <Users className="w-4 h-4" />,
-      description: 'Currently serving customers'
-    },
-    billing: {
-      label: 'Billing',
-      color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      bgColor: 'bg-yellow-50 border-yellow-200',
-      icon: <CreditCard className="w-4 h-4" />,
-      description: 'Payment in progress'
-    },
-    'needs-cleaning': {
-      label: 'Needs Cleaning',
-      color: 'bg-orange-100 text-orange-800 border-orange-200',
-      bgColor: 'bg-orange-50 border-orange-200',
-      icon: <Sparkles className="w-4 h-4" />,
-      description: 'Table needs cleaning'
-    },
-    reserved: {
-      label: 'Reserved',
-      color: 'bg-purple-100 text-purple-800 border-purple-200',
-      bgColor: 'bg-purple-50 border-purple-200',
-      icon: <Calendar className="w-4 h-4" />,
-      description: 'Reserved for customer'
-    }
-  }
-
+  // Compute Stats
   const stats = useMemo(() => {
     return {
       totalTables: tables.length,
       available: tables.filter(t => t.status === 'available').length,
       occupied: tables.filter(t => t.status === 'occupied').length,
       needsCleaning: tables.filter(t => t.status === 'needs-cleaning').length,
-      reserved: tables.filter(t => t.status === 'reserved').length,
-      activeCustomers: tables.reduce((sum, t) => sum + (t.customers || 0), 0),
-      totalRevenue: tables.reduce((sum, t) => sum + (t.revenue || 0), 0)
+      reserved: tables.filter(t => t.status === 'reserved').length
     }
-  }, [tables])
+  }, [tables]);
 
-  const formatDuration = (duration) => {
-    if (!duration) return '-'
-    return duration
-  }
+  // Combined Search and Filter
+  const filteredTables = useMemo(() => {
+    return tables.filter(t => {
+      const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [tables, searchTerm, filterStatus]);
 
-  const formatTime = (timestamp) => {
-    if (!timestamp) return '-'
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
+  const handleStatusChange = async (tableNumber, newStatus) => {
+    setTables(current => {
+      const updated = current.map(t => t.tableNumber === tableNumber ? { ...t, status: newStatus } : t);
+      const target = updated.find(t => t.tableNumber === tableNumber);
+      if (target) syncTableToCloud(target);
+      return [...updated];
+    });
+  };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount)
-  }
-
-  const filteredTables = tables.filter(table => {
-    const matchesSearch = table.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = filterStatus === 'all' || table.status === filterStatus
-    return matchesSearch && matchesStatus
-  })
-
-  // Debug logging
-  console.log('Debug - Total tables:', tables.length)
-  console.log('Debug - Filtered tables:', filteredTables.length)
-  console.log('Debug - Search term:', searchTerm)
-  console.log('Debug - Filter status:', filterStatus)
-  console.log('Debug - Tables data:', tables)
-
-  const handleReserveTable = (table) => {
-    setSelectedTable(table)
-    setShowReserveModal(true)
-  }
-
-  const handleEditTable = (table) => {
-    setSelectedTable(table)
-    setShowEditModal(true)
-  }
-
-  const handleQuickAction = (table, action) => {
-    switch (action) {
-      case 'clean':
-        // Update table to available
-        setTables(prev => prev.map(t => 
-          t.id === table.id 
-            ? { ...t, status: 'available', customers: 0, currentOrder: null, sessionStart: null, sessionDuration: null, revenue: 0, needsCleaning: false }
-            : t
-        ))
-        localStorage.setItem('tableSessions', JSON.stringify(tables))
-        break
-      case 'reserve':
-        handleReserveTable(table)
-        break
-      case 'edit':
-        handleEditTable(table)
-        break
+  const syncTableToCloud = async (table) => {
+    if (!restaurantId) return;
+    try {
+      await updateTableAPI(restaurantId, table.tableNumber, {
+        status: table.status,
+        customers: table.customers || 0,
+        current_order_id: table.currentOrder,
+        session_start: table.sessionStart,
+        last_activity: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error('Failed to sync floor update:', err);
     }
-  }
+  };
 
-  const handleSaveSettings = () => {
-    localStorage.setItem('tableSessionsSettings', JSON.stringify(settings))
-    setSettingsModalOpen(false)
-  }
+  const handleMarkTableAvailable = async (table) => {
+    const updated = {
+      ...table,
+      status: 'available',
+      customers: 0,
+      currentOrder: null,
+      sessionStart: null,
+      needsCleaning: false
+    };
+    setTables(current => current.map(t => t.tableNumber === table.tableNumber ? updated : t));
+    await syncTableToCloud(updated);
+  };
 
-  const handleAddTable = () => {
-    setShowAddTableModal(true)
-  }
+  const handleRefreshTables = async () => {
+    setLoading(true);
+    try {
+      const cloudSessions = await getTableSessions(restaurantId);
+      setTables(current => current.map(t => {
+        const session = cloudSessions.find(s => s.table_number === t.tableNumber) || {};
+        return {
+          ...t,
+          status: session.status || 'available',
+          customers: session.customers || 0,
+          currentOrder: session.current_order_id || null,
+          sessionStart: session.session_start || null,
+          lastActivity: session.last_activity || null,
+          needsCleaning: session.status === 'needs-cleaning'
+        };
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleConfirmAddTable = () => {
-    if (newTableData.tableNumber) {
-      const newTable = {
-        id: Date.now().toString(),
-        tableNumber: parseInt(newTableData.tableNumber),
-        name: `Table ${newTableData.tableNumber}`,
+  const completeAllOrders = async () => {
+    if (!confirm('This will mark all tables as available and complete all active orders. Continue?')) return;
+    try {
+      setLoading(true);
+      const updates = tables.map(t => ({
+        ...t,
         status: 'available',
-        capacity: newTableData.capacity,
-        location: newTableData.location,
         customers: 0,
         currentOrder: null,
         sessionStart: null,
-        sessionDuration: null,
-        revenue: 0,
-        needsCleaning: false,
-        reservedFor: null,
-        reservedAt: null,
-        reservationNotes: null,
-        lastActivity: new Date().toISOString()
-      }
-      
-      const updatedTables = [...tables, newTable]
-      setTables(updatedTables)
-      localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-      setShowAddTableModal(false)
-      setNewTableData({ tableNumber: '', capacity: 4, location: '' })
+        needsCleaning: false
+      }));
+      setTables(updates);
+      await Promise.all(updates.map(t => syncTableToCloud(t)));
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  const handleRefreshTables = () => {
-    console.log('Manually refreshing tables...')
-    
-    // Force reload from localStorage
-    const savedTables = localStorage.getItem('tableSessions')
-    if (savedTables) {
-      const tables = JSON.parse(savedTables)
-      setTables(tables)
-      console.log('Tables refreshed from localStorage')
-    }
-    
-    // Also check for completed orders
-    checkForCompletedOrders()
-  }
+  useEffect(() => {
+    if (!restaurantId) return;
 
-  const handleMarkTableAvailable = (table) => {
-    console.log('Manually marking table as available:', table.tableNumber)
-    
-    // If table has a current order, mark it as finished so analytics update
-    if (table.currentOrder) {
-      updateStatus(table.currentOrder, ORDER_STATUS.FINISHED)
-    }
+    const initializeFloorPlan = async () => {
+      setLoading(true);
+      try {
+        const [cloudQRs, cloudSessions] = await Promise.all([
+          getQRCodes(restaurantId),
+          getTableSessions(restaurantId)
+        ]);
 
-    // Update table status to available
-    const updatedTables = tables.map(t => {
-      if (t.tableNumber === table.tableNumber) {
-        return {
-          ...t,
-          status: 'available',
-          customers: 0,
-          currentOrder: null,
-          sessionStart: null,
-          sessionDuration: null,
-          revenue: 0,
-          needsCleaning: false,
-          lastActivity: new Date().toISOString()
+        if (cloudQRs.length === 0) {
+          setTables([]);
+          return;
         }
+
+        const mergedTables = cloudQRs.map(qr => {
+          const session = cloudSessions.find(s => s.table_number === qr.table_number) || {};
+          return {
+            id: qr.table_number,
+            name: `Table ${qr.table_number}`,
+            tableNumber: qr.table_number,
+            qrUrl: qr.url,
+            status: session.status || 'available',
+            customers: session.customers || 0,
+            currentOrder: session.current_order_id || null,
+            sessionStart: session.session_start || null,
+            lastActivity: session.last_activity || null,
+            restaurantId: restaurantId,
+            needsCleaning: session.status === 'needs-cleaning'
+          };
+        }).sort((a, b) => a.tableNumber - b.tableNumber);
+
+        setTables(mergedTables);
+      } catch (err) {
+        console.error('Initialization Error:', err);
+      } finally {
+        setLoading(false);
       }
-      return t
-    })
-    
-    setTables(updatedTables)
-    localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-    console.log('Table manually marked as available')
-  }
+    };
+
+    initializeFloorPlan();
+
+    const floorChannel = supabase
+      .channel(`floor-plan-${restaurantId}`)
+      .on('postgres_changes', {
+        event: '*', 
+        schema: 'public',
+        table: 'table_sessions',
+        filter: `restaurant_id=eq.${restaurantId}`
+      }, (payload) => {
+        const { 
+          table_number, 
+          status, 
+          customers, 
+          current_order_id, 
+          session_start, 
+          last_activity 
+        } = payload.new || {};
+
+        if (!table_number) return;
+
+        setTables(current => current.map(t => 
+          t.tableNumber === table_number 
+            ? { 
+                ...t, 
+                status: status || 'available', 
+                customers: customers || 0,
+                currentOrder: current_order_id || null,
+                sessionStart: session_start || null,
+                lastActivity: last_activity || null,
+                needsCleaning: status === 'needs-cleaning'
+              } 
+            : t
+        ));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(floorChannel); };
+  }, [restaurantId]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading table sessions...</p>
+      <div className="flex items-center justify-center min-h-screen bg-[#f8fafc]/50">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="font-bold text-slate-600 uppercase tracking-widest text-[10px]">Checking Table Sessions...</p>
         </div>
       </div>
-    )
+    );
+  }
+
+  if (tables.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50/50">
+        <TableMobileNavbar 
+          activeItem={activeItem}
+          setActiveItem={setActiveItem}
+          navigate={navigate}
+          onRefresh={handleRefreshTables}
+          onAddTable={() => setActiveItem('qr-codes')}
+        />
+        <div className="flex flex-col items-center justify-center min-h-[80vh] p-8 text-center space-y-6">
+          <div className="w-24 h-24 bg-blue-100/50 rounded-full flex items-center justify-center animate-pulse">
+            <QrCode className="w-12 h-12 text-blue-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Your Floor Plan is Empty</h2>
+            <p className="text-slate-500 max-w-sm mx-auto font-medium">To start using the Table Hub, you first need to generate and sync your QR codes for your tables.</p>
+          </div>
+          <Button 
+            className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20 font-bold transition-all hover:scale-105 active:scale-110"
+            onClick={() => setActiveItem('qr-codes')}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            GO TO QR STUDIO
+          </Button>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Ready & Enterprise Aligned</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -676,78 +321,33 @@ const TableSessions = ({ activeItem, setActiveItem, navigate }) => {
         setActiveItem={setActiveItem}
         navigate={navigate}
         onRefresh={handleRefreshTables}
-        onAddTable={handleAddTable}
+        onAddTable={() => setActiveItem('qr-codes')}
       />
 
-      {/* Desktop Header - Hide on Mobile */}
       <div className="hidden lg:block bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="px-4 md:px-6 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            {/* Header Info */}
             <div className="flex flex-col">
               <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em] mb-1">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>Floor Management</span>
               </div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight leading-none">
-                Table Hub
-              </h1>
-              <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-sm">
-                Manage table sessions, availability and seating in real-time.
-              </p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight leading-none">Table Hub</h1>
+              <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-sm">Manage table sessions, availability and seating in real-time.</p>
             </div>
 
-            {/* Action Tools */}
             <div className="flex items-center gap-2 self-end sm:self-center">
-              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all" onClick={() => {
-                const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-                const updatedOrders = orders.map(order => ({
-                  ...order,
-                  status: 'FINISHED',
-                  updatedAt: new Date().toISOString()
-                }))
-                localStorage.setItem('orders', JSON.stringify(updatedOrders))
-                
-                updatedOrders.forEach(order => {
-                  window.dispatchEvent(new CustomEvent('orderCompleted', {
-                    detail: {
-                      tableNumber: parseInt(order.tableNumber),
-                      orderId: order.id
-                    }
-                  }))
-                })
-              }}>
+              <Button variant="outline" size="sm" className="rounded-xl h-9 px-3" onClick={completeAllOrders}>
                 <CheckCircle className="w-4 h-4 mr-2" />
                 Complete All
               </Button>
-              
-              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all" onClick={() => {
-                const updatedTables = tables.map(table => ({
-                  ...table,
-                  status: 'available',
-                  customers: 0,
-                  currentOrder: null,
-                  sessionStart: null,
-                  sessionDuration: null,
-                  revenue: 0,
-                  needsCleaning: false,
-                  lastActivity: new Date().toISOString()
-                }))
-                setTables(updatedTables)
-                localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-              }}>
+              <Button variant="outline" size="sm" className="rounded-xl h-9 px-3" onClick={handleRefreshTables}>
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Reset Tables
+                Sync Cloud
               </Button>
-              
-              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all" onClick={() => setSettingsModalOpen(true)}>
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-              
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all font-semibold" onClick={handleAddTable}>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-3" onClick={() => setActiveItem('qr-codes')}>
                 <Plus className="w-4 h-4 mr-2" />
-                Add Table
+                Manage QR
               </Button>
             </div>
           </div>
@@ -755,889 +355,228 @@ const TableSessions = ({ activeItem, setActiveItem, navigate }) => {
       </div>
 
       <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 pb-32 lg:pb-8">
-        {/* Professional Stats Overview */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 lg:gap-6">
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-6">
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
             <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center ring-1 ring-blue-100/50">
-                  <Home className="w-5 h-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-blue-600 border-blue-100 bg-blue-50/50">Capacity</Badge>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Tables</p>
-                <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{stats.totalTables}</p>
-              </div>
+               <div className="flex items-center justify-between mb-3">
+                 <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Home className="w-5 h-5"/></div>
+                 <Badge variant="outline" className="text-[10px]">Capacity</Badge>
+               </div>
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Tables</p>
+               <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">{stats.totalTables}</p>
             </CardContent>
           </Card>
-          
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
             <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center ring-1 ring-green-100/50">
-                  <CheckCircle className="w-5 h-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-green-600 border-green-100 bg-green-50/50">Ready</Badge>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Available</p>
-                <p className="text-xl md:text-2xl font-black text-emerald-600 mt-0.5">{stats.available}</p>
-              </div>
+               <div className="flex items-center justify-between mb-3">
+                 <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><CheckCircle className="w-5 h-5"/></div>
+                 <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-100">Ready</Badge>
+               </div>
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Available</p>
+               <p className="text-xl md:text-2xl font-black text-emerald-600 mt-0.5">{stats.available}</p>
             </CardContent>
           </Card>
-          
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
             <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center ring-1 ring-blue-100/50">
-                  <Users className="w-5 h-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-blue-600 border-blue-100 bg-blue-50/50">Live</Badge>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Occupied</p>
-                <p className="text-xl md:text-2xl font-black text-blue-600 mt-0.5">{stats.occupied}</p>
-              </div>
+               <div className="flex items-center justify-between mb-3">
+                 <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Users className="w-5 h-5"/></div>
+                 <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-100">Live</Badge>
+               </div>
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Occupied</p>
+               <p className="text-xl md:text-2xl font-black text-blue-600 mt-0.5">{stats.occupied}</p>
             </CardContent>
           </Card>
-
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
             <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center ring-1 ring-orange-100/50">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-orange-600 border-orange-100 bg-orange-50/50">Cleanup</Badge>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cleaning</p>
-                <p className="text-xl md:text-2xl font-black text-orange-600 mt-0.5">{stats.needsCleaning}</p>
-              </div>
+               <div className="flex items-center justify-between mb-3">
+                 <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><Sparkles className="w-5 h-5"/></div>
+                 <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-100">Cleanup</Badge>
+               </div>
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cleaning</p>
+               <p className="text-xl md:text-2xl font-black text-orange-600 mt-0.5">{stats.needsCleaning}</p>
             </CardContent>
           </Card>
-
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
             <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center ring-1 ring-purple-100/50">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-purple-600 border-purple-100 bg-purple-50/50">Booked</Badge>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reserved</p>
-                <p className="text-xl md:text-2xl font-black text-purple-600 mt-0.5">{stats.reserved}</p>
-              </div>
+               <div className="flex items-center justify-between mb-3">
+                 <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><Calendar className="w-5 h-5"/></div>
+                 <Badge variant="outline" className="text-[10px] text-purple-600 border-purple-100">Booked</Badge>
+               </div>
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reserved</p>
+               <p className="text-xl md:text-2xl font-black text-purple-600 mt-0.5">{stats.reserved}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search and Filter Section */}
-        <div className="mb-6 flex gap-4 items-end">
-          <div className="flex-1">
-            <Input
-              placeholder="Search tables..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+             <Input 
+               placeholder="Search tables..." 
+               className="pl-10 h-11 rounded-xl border-gray-100" 
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+             />
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by status" />
+            <SelectTrigger className="w-full md:w-48 h-11 rounded-xl border-gray-100">
+               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="occupied">Occupied</SelectItem>
-              <SelectItem value="billing">Billing</SelectItem>
-              <SelectItem value="needs-cleaning">Needs Cleaning</SelectItem>
-              <SelectItem value="reserved">Reserved</SelectItem>
+               <SelectItem value="all">All Status</SelectItem>
+               <SelectItem value="available">Available</SelectItem>
+               <SelectItem value="occupied">Occupied</SelectItem>
+               <SelectItem value="billing">Billing</SelectItem>
+               <SelectItem value="needs-cleaning">Cleanup</SelectItem>
+               <SelectItem value="reserved">Reserved</SelectItem>
             </SelectContent>
           </Select>
-          {tables.length > 0 && (
-            <Button variant="outline" onClick={() => {
-              setSearchTerm('')
-              setFilterStatus('all')
-            }}>
-              Clear Filters
-            </Button>
-          )}
         </div>
 
-        {/* Tabs for different views */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              <Home className="w-4 h-4 mr-2" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="grid" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              <Grid className="w-4 h-4 mr-2" />
-              Grid View
-            </TabsTrigger>
-            <TabsTrigger value="list" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Detailed List
-            </TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto h-12 p-1.5 bg-gray-100 rounded-2xl">
+            <TabsTrigger value="overview" className="rounded-xl data-[state=active]:bg-white">Overview</TabsTrigger>
+            <TabsTrigger value="grid" className="rounded-xl data-[state=active]:bg-white">Grid</TabsTrigger>
+            <TabsTrigger value="list" className="rounded-xl data-[state=active]:bg-white">List</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4">
-            {filteredTables.length === 0 ? (
-              <Card className="border-0 shadow-sm bg-white">
-                <CardContent className="p-12 text-center">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Home className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Tables Found</h3>
-                  <p className="text-gray-600 mb-6">
-                    {tables.length === 0 
-                      ? "Generate QR codes to create tables for your restaurant."
-                      : "No tables match your current filters."
-                    }
-                  </p>
-                  {tables.length === 0 && (
-                    <div className="space-y-3">
-                      <p className="text-sm text-gray-500">
-                        Go to QR Codes section and generate QR codes for your tables.
-                      </p>
-                      <Button onClick={handleAddTable} className="bg-blue-600 hover:bg-blue-700 text-white">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Table Manually
-                      </Button>
-                    </div>
-                  )}
-                  {tables.length > 0 && (
-                    <Button variant="outline" onClick={() => {
-                      setSearchTerm('')
-                      setFilterStatus('all')
-                    }}>
-                      Clear Filters
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredTables.map((table) => {
-                  const status = statusConfig[table.status]
-                  const occupancyRate = table.status === 'occupied' || table.status === 'billing' ? 100 : 0
-                  
-                  return (
-                    <Card 
-                      key={table.id} 
-                      className={`border-2 ${status.bgColor} hover:shadow-md transition-all cursor-pointer relative overflow-hidden`}
-                      onClick={() => setSelectedTable(table)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-bold text-gray-900">{table.name}</h4>
-                          <Badge className={status.color}>
-                            {status.label}
-                          </Badge>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            {status.icon}
-                            <span className="text-sm text-gray-600">{status.description}</span>
-                          </div>
-                          
-                          {table.customers > 0 && (
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-gray-500" />
-                              <span className="text-sm font-medium text-gray-700">{table.customers} customers</span>
-                            </div>
-                          )}
-                          
-                          {table.currentOrder && (
-                            <div className="flex items-center gap-2">
-                              <AlertCircle className="w-4 h-4 text-blue-500" />
-                              <span className="text-sm text-blue-600 font-medium">
-                                #{table.currentOrder.slice(-6)}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {table.sessionDuration && (
-                            <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4 text-gray-500" />
-                              <span className="text-sm text-gray-700">
-                                {formatDuration(table.sessionDuration)}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {table.reservedBy && (
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-purple-500" />
-                              <span className="text-sm text-purple-700">
-                                {table.reservedBy}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+          <TabsContent value="overview" className="mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredTables.map(table => {
+                const config = statusConfig[table.status] || statusConfig.available;
+                return (
+                  <Card key={table.id} className={`group border-2 ${config.bgColor} border-transparent hover:border-blue-200 transition-all rounded-2xl cursor-pointer`} onClick={() => setSelectedTable(table)}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2.5 bg-white rounded-xl shadow-sm ring-1 ring-gray-100">{config.icon}</div>
+                        <Badge className={`${config.color} border shadow-none px-2 rounded-lg text-[10px]`}>{config.label}</Badge>
+                      </div>
+                      <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{table.name}</h4>
+                      <p className="text-xs text-gray-500 mt-1">{config.description}</p>
+                      
+                      <div className="mt-4 pt-4 border-t border-gray-100/50 space-y-2">
+                         {table.customers > 0 && (
+                           <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                             <Users className="w-3.5 h-3.5" /> <span>{table.customers} guests</span>
+                           </div>
+                         )}
+                         {table.sessionStart && (
+                           <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                             <Clock className="w-3.5 h-3.5" /> <span>{formatDuration(table.sessionStart)}</span>
+                           </div>
+                         )}
+                      </div>
 
-                        {/* Progress indicator for occupancy */}
-                        <div className="mt-3">
-                          <Progress 
-                            value={occupancyRate} 
-                            className="h-2"
-                          />
-                        </div>
+                      <div className="mt-4">
+                        <Progress value={table.status === 'occupied' ? 100 : 0} className="h-1.5 bg-white/50" />
+                      </div>
 
-                        {/* Quick Actions */}
-                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                          <div className="flex items-center gap-2">
-                            {table.status === 'needs-cleaning' && (
-                              <Button
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleQuickAction(table, 'clean')
-                                }}
-                                className="bg-green-500 hover:bg-green-600 text-white"
-                              >
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Mark Clean
-                              </Button>
-                            )}
-                            
-                            {table.status === 'occupied' && (
-                              <Button
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleMarkTableAvailable(table)
-                                }}
-                                className="bg-orange-500 hover:bg-orange-600 text-white"
-                              >
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Mark Available
-                              </Button>
-                            )}
-                            
-                            {table.status === 'available' && (
-                              <Button
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleQuickAction(table, 'reserve')
-                                }}
-                                className="bg-blue-500 hover:bg-blue-600 text-white"
-                              >
-                                <Calendar className="w-3 h-3 mr-1" />
-                                Reserve
-                              </Button>
-                            )}
-                          </div>
-                          
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleQuickAction(table, 'edit')
-                            }}
-                            className="border-gray-200 text-gray-600 hover:bg-gray-50"
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Edit
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
+                      <div className="mt-4 flex gap-2">
+                        {table.status === 'needs-cleaning' && (
+                          <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-8 rounded-lg text-[10px] font-bold" onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkTableAvailable(table);
+                          }}>MARK READY</Button>
+                        )}
+                        {table.status === 'billing' && (
+                          <Button size="sm" className="flex-1 bg-amber-600 hover:bg-amber-700 h-8 rounded-lg text-[10px] font-bold" onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusChange(table.tableNumber, 'needs-cleaning');
+                          }}>MARK CLEANING</Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="grid" className="mt-8">
+            <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-4">
+               {filteredTables.map(t => (
+                 <div key={t.id} className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 border-2 ${statusConfig[t.status].bgColor} transition-all cursor-pointer hover:scale-105`} onClick={() => setSelectedTable(t)}>
+                    <span className="text-lg font-black text-gray-900">{t.tableNumber}</span>
+                    <div className={`w-2 h-2 rounded-full mt-2 ${statusConfig[t.status].color.split(' ')[0]}`} />
+                 </div>
+               ))}
+            </div>
           </TabsContent>
 
-          {/* Grid Tab */}
-          <TabsContent value="grid" className="space-y-4">
-            <Card className="border-0 shadow-sm bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Grid className="w-5 h-5" />
-                  Table Grid View
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {filteredTables.map((table) => {
-                    const status = statusConfig[table.status]
-                    return (
-                      <div
-                        key={table.id}
-                        className={`p-4 rounded-lg border-2 ${status.bgColor} hover:shadow-md transition-all cursor-pointer`}
-                        onClick={() => setSelectedTable(table)}
-                      >
-                        <div className="text-center">
-                          <div className="w-16 h-16 mx-auto mb-2 bg-white rounded-lg flex items-center justify-center">
-                            {status.icon}
-                          </div>
-                          <h4 className="font-bold text-gray-900 mb-1">{table.name}</h4>
-                          <Badge className={status.color}>
-                            {status.label}
-                          </Badge>
-                          {table.customers > 0 && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              {table.customers} customers
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
+          <TabsContent value="list" className="mt-8">
+             <Card className="border-0 shadow-sm ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left">
+                      <thead className="bg-gray-50 border-b border-gray-100">
+                         <tr>
+                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase">Table</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase">Status</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase">Guests</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase">Time</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase">Actions</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                         {filteredTables.map(t => (
+                           <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-6 py-4 font-bold text-gray-900">{t.name}</td>
+                              <td className="px-6 py-4"><Badge className={statusConfig[t.status].color}>{t.status}</Badge></td>
+                              <td className="px-6 py-4 text-sm text-gray-600 font-medium">{t.customers || '-'}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{t.sessionStart ? formatDuration(t.sessionStart) : '-'}</td>
+                              <td className="px-6 py-4">
+                                 <Button variant="ghost" size="sm" onClick={() => setSelectedTable(t)}><Eye className="w-4 h-4 text-gray-400"/></Button>
+                              </td>
+                           </tr>
+                         ))}
+                      </tbody>
+                   </table>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* List Tab */}
-          <TabsContent value="list" className="space-y-4">
-            <Card className="border-0 shadow-sm bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="w-5 h-5" />
-                  Detailed Table List
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {filteredTables.map((table) => {
-                    const status = statusConfig[table.status]
-                    return (
-                      <div
-                        key={table.id}
-                        className={`p-4 rounded-lg border ${status.bgColor} hover:shadow-md transition-all cursor-pointer`}
-                        onClick={() => setSelectedTable(table)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                              {status.icon}
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-gray-900">{table.name}</h4>
-                              <p className="text-sm text-gray-600">{status.description}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <Badge className={status.color}>
-                              {status.label}
-                            </Badge>
-                            {table.customers > 0 && (
-                              <p className="text-sm text-gray-600 mt-1">
-                                {table.customers} customers
-                              </p>
-                            )}
-                            {table.revenue > 0 && (
-                              <p className="text-sm font-medium text-green-600 mt-1">
-                                {formatCurrency(table.revenue)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+             </Card>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Table Details Modal */}
-      {selectedTable && !showReserveModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-0">
-                <h3 className="text-lg font-bold text-gray-900">Table Details</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedTable(null)}
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
+      {selectedTable && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <Card className="max-w-md w-full border-0 shadow-2xl rounded-3xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className={`h-24 ${statusConfig[selectedTable.status].bgColor} flex items-center justify-center`}>
+               <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-2xl font-black text-gray-900">
+                  {selectedTable.tableNumber}
+               </div>
             </div>
-            
-            <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-600">Table Number</span>
-                  <span className="font-bold text-gray-900">{selectedTable.name}</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-600">Status</span>
-                  <Badge className={statusConfig[selectedTable.status].color}>
-                    {statusConfig[selectedTable.status].label}
-                  </Badge>
-                </div>
-                
-                {selectedTable.customers > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-600">Customers</span>
-                    <span className="font-bold text-gray-900">{selectedTable.customers}</span>
-                  </div>
-                )}
-                
-                {selectedTable.currentOrder && (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-600">Current Order</span>
-                    <span className="font-bold text-blue-600">#{selectedTable.currentOrder.slice(-6)}</span>
-                  </div>
-                )}
-                
-                {selectedTable.sessionDuration && (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-600">Session Duration</span>
-                    <span className="font-bold text-gray-900">{formatDuration(selectedTable.sessionDuration)}</span>
-                  </div>
-                )}
-                
-                {selectedTable.revenue > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-600">Revenue</span>
-                    <span className="font-bold text-green-600">{formatCurrency(selectedTable.revenue)}</span>
-                  </div>
-                )}
-              </div>
-            
-            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <div className="flex items-center gap-3">
-                {selectedTable.status === 'needs-cleaning' && (
-                  <Button
-                    onClick={() => {
-                      setTables(prev => prev.map(t => 
-                        t.id === selectedTable.id 
-                          ? { ...t, status: 'available', customers: 0, currentOrder: null, sessionStart: null, sessionDuration: null, revenue: 0, needsCleaning: false }
-                          : t
-                      ))
-                      localStorage.setItem('tableSessions', JSON.stringify(tables))
-                      setSelectedTable(null)
-                    }}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white h-10 font-medium"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Mark as Cleaned
-                  </Button>
-                )}
-                
-                {selectedTable.status === 'available' && (
-                  <Button
-                    onClick={() => setShowReserveModal(true)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-10 font-medium"
-                  >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Reserve Table
-                  </Button>
-                )}
-                
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedTable(null)}
-                  className="flex-1 h-10 font-medium border-gray-300 hover:bg-gray-100"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            <CardContent className="p-6 space-y-6">
+               <div className="text-center space-y-1">
+                 <h3 className="text-xl font-black text-gray-900">Table {selectedTable.tableNumber}</h3>
+                 <Badge className={`${statusConfig[selectedTable.status].color} rounded-lg`}>{selectedTable.status.toUpperCase()}</Badge>
+               </div>
 
-      {/* Reserve Modal */}
-      {showReserveModal && selectedTable && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-60 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full mx-4 relative">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">Reserve {selectedTable.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">Enter reservation details</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowReserveModal(false)}
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name</label>
-                <Input
-                  placeholder="Enter customer name"
-                  className="w-full"
-                  value={reserveData.customerName}
-                  onChange={(e) => setReserveData(prev => ({ ...prev, customerName: e.target.value }))}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Reservation Time</label>
-                <Input
-                  type="datetime-local"
-                  className="w-full"
-                  value={reserveData.reservationTime}
-                  onChange={(e) => setReserveData(prev => ({ ...prev, reservationTime: e.target.value }))}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
-                <textarea
-                  placeholder="Add any special notes..."
-                  className="w-full h-20 p-2 border border-gray-300 rounded-md"
-                  value={reserveData.notes}
-                  onChange={(e) => setReserveData(prev => ({ ...prev, notes: e.target.value }))}
-                />
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <div className="flex items-center gap-3 mt-6">
-                <Button
-                  onClick={() => {
-                    if (reserveData.customerName.trim()) {
-                      const updatedTables = tables.map(t => {
-                        if (t.tableNumber === selectedTable.tableNumber) {
-                          return {
-                            ...t,
-                            status: 'reserved',
-                            reservedBy: reserveData.customerName,
-                            reservedTime: reserveData.reservationTime || new Date().toISOString(),
-                            reservationNotes: reserveData.notes,
-                            lastActivity: new Date().toISOString()
-                          }
-                        }
-                        return t
-                      })
-                      
-                      setTables(updatedTables)
-                      localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-                      setShowReserveModal(false)
-                      setReserveData({ customerName: '', notes: '', reservationTime: '' })
-                      setSelectedTable(null)
-                    }
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-10 font-medium"
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Confirm Reservation
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => setShowReserveModal(false)}
-                  className="flex-1 h-10 font-medium border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Settings Modal */}
-      {settingsModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Table Sessions Settings</h3>
-                  <p className="text-sm text-gray-500 mt-1">Configure table management preferences</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSettingsModalOpen(false)}
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700">Auto Refresh</label>
-                    <p className="text-xs text-gray-500">Automatically refresh table status</p>
+               <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100/50">
+                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Guests</p>
+                     <p className="font-bold text-gray-900">{selectedTable.customers || 0} People</p>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.autoRefresh}
-                    onChange={(e) => setSettings(prev => ({ ...prev, autoRefresh: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">Refresh Interval (seconds)</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={settings.refreshInterval}
-                    onChange={(e) => setSettings(prev => ({ ...prev, refreshInterval: parseInt(e.target.value) }))}
-                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700">Auto Complete Orders</label>
-                    <p className="text-xs text-gray-500">Automatically complete old orders</p>
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100/50">
+                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Session</p>
+                     <p className="font-bold text-gray-900">{selectedTable.sessionStart ? formatDuration(selectedTable.sessionStart) : 'No Active Session'}</p>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.autoCompleteOrders}
-                    onChange={(e) => setSettings(prev => ({ ...prev, autoCompleteOrders: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">Auto Complete After (minutes)</label>
-                  <Input
-                    type="number"
-                    min="15"
-                    max="240"
-                    value={settings.autoCompleteMinutes}
-                    onChange={(e) => setSettings(prev => ({ ...prev, autoCompleteMinutes: parseInt(e.target.value) }))}
-                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700">Notifications</label>
-                    <p className="text-xs text-gray-500">Show table status notifications</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications}
-                    onChange={(e) => setSettings(prev => ({ ...prev, notifications: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={handleSaveSettings}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-11 font-medium"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Settings
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => setSettingsModalOpen(false)}
-                  className="flex-1 h-11 font-medium border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Add Table Modal */}
-      {showAddTableModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Add New Table</h3>
-                  <p className="text-sm text-gray-500 mt-1">Create a new table for your restaurant</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAddTableModal(false)}
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Table Number</label>
-                <Input
-                  type="number"
-                  placeholder="Enter table number"
-                  value={newTableData.tableNumber}
-                  onChange={(e) => setNewTableData(prev => ({ ...prev, tableNumber: e.target.value }))}
-                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Capacity</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={newTableData.capacity}
-                  onChange={(e) => setNewTableData(prev => ({ ...prev, capacity: parseInt(e.target.value) }))}
-                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Location (Optional)</label>
-                <Input
-                  placeholder="e.g., Main Hall, Outdoor"
-                  value={newTableData.location}
-                  onChange={(e) => setNewTableData(prev => ({ ...prev, location: e.target.value }))}
-                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={handleConfirmAddTable}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-11 font-medium"
-                  disabled={!newTableData.tableNumber}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Table
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAddTableModal(false)}
-                  className="flex-1 h-11 font-medium border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Edit Table Modal */}
-      {showEditModal && selectedTable && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Edit Table</h3>
-                  <p className="text-sm text-gray-500 mt-1">{selectedTable.name}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowEditModal(false)}
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Table Number</label>
-                <Input
-                  type="number"
-                  value={selectedTable.tableNumber}
-                  disabled
-                  className="h-11 border-gray-300 bg-gray-50"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Capacity</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={selectedTable.capacity || 4}
-                  onChange={(e) => {
-                    const updatedTables = tables.map(t => {
-                      if (t.tableNumber === selectedTable.tableNumber) {
-                        return { ...t, capacity: parseInt(e.target.value) }
-                      }
-                      return t
-                    })
-                    setTables(updatedTables)
-                    setSelectedTable(updatedTables.find(t => t.id === selectedTable.id))
-                    localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-                  }}
-                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Location</label>
-                <Input
-                  placeholder="e.g., Main Hall, Outdoor"
-                  value={selectedTable.location || ''}
-                  onChange={(e) => {
-                    const updatedTables = tables.map(t => {
-                      if (t.tableNumber === selectedTable.tableNumber) {
-                        return { ...t, location: e.target.value }
-                      }
-                      return t
-                    })
-                    setTables(updatedTables)
-                    setSelectedTable(updatedTables.find(t => t.id === selectedTable.id))
-                    localStorage.setItem('tableSessions', JSON.stringify(updatedTables))
-                  }}
-                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-11 font-medium"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 h-11 font-medium border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
+               </div>
+
+               <div className="space-y-3">
+                  {selectedTable.status === 'needs-cleaning' ? (
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 h-12 rounded-2xl font-bold text-xs tracking-widest" onClick={() => handleMarkTableAvailable(selectedTable)}>
+                      MARK AS READY
+                    </Button>
+                  ) : (
+                    <Button variant="outline" className="w-full h-12 rounded-2xl font-bold text-xs tracking-widest border-2" onClick={() => handleStatusChange(selectedTable.tableNumber, 'needs-cleaning')}>
+                       REQUEST CLEANING
+                    </Button>
+                  )}
+                  <Button variant="ghost" className="w-full h-12 rounded-2xl font-bold text-xs tracking-widest text-gray-400" onClick={() => setSelectedTable(null)}>
+                     CLOSE PANEL
+                  </Button>
+               </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

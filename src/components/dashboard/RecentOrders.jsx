@@ -42,44 +42,17 @@ const statusConfig = {
   }
 }
 
-export default function RecentOrders({ restaurantId = 'default' }) {
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
+import { useOrderManagement } from '@/hooks/useOrderManagement'
 
-  // Listen for storage changes to update in real-time
-  useEffect(() => {
-    const handleStorage = () => setRefreshTrigger(prev => prev + 1)
-    window.addEventListener('storage', handleStorage)
-    window.addEventListener('orderUpdated', handleStorage)
-    window.addEventListener('orderHistoryUpdated', handleStorage)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener('orderUpdated', handleStorage)
-      window.removeEventListener('orderHistoryUpdated', handleStorage)
-    }
-  }, [])
+export default function RecentOrders({ restaurantId = 'default' }) {
+  const { orders: activeOrders, orderHistory, loading } = useOrderManagement(restaurantId)
 
   const orders = useMemo(() => {
-    try {
-      const rawOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const rawHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]')
-      
-      // ISO-LEVEL FILTERING: Only show this merchant's orders
-      const normalizedId = restaurantId.toString().toLowerCase().trim()
-      const currentOrders = rawOrders.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId)
-      const orderHistory = rawHistory.filter(o => (o.restaurantId || 'default').toString().toLowerCase().trim() === normalizedId)
-
-      // Filter out FINISHED and CANCELLED from currentOrders to avoid double-counting with orderHistory
-      const activeOrdersOnly = currentOrders.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
-      
-      // Merge and sort by time
-      return [...activeOrdersOnly, ...orderHistory]
-        .sort((a, b) => new Date(b.createdAt || b.completedAt || 0).getTime() - new Date(a.createdAt || a.completedAt || 0).getTime())
-        .slice(0, 5) // Show latest 5
-    } catch (e) {
-      console.error('Error loading orders:', e)
-      return []
-    }
-  }, [refreshTrigger, restaurantId])
+    // Merge and sort by time
+    return [...activeOrders, ...orderHistory]
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      .slice(0, 5) // Show latest 5
+  }, [activeOrders, orderHistory])
 
   return (
     <Card className="border-gray-100 shadow-sm overflow-hidden">

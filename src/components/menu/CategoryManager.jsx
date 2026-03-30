@@ -7,45 +7,69 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
-// Load categories from localStorage
-const loadCategories = () => {
-  try {
-    const saved = localStorage.getItem('menuCategories')
-    return saved ? JSON.parse(saved) : ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads']
-  } catch (error) {
-    console.error('Error loading categories:', error)
-    return ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads']
-  }
-}
+import { getCategories, syncCategories } from '@/lib/api'
 
-// Save categories to localStorage
-const saveCategories = (categories) => {
-  try {
-    localStorage.setItem('menuCategories', JSON.stringify(categories))
-  } catch (error) {
-    console.error('Error saving categories:', error)
-  }
-}
-
-export default function CategoryManager({ onCategoriesChange, showLabel = true }) {
+export default function CategoryManager({ onCategoriesChange, showLabel = true, restaurantId }) {
   const [categories, setCategories] = useState([])
   const [newCategory, setNewCategory] = useState('')
   const [editingCategory, setEditingCategory] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [isOpen, setIsOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
 
+  // Load categories from Supabase (fallback to local for guest mode)
   useEffect(() => {
-    const loaded = loadCategories()
-    setCategories(loaded)
-    if (onCategoriesChange) onCategoriesChange(loaded)
-  }, [])
+    const loadData = async () => {
+      if (!restaurantId) {
+        // Legacy fallback
+        const saved = localStorage.getItem('menuCategories')
+        const initial = saved ? JSON.parse(saved) : ['Starters', 'Main Course', 'Desserts', 'Beverages']
+        setCategories(initial)
+        if (onCategoriesChange) onCategoriesChange(initial)
+        return
+      }
+
+      setLoading(true)
+      try {
+        const cloudCategories = await getCategories(restaurantId)
+        if (cloudCategories && cloudCategories.length > 0) {
+          const names = cloudCategories.map(c => c.name)
+          setCategories(names)
+          if (onCategoriesChange) onCategoriesChange(names)
+        } else {
+          // If none in cloud, seed with defaults
+          const defaults = ['Starters', 'Main Course', 'Desserts', 'Beverages']
+          setCategories(defaults)
+          await syncCategories(restaurantId, defaults)
+          if (onCategoriesChange) onCategoriesChange(defaults)
+        }
+      } catch (err) {
+        console.error('Failed to load categories:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [restaurantId])
+
+  const saveAndSync = async (updated) => {
+    setCategories(updated)
+    if (onCategoriesChange) onCategoriesChange(updated)
+    
+    if (restaurantId) {
+      try {
+        await syncCategories(restaurantId, updated)
+      } catch (err) {
+        console.error('Failed to sync categories:', err)
+      }
+    } else {
+      localStorage.setItem('menuCategories', JSON.stringify(updated))
+    }
+  }
 
   const addCategory = () => {
     if (newCategory.trim() && !categories.includes(newCategory.trim())) {
-      const updated = [...categories, newCategory.trim()]
-      setCategories(updated)
-      saveCategories(updated)
-      if (onCategoriesChange) onCategoriesChange(updated)
+      saveAndSync([...categories, newCategory.trim()])
       setNewCategory('')
     }
   }
@@ -54,7 +78,7 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true }
     if (confirm(`Are you sure you want to delete "${category}"? Items in this category will need to be reassigned.`)) {
       const updated = categories.filter(cat => cat !== category)
       setCategories(updated)
-      saveCategories(updated)
+      saveAndSync(updated)
       if (onCategoriesChange) onCategoriesChange(updated)
     }
   }
@@ -68,7 +92,7 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true }
     if (editValue.trim() && editValue.trim() !== editingCategory) {
       const updated = categories.map(cat => cat === editingCategory ? editValue.trim() : cat)
       setCategories(updated)
-      saveCategories(updated)
+      saveAndSync(updated)
       if (onCategoriesChange) onCategoriesChange(updated)
     }
     setEditingCategory(null)
