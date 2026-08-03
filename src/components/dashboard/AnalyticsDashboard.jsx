@@ -42,50 +42,6 @@ import {
   Cell
 } from 'recharts'
 
-// Load analytics data from localStorage
-const loadAnalytics = () => {
-  try {
-    const saved = localStorage.getItem('menuAnalytics')
-    const savedRevenue = localStorage.getItem('totalRevenue')
-    const savedOrderHistory = localStorage.getItem('orderHistory')
-    
-    const parsedMenuAnalytics = saved ? JSON.parse(saved) : {}
-    const today = new Date().toLocaleDateString('en-CA')
-    const lastDate = parsedMenuAnalytics.lastUpdated ? new Date(parsedMenuAnalytics.lastUpdated).toLocaleDateString('en-CA') : today
-    
-    if (today !== lastDate) {
-      parsedMenuAnalytics.itemViews = {}
-      parsedMenuAnalytics.itemOrders = {}
-      parsedMenuAnalytics.totalViews = 0
-      parsedMenuAnalytics.totalOrders = 0
-      parsedMenuAnalytics.lastUpdated = new Date().toISOString()
-      localStorage.setItem('menuAnalytics', JSON.stringify(parsedMenuAnalytics))
-      window.dispatchEvent(new Event('storage'))
-    }
-    
-    return {
-      itemViews: {},
-      itemOrders: {},
-      totalViews: 0,
-      totalOrders: 0,
-      totalRevenue: parseFloat(savedRevenue) || 0,
-      orderHistory: savedOrderHistory ? JSON.parse(savedOrderHistory) : [],
-      lastUpdated: new Date().toISOString(),
-      ...parsedMenuAnalytics
-    }
-  } catch (error) {
-    console.error('Error loading analytics:', error)
-    return {
-      itemViews: {},
-      itemOrders: {},
-      totalViews: 0,
-      totalOrders: 0,
-      totalRevenue: 0,
-      orderHistory: [],
-      lastUpdated: new Date().toISOString()
-    }
-  }
-}
 
 // Format currency for Indian Rupees
 const formatCurrency = (amount) => {

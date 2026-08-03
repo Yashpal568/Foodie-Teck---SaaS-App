@@ -25,8 +25,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { menuItems, supportItems } from './Sidebar'
-import { saveAndClearWorkspace } from '@/utils/workspace'
-
 import { supabase } from '@/lib/api'
 
 export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId }) {
@@ -113,8 +111,6 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   }
 
   const handleSignOut = async () => {
-    // Terminate secure session state and snapshot workspace to database
-    saveAndClearWorkspace()
     localStorage.removeItem('userProfile')
     await supabase.auth.signOut()
     

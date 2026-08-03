@@ -45,6 +45,8 @@ const getConfig = (idx) => {
   return planConfig[keys[idx % keys.length]] || planConfig.PLN1
 }
 
+import { supabase } from '@/lib/supabase'
+
 export default function AdminPlansPage() {
   const [plans, setPlans] = useState([])
   const [liveMetrics, setLiveMetrics] = useState({})
@@ -63,18 +65,23 @@ export default function AdminPlansPage() {
     if (!stored) localStorage.setItem('servora_subscription_plans', JSON.stringify(defaultPlans))
     setPlans(activePlans)
 
-    const pollMetrics = () => {
-      const subs = JSON.parse(localStorage.getItem('servora_db_subscriptions') || '[]')
-      const metrics = {}
-      activePlans.forEach(p => {
-        const count = subs.filter(s => s.tier === p.name).length
-        metrics[p.id] = { subscribers: count, mrr: count * p.price }
-      })
-      setLiveMetrics(metrics)
+    const fetchMetrics = async () => {
+      try {
+        const { data: subs } = await supabase.from('subscriptions').select('plan_name, price')
+        
+        const metrics = {}
+        activePlans.forEach(p => {
+          const matchingSubs = (subs || []).filter(s => s.plan_name === p.name)
+          const count = matchingSubs.length
+          const mrr = matchingSubs.reduce((acc, sub) => acc + parseInt(sub.price || 0), 0)
+          metrics[p.id] = { subscribers: count, mrr: mrr }
+        })
+        setLiveMetrics(metrics)
+      } catch (err) {
+        console.error("Failed to load plan metrics from Supabase:", err)
+      }
     }
-    pollMetrics()
-    const timer = setInterval(pollMetrics, 2000)
-    return () => clearInterval(timer)
+    fetchMetrics()
   }, [])
 
   const totalMRR = Object.values(liveMetrics).reduce((a, m) => a + m.mrr, 0)

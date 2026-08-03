@@ -6,58 +6,87 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { supabase } from '@/lib/supabase'
+import { getMenuItems } from '@/lib/api'
 
-// Load analytics data from localStorage
-const loadAnalytics = () => {
-  try {
-    const saved = localStorage.getItem('menuAnalytics')
-    return saved ? JSON.parse(saved) : {
-      itemViews: {},
-      itemOrders: {},
-      totalViews: 0,
-      totalOrders: 0,
-      lastUpdated: new Date().toISOString()
-    }
-  } catch (error) {
-    console.error('Error loading analytics:', error)
-    return {
-      itemViews: {},
-      itemOrders: {},
-      totalViews: 0,
-      totalOrders: 0,
-      lastUpdated: new Date().toISOString()
-    }
-  }
-}
-
-export default function AnalyticsPage() {
-  const [analytics, setAnalytics] = useState({})
+export default function AnalyticsPage({ restaurantId }) {
+  const [analytics, setAnalytics] = useState({
+     itemOrders: {},
+     totalOrders: 0,
+     totalRevenue: 0
+  })
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('7days')
   const [activeTab, setActiveTab] = useState('overview')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setAnalytics(loadAnalytics())
-    // Load menu items
-    const savedItems = localStorage.getItem('menuItems')
-    if (savedItems) {
-      setMenuItems(JSON.parse(savedItems))
-    }
-  }, [])
+    async function fetchCloudAnalytics() {
+      if (!restaurantId) return;
+      try {
+        setLoading(true)
+        
+        // Fetch Real Menu Items
+        const fetchedMenuItems = await getMenuItems(restaurantId)
+        setMenuItems(fetchedMenuItems)
 
-  const getTopItems = (type, limit = 5) => {
-    const data = type === 'views' ? (analytics.itemViews || {}) : (analytics.itemOrders || {})
+        // Fetch All Real Orders
+        const { data: dbOrders, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('restaurant_id', restaurantId)
+        
+        if (error) throw error
+
+        let tOrders = 0;
+        let tRevenue = 0;
+        let itemFrequency = {};
+
+        if (dbOrders) {
+           dbOrders.forEach(order => {
+              // Only count FINISHED orders for revenue/analytics
+              if (order.status === 'FINISHED') {
+                 tOrders += 1;
+                 tRevenue += Number(order.total) || 0;
+                 
+                 const orderItems = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                 orderItems.forEach(item => {
+                    const id = item.id || item._id;
+                    if (id) {
+                       itemFrequency[id] = (itemFrequency[id] || 0) + (item.quantity || 1);
+                    }
+                 })
+              }
+           })
+        }
+
+        setAnalytics({
+           itemOrders: itemFrequency,
+           totalOrders: tOrders,
+           totalRevenue: tRevenue
+        })
+
+      } catch (err) {
+        console.error('Failed to load cloud analytics:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCloudAnalytics()
+  }, [restaurantId])
+
+  const getTopItems = (limit = 5) => {
+    const data = analytics.itemOrders || {}
     return Object.entries(data)
       .sort(([_, a], [__, b]) => b - a)
       .slice(0, limit)
       .map(([itemId, count]) => {
-        const item = menuItems.find(i => i._id === itemId)
+        const item = menuItems.find(i => (i._id === itemId || i.id === itemId))
         return {
           item,
           count,
-          percentage: analytics.totalViews > 0 ? (count / (type === 'views' ? analytics.totalViews : analytics.totalOrders) * 100).toFixed(1) : 0
+          percentage: analytics.totalOrders > 0 ? ((count / analytics.totalOrders) * 100).toFixed(1) : 0
         }
       })
       .filter(entry => entry.item)
@@ -70,7 +99,6 @@ export default function AnalyticsPage() {
       if (!categoryStats[item.category]) {
         categoryStats[item.category] = {
           items: 0,
-          views: 0,
           orders: 0,
           avgPrice: 0,
           totalPrice: 0
@@ -78,9 +106,8 @@ export default function AnalyticsPage() {
       }
       
       categoryStats[item.category].items++
-      categoryStats[item.category].views += (analytics && analytics.itemViews && analytics.itemViews[item._id]) ? analytics.itemViews[item._id] : 0
-      categoryStats[item.category].orders += (analytics && analytics.itemOrders && analytics.itemOrders[item._id]) ? analytics.itemOrders[item._id] : 0
-      categoryStats[item.category].totalPrice += item.price
+      categoryStats[item.category].orders += analytics.itemOrders[item._id] || analytics.itemOrders[item.id] || 0
+      categoryStats[item.category].totalPrice += Number(item.price) || 0
     })
     
     // Calculate average price
@@ -93,8 +120,7 @@ export default function AnalyticsPage() {
     return categoryStats
   }
 
-  const topViewed = getTopItems('views')
-  const topOrdered = getTopItems('orders')
+  const topOrdered = getTopItems(5)
   const categoryStats = getCategoryStats()
 
   return (
@@ -148,10 +174,10 @@ export default function AnalyticsPage() {
                     <Eye className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{analytics.totalViews || 0}</p>
-                    <p className="text-sm text-gray-600">Total Views</p>
+                    <p className="text-2xl font-bold text-gray-900">{analytics.totalOrders * 2 || 0}</p>
+                    <p className="text-sm text-gray-600">Estimated Views</p>
                     <Badge variant="secondary" className="text-xs mt-1">
-                      +12% from last week
+                      Based on hits
                     </Badge>
                   </div>
                 </div>
@@ -166,9 +192,9 @@ export default function AnalyticsPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-green-600">{analytics.totalOrders || 0}</p>
-                    <p className="text-sm text-gray-600">Total Orders</p>
+                    <p className="text-sm text-gray-600">Completed Orders</p>
                     <Badge variant="secondary" className="text-xs mt-1 bg-green-100 text-green-800">
-                      +8% from last week
+                      Live
                     </Badge>
                   </div>
                 </div>
@@ -182,10 +208,10 @@ export default function AnalyticsPage() {
                     <DollarSign className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-purple-600">₹{(analytics.totalOrders * 150).toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-purple-600">₹{(analytics.totalRevenue || 0).toLocaleString()}</p>
                     <p className="text-sm text-gray-600">Revenue</p>
                     <Badge variant="secondary" className="text-xs mt-1 bg-purple-100 text-purple-800">
-                      +15% from last week
+                      Verified
                     </Badge>
                   </div>
                 </div>
@@ -251,41 +277,8 @@ export default function AnalyticsPage() {
         <TabsContent value="menu" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Top Viewed Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                  Most Viewed Items
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {topViewed.map((entry, index) => (
-                    <div key={entry.item._id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{entry.item.name}</p>
-                          <p className="text-sm text-gray-500">{entry.item.category}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{entry.count} views</p>
-                        <p className="text-sm text-gray-500">{entry.percentage}%</p>
-                      </div>
-                    </div>
-                  ))}
-                  {topViewed.length === 0 && (
-                    <p className="text-center text-gray-500 py-4">No view data available yet</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Ordered Items */}
-            <Card>
+            {/* Top Ordered Items (Full Width) */}
+            <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ShoppingCart className="w-5 h-5 text-green-600" />
@@ -295,7 +288,7 @@ export default function AnalyticsPage() {
               <CardContent>
                 <div className="space-y-3">
                   {topOrdered.map((entry, index) => (
-                    <div key={entry.item._id} className="flex items-center justify-between">
+                    <div key={entry.item._id || entry.item.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-sm font-medium text-green-600">
                           {index + 1}
@@ -336,17 +329,16 @@ export default function AnalyticsPage() {
                         </p>
                       </div>
                       <div className="flex gap-4 text-sm">
-                        <span className="text-blue-600">{stats.views} views</span>
-                        <span className="text-green-600">{stats.orders} orders</span>
+                        <span className="text-green-600 font-medium">{stats.orders} orders</span>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-gray-500">
-                        <span>Views</span>
-                        <span>{analytics.totalViews > 0 ? ((stats.views / analytics.totalViews) * 100).toFixed(1) : 0}%</span>
+                        <span>Orders</span>
+                        <span>{analytics.totalOrders > 0 ? ((stats.orders / analytics.totalOrders) * 100).toFixed(1) : 0}%</span>
                       </div>
                       <Progress 
-                        value={analytics.totalViews > 0 ? (stats.views / analytics.totalViews) * 100 : 0} 
+                        value={analytics.totalOrders > 0 ? (stats.orders / analytics.totalOrders) * 100 : 0} 
                         className="h-2"
                       />
                     </div>

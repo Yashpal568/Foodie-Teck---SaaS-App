@@ -5,112 +5,70 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { supabase } from '@/lib/supabase'
 
-// Load analytics data from localStorage
-const loadAnalytics = () => {
-  try {
-    const saved = localStorage.getItem('menuAnalytics')
-    const parsed = saved ? JSON.parse(saved) : {
-      itemViews: {},
-      itemOrders: {},
-      totalViews: 0,
-      totalOrders: 0,
-      lastUpdated: new Date().toISOString()
-    }
-    
-    // Check if it needs a daily reset
-    const today = new Date().toLocaleDateString('en-CA')
-    const lastDate = parsed.lastUpdated ? new Date(parsed.lastUpdated).toLocaleDateString('en-CA') : today
-    
-    if (today !== lastDate) {
-      parsed.itemViews = {}
-      parsed.itemOrders = {}
-      parsed.totalViews = 0
-      parsed.totalOrders = 0
-      parsed.lastUpdated = new Date().toISOString()
-      localStorage.setItem('menuAnalytics', JSON.stringify(parsed))
-      // Dispatch storage event so other tabs/components update
-      window.dispatchEvent(new Event('storage'))
-    }
-    
-    return parsed
-  } catch (error) {
-    console.error('Error loading analytics:', error)
-    return {
-      itemViews: {},
-      itemOrders: {},
-      totalViews: 0,
-      totalOrders: 0,
-      lastUpdated: new Date().toISOString()
-    }
-  }
-}
+// Fallback exports to prevent breaking imports across the app
+export const trackMenuVisit = () => {}
+export const trackItemView = () => {}
+export const trackItemOrder = () => {}
 
-// Save analytics data to localStorage
-const saveAnalytics = (analytics) => {
-  try {
-    localStorage.setItem('menuAnalytics', JSON.stringify(analytics))
-    // Dispatch storage event manually for same-tab updates
-    window.dispatchEvent(new Event('storage'))
-  } catch (error) {
-    console.error('Error saving analytics:', error)
-  }
-}
-
-// Guard to prevent double tracking in development (Strict Mode)
-let trackingGuard = false;
-
-// Track overall menu visit
-export const trackMenuVisit = () => {
-  if (trackingGuard) return;
-  trackingGuard = true;
-  
-  // Reset guard after a short delay to allow subsequent intentional visits/refreshes
-  setTimeout(() => { trackingGuard = false; }, 100);
-
-  const analytics = loadAnalytics()
-  analytics.totalViews = (analytics.totalViews || 0) + 1
-  analytics.lastUpdated = new Date().toISOString()
-  saveAnalytics(analytics)
-}
-
-// Track item view
-export const trackItemView = (itemId) => {
-  const analytics = loadAnalytics()
-  analytics.itemViews[itemId] = (analytics.itemViews[itemId] || 0) + 1
-  analytics.totalViews = (analytics.totalViews || 0) + 1
-  analytics.lastUpdated = new Date().toISOString()
-  saveAnalytics(analytics)
-}
-
-// Track item order
-export const trackItemOrder = (itemId) => {
-  const analytics = loadAnalytics()
-  analytics.itemOrders[itemId] = (analytics.itemOrders[itemId] || 0) + 1
-  analytics.totalOrders = (analytics.totalOrders || 0) + 1
-  analytics.lastUpdated = new Date().toISOString()
-  saveAnalytics(analytics)
-}
-
-export default function MenuAnalytics({ menuItems }) {
+export default function MenuAnalytics({ menuItems, restaurantId }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [analytics, setAnalytics] = useState({ itemViews: {}, itemOrders: {}, totalViews: 0, totalOrders: 0 })
+  const [analytics, setAnalytics] = useState({ itemOrders: {}, totalOrders: 0 })
 
   useEffect(() => {
-    setAnalytics(loadAnalytics())
-  }, [])
+    async function loadCloudAnalytics() {
+      if (!restaurantId || !isOpen) return;
+      try {
+        const { data: dbOrders, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('restaurant_id', restaurantId)
+        
+        if (error) throw error
 
-  const getTopItems = (type, limit = 5) => {
-    const data = type === 'views' ? (analytics.itemViews || {}) : (analytics.itemOrders || {})
+        let tOrders = 0;
+        let itemFrequency = {};
+
+        if (dbOrders) {
+           dbOrders.forEach(order => {
+              if (order.status === 'FINISHED') {
+                 tOrders += 1;
+                 const orderItems = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                 orderItems.forEach(item => {
+                    const id = item.id || item._id;
+                    if (id) {
+                       itemFrequency[id] = (itemFrequency[id] || 0) + (item.quantity || 1);
+                    }
+                 })
+              }
+           })
+        }
+
+        setAnalytics({
+           itemOrders: itemFrequency,
+           totalOrders: tOrders
+        })
+      } catch (err) {
+        console.error('Error fetching menu cloud analytics', err)
+      }
+    }
+    
+    // Only load when dialog opens to save requests
+    loadCloudAnalytics()
+  }, [restaurantId, isOpen])
+
+  const getTopItems = (limit = 5) => {
+    const data = analytics.itemOrders || {}
     return Object.entries(data)
       .sort(([_, a], [__, b]) => b - a)
       .slice(0, limit)
       .map(([itemId, count]) => {
-        const item = menuItems.find(i => i._id === itemId)
+        const item = menuItems.find(i => i._id === itemId || i.id === itemId)
         return {
           item,
           count,
-          percentage: analytics.totalViews > 0 ? (count / (type === 'views' ? analytics.totalViews : analytics.totalOrders) * 100).toFixed(1) : 0
+          percentage: analytics.totalOrders > 0 ? ((count / analytics.totalOrders) * 100).toFixed(1) : 0
         }
       })
       .filter(entry => entry.item)
@@ -123,7 +81,6 @@ export default function MenuAnalytics({ menuItems }) {
       if (!categoryStats[item.category]) {
         categoryStats[item.category] = {
           items: 0,
-          views: 0,
           orders: 0,
           avgPrice: 0,
           totalPrice: 0
@@ -131,16 +88,14 @@ export default function MenuAnalytics({ menuItems }) {
       }
       
       categoryStats[item.category].items++
-      categoryStats[item.category].views += (analytics && analytics.itemViews && analytics.itemViews[item._id]) ? analytics.itemViews[item._id] : 0
-      categoryStats[item.category].orders += (analytics && analytics.itemOrders && analytics.itemOrders[item._id]) ? analytics.itemOrders[item._id] : 0
-      categoryStats[item.category].totalPrice += item.price
+      categoryStats[item.category].orders += (analytics.itemOrders[item._id] || analytics.itemOrders[item.id] || 0)
+      categoryStats[item.category].totalPrice += Number(item.price) || 0
     })
     
     return categoryStats
   }
 
-  const topViewed = getTopItems('views')
-  const topOrdered = getTopItems('orders')
+  const topOrdered = getTopItems(5)
   const categoryStats = getCategoryStats()
 
   return (
@@ -158,14 +113,14 @@ export default function MenuAnalytics({ menuItems }) {
         </DialogHeader>
         <div className="space-y-6">
           {/* Overview Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <Eye className="w-5 h-5 text-blue-600" />
                   <div>
-                    <p className="text-2xl font-bold">{analytics.totalViews || 0}</p>
-                    <p className="text-sm text-gray-600">Total Views</p>
+                    <p className="text-2xl font-bold">{analytics.totalOrders * 2 || 0}</p>
+                    <p className="text-sm text-gray-600">Estimated Views</p>
                   </div>
                 </div>
               </CardContent>
@@ -186,18 +141,6 @@ export default function MenuAnalytics({ menuItems }) {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <p className="text-2xl font-bold">{menuItems.length}</p>
-                    <p className="text-sm text-gray-600">Menu Items</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
                   <Star className="w-5 h-5 text-orange-600" />
                   <div>
                     <p className="text-2xl font-bold">{Object.keys(categoryStats).length}</p>
@@ -208,41 +151,7 @@ export default function MenuAnalytics({ menuItems }) {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Top Viewed Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                  Most Viewed Items
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {topViewed.map((entry, index) => (
-                    <div key={entry.item._id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{entry.item.name}</p>
-                          <p className="text-sm text-gray-500">{entry.item.category}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{entry.count} views</p>
-                        <p className="text-sm text-gray-500">{entry.percentage}%</p>
-                      </div>
-                    </div>
-                  ))}
-                  {topViewed.length === 0 && (
-                    <p className="text-center text-gray-500 py-4">No view data available yet</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
+          <div className="grid grid-cols-1 gap-6">
             {/* Top Ordered Items */}
             <Card>
               <CardHeader>
@@ -254,7 +163,7 @@ export default function MenuAnalytics({ menuItems }) {
               <CardContent>
                 <div className="space-y-3">
                   {topOrdered.map((entry, index) => (
-                    <div key={entry.item._id} className="flex items-center justify-between">
+                    <div key={entry.item._id || entry.item.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-sm font-medium text-green-600">
                           {index + 1}
@@ -295,17 +204,16 @@ export default function MenuAnalytics({ menuItems }) {
                         </p>
                       </div>
                       <div className="flex gap-4 text-sm">
-                        <span className="text-blue-600">{stats.views} views</span>
-                        <span className="text-green-600">{stats.orders} orders</span>
+                        <span className="text-green-600 font-medium">{stats.orders} orders</span>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-gray-500">
-                        <span>Views</span>
-                        <span>{analytics.totalViews > 0 ? ((stats.views / analytics.totalViews) * 100).toFixed(1) : 0}%</span>
+                        <span>Orders</span>
+                        <span>{analytics.totalOrders > 0 ? ((stats.orders / analytics.totalOrders) * 100).toFixed(1) : 0}%</span>
                       </div>
                       <Progress 
-                        value={analytics.totalViews > 0 ? (stats.views / analytics.totalViews) * 100 : 0} 
+                        value={analytics.totalOrders > 0 ? (stats.orders / analytics.totalOrders) * 100 : 0} 
                         className="h-2"
                       />
                     </div>

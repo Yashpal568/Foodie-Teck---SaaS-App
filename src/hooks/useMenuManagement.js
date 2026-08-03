@@ -1,107 +1,145 @@
 import { useState, useEffect, useCallback } from 'react'
-import menuService from '../services/menuService'
+import { supabase } from '@/lib/supabase'
+import { 
+  fetchMenuItems as apiFetchMenuItems, 
+  createMenuItem as apiCreateMenuItem, 
+  updateMenuItem as apiUpdateMenuItem, 
+  deleteMenuItem as apiDeleteMenuItem, 
+  toggleMenuItemStock as apiToggleStock,
+  getMyRestaurant 
+} from '@/lib/api'
 
-export const useMenuManagement = () => {
+export const useMenuManagement = (restaurantId) => {
+  const [resolvedId, setResolvedId] = useState(null)
   const [menuItems, setMenuItems] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [stats, setStats] = useState(null)
 
-  const fetchMenuItems = useCallback(async (filters = {}) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await menuService.getMenuItems(filters)
-      
-      if (response.success) {
-        setMenuItems(response.data.items)
-        setCategories(response.data.categories)
+  // 1. Identity Resolution
+  useEffect(() => {
+    let isMounted = true
+    async function resolve() {
+      if (restaurantId) {
+        if (restaurantId.includes('@')) {
+          const { data } = await supabase
+            .from('restaurants')
+            .select('id')
+            .eq('email', restaurantId.toLowerCase())
+            .single()
+          if (isMounted && data?.id) setResolvedId(data.id)
+        } else {
+          if (isMounted) setResolvedId(restaurantId)
+        }
       } else {
-        setError(response.message)
+        const profile = await getMyRestaurant()
+        if (isMounted && profile?.id) setResolvedId(profile.id)
       }
+    }
+    resolve()
+    return () => { isMounted = false }
+  }, [restaurantId])
+
+  // 2. Fetch Menu Items from Supabase
+  const fetchMenuItems = useCallback(async (showLoading = true) => {
+    if (!resolvedId) return
+    if (showLoading) setLoading(true)
+    setError(null)
+    try {
+      const items = await apiFetchMenuItems(resolvedId)
+      setMenuItems(items)
+      const uniqueCategories = [...new Set(items.map(i => i.category).filter(Boolean))]
+      setCategories(uniqueCategories)
     } catch (err) {
+      console.error('Error fetching menu items from Supabase:', err)
       setError(err.message)
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
     }
-  }, [])
+  }, [resolvedId])
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const response = await menuService.getMenuStats()
-      if (response.success) {
-        setStats(response.data)
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err)
+  // 3. Realtime WebSockets for Live Menu Sync across devices
+  useEffect(() => {
+    if (!resolvedId) return
+
+    fetchMenuItems(true)
+
+    const channel = supabase
+      .channel(`public:menu_items:rid=${resolvedId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'menu_items',
+          filter: `restaurant_id=eq.${resolvedId}`
+        },
+        () => {
+          fetchMenuItems(false) // Background live update
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-  }, [])
+  }, [resolvedId, fetchMenuItems])
 
+  // 4. Create Menu Item via Supabase
   const createMenuItem = useCallback(async (itemData) => {
+    if (!resolvedId) throw new Error('Restaurant ID not resolved')
     try {
-      const response = await menuService.createMenuItem(itemData)
-      if (response.success) {
-        await fetchMenuItems()
-        await fetchStats()
-        return response.data
-      } else {
-        throw new Error(response.message)
-      }
+      const newItem = await apiCreateMenuItem(resolvedId, itemData)
+      await fetchMenuItems(false)
+      return newItem
     } catch (err) {
+      console.error('Error creating menu item:', err)
       throw err
     }
-  }, [fetchMenuItems, fetchStats])
+  }, [resolvedId, fetchMenuItems])
 
+  // 5. Update Menu Item via Supabase
   const updateMenuItem = useCallback(async (id, itemData) => {
     try {
-      const response = await menuService.updateMenuItem(id, itemData)
-      if (response.success) {
-        await fetchMenuItems()
-        await fetchStats()
-        return response.data
-      } else {
-        throw new Error(response.message)
-      }
+      const updated = await apiUpdateMenuItem(id, itemData)
+      await fetchMenuItems(false)
+      return updated
     } catch (err) {
+      console.error('Error updating menu item:', err)
       throw err
     }
-  }, [fetchMenuItems, fetchStats])
+  }, [fetchMenuItems])
 
+  // 6. Delete Menu Item via Supabase
   const deleteMenuItem = useCallback(async (id) => {
     try {
-      const response = await menuService.deleteMenuItem(id)
-      if (response.success) {
-        await fetchMenuItems()
-        await fetchStats()
-        return response.data
-      } else {
-        throw new Error(response.message)
-      }
+      const res = await apiDeleteMenuItem(id)
+      await fetchMenuItems(false)
+      return res
     } catch (err) {
+      console.error('Error deleting menu item:', err)
       throw err
     }
-  }, [fetchMenuItems, fetchStats])
+  }, [fetchMenuItems])
 
+  // 7. Toggle Stock Status via Supabase
   const updateStockStatus = useCallback(async (id, isInStock) => {
     try {
-      const response = await menuService.updateStockStatus(id, isInStock)
-      if (response.success) {
-        await fetchMenuItems()
-        await fetchStats()
-        return response.data
-      } else {
-        throw new Error(response.message)
-      }
+      const updated = await apiToggleStock(id, isInStock)
+      await fetchMenuItems(false)
+      return updated
     } catch (err) {
+      console.error('Error toggling stock status:', err)
       throw err
     }
-  }, [fetchMenuItems, fetchStats])
+  }, [fetchMenuItems])
 
-  useEffect(() => {
-    fetchMenuItems()
-    fetchStats()
-  }, [fetchMenuItems, fetchStats])
+  const stats = {
+    totalItems: menuItems.length,
+    inStockCount: menuItems.filter(i => i.isInStock).length,
+    outOfStockCount: menuItems.filter(i => !i.isInStock).length,
+    categoriesCount: categories.length
+  }
 
   return {
     menuItems,
@@ -118,3 +156,4 @@ export const useMenuManagement = () => {
 }
 
 export default useMenuManagement
+

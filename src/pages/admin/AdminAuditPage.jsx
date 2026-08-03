@@ -3,15 +3,27 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Database, ShieldAlert, CheckCircle, Clock, Filter, Trash2, DownloadCloud } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabase'
 
 export default function AdminAuditPage() {
   const [search, setSearch] = useState('')
   const [logs, setLogs] = useState([])
   const [isClearing, setIsClearing] = useState(false)
 
-  const loadLogs = () => {
-    const raw = localStorage.getItem('servora_db_audits') || '[]'
-    setLogs(JSON.parse(raw).reverse())
+  const loadLogs = async () => {
+    const { data: dbLogs } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false })
+    
+    if (dbLogs) {
+      setLogs(dbLogs.map(l => ({
+         id: l.id,
+         action: l.action,
+         performer: l.actor || l.restaurant_id || 'System User',
+         severity: l.severity || 'NOMINAL',
+         target: l.type,
+         date: new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+         time: new Date(l.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      })))
+    }
   }
 
   useEffect(() => {
@@ -20,13 +32,11 @@ export default function AdminAuditPage() {
     return () => window.removeEventListener('platformConfigUpdated', loadLogs)
   }, [])
 
-  const handleClearLogs = () => {
+  const handleClearLogs = async () => {
     setIsClearing(true)
-    setTimeout(() => {
-      localStorage.setItem('servora_db_audits', '[]')
-      setLogs([])
-      setIsClearing(false)
-    }, 1000)
+    await supabase.from('audit_logs').delete().neq('id', 'mock_id') // We clear everything by condition or you can choose to just clear ADMIN_ACTION
+    await loadLogs()
+    setIsClearing(false)
   }
 
   const filtered = logs.filter(l => 

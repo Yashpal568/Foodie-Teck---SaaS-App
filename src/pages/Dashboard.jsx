@@ -64,49 +64,74 @@ function Dashboard() {
   const [isSuspended, setIsSuspended] = useState(false)
 
   useEffect(() => {
-    // 1. Mandatory Identity Sovereignty Check
-    const userJson = localStorage.getItem('servora_user')
-    if (!userJson) {
-      navigate('/login')
-      return
-    }
-    const currentUser = JSON.parse(userJson)
-
-    // High-Security: Ensure URL context matches authorized merchant node
-    if (urlId !== currentUser.email) {
-       console.warn('Identity Displacement Detected. Redirecting to authorized console...')
-       navigate(`/console/${currentUser.email}`, { replace: true })
-       return
-    }
-
-    // Check for Global Suspension
-    const allUsers = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-    const globalStatus = allUsers.find(u => u.email === currentUser.email)?.status
-    if (globalStatus === 'Suspended') {
-       setIsSuspended(true)
-    }
-
-    // 2. Check for Plan Entitlement & Subscription Cycle
-    const savedPlan = localStorage.getItem('servora_plan')
-    if (savedPlan) {
-      const planData = JSON.parse(savedPlan)
-      setPlan(planData)
+    async function verifyAuthAndPlan() {
+      // 1. Mandatory Identity Sovereignty Check via Supabase Auth
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
-      // Calculate Subscription Cycle (30 Days)
-      const purchaseDate = new Date(planData.purchaseDate || planData.activeSince || Date.now())
-      const expiryDate = new Date(purchaseDate.getTime() + (30 * 24 * 60 * 60 * 1000))
-      const now = new Date()
-      
-      const timeDiff = expiryDate.getTime() - now.getTime()
-      const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24))
-      
-      setDaysRemaining(daysLeft)
-      if (daysLeft <= 0) {
-        setIsExpired(true)
+      if (!session || sessionError) {
+        navigate('/login')
+        return
       }
+
+      // Check if URL context matches authentic owner
+      const currentUserId = session.user.id
+      if (resolvedId && resolvedId !== currentUserId && urlId !== currentUserId) {
+         console.warn('Identity Displacement Detected. Redirecting to authorized console...')
+         navigate(`/console/${currentUserId}`, { replace: true })
+         return
+      }
+
+      const activeRestaurantId = resolvedId || currentUserId
+
+      // 2. Check for Global Suspension via DB
+      const { data: restaurant } = await supabase
+        .from('restaurants')
+        .select('status')
+        .eq('id', activeRestaurantId)
+        .single()
+        
+      if (restaurant?.status === 'Suspended') {
+         setIsSuspended(true)
+      }
+
+      // 3. Check for Plan Entitlement & Subscription Cycle via DB
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('restaurant_id', activeRestaurantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (subscription) {
+        // Mock a plan object for backward compatibility with UI components
+        setPlan({ 
+           name: subscription.plan_name || 'Standard', 
+           purchaseDate: subscription.start_date || subscription.created_at
+        })
+        
+        const purchaseDate = new Date(subscription.start_date || subscription.created_at || Date.now())
+        const expiryDate = new Date(subscription.end_date || purchaseDate.getTime() + (30 * 24 * 60 * 60 * 1000))
+        const now = new Date()
+        
+        const timeDiff = expiryDate.getTime() - now.getTime()
+        const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24))
+        
+        setDaysRemaining(daysLeft)
+        if (daysLeft <= 0) {
+          setIsExpired(true)
+        }
+      } else {
+         // No subscription found but let's default to basic standard so we don't block right away, or block it. 
+         setPlan({ name: 'Standard', purchaseDate: new Date() })
+         setDaysRemaining(30)
+      }
+      setIsLoading(false)
     }
-    setIsLoading(false)
-  }, [navigate])
+
+    // Since we depend on resolvedId logic above, wait for it unless we are guest
+    verifyAuthAndPlan()
+  }, [navigate, resolvedId, urlId])
 
   if (isLoading) return null // Quick flash prevention
 

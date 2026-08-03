@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Hammer, AlertTriangle, RefreshCw, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabase'
 
 export default function MaintenanceNode() {
   return (
@@ -47,8 +48,8 @@ export default function MaintenanceNode() {
            </Button>
            <Button 
               variant="ghost"
-              onClick={() => {
-                localStorage.removeItem('servora_user')
+              onClick={async () => {
+                await supabase.auth.signOut()
                 window.location.href = '/'
               }}
               className="text-slate-500 hover:text-white transition-colors text-xs font-black uppercase tracking-widest flex gap-2"

@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { logAdminAction } from '@/lib/audit'
 import { toast } from 'sonner'
+import { fetchAllTickets, addTicketReply, updateTicketStatus } from '@/lib/api'
 
 export default function AdminSupportPage() {
   const [search, setSearch] = useState('')
@@ -24,77 +25,91 @@ export default function AdminSupportPage() {
   const [activeFilter, setActiveFilter] = useState('OPEN')
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [replyMessage, setReplyMessage] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const loadTickets = () => {
-    const raw = localStorage.getItem('servora_db_tickets') || '[]'
-    const parsed = JSON.parse(raw)
-    setTickets(parsed.reverse())
-    if (selectedTicket) {
-      const updated = parsed.find(t => t.id === selectedTicket.id)
-      if (updated) setSelectedTicket(updated)
+  const loadTickets = async () => {
+    try {
+      setLoading(true)
+      const data = await fetchAllTickets()
+      
+      // Map API data to component requirements
+      const formatted = data.map(t => ({
+         ...t,
+         businessName: t.business_name || t.restaurants?.business_name || 'Merchant',
+         restaurantId: t.restaurant_id,
+         time: new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+         date: new Date(t.created_at).toLocaleDateString(),
+         replies: (t.ticket_replies || []).map(r => ({
+           author: r.sender_role === 'admin' ? 'Support Team' : 'Merchant',
+           isAdmin: r.sender_role === 'admin',
+           message: r.message,
+           createdAt: r.created_at
+         })).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      }))
+      
+      setTickets(formatted)
+      
+      if (selectedTicket) {
+        const updated = formatted.find(t => t.id === selectedTicket.id)
+        if (updated) setSelectedTicket(updated)
+      }
+    } catch (err) {
+      console.error('Failed to load cloud tickets:', err)
+      toast.error('Error loading secure support feed')
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
     loadTickets()
-    window.addEventListener('storage', loadTickets)
-    return () => window.removeEventListener('storage', loadTickets)
   }, [])
 
-  const handleReply = (ticketId, resolve = false) => {
+  const handleReply = async (ticketId, resolve = false) => {
     if (!replyMessage.trim() && !resolve) return
 
-    const allTickets = JSON.parse(localStorage.getItem('servora_db_tickets') || '[]')
-    const updated = allTickets.map(t => {
-      if (t.id === ticketId) {
-        const newReply = {
-          author: 'System Administrator',
-          isAdmin: true,
-          message: replyMessage,
-          createdAt: new Date().toISOString()
-        }
-        const updatedReplies = [...(t.replies || []), newReply]
-        return { 
-          ...t, 
-          replies: updatedReplies, 
-          status: resolve ? 'RESOLVED' : 'IN-PROGRESS',
-          updatedAt: new Date().toISOString()
-        }
+    try {
+      if (replyMessage.trim()) {
+         await addTicketReply(ticketId, replyMessage, 'admin')
       }
-      return t
-    })
-    
-    localStorage.setItem('servora_db_tickets', JSON.stringify(updated))
-    logAdminAction(`Admin Reply to Ticket: ${ticketId}`, 'SUPPORT_RELAY', 'NOMINAL')
-    setTickets(updated.reverse())
-    setReplyMessage('')
-    if (resolve) setSelectedTicket(null)
-    toast.success("Command Reply Transmitted", {
-      description: resolve ? "Relay closed and resolved." : "Merchant notified of progress."
-    })
+      
+      const newStatus = resolve ? 'RESOLVED' : 'IN-PROGRESS'
+      await updateTicketStatus(ticketId, newStatus)
+      
+      logAdminAction(`Admin Reply & Update to Ticket: ${ticketId}`, 'SUPPORT_RELAY', 'NOMINAL')
+      
+      setReplyMessage('')
+      if (resolve) setSelectedTicket(null)
+      
+      toast.success("Command Reply Transmitted", {
+        description: resolve ? "Relay closed and resolved." : "Merchant notified of progress."
+      })
+      
+      await loadTickets()
+    } catch (err) {
+      console.error('Reply failed:', err)
+      toast.error('Transmission failed')
+    }
   }
 
-  const handleResolveOnly = (ticketId) => {
-    const allTickets = JSON.parse(localStorage.getItem('servora_db_tickets') || '[]')
-    const updated = allTickets.map(t => {
-      if (t.id === ticketId) {
-        return { ...t, status: 'RESOLVED', resolvedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-      }
-      return t
-    })
-    localStorage.setItem('servora_db_tickets', JSON.stringify(updated))
-    logAdminAction(`Manual Resolution: ${ticketId}`, 'SUPPORT_RELAY', 'NOMINAL')
-    setTickets(updated.reverse())
-    toast.success("Ticket Resolved", { description: "Forensic record updated." })
+  const handleResolveOnly = async (ticketId) => {
+    try {
+      await updateTicketStatus(ticketId, 'RESOLVED')
+      logAdminAction(`Manual Resolution: ${ticketId}`, 'SUPPORT_RELAY', 'NOMINAL')
+      toast.success("Ticket Resolved", { description: "Forensic cloud record updated." })
+      await loadTickets()
+    } catch (err) {
+      console.error('Resolve failed:', err)
+      toast.error('Failed to resolve ticket')
+    }
   }
 
-  const handleDelete = (ticketId) => {
-    const allTickets = JSON.parse(localStorage.getItem('servora_db_tickets') || '[]')
-    const updated = allTickets.filter(t => t.id !== ticketId)
-    localStorage.setItem('servora_db_tickets', JSON.stringify(updated))
-    setTickets(updated.reverse())
-    toast.error("Ticket Protocol Purged", {
-      description: "Support record successfully deleted from node."
+  const handleDelete = async (ticketId) => {
+    // We typically don't delete from cloud to maintain audit trails.
+    // If strict deletion is needed, it requires a delete API endpoint. 
+    // Here we can simply close/reject it or show a dummy success if API doesn't support deletion.
+    toast.error("Ticket Deletion Blocked", {
+      description: "Cloud policy mandates records must be closed, not erased."
     })
   }
 

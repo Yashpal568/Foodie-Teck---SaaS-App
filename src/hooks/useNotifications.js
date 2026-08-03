@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { 
+  fetchNotifications, 
+  insertNotification, 
+  markNotificationRead, 
+  markAllNotificationsRead, 
+  clearNotifications 
+} from '@/lib/api'
 
 export const useNotifications = (restaurantId) => {
   const [resolvedId, setResolvedId] = useState(null)
@@ -34,28 +41,54 @@ export const useNotifications = (restaurantId) => {
     resolve()
   }, [restaurantId])
 
-  // Load notifications from localStorage on mount
+  // Load cloud notifications
   useEffect(() => {
-    const savedNotifications = localStorage.getItem('notifications')
-    if (savedNotifications) {
-      const parsed = JSON.parse(savedNotifications)
-      setNotifications(parsed)
-      setUnreadCount(parsed.filter(n => !n.read).length)
+    async function load() {
+      if (!resolvedId) return
+      const dbNotifications = await fetchNotifications(resolvedId)
+      // Normalize to UI expectation
+      const mapped = dbNotifications.map(n => ({
+         id: n.id,
+         type: n.type,
+         title: n.title,
+         message: n.message,
+         orderId: n.order_id,
+         tableNumber: n.table_number,
+         timestamp: n.created_at,
+         read: n.is_read
+      }))
+      setNotifications(mapped)
+      setUnreadCount(mapped.filter(n => !n.read).length)
     }
-  }, [])
+    load()
+  }, [resolvedId])
 
-  // Save notifications to localStorage whenever they change
-  useEffect(() => {
-    if (notifications.length > 0) {
-      localStorage.setItem('notifications', JSON.stringify(notifications))
+  // Local helper to sync a new notification to cloud & state
+  const pushNotification = useCallback(async (payload) => {
+    if (!resolvedId) return
+    
+    // Optimistic UI Update with temp ID
+    const tempId = `temp-${Date.now()}`
+    const tempNotif = {
+      ...payload,
+      id: tempId,
+      timestamp: new Date().toISOString(),
+      read: false
     }
-  }, [notifications])
-
-  // Define addNotification before using it in useEffect
-  const addNotification = useCallback((notification) => {
-    setNotifications(prev => [notification, ...prev])
+    
+    setNotifications(prev => [tempNotif, ...prev])
     setUnreadCount(prev => prev + 1)
-  }, [])
+    audioRef.current?.play().catch(() => {})
+
+    // Sync to DB
+    const created = await insertNotification(resolvedId, payload)
+    
+    if (created) {
+      setNotifications(prev => prev.map(n => 
+        n.id === tempId ? { ...n, id: created.id } : n
+      ))
+    }
+  }, [resolvedId])
 
   // ── Listen for real-time Supabase Table Events ──
   useEffect(() => {
@@ -76,18 +109,13 @@ export const useNotifications = (restaurantId) => {
           
           if (payload.eventType === 'INSERT') {
              const order = payload.new
-             addNotification({
-               id: `order-${order.id}-${Date.now()}`,
+             pushNotification({
                type: 'new_order',
                title: '🔔 New Order Received',
                message: `Order #${order.id.slice(-6)} from Table ${order.table_number || order.tableNumber}`,
                orderId: order.id,
                tableNumber: order.table_number || order.tableNumber,
-               timestamp: new Date().toISOString(),
-               read: false
              })
-             // Play notification sound
-             audioRef.current?.play().catch(() => {})
           } else if (payload.eventType === 'UPDATE') {
              const order = payload.new
              const oldStatus = payload.old?.status
@@ -104,14 +132,12 @@ export const useNotifications = (restaurantId) => {
 
                 const config = statusConfig[order.status]
                 if (config) {
-                  addNotification({
-                    id: `status-${order.id}-${Date.now()}`,
+                  pushNotification({
                     type: 'order_status',
                     title: `${config.icon} ${config.title}`,
                     message: `Order #${order.id.slice(-6)} Table ${order.table_number || order.tableNumber} is now ${order.status}`,
                     orderId: order.id,
-                    timestamp: new Date().toISOString(),
-                    read: false
+                    tableNumber: order.table_number || order.tableNumber,
                   })
                 }
              }
@@ -123,33 +149,38 @@ export const useNotifications = (restaurantId) => {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [resolvedId, addNotification])
+  }, [resolvedId, pushNotification])
 
-  const markAsRead = useCallback((id) => {
+  const markAsRead = useCallback(async (id) => {
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     )
     setUnreadCount(prev => Math.max(0, prev - 1))
+    await markNotificationRead(id)
   }, [])
 
-  const markAllAsRead = useCallback(() => {
+  const markAllAsRead = useCallback(async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     setUnreadCount(0)
-  }, [])
+    if (resolvedId) await markAllNotificationsRead(resolvedId)
+  }, [resolvedId])
 
-  const clearNotification = useCallback((id) => {
+  const clearNotification = useCallback(async (id) => {
+    // Note: No single delete API added, ideally we just mark as read
+    // But we'll remove from UI
     setNotifications(prev => prev.filter(n => n.id !== id))
-    const notification = notifications.find(n => n.id === id)
-    if (notification && !notification.read) {
-      setUnreadCount(prev => Math.max(0, prev - 1))
-    }
+    // We update unread count just in case
+    setUnreadCount(prev => {
+       const remaining = notifications.filter(n => n.id !== id && !n.read).length
+       return remaining
+    })
   }, [notifications])
 
-  const clearAllNotifications = useCallback(() => {
+  const clearAllNotifications = useCallback(async () => {
     setNotifications([])
     setUnreadCount(0)
-    localStorage.removeItem('notifications')
-  }, [])
+    if (resolvedId) await clearNotifications(resolvedId)
+  }, [resolvedId])
 
   const toggleNotifications = useCallback(() => {
     setIsOpen(prev => !prev)
@@ -159,7 +190,6 @@ export const useNotifications = (restaurantId) => {
     notifications,
     unreadCount,
     isOpen,
-    addNotification,
     markAsRead,
     markAllAsRead,
     clearNotification,

@@ -18,6 +18,8 @@ const initialLogs = [
   { id: 5, action: "Database Backup", user: "System CRON", time: "4 hrs ago", stat: "NOMINAL" },
 ]
 
+import { supabase } from '@/lib/supabase'
+
 export default function AdminDashboardPage() {
   const [apiCalls, setApiCalls] = useState(0)
   const [velocityData, setVelocityData] = useState(Array(15).fill(0))
@@ -29,57 +31,71 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     // Exact data parser mapping exclusively strictly to real records
-    const pollRealDatabase = () => {
-       const rawUserPayload = localStorage.getItem('servora_db_users') || '[]'
-       const realUsers = JSON.parse(rawUserPayload)
-       const realCustomers = JSON.parse(localStorage.getItem('servora_db_customers') || '[]')
-       const realSubscriptions = JSON.parse(localStorage.getItem('servora_db_subscriptions') || '[]')
-       
-       // Load REAL Forensic Audit Trail
-       const rawAudits = JSON.parse(localStorage.getItem('servora_db_audits') || '[]')
-       
-       setMerchants(realUsers.length)
-       
-       // Logically, a registered Merchant operates as a fundamental Platform User.
-       const totalEntities = realUsers.length + realCustomers.length
-       setPlatformUsers(totalEntities.toLocaleString())
-       
-       let calculatedMRR = 0
-       realSubscriptions.forEach(sub => {
-           if (sub.tier === 'Enterprise') calculatedMRR += 4999
-           else if (sub.tier === 'Professional') calculatedMRR += 2999
-           else if (sub.tier === 'Starter') calculatedMRR += 1499
-       })
-       setMrr(new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(calculatedMRR))
+    const fetchCloudDatabase = async () => {
+       try {
+         // Fetch Restaurants
+         const { data: realRestaurants } = await supabase.from('restaurants').select('*')
+         // Fetch Subscriptions
+         const { data: realSubscriptions } = await supabase.from('subscriptions').select('*')
+         // Fetch Customers
+         const { data: realCustomers } = await supabase.from('customers').select('id')
+         // Fetch Audit Logs
+         const { data: realAudits } = await supabase.from('audit_logs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5)
+         
+         const restaurantCount = realRestaurants?.length || 0;
+         const customerCount = realCustomers?.length || 0;
+         
+         setMerchants(restaurantCount)
+         
+         // Logically, a registered Merchant operates as a fundamental Platform User.
+         const totalEntities = restaurantCount + customerCount
+         setPlatformUsers(totalEntities.toLocaleString())
+         
+         let calculatedMRR = 0
+         if (realSubscriptions) {
+           realSubscriptions.forEach(sub => {
+               if (sub.plan_name === 'Enterprise') calculatedMRR += 4999
+               else if (sub.plan_name === 'Professional' || sub.plan_name === 'Pro') calculatedMRR += 2999
+               else if (sub.plan_name === 'Starter') calculatedMRR += 1499
+           })
+         }
+         setMrr(new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(calculatedMRR))
 
-       // 1. Sync Audit logs to the High-Fidelity UI feed (Top 5 most recent)
-       const auditTrail = rawAudits.slice(0, 5).map(a => ({
-          id: a.id,
-          action: a.action,
-          user: a.performer,
-          stat: a.severity,
-          time: a.time,
-          c: a.severity === 'CRITICAL' || a.severity === 'WARNING' ? 'red' : 'emerald'
-       }))
-       
-       setLogs(auditTrail)
+         // 1. Sync Audit logs to the High-Fidelity UI feed
+         if (realAudits) {
+           const auditTrail = realAudits.map(a => ({
+              id: a.id,
+              action: a.action,
+              user: a.restaurant_id || 'System User',
+              stat: a.severity || 'NOMINAL',
+              time: new Date(a.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+              c: a.severity === 'CRITICAL' || a.severity === 'WARNING' ? 'red' : 'emerald'
+           }))
+           setLogs(auditTrail.length > 0 ? auditTrail : initialLogs)
+         } else {
+           setLogs(initialLogs)
+         }
 
-       // 2. Map REAL System Throughput based on exact memory byte-load allocation
-       const currentByteLoad = rawUserPayload.length + JSON.stringify(rawAudits).length
-       const normalizedHeight = Math.min(100, Math.max(0, (currentByteLoad / 5000) * 100))
-       
-       setVelocityData(prev => {
-          const next = [...prev.slice(1)]
-          next.push(currentByteLoad > 10 ? normalizedHeight : 0)
-          return next
-       })
-       
-       setApiCalls(currentByteLoad > 10 ? 1 : 0)
+         // 2. Simulate System Throughput based on record count proxy
+         const currentByteLoad = (restaurantCount + customerCount) * 120
+         const normalizedHeight = Math.min(100, Math.max(0, (currentByteLoad / 5000) * 100))
+         
+         setVelocityData(prev => {
+            const next = [...prev.slice(1)]
+            next.push(currentByteLoad > 10 ? normalizedHeight : 0)
+            return next
+         })
+         
+         setApiCalls(currentByteLoad > 10 ? 1 : 0)
+       } catch (err) {
+         console.error('Failed to load global metrics:', err)
+       }
     }
 
-    pollRealDatabase()
-    const dbPollInterval = setInterval(pollRealDatabase, 1500)
-    return () => clearInterval(dbPollInterval)
+    fetchCloudDatabase()
   }, [])
 
   const metrics = [

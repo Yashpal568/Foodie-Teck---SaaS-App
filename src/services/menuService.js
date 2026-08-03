@@ -1,149 +1,105 @@
-// Menu service for API calls
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { 
+  fetchMenuItems, 
+  createMenuItem, 
+  updateMenuItem, 
+  deleteMenuItem, 
+  toggleMenuItemStock,
+  getMyRestaurant 
+} from '@/lib/api'
 
 class MenuService {
-  constructor() {
-    this.baseUrl = API_BASE_URL;
-  }
-
-  // Fetch all menu items
-  async getMenuItems(filters = {}) {
+  async getMenuItems(restaurantId) {
     try {
-      const queryParams = new URLSearchParams();
-      
-      if (filters.category && filters.category !== 'all') {
-        queryParams.append('category', filters.category);
+      let idToUse = restaurantId
+      if (!idToUse) {
+        const res = await getMyRestaurant()
+        idToUse = res?.id
       }
-      if (filters.type && filters.type !== 'all') {
-        queryParams.append('type', filters.type);
-      }
-      if (filters.isInStock !== undefined) {
-        queryParams.append('isInStock', filters.isInStock);
-      }
-      if (filters.search) {
-        queryParams.append('search', filters.search);
-      }
-      
-      const response = await fetch(`${this.baseUrl}/menu-items?${queryParams}`);
-      if (!response.ok) throw new Error('Failed to fetch menu items');
-      return await response.json();
+      if (!idToUse) return { success: true, data: { items: [], categories: [] } }
+      const items = await fetchMenuItems(idToUse)
+      const categories = [...new Set((items || []).map(i => i.category).filter(Boolean))]
+      return { success: true, data: { items: items || [], categories } }
     } catch (error) {
-      console.error('Error fetching menu items:', error);
-      throw error;
+      console.error('Error fetching menu items:', error)
+      return { success: false, message: error.message }
     }
   }
 
-  // Fetch single menu item
   async getMenuItem(id) {
     try {
-      const response = await fetch(`${this.baseUrl}/menu-items/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch menu item');
-      return await response.json();
+      const { supabase } = await import('@/lib/supabase')
+      const { data, error } = await supabase.from('menu_items').select('*').eq('id', id).single()
+      if (error) throw error
+      return { success: true, data }
     } catch (error) {
-      console.error('Error fetching menu item:', error);
-      throw error;
+      console.error('Error fetching menu item:', error)
+      return { success: false, message: error.message }
     }
   }
 
-  // Create new menu item
-  async createMenuItem(itemData) {
+  async createMenuItem(restaurantId, itemData) {
     try {
-      const response = await fetch(`${this.baseUrl}/menu-items`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(itemData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create menu item');
-      }
-      
-      return await response.json();
+      const data = await createMenuItem(restaurantId, itemData)
+      return { success: true, data }
     } catch (error) {
-      console.error('Error creating menu item:', error);
-      throw error;
+      console.error('Error creating menu item:', error)
+      return { success: false, message: error.message }
     }
   }
 
-  // Update menu item
   async updateMenuItem(id, itemData) {
     try {
-      const response = await fetch(`${this.baseUrl}/menu-items/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(itemData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update menu item');
-      }
-      
-      return await response.json();
+      const data = await updateMenuItem(id, itemData)
+      return { success: true, data }
     } catch (error) {
-      console.error('Error updating menu item:', error);
-      throw error;
+      console.error('Error updating menu item:', error)
+      return { success: false, message: error.message }
     }
   }
 
-  // Delete menu item
   async deleteMenuItem(id) {
     try {
-      const response = await fetch(`${this.baseUrl}/menu-items/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete menu item');
-      }
-      
-      return await response.json();
+      await deleteMenuItem(id)
+      return { success: true }
     } catch (error) {
-      console.error('Error deleting menu item:', error);
-      throw error;
+      console.error('Error deleting menu item:', error)
+      return { success: false, message: error.message }
     }
   }
 
-  // Update stock status
   async updateStockStatus(id, isInStock) {
     try {
-      const response = await fetch(`${this.baseUrl}/menu-items/${id}/stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isInStock }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update stock status');
-      }
-      
-      return await response.json();
+      const data = await toggleMenuItemStock(id, isInStock)
+      return { success: true, data }
     } catch (error) {
-      console.error('Error updating stock status:', error);
-      throw error;
+      console.error('Error updating stock status:', error)
+      return { success: false, message: error.message }
     }
   }
 
-  // Get menu statistics
-  async getMenuStats() {
+  async getMenuStats(restaurantId) {
     try {
-      const response = await fetch(`${this.baseUrl}/menu-items/stats/summary`);
-      if (!response.ok) throw new Error('Failed to fetch menu statistics');
-      return await response.json();
+      let idToUse = restaurantId
+      if (!idToUse) {
+        const res = await getMyRestaurant()
+        idToUse = res?.id
+      }
+      if (!idToUse) return { success: true, data: { totalItems: 0, inStockCount: 0, outOfStockCount: 0 } }
+      const items = await fetchMenuItems(idToUse)
+      return {
+        success: true,
+        data: {
+          totalItems: items.length,
+          inStockCount: items.filter(i => i.isInStock).length,
+          outOfStockCount: items.filter(i => !i.isInStock).length
+        }
+      }
     } catch (error) {
-      console.error('Error fetching menu statistics:', error);
-      throw error;
+      console.error('Error fetching menu statistics:', error)
+      return { success: false, message: error.message }
     }
   }
 }
 
-export default new MenuService();
+export default new MenuService()
+

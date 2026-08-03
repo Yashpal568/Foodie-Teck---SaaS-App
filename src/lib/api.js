@@ -718,3 +718,67 @@ export const getCustomers = async (restaurantId) => {
   if (error) throw error
   return data
 }
+
+
+// ─── Notifications ─────────────────────────────────────────────────────────
+
+export const fetchNotifications = async (restaurantId) => {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  
+  if (error) {
+    console.warn('fetchNotifications failed - returning empty array', error)
+    return []
+  }
+  return data || []
+}
+
+export const insertNotification = async (restaurantId, payload) => {
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({
+      restaurant_id: restaurantId,
+      type: payload.type,
+      title: payload.title,
+      message: payload.message,
+      order_id: payload.orderId,
+      table_number: payload.tableNumber ? String(payload.tableNumber) : null,
+      is_read: false
+    })
+    .select()
+    .single()
+  
+  if (error) {
+    console.warn('insertNotification failed', error)
+    return null
+  }
+  return data
+}
+
+export const markNotificationRead = async (notificationId) => {
+  if (!notificationId || String(notificationId).startsWith('temp-')) return
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('id', notificationId)
+}
+
+export const markAllNotificationsRead = async (restaurantId) => {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('restaurant_id', restaurantId)
+}
+
+export const clearNotifications = async (restaurantId) => {
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+}
+
+

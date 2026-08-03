@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '@/lib/supabase'
 
 export default function AdminHeader({ onMenuClick }) {
   const navigate = useNavigate()
@@ -35,13 +36,21 @@ export default function AdminHeader({ onMenuClick }) {
   const searchRef = useRef(null)
 
   useEffect(() => {
-    // Load Live Notifications from Audits
-    const loadNotifs = () => {
-      const audits = JSON.parse(localStorage.getItem('servora_db_audits') || '[]')
-      setNotifications(audits.slice(0, 5))
+    // Load Live Notifications from Audits via Supabase
+    const loadNotifs = async () => {
+      const { data: audits } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(5)
+      
+      if (audits) {
+         setNotifications(audits.map(a => ({
+            action: a.action,
+            severity: a.severity || 'NOMINAL',
+            timestamp: new Date(a.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+         })))
+      }
     }
+    
     loadNotifs()
-    window.addEventListener('storage', loadNotifs)
+    window.addEventListener('platformConfigUpdated', loadNotifs)
     
     // Close search on click outside
     const handleClickOutside = (e) => {
@@ -51,12 +60,12 @@ export default function AdminHeader({ onMenuClick }) {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
-      window.removeEventListener('storage', loadNotifs)
+      window.removeEventListener('platformConfigUpdated', loadNotifs)
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
 
-  const handleSearch = (val) => {
+  const handleSearch = async (val) => {
     setSearchTerm(val)
     if (!val.trim()) {
       setSearchResults({ merchants: [], tickets: [], audits: [] })
@@ -64,31 +73,21 @@ export default function AdminHeader({ onMenuClick }) {
       return
     }
 
-    const merchants = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-    const tickets = JSON.parse(localStorage.getItem('servora_db_tickets') || '[]')
-    const audits = JSON.parse(localStorage.getItem('servora_db_audits') || '[]')
+    try {
+       // Search via native Supabase ILIKE queries or fetching all and filtering local (for tiny db)
+       const { data: merchantsData } = await supabase.from('restaurants').select('*').or(`business_name.ilike.%${val}%,email.ilike.%${val}%`).limit(3)
+       const { data: ticketsData } = await supabase.from('support_tickets').select('*').or(`subject.ilike.%${val}%`).limit(3)
+       const { data: auditsData } = await supabase.from('audit_logs').select('*').or(`action.ilike.%${val}%,type.ilike.%${val}%`).limit(3)
 
-    const filteredMerchants = merchants.filter(m => 
-      m.businessName?.toLowerCase().includes(val.toLowerCase()) || 
-      m.email?.toLowerCase().includes(val.toLowerCase())
-    ).slice(0, 3)
-
-    const filteredTickets = tickets.filter(t => 
-      t.id.toLowerCase().includes(val.toLowerCase()) || 
-      t.subject.toLowerCase().includes(val.toLowerCase())
-    ).slice(0, 3)
-
-    const filteredAudits = audits.filter(a => 
-      a.action.toLowerCase().includes(val.toLowerCase()) || 
-      a.type.toLowerCase().includes(val.toLowerCase())
-    ).slice(0, 3)
-
-    setSearchResults({
-      merchants: filteredMerchants,
-      tickets: filteredTickets,
-      audits: filteredAudits
-    })
-    setShowResults(true)
+       setSearchResults({
+         merchants: (merchantsData || []).map(m => ({ email: m.email, businessName: m.business_name })),
+         tickets: (ticketsData || []).map(t => ({ id: t.id, subject: t.subject, status: t.status, businessName: t.restaurant_id })),
+         audits: (auditsData || []).map(a => ({ action: a.action, type: a.type, timestamp: new Date(a.created_at).toLocaleString() }))
+       })
+       setShowResults(true)
+    } catch (err) {
+       console.error("Search failed:", err)
+    }
   }
 
   const copyKey = () => {
@@ -281,6 +280,7 @@ export default function AdminHeader({ onMenuClick }) {
                   {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
                </div>
                <DropdownMenuItem 
+                  inset={false}
                   className="h-12 rounded-xl font-black text-[10px] text-red-600 uppercase tracking-widest focus:bg-red-50 focus:text-red-700 cursor-pointer flex gap-3 mt-1 active:scale-95 transition-all"
                   onClick={() => { navigate('/admin/login'); }}
                >

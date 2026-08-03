@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MoreHorizontal, Search, Settings2, ShieldOff, CheckCircle, Calendar, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +18,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { logAdminAction } from '@/lib/audit'
+import { supabase } from '@/lib/supabase'
 
 export default function AdminCustomersPage() {
   const [search, setSearch] = useState('')
@@ -27,20 +28,47 @@ export default function AdminCustomersPage() {
   const [newBizEmail, setNewBizEmail] = useState('')
   const [newBizPass, setNewBizPass] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [realMapped, setRealMapped] = useState([])
+
+  useEffect(() => {
+    async function loadCustomers() {
+      // Fetch Restaurants
+      const { data: restaurants } = await supabase.from('restaurants').select('*')
+      // Fetch Subscriptions
+      const { data: subscriptions } = await supabase.from('subscriptions').select('*')
+      // Fetch QR Codes summary (if exists, or mock if large)
+      const { data: qrCodes } = await supabase.from('qr_codes').select('restaurant_id')
+
+      const mapped = (restaurants || []).map((r, i) => {
+         const plan = (subscriptions || []).find(s => s.restaurant_id === r.id)
+         const activeTier = plan ? plan.plan_name : 'Starter'
+         const daysRemaining = plan && plan.end_date ? Math.ceil((new Date(plan.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 30
+         const qrs = (qrCodes || []).filter(q => q.restaurant_id === r.id).length
+
+         return {
+            id: r.id,
+            email: r.email,
+            name: r.business_name,
+            owner: r.email,
+            plan: activeTier,
+            amount: activeTier === 'Enterprise' ? '4,999' : activeTier === 'Professional' ? '2,999' : '1,499',
+            tables: qrs,
+            daysRemaining: daysRemaining,
+            status: r.status || 'Active',
+            joined: new Date(r.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+         }
+      })
+      setRealMapped(mapped.reverse())
+    }
+    loadCustomers()
+  }, [])
 
   const handleDeployMerchant = () => {
      if (!newBizName || !newBizEmail || !newBizPass) return
+     alert('Provisioning new users dynamically from the Admin Panel requires Supabase Auth API logic. Use Supabase dashboard manually.')
      
-     const existing = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-     existing.push({
-         businessName: newBizName,
-         email: newBizEmail,
-         password: newBizPass,
-         joinedAt: new Date().toISOString()
-     })
-     localStorage.setItem('servora_db_users', JSON.stringify(existing))
-     
-     logAdminAction(`Manual Provisioning: ${newBizName}`, newBizEmail, 'NOMINAL')
+     // Log Attempt
+     logAdminAction(`Manual Provisioning Attempt: ${newBizName}`, newBizEmail, 'NOMINAL')
 
      setDialogOpen(false)
      setNewBizName('')
@@ -48,131 +76,50 @@ export default function AdminCustomersPage() {
      setNewBizPass('')
   }
 
-  const realDatabasesUsers = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-  const multiTenantEngine = JSON.parse(localStorage.getItem('servora_db_workspaces') || '{}')
-  
-  const realMapped = realDatabasesUsers.filter(u => 
-    u.businessName?.toLowerCase().includes(search.toLowerCase()) || 
+  const toggleMerchantStatus = async (email, id, currentStatus) => {
+    let newStatus = currentStatus === 'Suspended' ? 'Active' : 'Suspended'
+    
+    // Update DB
+    await supabase.from('restaurants').update({ status: newStatus }).eq('id', id)
+
+    // Modify local state
+    setRealMapped(prev => prev.map(m => m.id === id ? { ...m, status: newStatus } : m))
+    
+    // Log Forensic Action
+    await logAdminAction(`Merchant Node ${newStatus}`, email, newStatus === 'Suspended' ? 'WARNING' : 'NOMINAL')
+  }
+
+  const morphMerchantPlan = async (email, id, newPlan) => {
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 30) // +30 days
+
+    // Upsert subscription
+    await supabase.from('subscriptions').upsert({
+       restaurant_id: id,
+       plan_name: newPlan,
+       status: 'active',
+       price: newPlan === 'Enterprise' ? 4999 : newPlan === 'Professional' ? 2999 : 1499,
+       start_date: new Date().toISOString(),
+       end_date: expiresAt.toISOString(),
+       features: []
+    }, { onConflict: 'restaurant_id' })
+    
+    // Log Forensic Action
+    await logAdminAction(`Subscription Morph: ${newPlan}`, email, 'SECURITY')
+
+    setRealMapped(prev => prev.map(m => m.id === id ? { 
+      ...m, 
+      plan: newPlan, 
+      amount: newPlan === 'Enterprise' ? '4,999' : newPlan === 'Professional' ? '2,999' : '1,499' 
+    } : m))
+  }
+
+  const searchMapped = realMapped.filter(u => 
+    u.name?.toLowerCase().includes(search.toLowerCase()) || 
     u.email?.toLowerCase().includes(search.toLowerCase())
-  ).map((u, i) => {
-    // Step 0: Identify Isolated Workspace
-    const isolatedWorkspace = multiTenantEngine[u.email] || {}
+  )
 
-    // Step 1: Resolve Active Subscription Tier
-    let activeTier = 'Starter' 
-    let purchaseDate = new Date(u.joinedAt || Date.now())
-
-    if (isolatedWorkspace['servora_plan']) {
-       try {
-          const parsed = JSON.parse(isolatedWorkspace['servora_plan'])
-          if (parsed && parsed.name) {
-             activeTier = parsed.name
-             if (parsed.purchaseDate) purchaseDate = new Date(parsed.purchaseDate)
-          }
-       } catch(e) {}
-    }
-
-    // Step 2: Calculate 30-Day Cycle Persistence
-    const thirtyDays = 30 * 24 * 60 * 60 * 1000
-    const expiryDate = new Date(purchaseDate.getTime() + thirtyDays)
-    const daysRemaining = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-
-    // Step 3: Global Telemetry Scan for Table Counts (Differentiated Priority)
-    let generatedNodes = 0
-    let accountSpecificDataFound = false
-
-    // 1. High-Priority Scan: Look for Explicit Identity Matches
-    const checkNodes = (storage) => {
-      Object.keys(storage).forEach(k => {
-         if (k.startsWith('qrCodes_')) {
-            try {
-               const raw = typeof storage.getItem === 'function' ? storage.getItem(k) : storage[k]
-               const qrData = JSON.parse(raw)
-               if (qrData && qrData.qrCodes) {
-                  // PRIORITY: Does this explicitly belong to this specific user identity?
-                  if (qrData.restaurantId === u.email || k.endsWith(u.email)) {
-                     generatedNodes = qrData.qrCodes.length
-                     accountSpecificDataFound = true
-                  }
-               }
-            } catch(e) {}
-         }
-      })
-    }
-
-    checkNodes(isolatedWorkspace)
-    if (!accountSpecificDataFound) checkNodes(localStorage)
-
-    // 2. Legacy Fallback: Only if NO account-specific data was ever found
-    if (!accountSpecificDataFound) {
-       const currentUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
-       if (u.email === currentUser.email && localStorage.getItem('qrCodes_restaurant-123')) {
-          try {
-             const qrData = JSON.parse(localStorage.getItem('qrCodes_restaurant-123'))
-             if (qrData && qrData.qrCodes) generatedNodes = qrData.qrCodes.length
-          } catch(e) {}
-       }
-    }
-
-
-    return {
-      id: `MER-LIVE-${100 + i}`,
-      name: u.businessName,
-      owner: u.email,
-      plan: activeTier,
-      amount: activeTier === 'Enterprise' ? '4,999' : activeTier === 'Professional' ? '2,999' : '1,499',
-      tables: generatedNodes,
-      daysRemaining: daysRemaining,
-      status: u.status || 'Active',
-      joined: new Date(u.joinedAt || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    }
-  }).reverse()
-
-  const toggleMerchantStatus = (email) => {
-    const users = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-    let newStatus = ''
-    const updated = users.map(u => {
-      if (u.email === email) {
-        newStatus = u.status === 'Suspended' ? 'Active' : 'Suspended'
-        return { ...u, status: newStatus }
-      }
-      return u
-    })
-    localStorage.setItem('servora_db_users', JSON.stringify(updated))
-    
-    // Log Forensic Action
-    logAdminAction(`Merchant Node ${newStatus}`, email, newStatus === 'Suspended' ? 'WARNING' : 'NOMINAL')
-    
-    setTimeout(() => window.location.reload(), 500)
-  }
-
-  const morphMerchantPlan = (email, newPlan) => {
-    const workspaces = JSON.parse(localStorage.getItem('servora_db_workspaces') || '{}')
-    const userWorkspace = workspaces[email] || {}
-    
-    // Plan metadata architecture
-    const planConfigs = {
-      'Starter': { price: 1499, tableLimit: 10 },
-      'Professional': { price: 2999, tableLimit: 30 },
-      'Enterprise': { price: 4999, tableLimit: 9999 }
-    }
-
-    userWorkspace['servora_plan'] = JSON.stringify({
-      name: newPlan,
-      ...planConfigs[newPlan],
-      purchaseDate: new Date().toISOString() // Reset cycle on morph
-    })
-    
-    workspaces[email] = userWorkspace
-    localStorage.setItem('servora_db_workspaces', JSON.stringify(workspaces))
-    
-    // Log Forensic Action
-    logAdminAction(`Subscription Morph: ${newPlan}`, email, 'SECURITY')
-
-    setTimeout(() => window.location.reload(), 500)
-  }
-
-  const filtered = realMapped.filter(m => planFilter === 'All' || m.plan === planFilter)
+  const filtered = searchMapped.filter(m => planFilter === 'All' || m.plan === planFilter)
 
   return (
     <div className="p-8 pb-32 max-w-7xl mx-auto space-y-8 font-sans">
@@ -338,14 +285,14 @@ export default function AdminCustomersPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-xl">
                                <DropdownMenuLabel inset className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Actions</DropdownMenuLabel>
-                               <DropdownMenuSeparator />
+                               <DropdownMenuSeparator className="bg-slate-100" />
                                <DropdownMenuLabel inset className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-2">Morph Subscription</DropdownMenuLabel>
-                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, 'Starter')} inset className="font-bold cursor-pointer rounded-xl">Starter Tier</DropdownMenuItem>
-                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, 'Professional')} inset className="font-bold cursor-pointer rounded-xl">Professional Tier</DropdownMenuItem>
-                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, 'Enterprise')} inset className="font-bold cursor-pointer rounded-xl">Enterprise Tier</DropdownMenuItem>
-                               <DropdownMenuSeparator />
+                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Starter')} inset className="font-bold cursor-pointer rounded-xl">Starter Tier</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Professional')} inset className="font-bold cursor-pointer rounded-xl">Professional Tier</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Enterprise')} inset className="font-bold cursor-pointer rounded-xl">Enterprise Tier</DropdownMenuItem>
+                               <DropdownMenuSeparator className="bg-slate-100" />
                                <DropdownMenuItem 
-                                 onClick={() => toggleMerchantStatus(m.owner)}
+                                 onClick={() => toggleMerchantStatus(m.owner, m.id, m.status)}
                                  inset className={`font-bold cursor-pointer rounded-xl flex gap-3 ${m.status === 'Active' ? 'text-red-600 focus:text-red-700 focus:bg-red-50' : 'text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700'}`}
                                >
                                  {m.status === 'Active' ? <ShieldOff className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}

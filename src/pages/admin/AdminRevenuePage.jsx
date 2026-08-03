@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   DownloadCloud, 
@@ -55,66 +56,71 @@ export default function AdminRevenuePage() {
          return `₹${val}`
      }
 
-     const pollRevenue = () => {
-         const subs = JSON.parse(localStorage.getItem('servora_db_subscriptions') || '[]')
-         const users = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-         
-         const activeClusters = subs.length
-         const totalMRR = subs.reduce((acc, sub) => acc + parseInt(sub.price || 0), 0)
-         
-         // 1. History Calculation (Area Chart)
-         const now = new Date()
-         const history = []
-         for (let i = 5; i >= 0; i--) {
-             const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-             const monthStr = d.toLocaleDateString('en-US', { month: 'short' })
+     const fetchRevenueData = async () => {
+         try {
+             // 1. Fetch from Supabase
+             const { data: subsData } = await supabase.from('subscriptions').select('*')
+             const { data: usersData } = await supabase.from('restaurants').select('*')
              
-             const monthlyTotal = subs.reduce((acc, sub) => {
-                 const subDate = new Date(sub.activeSince || Date.now())
-                 const subMonthVal = subDate.getFullYear() * 12 + subDate.getMonth()
-                 const mdMonthVal = d.getFullYear() * 12 + d.getMonth()
-                 return subMonthVal <= mdMonthVal ? acc + parseInt(sub.price || 0) : acc
-             }, 0)
+             const subs = subsData || []
+             const users = usersData || []
 
-             history.push({ name: monthStr, revenue: monthlyTotal })
+             const activeClusters = subs.length
+             const totalMRR = subs.reduce((acc, sub) => acc + parseInt(sub.price || 0), 0)
+             
+             // 1. History Calculation (Area Chart)
+             const now = new Date()
+             const history = []
+             for (let i = 5; i >= 0; i--) {
+                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+                 const monthStr = d.toLocaleDateString('en-US', { month: 'short' })
+                 
+                 const monthlyTotal = subs.reduce((acc, sub) => {
+                     const subDate = new Date(sub.created_at || sub.start_date || Date.now())
+                     const subMonthVal = subDate.getFullYear() * 12 + subDate.getMonth()
+                     const mdMonthVal = d.getFullYear() * 12 + d.getMonth()
+                     return subMonthVal <= mdMonthVal ? acc + parseInt(sub.price || 0) : acc
+                 }, 0)
+
+                 history.push({ name: monthStr, revenue: monthlyTotal })
+             }
+
+             // 2. Plan Distribution (Pie Chart)
+             const planCounts = subs.reduce((acc, sub) => {
+                const tier = sub.plan_name || sub.tier || 'Starter'
+                acc[tier] = (acc[tier] || 0) + 1
+                return acc
+             }, {})
+             const planDistribution = Object.keys(planCounts).map(tier => ({
+                name: tier,
+                value: planCounts[tier]
+             }))
+
+             // 3. Top Merchants (Bar Chart)
+             const merchantRevenue = users.map(u => {
+                const userSub = subs.find(s => s.restaurant_id === u.id) 
+                return {
+                   name: u.business_name || u.name || 'Merchant Node',
+                   revenue: userSub ? parseInt(userSub.price || 0) : 0
+                }
+             }).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+
+             setMetrics({
+                 totalMRR,
+                 activeClusters,
+                 expansionMRR: totalMRR * 0.12, 
+                 churnImpact: totalMRR * 0.03, 
+                 formattedMRR: formatINR(totalMRR),
+                 history,
+                 planDistribution,
+                 topMerchants: merchantRevenue.filter(m => m.revenue > 0)
+             })
+         } catch (err) {
+             console.error("Failed to fetch revenue data:", err)
          }
-
-         // 2. Plan Distribution (Pie Chart)
-         const planCounts = subs.reduce((acc, sub) => {
-            acc[sub.tier] = (acc[sub.tier] || 0) + 1
-            return acc
-         }, {})
-         const planDistribution = Object.keys(planCounts).map(tier => ({
-            name: tier,
-            value: planCounts[tier]
-         }))
-
-         // 3. Top Merchants (Bar Chart)
-         // Map subscriptions to businesses via email if possible, or just use tiers for now
-         // Real logic: find matching user for each sub
-         const merchantRevenue = users.map(u => {
-            const userSub = subs.find(s => s.email === u.email) // Assume sub has email (added in recent purchase logic)
-            return {
-               name: u.businessName || u.name || 'Merchant Node',
-               revenue: userSub ? parseInt(userSub.price) : 0
-            }
-         }).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
-
-         setMetrics({
-             totalMRR,
-             activeClusters,
-             expansionMRR: totalMRR * 0.12, 
-             churnImpact: totalMRR * 0.03, 
-             formattedMRR: formatINR(totalMRR),
-             history,
-             planDistribution,
-             topMerchants: merchantRevenue.filter(m => m.revenue > 0)
-         })
      }
 
-     pollRevenue()
-     const timer = setInterval(pollRevenue, 2000)
-     return () => clearInterval(timer)
+     fetchRevenueData()
   }, [])
 
   const formatSubMetric = (val) => {
@@ -137,28 +143,29 @@ export default function AdminRevenuePage() {
               <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Network Live</span>
            </div>
            <Button 
-             onClick={() => {
-                const subs = JSON.parse(localStorage.getItem('servora_db_subscriptions') || '[]')
-                const users = JSON.parse(localStorage.getItem('servora_db_users') || '[]')
-                
-                if (subs.length === 0) {
-                   toast.error("Forensic Buffer Empty", { description: "No subscription records detected for export." })
-                   return
-                }
+             onClick={async () => {
+                try {
+                  const { data: subs } = await supabase.from('subscriptions').select('*')
+                  const { data: users } = await supabase.from('restaurants').select('*')
+                  
+                  if (!subs || subs.length === 0) {
+                     toast.error("Forensic Buffer Empty", { description: "No subscription records detected for export." })
+                     return
+                  }
 
-                // Data Flattening for Export
-                const rows = subs.map(s => {
-                   const u = users.find(user => user.email === s.email) || {}
-                   return [
-                      s.email,
-                      u.businessName || 'Manual Node',
-                      s.tier,
-                      s.price,
-                      s.activeSince || 'N/A'
-                   ].join(',')
-                })
+                  // Data Flattening for Export
+                  const rows = subs.map(s => {
+                     const u = (users || []).find(user => user.id === s.restaurant_id) || {}
+                     return [
+                        u.email || s.email || 'N/A',
+                        u.business_name || 'Manual Node',
+                        s.plan_name || s.tier,
+                        s.price,
+                        s.start_date || s.created_at || 'N/A'
+                     ].join(',')
+                  })
 
-                const header = "Email,Merchant_Name,Subscription_Tier,Price_INR,Active_Since"
+                  const header = "Email,Merchant_Name,Subscription_Tier,Price_INR,Active_Since"
                 const csvContent = "data:text/csv;charset=utf-8," + [header, ...rows].join("\n")
                 
                 const encodedUri = encodeURI(csvContent)
@@ -170,6 +177,9 @@ export default function AdminRevenuePage() {
                 document.body.removeChild(link)
                 
                 toast.success("Forensic Pack Exported", { description: "Subscription ledger downloaded successfully." })
+                } catch (err) {
+                   toast.error("Export Failed", { description: err.message })
+                }
              }}
              variant="outline" 
              className="gap-2 h-12 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 bg-white border-slate-200 hover:bg-slate-50 shadow-sm transition-all"
