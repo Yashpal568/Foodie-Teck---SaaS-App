@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -23,6 +24,7 @@ import { Separator } from '@/components/ui/separator'
 import { Card, CardContent } from '@/components/ui/card'
 import Logo from '@/components/ui/Logo'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 // Image constants
 const HERO_IMAGE = '/servora_hero_premium_1773899069963.png'
@@ -74,10 +76,10 @@ const features = [
   }
 ]
 
-const plans = [
+const defaultPlans = [
   {
     name: "Starter",
-    price: "₹1,499",
+    price: "₹999",
     billing: "per month",
     desc: "Perfect for boutique cafes and small eateries.",
     features: ["Up to 10 Tables", "Digital QR Menu", "Basic Analytics", "Kitchen Display System", "Email Support"],
@@ -86,7 +88,7 @@ const plans = [
   },
   {
     name: "Professional",
-    price: "₹2,999",
+    price: "₹2,499",
     billing: "per month",
     desc: "Ideal for growing restaurants and bustling bars.",
     features: ["Up to 30 Tables", "Advanced CRM", "Real-time AI Analytics", "Staff Management", "Priority Support (24/7)"],
@@ -106,6 +108,46 @@ const plans = [
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const [livePlans, setLivePlans] = useState(defaultPlans)
+
+  useEffect(() => {
+    const fetchLivePlans = async () => {
+      try {
+        const { data: dbPlans } = await supabase.from('subscription_plans').select('*').order('price', { ascending: true })
+        if (dbPlans && dbPlans.length > 0) {
+          setLivePlans(dbPlans.map(p => ({
+            name: p.name,
+            price: `₹${p.price}`,
+            billing: "per month",
+            desc: p.description || p.desc || "Complete feature access for venues.",
+            features: p.features || [
+              `Up to ${p.table_limit || p.tableLimit || 30} Tables`,
+              "Digital QR Menu",
+              "Real-time Order Feed",
+              "Analytics & Reports",
+              p.price > 2000 ? "Priority 24/7 Support" : "Email Support"
+            ],
+            cta: `Purchase ${p.name}`,
+            popular: p.popular || false
+          })))
+        }
+      } catch (err) {
+        console.warn('Fallback to default landing plans:', err)
+      }
+    }
+    fetchLivePlans()
+
+    const channel = supabase
+      .channel('public:landing_subscription_plans_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, () => {
+        fetchLivePlans()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   return (
     <div className="overflow-hidden">
@@ -350,7 +392,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
-            {plans.map((p, idx) => (
+            {livePlans.map((p, idx) => (
               <motion.div
                 key={p.name}
                 initial={{ opacity: 0, y: 30 }}

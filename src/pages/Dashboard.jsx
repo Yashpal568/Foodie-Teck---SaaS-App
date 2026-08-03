@@ -77,11 +77,11 @@ function Dashboard() {
 
       // 1. Fetch Restaurant Status
       if (activeRestaurantId && activeRestaurantId !== 'guest') {
-        const { data: rest } = await supabase
-          .from('restaurants')
-          .select('status')
-          .eq('id', activeRestaurantId)
-          .single()
+        const query = activeRestaurantId.includes('@') 
+          ? supabase.from('restaurants').select('status').eq('email', activeRestaurantId.toLowerCase()).maybeSingle()
+          : supabase.from('restaurants').select('status').eq('id', activeRestaurantId).maybeSingle()
+        
+        const { data: rest } = await query
           
         if (rest && rest.status === 'Suspended') {
           setIsSuspended(true)
@@ -97,18 +97,19 @@ function Dashboard() {
         .eq('restaurant_id', activeRestaurantId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (subscription) {
-        const isPending = subscription.status === 'PENDING_APPROVAL'
+        const isApproved = subscription.status === 'Approved' || subscription.status === 'Active'
+        const isPending = subscription.status === 'PENDING_APPROVAL' || subscription.status === 'PENDING_PAYMENT'
         setSubDetails({
            pendingApproval: isPending,
            utrNumber: subscription.utr_number || '',
-           status: subscription.status || 'Active'
+           status: subscription.status || 'PENDING_APPROVAL'
         })
 
         setPlan({ 
-           name: subscription.plan_name || 'Standard', 
+           name: subscription.plan_name || 'Professional', 
            purchaseDate: subscription.start_date || subscription.created_at
         })
         
@@ -120,12 +121,19 @@ function Dashboard() {
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24))
         
         setDaysRemaining(daysLeft)
-        if (daysLeft <= 0 || isPending || subscription.status === 'REJECTED') {
+        if (!isApproved || daysLeft <= 0) {
           setIsExpired(true)
         }
       } else {
-         setPlan({ name: 'Standard', purchaseDate: new Date() })
-         setDaysRemaining(30)
+         // No subscription record exists yet for this restaurant
+         setSubDetails({
+            pendingApproval: false,
+            utrNumber: '',
+            status: 'NO_SUBSCRIPTION'
+         })
+         setPlan({ name: 'Select Plan', purchaseDate: new Date() })
+         setDaysRemaining(0)
+         setIsExpired(true)
       }
       setIsLoading(false)
     }
@@ -153,6 +161,7 @@ function Dashboard() {
         restaurantId={resolvedId || profile?.id || urlId}
         merchantEmail={dashboardEmail}
         merchantName={profile?.business_name || 'Merchant'}
+        onCheckStatus={() => verifyAuthAndPlan()}
       />
     )
   }

@@ -86,7 +86,24 @@ export default function RegisterPage() {
       .eq('owner_id', data.user.id)
       .single()
 
-    // Redirect to merchant console directly via authenticated UUID
+    const intendedPlanStr = sessionStorage.getItem('intended_plan')
+    if (intendedPlanStr && restaurant?.id) {
+       try {
+          const planObj = JSON.parse(intendedPlanStr)
+          await supabase.from('subscriptions').upsert({
+             restaurant_id: restaurant.id,
+             plan_name: planObj.name,
+             price: planObj.price,
+             status: 'PENDING_PAYMENT',
+             start_date: new Date().toISOString()
+          }, { onConflict: 'restaurant_id' })
+          sessionStorage.removeItem('intended_plan')
+       } catch (err) {
+          console.warn('Failed to save intended plan on register:', err)
+       }
+    }
+
+    // Redirect to merchant console (which will enforce subscription payment & admin approval)
     navigate(`/console/${restaurant?.id || data.user.id}`)
   }
 

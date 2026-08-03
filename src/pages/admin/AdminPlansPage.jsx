@@ -156,7 +156,10 @@ export default function AdminPlansPage() {
         name: planName,
         price: parseInt(planPrice),
         table_limit: parseInt(planLimit),
-        description: planDesc
+        description: planDesc,
+        features: newObj.features,
+        color: newObj.color,
+        popular: newObj.popular
       })
     } catch (err) {
       console.warn('Supabase plan save fallback:', err)

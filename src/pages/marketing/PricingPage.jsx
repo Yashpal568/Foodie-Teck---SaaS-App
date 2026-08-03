@@ -42,7 +42,7 @@ export default function PricingPage() {
   useEffect(() => {
      const fetchPlans = async () => {
         try {
-           const { data: dbPlans } = await supabase.from('subscription_plans').select('*')
+           const { data: dbPlans } = await supabase.from('subscription_plans').select('*').order('price', { ascending: true })
            if (dbPlans && dbPlans.length > 0) {
               setPlans(dbPlans.map(p => ({
                  id: p.id || `PLN-${p.name}`,
@@ -51,15 +51,26 @@ export default function PricingPage() {
                  tableLimit: parseInt(p.table_limit || p.tableLimit || 30),
                  color: p.color || 'blue',
                  popular: p.popular || false,
-                 desc: p.description || p.desc || 'Complete feature access for venues.'
+                 desc: p.description || p.desc || 'Complete feature access for venues.',
+                 features: p.features || null
               })))
-              return
            }
         } catch (err) {
            console.warn('Fallback to default plans:', err)
         }
      }
      fetchPlans()
+
+     const channel = supabase
+       .channel('public:marketing_subscription_plans_realtime')
+       .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, () => {
+          fetchPlans()
+       })
+       .subscribe()
+
+     return () => {
+       supabase.removeChannel(channel)
+     }
   }, [])
 
   const selectPlan = async (plan) => {
@@ -161,7 +172,7 @@ export default function PricingPage() {
               )} />
 
               <div className="space-y-6 mb-16 flex-1">
-                {[
+                {(p.features || [
                   `Up to ${p.tableLimit === 9999 ? 'Unlimited' : p.tableLimit} Tables`,
                   "Digital Menu with QR",
                   "Real-time Order Feed",
@@ -169,7 +180,7 @@ export default function PricingPage() {
                   p.price > 2000 ? "Priority 24/7 Support" : "Email Support",
                   p.tableLimit > 50 ? "Multi-Location Hub" : "Manual Table Status",
                   "Daily Backups"
-                ].map(f => (
+                ]).map(f => (
                   <div key={f} className="flex items-center gap-4">
                     <div className={cn(
                       "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
