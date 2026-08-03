@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, TrendingDown, Calendar, DollarSign, Package } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calendar, DollarSign, Package, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { logPriceChange as apiLogPriceChange, fetchPriceHistory } from '@/lib/api'
+import { logPriceChange as apiLogPriceChange, fetchPriceHistory, getCachedRestaurantId } from '@/lib/api'
 
 // Record price change directly to Supabase DB
 export const recordPriceChange = async (itemId, itemName, oldPrice, newPrice, restaurantId) => {

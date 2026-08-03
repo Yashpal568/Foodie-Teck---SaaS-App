@@ -250,7 +250,7 @@ export default function QRCodePage() {
             </div>
           </CardHeader>
           <CardContent className="p-8">
-            <Alert className="bg-blue-600 text-white border-0 rounded-2xl mb-8 p-6 shadow-xl shadow-blue-200">
+            <Alert variant="default" className="bg-blue-600 text-white border-0 rounded-2xl mb-8 p-6 shadow-xl shadow-blue-200">
               <div className="flex items-center gap-4">
                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
                     <Cloud className="w-6 h-6 text-white" />

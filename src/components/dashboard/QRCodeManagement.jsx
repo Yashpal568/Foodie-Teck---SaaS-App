@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import Sidebar from '../layout/Sidebar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
-import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes } from '@/lib/api'
+import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes, supabase } from '@/lib/api'
 
 // Convert blob to base64 data URL
 const blobToBase64 = (blob) => {
@@ -179,7 +179,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     try {
       const codes = []
       for (let i = 1; i <= tableCount; i++) {
-        const qrCode = await generateQRCode(restaurantId || user.email, i)
+        const qrCode = await generateQRCode(restaurantId, i)
         codes.push(qrCode)
       }
       setQrCodes(codes)

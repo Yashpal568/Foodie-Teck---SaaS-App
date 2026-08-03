@@ -244,7 +244,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
         className="fixed top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/50 z-50 px-6"
       >
 
-        <div className="max-w-screen-xl mx-auto h-full flex items-center justify-between">
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Logo showText={true} iconSize={26} className="scale-100" />
             <div className="h-4 w-px bg-slate-200 hidden sm:block" />
@@ -283,7 +283,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
                transition={{ duration: 0.2 }}
                className="relative rounded-[2.5rem] p-1 shadow-2xl shadow-slate-200 group overflow-hidden"
             >
-               <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 opacity-100 z-0" />
+               <div className="absolute inset-0 bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 opacity-100 z-0" />
                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] -mr-32 -mt-32 rounded-full" />
                <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 blur-[80px] -ml-24 -mb-24 rounded-full" />
                
@@ -318,7 +318,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
                                  initial={{ width: 0 }}
                                  animate={{ width: `${currentProgress}%` }}
                                  transition={{ type: "spring", stiffness: 50, damping: 20 }}
-                                 className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]" 
+                                 className="h-full bg-linear-to-r from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]" 
                               />
                            </div>
                         </div>
@@ -349,7 +349,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
                         <div className="absolute inset-0 rounded-full border border-emerald-400/20 animate-ping opacity-50" />
                         <div className="absolute inset-8 rounded-full border border-emerald-400/40 animate-[ping_4s_infinite] opacity-30" />
                         
-                        <div className="w-32 h-32 md:w-44 md:h-44 bg-gradient-to-br from-slate-800 to-slate-900 rounded-full flex items-center justify-center text-5xl md:text-7xl shadow-2xl border border-white/10">
+                        <div className="w-32 h-32 md:w-44 md:h-44 bg-linear-to-br from-slate-800 to-slate-900 rounded-full flex items-center justify-center text-5xl md:text-7xl shadow-2xl border border-white/10">
                            {currentStatusConfig.icon}
                         </div>
                      </div>
@@ -372,7 +372,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
 
                   {/* Header */}
                   <div className="flex items-center justify-between mb-8">
-                     <div className="h-10 w-10 bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
+                     <div className="h-10 w-10 bg-linear-to-br from-slate-800 to-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
                         <Timer className="w-4.5 h-4.5" />
                      </div>
                      <div>
@@ -654,7 +654,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
              >
 
                {/* Receipt Header */}
-               <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+               <div className="bg-linear-to-br from-slate-900 to-slate-800 p-6">
                  <div className="flex items-start justify-between mb-4">
                    <div>
                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Order Receipt</p>

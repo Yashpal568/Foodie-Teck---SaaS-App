@@ -21,7 +21,8 @@ import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import { 
   fetchTickets, 
   createTicket as createCloudTicket,
-  addTicketReply as addCloudReply 
+  addTicketReply as addCloudReply,
+  supabase
 } from '@/lib/api'
 
 // ─── FAQ Data ────────────────────────────────────────────────────────────────
@@ -650,7 +651,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                             className="w-full flex items-center justify-between py-3.5 px-3 rounded-xl text-left hover:bg-gray-50 transition-colors group"
                           >
                             <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 pr-4">{faq.q}</span>
-                            <div className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isExpanded ? 'bg-gray-900 text-white rotate-180' : 'bg-gray-100 text-gray-500'}`}>
+                            <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isExpanded ? 'bg-gray-900 text-white rotate-180' : 'bg-gray-100 text-gray-500'}`}>
                               <ChevronDown className="w-4 h-4" />
                             </div>
                           </button>
@@ -792,7 +793,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                   </CardContent>
                 </Card>
 
-                <Card className="border-0 shadow-sm bg-gradient-to-br from-gray-900 to-gray-800 text-white ring-1 ring-gray-700 rounded-2xl">
+                <Card className="border-0 shadow-sm bg-linear-to-br from-gray-900 to-gray-800 text-white ring-1 ring-gray-700 rounded-2xl">
                   <CardContent className="p-5 space-y-3 text-center">
                     <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mx-auto ring-1 ring-white/20">
                       <Headphones className="w-6 h-6 text-emerald-400" />

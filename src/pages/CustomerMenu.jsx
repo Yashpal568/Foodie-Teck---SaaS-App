@@ -430,7 +430,7 @@ export default function CustomerMenu() {
         <div className="flex flex-col"><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tighter italic leading-none mb-1">Deliciously Crafted</h1><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Exquisite flavors, exclusively for your table</p></div>
       </div>
 
-      <div className="w-full max-w-[1400px] mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[72%_minmax(380px,28%)] gap-10 items-start overflow-visible">
+      <div className="w-full max-w-350 mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[72%_minmax(380px,28%)] gap-10 items-start overflow-visible">
         <div className="space-y-12 w-full">
           
           {/* ⭐ PREMIUM SELECTIONS / FEATURED PICKS — RESPONSIVE CLONE ⭐ */}

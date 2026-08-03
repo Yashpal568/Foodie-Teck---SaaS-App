@@ -9,8 +9,8 @@ import { supabase } from '@/lib/supabase'
 
 // Fallback exports to prevent breaking imports across the app
 export const trackMenuVisit = () => {}
-export const trackItemView = () => {}
-export const trackItemOrder = () => {}
+export const trackItemView = (itemId) => {}
+export const trackItemOrder = (itemId) => {}
 
 export default function MenuAnalytics({ menuItems, restaurantId }) {
   const [isOpen, setIsOpen] = useState(false)

@@ -4,7 +4,8 @@ import {
   updateMenuItem, 
   deleteMenuItem, 
   toggleMenuItemStock,
-  getMyRestaurant 
+  getMyRestaurant,
+  supabase
 } from '@/lib/api'
 
 class MenuService {
@@ -27,7 +28,6 @@ class MenuService {
 
   async getMenuItem(id) {
     try {
-      const { supabase } = await import('@/lib/supabase')
       const { data, error } = await supabase.from('menu_items').select('*').eq('id', id).single()
       if (error) throw error
       return { success: true, data }

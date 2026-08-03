@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { logAdminAction } from '@/lib/audit'
+import { supabase } from '@/lib/supabase'
 
 export default function AdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
