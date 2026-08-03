@@ -43,16 +43,6 @@ const restaurantData = {
   specialties: ["Fast Food", "Traditional", "Desserts"]
 }
 
-const loadMenuItems = () => {
-  try {
-    const savedItems = localStorage.getItem('menuItems')
-    return savedItems ? JSON.parse(savedItems) : []
-  } catch (error) {
-    console.error('Error loading menu items:', error)
-    return []
-  }
-}
-
 export default function CustomerMenu() {
   const [searchTerm, setSearchTerm] = useState('')
   const [cart, setCart] = useState([])
@@ -381,7 +371,7 @@ export default function CustomerMenu() {
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col pb-32 lg:pb-0 overflow-x-hidden">
       <Navbar className="bg-white/95 backdrop-blur-3xl sticky top-0 z-50 border-b border-slate-100/40 h-24">
-        <NavbarContent className="max-w-[1500px] mx-auto px-10 w-full flex items-center justify-between gap-12">
+        <NavbarContent className="max-w-375 mx-auto px-10 w-full flex items-center justify-between gap-12">
           <NavbarBrand className="flex items-center gap-3 cursor-pointer">
             <Logo showText={true} iconSize={32} />
           </NavbarBrand>
@@ -409,7 +399,7 @@ export default function CustomerMenu() {
                 </div>
                 <div className="flex items-center gap-2">
                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
-                   <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">ACTIVE</span>
+                   <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">ACTIVE</span>
                 </div>
              </div>
              <Button variant="ghost" size="icon" className="h-12 w-12 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all">
@@ -460,11 +450,10 @@ export default function CustomerMenu() {
 
               {/* Mobile Header */}
               <div className="flex lg:hidden items-center justify-between px-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500" />
-                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Featured Picks</h2>
+                <div>
+                   <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none uppercase italic">Popular Selections</h2>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Hand-picked recommendations by our head chef</p>
                 </div>
-                <Button variant="link" className="text-blue-600 font-black text-xs uppercase p-0 h-auto tracking-wider">View All</Button>
               </div>
 
               {/* Desktop View — Large Portfolio Cards */}
@@ -473,7 +462,7 @@ export default function CustomerMenu() {
                   <motion.div 
                     key={item._id} 
                     whileHover={{ y: -5 }}
-                    className="flex-shrink-0 w-[180px] group cursor-pointer"
+                    className="shrink-0 w-45 group cursor-pointer"
                   >
                     <div className="space-y-4">
                       <div className="relative aspect-square w-full rounded-[1.75rem] overflow-hidden bg-slate-50 shadow-[0_12px_24px_-12px_rgba(0,0,0,0.08)] border border-slate-100/50">
@@ -501,7 +490,7 @@ export default function CustomerMenu() {
                                 >
                                   <Minus className="h-3 w-3" />
                                 </Button>
-                                <span className="text-[10px] text-white font-black min-w-[12px] text-center">{getQuantity(item._id)}</span>
+                                <span className="text-[10px] text-white font-black min-w-3 text-center">{getQuantity(item._id)}</span>
                                 <Button 
                                   size="icon" 
                                   variant="ghost"
@@ -532,9 +521,9 @@ export default function CustomerMenu() {
                 {popularItems.map((item) => (
                   <motion.div 
                     key={item._id}
-                    className="flex-shrink-0 w-[280px] bg-white rounded-3xl p-4 flex items-center gap-4 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.04)] border border-slate-50"
+                    className="shrink-0 w-70 bg-white rounded-3xl p-4 flex items-center gap-4 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.04)] border border-slate-50"
                   >
-                    <div className="h-20 w-20 rounded-2xl overflow-hidden bg-slate-50 flex-shrink-0">
+                    <div className="h-20 w-20 rounded-2xl overflow-hidden bg-slate-50 shrink-0">
                       {item.photo ? (
                         <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
@@ -559,7 +548,7 @@ export default function CustomerMenu() {
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
-                            <span className="text-[11px] text-white font-black min-w-[12px] text-center">{getQuantity(item._id)}</span>
+                            <span className="text-[11px] text-white font-black min-w-3 text-center">{getQuantity(item._id)}</span>
                             <Button 
                               size="icon" 
                               variant="ghost"
@@ -586,7 +575,7 @@ export default function CustomerMenu() {
             </section>
           )}
 
-          <div className="sticky top-[80px] z-40 px-0 pt-8 pb-8 bg-white lg:hidden transition-all duration-500">
+          <div className="sticky top-20 z-40 px-0 pt-8 pb-8 bg-white lg:hidden transition-all duration-500">
              <div className="px-8 mb-8">
                 <div className="relative group">
                   <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 z-10"><Search className="h-5 w-5" /></div>
@@ -605,7 +594,7 @@ export default function CustomerMenu() {
                 <button 
                   key={category} 
                   onClick={() => scrollToCategory(category)} 
-                  className={`flex-shrink-0 px-10 py-[1.125rem] rounded-full text-[12px] font-black uppercase tracking-[0.15em] transition-all duration-300 relative ${
+                  className={`shrink-0 px-10 py-4.5 rounded-full text-[12px] font-black uppercase tracking-[0.15em] transition-all duration-300 relative ${
                     activeCategory === category 
                     ? 'bg-[#0f172a] text-white shadow-[0_20px_50px_-12px_rgba(15,23,42,0.45)] scale-105 z-10' 
                     : 'bg-white text-[#94a3b8] border border-slate-100/60 hover:text-slate-800'
@@ -650,7 +639,7 @@ export default function CustomerMenu() {
                       </CardContent>
                       <CardContent className="p-5 max-lg:hidden relative">
                         <div className="flex gap-6 items-center">
-                          <div className="w-28 h-28 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 relative">{item.photo ? <img src={item.photo} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
+                          <div className="w-28 h-28 bg-slate-50 rounded-2xl overflow-hidden shrink-0 relative">{item.photo ? <img src={item.photo} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
                           <div className="flex-1 flex flex-col py-1">
                             <div className="flex justify-between items-start mb-1"><div><h3 className="text-base font-bold text-slate-900 tracking-tight uppercase leading-none">{item.name}</h3></div></div>
                             <p className="text-xs text-slate-400 line-clamp-2 mt-1 italic">{item.description}</p>
@@ -730,7 +719,7 @@ export default function CustomerMenu() {
       <MenuBottomNavbar activeTab={activeTab} setActiveTab={setActiveTab} cartCount={getTotalItems()} hasActiveOrder={!!activeOrderId} onCartClick={() => cart.length > 0 && setShowConfirmModal(true)} onSearchClick={handleSearchFocus} onTrackClick={() => setShowOrderTracking(true)} orderStatus={currentOrder?.status} />
 
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-60 flex items-center justify-center p-4">
           <Card className="max-w-xl w-full border-zinc-200 shadow-2xl overflow-hidden rounded-2xl bg-white">
             <CardHeader className="bg-zinc-50 border-b pb-4"><div className="flex items-center justify-between"><CardTitle className="text-xl font-bold text-black flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-zinc-900" />Confirm Order</CardTitle><Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setShowConfirmModal(false)}><X className="w-4 h-4" /></Button></div></CardHeader>
             <CardContent className="p-6 space-y-6">

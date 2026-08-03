@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MoreHorizontal, Search, Settings2, ShieldOff, CheckCircle, Calendar, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,50 +31,98 @@ export default function AdminCustomersPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [realMapped, setRealMapped] = useState([])
 
+  const loadCustomers = async () => {
+    // Fetch Restaurants
+    const { data: restaurants } = await supabase.from('restaurants').select('*')
+    // Fetch Subscriptions
+    const { data: subscriptions } = await supabase.from('subscriptions').select('*')
+    // Fetch QR Codes summary
+    const { data: qrCodes } = await supabase.from('qr_codes').select('restaurant_id')
+
+    const mapped = (restaurants || []).map((r) => {
+       const plan = (subscriptions || []).find(s => s.restaurant_id === r.id)
+       const activeTier = plan ? plan.plan_name : 'Starter'
+       const daysRemaining = plan && plan.end_date ? Math.ceil((new Date(plan.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 30
+       const qrs = (qrCodes || []).filter(q => q.restaurant_id === r.id).length
+
+       return {
+          id: r.id,
+          email: r.email,
+          name: r.business_name,
+          owner: r.email,
+          plan: activeTier,
+          amount: activeTier === 'Enterprise' ? '4,999' : activeTier === 'Professional' || activeTier === 'PRO' ? '2,499' : '999',
+          tables: qrs,
+          daysRemaining: daysRemaining,
+          status: r.status || 'Active',
+          joined: new Date(r.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+       }
+    })
+    setRealMapped(mapped.reverse())
+  }
+
   useEffect(() => {
-    async function loadCustomers() {
-      // Fetch Restaurants
-      const { data: restaurants } = await supabase.from('restaurants').select('*')
-      // Fetch Subscriptions
-      const { data: subscriptions } = await supabase.from('subscriptions').select('*')
-      // Fetch QR Codes summary (if exists, or mock if large)
-      const { data: qrCodes } = await supabase.from('qr_codes').select('restaurant_id')
-
-      const mapped = (restaurants || []).map((r, i) => {
-         const plan = (subscriptions || []).find(s => s.restaurant_id === r.id)
-         const activeTier = plan ? plan.plan_name : 'Starter'
-         const daysRemaining = plan && plan.end_date ? Math.ceil((new Date(plan.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 30
-         const qrs = (qrCodes || []).filter(q => q.restaurant_id === r.id).length
-
-         return {
-            id: r.id,
-            email: r.email,
-            name: r.business_name,
-            owner: r.email,
-            plan: activeTier,
-            amount: activeTier === 'Enterprise' ? '4,999' : activeTier === 'Professional' ? '2,999' : '1,499',
-            tables: qrs,
-            daysRemaining: daysRemaining,
-            status: r.status || 'Active',
-            joined: new Date(r.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-         }
-      })
-      setRealMapped(mapped.reverse())
-    }
     loadCustomers()
+
+    // Realtime channel for live merchant & subscription changes
+    const channel = supabase
+      .channel('public:admin_customers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => loadCustomers())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions' }, () => loadCustomers())
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const handleDeployMerchant = () => {
+  const handleDeployMerchant = async () => {
      if (!newBizName || !newBizEmail || !newBizPass) return
-     alert('Provisioning new users dynamically from the Admin Panel requires Supabase Auth API logic. Use Supabase dashboard manually.')
-     
-     // Log Attempt
-     logAdminAction(`Manual Provisioning Attempt: ${newBizName}`, newBizEmail, 'NOMINAL')
+     try {
+       // 1. Create Auth Account
+       const { data: authRes, error: authErr } = await supabase.auth.signUp({
+         email: newBizEmail,
+         password: newBizPass
+       })
 
-     setDialogOpen(false)
-     setNewBizName('')
-     setNewBizEmail('')
-     setNewBizPass('')
+       if (authErr) throw authErr
+
+       // 2. Insert Restaurant Record
+       const { data: rest, error: restErr } = await supabase
+         .from('restaurants')
+         .insert({
+           owner_id: authRes.user?.id || null,
+           business_name: newBizName,
+           email: newBizEmail.toLowerCase(),
+           status: 'Active'
+         })
+         .select()
+         .single()
+
+       if (restErr) throw restErr
+
+       // 3. Create Subscription
+       const expiresAt = new Date()
+       expiresAt.setDate(expiresAt.getDate() + 30)
+       await supabase.from('subscriptions').insert({
+          restaurant_id: rest.id,
+          plan_name: 'BASIC',
+          price: 999,
+          status: 'ACTIVE',
+          start_date: new Date().toISOString(),
+          end_date: expiresAt.toISOString()
+       })
+
+       // Log Action
+       await logAdminAction(`Provisioned Merchant: ${newBizName}`, newBizEmail, 'NOMINAL')
+       await loadCustomers()
+     } catch (err) {
+       console.error('Merchant Deployment Error:', err)
+       alert(`Deployment Note: ${err.message}`)
+     } finally {
+       setDialogOpen(false)
+       setNewBizName('')
+       setNewBizEmail('')
+       setNewBizPass('')
+     }
   }
 
   const toggleMerchantStatus = async (email, id, currentStatus) => {
@@ -81,37 +130,27 @@ export default function AdminCustomersPage() {
     
     // Update DB
     await supabase.from('restaurants').update({ status: newStatus }).eq('id', id)
-
-    // Modify local state
     setRealMapped(prev => prev.map(m => m.id === id ? { ...m, status: newStatus } : m))
-    
-    // Log Forensic Action
     await logAdminAction(`Merchant Node ${newStatus}`, email, newStatus === 'Suspended' ? 'WARNING' : 'NOMINAL')
   }
 
   const morphMerchantPlan = async (email, id, newPlan) => {
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 30) // +30 days
+    expiresAt.setDate(expiresAt.getDate() + 30)
 
     // Upsert subscription
     await supabase.from('subscriptions').upsert({
        restaurant_id: id,
        plan_name: newPlan,
        status: 'active',
-       price: newPlan === 'Enterprise' ? 4999 : newPlan === 'Professional' ? 2999 : 1499,
+       price: newPlan === 'Enterprise' || newPlan === 'PREMIUM' ? 4999 : newPlan === 'Professional' || newPlan === 'PRO' ? 2499 : 999,
        start_date: new Date().toISOString(),
        end_date: expiresAt.toISOString(),
        features: []
     }, { onConflict: 'restaurant_id' })
     
-    // Log Forensic Action
     await logAdminAction(`Subscription Morph: ${newPlan}`, email, 'SECURITY')
-
-    setRealMapped(prev => prev.map(m => m.id === id ? { 
-      ...m, 
-      plan: newPlan, 
-      amount: newPlan === 'Enterprise' ? '4,999' : newPlan === 'Professional' ? '2,999' : '1,499' 
-    } : m))
+    await loadCustomers()
   }
 
   const searchMapped = realMapped.filter(u => 
@@ -142,7 +181,6 @@ export default function AdminCustomersPage() {
                     <DropdownMenuItem 
                        key={plan} 
                        onClick={() => setPlanFilter(plan)}
-                       inset
                        className={`h-10 rounded-xl font-bold cursor-pointer transition-colors ${planFilter === plan ? 'bg-blue-50 text-blue-700' : 'text-slate-700 focus:bg-slate-100'}`}
                     >
                        {plan === 'All' ? 'View All Plans' : `${plan} Plan`}
@@ -284,16 +322,16 @@ export default function AdminCustomersPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-xl">
-                               <DropdownMenuLabel inset className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Actions</DropdownMenuLabel>
+                               <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Actions</DropdownMenuLabel>
                                <DropdownMenuSeparator className="bg-slate-100" />
-                               <DropdownMenuLabel inset className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-2">Morph Subscription</DropdownMenuLabel>
-                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Starter')} inset className="font-bold cursor-pointer rounded-xl">Starter Tier</DropdownMenuItem>
-                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Professional')} inset className="font-bold cursor-pointer rounded-xl">Professional Tier</DropdownMenuItem>
-                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Enterprise')} inset className="font-bold cursor-pointer rounded-xl">Enterprise Tier</DropdownMenuItem>
+                               <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-2">Morph Subscription</DropdownMenuLabel>
+                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Starter')} className="font-bold cursor-pointer rounded-xl">Starter Tier</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Professional')} className="font-bold cursor-pointer rounded-xl">Professional Tier</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Enterprise')} className="font-bold cursor-pointer rounded-xl">Enterprise Tier</DropdownMenuItem>
                                <DropdownMenuSeparator className="bg-slate-100" />
                                <DropdownMenuItem 
                                  onClick={() => toggleMerchantStatus(m.owner, m.id, m.status)}
-                                 inset className={`font-bold cursor-pointer rounded-xl flex gap-3 ${m.status === 'Active' ? 'text-red-600 focus:text-red-700 focus:bg-red-50' : 'text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700'}`}
+                                 className={`font-bold cursor-pointer rounded-xl flex gap-3 ${m.status === 'Active' ? 'text-red-600 focus:text-red-700 focus:bg-red-50' : 'text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700'}`}
                                >
                                  {m.status === 'Active' ? <ShieldOff className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                                  {m.status === 'Active' ? 'Suspend Merchant Node' : 'Restore Connection'}
@@ -310,13 +348,3 @@ export default function AdminCustomersPage() {
     </div>
   )
 }
-
-function Badge({ children, className }) {
-   return (
-      <div className={cn("px-2 py-1 rounded-md text-[10px] items-center flex", className)}>
-         {children}
-      </div>
-   )
-}
-
-const cn = (...classes) => classes.filter(Boolean).join(' ');

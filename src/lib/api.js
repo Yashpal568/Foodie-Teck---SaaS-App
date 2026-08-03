@@ -1,6 +1,6 @@
 /**
  * SERVORA — Supabase API Service Layer
- * Centralizes all DB interactions. Drop-in replacement for localStorage ops.
+ * Centralizes all DB interactions. Drop-in replacement for offline ops.
  */
 import { supabase } from './supabase'
 export { supabase }
@@ -17,6 +17,10 @@ export const getMyRestaurant = async () => {
     .select('*')
     .eq('owner_id', user.id)
     .single()
+
+  if (data?.id) {
+    sessionStorage.setItem('servora_restaurant_id', data.id)
+  }
 
   return data
 }
@@ -53,9 +57,9 @@ export const getRestaurantByEmail = async (email) => {
   return data
 }
 
-/** Legacy LocalStorage Cache (Now removed for DB-First Auth) */
+/** Active Session Restaurant ID Resolver (DB-First Auth) */
 export const getCachedRestaurantId = () => {
-  return null
+  return sessionStorage.getItem('servora_restaurant_id') || null
 }
 
 
@@ -780,5 +784,9 @@ export const clearNotifications = async (restaurantId) => {
     .delete()
     .eq('restaurant_id', restaurantId)
 }
+
+export const logPriceChange = recordPriceChange
+
+
 
 

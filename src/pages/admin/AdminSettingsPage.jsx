@@ -22,32 +22,55 @@ export default function AdminSettingsPage() {
     jwtExpiry: '24'
   })
 
-  // Load existing config on mount
+  // Load existing config on mount via Supabase
   useEffect(() => {
-    const savedConfig = localStorage.getItem('servora_platform_config')
-    if (savedConfig) {
-      setConfig(JSON.parse(savedConfig))
+    const fetchConfig = async () => {
+      try {
+        const { data } = await supabase.from('platform_config').select('*').single()
+        if (data) {
+          setConfig({
+            maintenanceMode: data.maintenance_mode || false,
+            smtpHost: data.smtp_host || 'smtp.sendgrid.net',
+            smtpPort: data.smtp_port || '587',
+            smtpKey: data.smtp_key || 'SG.xxxxxxxx.yyyyyyyyyyyyyy',
+            allowedIps: data.allowed_ips || '192.168.1.1, 10.0.0.5',
+            jwtExpiry: data.jwt_expiry || '24'
+          })
+          return
+        }
+      } catch (err) {
+        console.warn('Platform config load notice:', err)
+      }
     }
+    fetchConfig()
   }, [])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true)
     
-    // Persist to simulated platform database
-    setTimeout(() => {
-      localStorage.setItem('servora_platform_config', JSON.stringify(config))
-      
-      // Log Forensic Action
-      logAdminAction("Global Platform Configuration Updated", "SYSTEM", "SECURITY")
-
-      // Force global event for maintenance mode listeners
-      window.dispatchEvent(new Event('platformConfigUpdated'))
-      
-      setIsSaving(false)
-      toast.success("Platform Configuration Successfully Commited to Node", {
-        description: "All cluster parameters updated."
+    try {
+      // Upsert into Supabase platform_config table
+      await supabase.from('platform_config').upsert({
+        id: 1,
+        maintenance_mode: config.maintenanceMode,
+        smtp_host: config.smtpHost,
+        smtp_port: config.smtpPort,
+        smtp_key: config.smtpKey,
+        allowed_ips: config.allowedIps,
+        jwt_expiry: config.jwtExpiry,
+        updated_at: new Date().toISOString()
       })
-    }, 1200)
+    } catch (err) {
+      console.warn('Supabase platform_config update error:', err)
+    }
+
+    logAdminAction("Global Platform Configuration Updated", "SYSTEM", "SECURITY")
+    window.dispatchEvent(new Event('platformConfigUpdated'))
+    
+    setIsSaving(false)
+    toast.success("Platform Configuration Successfully Committed to Node", {
+      description: "All cluster parameters updated."
+    })
   }
 
   const toggleMaintenance = () => {
@@ -228,7 +251,7 @@ export default function AdminSettingsPage() {
       </div>
       
       {/* Background Ambience */}
-      <div className="fixed bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-slate-100/50 to-transparent pointer-events-none -z-10" />
+      <div className="fixed bottom-0 left-0 w-full h-1/2 bg-linear-to-t from-slate-100/50 to-transparent pointer-events-none -z-10" />
     </div>
   )
 }

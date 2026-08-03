@@ -69,7 +69,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
 
     if (item) {
       menuItemData._id = item._id
-      // Save image to localStorage if it exists and is new
+      // Save image to storage engine if it exists and is new
       if (formData.photo && formData.photo !== item.photo) {
         ImageStorage.saveImage(item._id, formData.photo)
       }

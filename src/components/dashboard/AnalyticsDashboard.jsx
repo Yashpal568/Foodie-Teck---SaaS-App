@@ -334,7 +334,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
         {/* Header (Desktop Only) */}
         <div className="hidden lg:flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
               <BarChart3 className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -498,7 +498,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="h-[350px] w-full min-h-[350px] relative">
+                <div className="h-87.5 w-full min-h-87.5 relative">
                   {isChartReady ? (
                     <ResponsiveContainer width="100%" height="100%" minHeight={350} minWidth={0} debounce={50}>
                       <AreaChart data={revenueTrend}>
@@ -557,7 +557,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                 <CardTitle className="text-lg font-bold text-slate-800">Growth Breakdown</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className={cn("divide-y overflow-y-auto", isHistoryExpanded ? "max-h-[600px]" : "")}>
+                <div className={cn("divide-y overflow-y-auto", isHistoryExpanded ? "max-h-150" : "")}>
                   {revenueTrend.slice(isHistoryExpanded ? 0 : -5).reverse().map((day, index) => (
                     <div key={index} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div className="space-y-1">
@@ -618,7 +618,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                       )} />
                       <span className="text-sm font-semibold text-slate-700">{category.category}</span>
                     </div>
-                    <div className="flex items-center gap-4 flex-1 justify-end max-w-[200px]">
+                    <div className="flex items-center gap-4 flex-1 justify-end max-w-50">
                       <div className="flex-1">
                         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div 
@@ -632,7 +632,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                           />
                         </div>
                       </div>
-                      <div className="text-right min-w-[70px]">
+                      <div className="text-right min-w-17.5">
                         <div className="text-sm font-bold text-slate-900">
                           {formatCurrency(category.revenue)}
                         </div>
@@ -767,7 +767,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                             </div>
                             <span className="text-sm font-bold text-blue-500">{viewsPercentage.toFixed(1)}%</span>
                           </div>
-                          <Progress value={viewsPercentage} className="h-2.5 bg-slate-100 [&>div]:bg-gradient-to-r [&>div]:from-blue-400 [&>div]:to-blue-600" />
+                          <Progress value={viewsPercentage} className="h-2.5 bg-slate-100 [&>div]:bg-linear-to-r [&>div]:from-blue-400 [&>div]:to-blue-600" />
                         </div>
 
                         {/* Orders Progress */}
@@ -779,7 +779,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                             </div>
                             <span className="text-sm font-bold text-green-500">{ordersPercentage.toFixed(1)}%</span>
                           </div>
-                          <Progress value={ordersPercentage} className="h-2.5 bg-slate-100 [&>div]:bg-gradient-to-r [&>div]:from-green-400 [&>div]:to-green-600" />
+                          <Progress value={ordersPercentage} className="h-2.5 bg-slate-100 [&>div]:bg-linear-to-r [&>div]:from-green-400 [&>div]:to-green-600" />
                         </div>
 
                       </div>
@@ -886,7 +886,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                       <DollarSign className="w-16 h-16 text-indigo-600" />
                     </div>
                     <p className="text-sm font-semibold text-indigo-800/70 uppercase tracking-wider mb-2">Earnings</p>
-                    <p className="text-3xl font-black text-indigo-700 relative z-10 break-words">
+                    <p className="text-3xl font-black text-indigo-700 relative z-10 wrap-break-word">
                       {formatCurrency(customRangeStats.revenue)}
                     </p>
                     {(customDateRange.startDate || customDateRange.endDate) ? (
@@ -907,7 +907,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                   {/* Avg Value Result */}
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 relative overflow-hidden">
                     <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Avg Value</p>
-                    <p className="text-3xl font-black text-slate-800 break-words">
+                    <p className="text-3xl font-black text-slate-800 wrap-break-word">
                       {formatCurrency(customRangeStats.avgValue)}
                     </p>
                   </div>

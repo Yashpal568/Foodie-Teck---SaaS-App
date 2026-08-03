@@ -47,9 +47,6 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           const profile = await getMyRestaurant()
           if (profile) {
             rid = profile.id
-            // Repair the session cache for other components
-            const authUser = JSON.parse(localStorage.getItem('servora_user') || '{}')
-            localStorage.setItem('servora_user', JSON.stringify({ ...authUser, restaurantId: rid }))
           }
         } catch (e) { 
           console.error('Profile fetch failed', e) 

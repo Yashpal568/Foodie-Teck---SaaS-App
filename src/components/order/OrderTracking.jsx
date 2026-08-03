@@ -87,20 +87,8 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
       refreshOrders()
     }, 30000)
 
-    // Listen for cart changes for the navbar
-    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]')
-    setCart(savedCart)
-
-    const handleStorageChange = (e) => {
-      if (e.key === 'cart') {
-        setCart(JSON.parse(e.newValue || '[]'))
-      }
-    }
-
-    window.addEventListener('storage', handleStorageChange)
     return () => {
       clearInterval(safetyPoll)
-      window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
 
@@ -180,8 +168,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
   }
 
   // Finalized Session Logic (Triggers after 60s of SERVED or when FINISHED, but only once)
-  const hasBeenThanked = localStorage.getItem(`thanked_${order?.id}`)
-  if ((order?.status === ORDER_STATUS.FINISHED || showThankYou) && !hasBeenThanked) {
+  if (order?.status === ORDER_STATUS.FINISHED || showThankYou) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-6 selection:bg-slate-900 selection:text-white">
         <motion.div 
@@ -207,7 +194,6 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
           <div className="pt-6">
             <Button
               onClick={() => {
-                localStorage.setItem(`thanked_${order.id}`, 'true')
                 onClose()
               }}
               className="w-full h-16 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-2xl shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest text-[11px]"
@@ -426,16 +412,16 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
                          >
                            {/* Connector Line */}
                            {!isLast && (
-                             <div className="absolute left-[18px] top-12 bottom-0 w-[2px]">
+                             <div className="absolute left-4.5 top-12 bottom-0 w-0.5">
                                <div className={cn(
                                  "h-full w-full rounded-full",
-                                 isCurrent ? "bg-gradient-to-b from-emerald-400 to-slate-100" : "bg-slate-100"
+                                 isCurrent ? "bg-linear-to-b from-emerald-400 to-slate-100" : "bg-slate-100"
                                )} />
                              </div>
                            )}
 
                            {/* Step Icon */}
-                           <div className="relative flex-shrink-0 flex flex-col items-center">
+                           <div className="relative shrink-0 flex flex-col items-center">
                              <motion.div
                                animate={isCurrent ? { scale: [1, 1.08, 1] } : { scale: 1 }}
                                transition={isCurrent ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" } : {}}
@@ -458,7 +444,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
                              <div className={cn(
                                "rounded-2xl p-4 border transition-all",
                                isCurrent
-                                 ? "bg-gradient-to-br from-emerald-50/80 to-slate-50 border-emerald-100 shadow-sm"
+                                 ? "bg-linear-to-br from-emerald-50/80 to-slate-50 border-emerald-100 shadow-sm"
                                  : "bg-slate-50/70 border-slate-100"
                              )}>
                                <div className="flex items-center justify-between mb-1">
@@ -652,7 +638,7 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
                      <Button 
                        variant="outline"
                        onClick={() => updateOrderStatus(ORDER_STATUS.BILL_REQUESTED)}
-                       className="w-full h-14 bg-white hover:bg-slate-50 border-slate-200 text-slate-900 font-bold rounded-2xl transition-all h-14 flex items-center justify-center gap-3"
+                       className="w-full h-14 bg-white hover:bg-slate-50 border-slate-200 text-slate-900 font-bold rounded-2xl transition-all flex items-center justify-center gap-3"
                      >
                         <Receipt className="w-5 h-5" />
                         <span className="text-xs uppercase tracking-widest">Request Bill</span>

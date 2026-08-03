@@ -128,15 +128,24 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
   const [activeTab, setActiveTab] = useState('faq')
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-
   // Contact form state
-  const [contactName, setContactName] = useState(user.businessName || '')
-  const [contactEmail, setContactEmail] = useState(user.email || '')
+  const [contactName, setContactName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [contactSubject, setContactSubject] = useState('')
   const [contactMessage, setContactMessage] = useState('')
   const [messageSent, setMessageSent] = useState(false)
   const [newTicketId, setNewTicketId] = useState(null)
+
+  useEffect(() => {
+    async function loadUser() {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (currentUser) {
+        setContactEmail(currentUser.email || '')
+        setContactName(currentUser.user_metadata?.business_name || 'Merchant Admin')
+      }
+    }
+    loadUser()
+  }, [])
 
   // Tickets state
   const [tickets, setTickets] = useState([])
@@ -306,7 +315,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email</p>
-                    <p className="text-xs font-bold text-gray-900 truncate max-w-[140px]">{ticket.email}</p>
+                    <p className="text-xs font-bold text-gray-900 truncate max-w-35">{ticket.email}</p>
                   </div>
                 </div>
               </div>
@@ -317,7 +326,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
           <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                   <User className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -342,7 +351,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                 <Card key={idx} className={`border-0 shadow-sm rounded-2xl ${reply.isAdmin ? 'bg-emerald-50/50 ring-1 ring-emerald-100' : 'bg-white ring-1 ring-gray-100'}`}>
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${reply.isAdmin ? 'bg-emerald-200' : 'bg-blue-100'}`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${reply.isAdmin ? 'bg-emerald-200' : 'bg-blue-100'}`}>
                         {reply.isAdmin ? (
                           <Headphones className="w-4 h-4 text-emerald-700" />
                         ) : (
@@ -414,7 +423,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
         </div>
         <div className="flex items-center gap-1">
           <NotificationDropdown restaurantId={restaurantId} />
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
+          <div className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
             <span className="text-[10px] font-bold text-blue-700">JD</span>
           </div>
         </div>
@@ -454,7 +463,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
 
       <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-32 lg:pb-8">
         {/* Hero Search */}
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white overflow-hidden relative">
+        <Card className="border-0 shadow-sm bg-linear-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white overflow-hidden relative">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz48L3N2Zz4=')] opacity-40" />
           <CardContent className="p-6 md:p-10 relative z-10">
             <div className="max-w-2xl mx-auto text-center space-y-4">
@@ -480,7 +489,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
 
                 {/* Live Search Results Overlay (Optional: only if you want a dropdown feel) */}
                 {searchTerm.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-100 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-2 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
                         {filteredFaqs.reduce((acc, cat) => acc + cat.questions.length, 0)} Potential Matches
@@ -489,7 +498,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                         Clear
                       </Button>
                     </div>
-                    <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
+                    <div className="max-h-75 overflow-y-auto p-2 space-y-1">
                       {filteredFaqs.length > 0 ? (
                         filteredFaqs.map((cat) => (
                           cat.questions.map((q, idx) => (
@@ -505,7 +514,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                               }}
                               className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-colors text-left group"
                             >
-                              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                 <HelpCircle className="w-4 h-4" />
                               </div>
                               <div className="min-w-0">
@@ -753,7 +762,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                     <h3 className="font-bold text-gray-900 text-sm">Contact Information</h3>
                     <div className="space-y-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 ring-1 ring-blue-100/50">
+                        <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-blue-100/50">
                           <Mail className="w-4 h-4" />
                         </div>
                         <div>
@@ -762,7 +771,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 bg-green-50 text-green-600 rounded-lg flex items-center justify-center flex-shrink-0 ring-1 ring-green-100/50">
+                        <div className="w-9 h-9 bg-green-50 text-green-600 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-green-100/50">
                           <Phone className="w-4 h-4" />
                         </div>
                         <div>
@@ -771,7 +780,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 ring-1 ring-purple-100/50">
+                        <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-purple-100/50">
                           <Clock className="w-4 h-4" />
                         </div>
                         <div>
@@ -862,7 +871,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                       <CardContent className="p-4 md:p-5">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3 min-w-0">
-                            <div className={`w-10 h-10 bg-${cfg.color}-50 text-${cfg.color}-600 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-${cfg.color}-100/50`}>
+                            <div className={`w-10 h-10 bg-${cfg.color}-50 text-${cfg.color}-600 rounded-xl flex items-center justify-center shrink-0 ring-1 ring-${cfg.color}-100/50`}>
                               <StatusIcon className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
@@ -886,7 +895,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                               </p>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <div className="flex flex-col items-end gap-1 shrink-0">
                             <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{timeAgo(ticket.updatedAt)}</span>
                             <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
                           </div>
@@ -968,7 +977,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                     'Use the Customer Management section to build loyalty programs.',
                   ].map((tip, idx) => (
                     <div key={idx} className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                      <div className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                         <CheckCircle className="w-3 h-3" />
                       </div>
                       <p className="text-sm text-gray-700">{tip}</p>

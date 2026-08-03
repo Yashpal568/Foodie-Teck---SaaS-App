@@ -15,7 +15,7 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     // Automatically let admins through if they already have an active session
-    const adminToken = localStorage.getItem('servora_admin_token')
+    const adminToken = sessionStorage.getItem('servora_admin_token')
     if (adminToken) {
        navigate('/admin/dashboard', { replace: true })
     }
@@ -31,8 +31,8 @@ export default function AdminLoginPage() {
     const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
 
     if (secureEmail === adminEmail && password === adminPassword) {
-      localStorage.setItem('servora_admin_token', 'SERVORA_PLATFORM_OWNER_2026')
-      localStorage.setItem('servora_admin_user', JSON.stringify({ name: 'System Owner', role: 'SUPER_ADMIN' }))
+      sessionStorage.setItem('servora_admin_token', 'SERVORA_PLATFORM_OWNER_2026')
+      sessionStorage.setItem('servora_admin_user', JSON.stringify({ name: 'System Owner', role: 'SUPER_ADMIN' }))
       navigate('/admin/dashboard')
     } else {
       setError('Invalid platform credentials. Access denied.')
@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden font-sans">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-900/20 blur-[150px] rounded-full point-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-200 bg-blue-900/20 blur-[150px] rounded-full point-events-none" />
       
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}

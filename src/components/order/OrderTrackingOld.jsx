@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 const OrderTracking = ({ orderId, onClose }) => {
   const [order, setOrder] = useState(null)
@@ -13,13 +14,13 @@ const OrderTracking = ({ orderId, onClose }) => {
 
   // Load order details
   useEffect(() => {
-    const loadOrder = () => {
+    const loadOrder = async () => {
       try {
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-        const foundOrder = orders.find(o => o.id === orderId)
-        setOrder(foundOrder)
+        if (!orderId) return
+        const { data } = await supabase.from('orders').select('*, order_items(*)').eq('id', orderId).single()
+        setOrder(data)
       } catch (error) {
-        console.error('Error loading order:', error)
+        console.error('Error loading order from Supabase:', error)
       } finally {
         setLoading(false)
       }
@@ -115,7 +116,7 @@ const OrderTracking = ({ orderId, onClose }) => {
                     
                     return (
                       <div key={index} className="flex items-start gap-4">
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                           <div className={cn(
                             "w-10 h-10 rounded-full flex items-center justify-center text-lg",
                             statusConfig.color
@@ -150,16 +151,13 @@ const OrderTracking = ({ orderId, onClose }) => {
                       Your order has been served. Enjoy your delicious meal!
                     </p>
                     <Button 
-                      onClick={() => {
-                        // Update order status to BILL_REQUESTED
-                        const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-                        const updatedOrders = orders.map(o => 
-                          o.id === order.id 
-                            ? { ...o, status: ORDER_STATUS.BILL_REQUESTED, updatedAt: new Date().toISOString() }
-                            : o
-                        )
-                        localStorage.setItem('orders', JSON.stringify(updatedOrders))
-                        setOrder({ ...order, status: ORDER_STATUS.BILL_REQUESTED })
+                      onClick={async () => {
+                        try {
+                          await supabase.from('orders').update({ status: ORDER_STATUS.BILL_REQUESTED }).eq('id', order.id)
+                          setOrder({ ...order, status: ORDER_STATUS.BILL_REQUESTED })
+                        } catch (err) {
+                          console.error('Failed to request bill:', err)
+                        }
                       }}
                       className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600 text-white"
                     >

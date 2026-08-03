@@ -27,23 +27,28 @@ import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 import AdminAuditPage from './pages/admin/AdminAuditPage'
 import AdminSupportPage from './pages/admin/AdminSupportPage'
 import MaintenanceNode from './pages/MaintenanceNode'
+import { supabase } from './lib/supabase'
 
 function MaintenanceGuard({ children }) {
   const [isMaintenance, setIsMaintenance] = useState(false)
   const location = useLocation()
 
   useEffect(() => {
-    const checkMaintenance = () => {
-      const config = JSON.parse(localStorage.getItem('servora_platform_config') || '{}')
-      const adminSession = localStorage.getItem('servora_admin_session')
-      
-      // EXEMPT: Admins and Admin Login Page
-      if (adminSession || location.pathname.startsWith('/admin')) {
+    const checkMaintenance = async () => {
+      if (location.pathname.startsWith('/admin')) {
         setIsMaintenance(false)
         return
       }
-      
-      setIsMaintenance(config.maintenanceMode === true)
+
+      try {
+        const { data } = await supabase.from('platform_config').select('maintenance_mode').single()
+        if (data) {
+          setIsMaintenance(data.maintenance_mode === true)
+          return
+        }
+      } catch (err) {
+        setIsMaintenance(false)
+      }
     }
 
     checkMaintenance()

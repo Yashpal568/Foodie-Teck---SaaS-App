@@ -151,28 +151,33 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   }
 
   const handleSignOut = async () => {
-    saveAndClearWorkspace()
-    localStorage.removeItem('servora_user')
     await supabase.auth.signOut()
     navigate('/login')
   }
   const [subData, setSubData] = useState({ daysLeft: 30, planName: 'Starter' })
 
   useEffect(() => {
-    const checkSub = () => {
-      const savedPlan = localStorage.getItem('servora_plan')
-      if (savedPlan) {
-        const planData = JSON.parse(savedPlan)
-        const purchaseDate = new Date(planData.purchaseDate || planData.activeSince || Date.now())
-        const expiryDate = new Date(purchaseDate.getTime() + (30 * 24 * 60 * 60 * 1000))
-        const now = new Date()
-        const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        setSubData({ daysLeft, planName: planData.name })
+    const checkSub = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: rest } = await supabase.from('restaurants').select('id').eq('email', user.email.toLowerCase()).single()
+          if (rest) {
+            const { data: sub } = await supabase.from('subscriptions').select('*').eq('restaurant_id', rest.id).single()
+            if (sub) {
+              const startDate = new Date(sub.start_date || sub.created_at)
+              const expiryDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000))
+              const now = new Date()
+              const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+              setSubData({ daysLeft: Math.max(0, daysLeft), planName: sub.plan_name || 'Starter' })
+            }
+          }
+        }
+      } catch (err) {
+        // Silent default fallback
       }
     }
     checkSub()
-    window.addEventListener('storage', checkSub)
-    return () => window.removeEventListener('storage', checkSub)
   }, [])
 
   return (
@@ -203,7 +208,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <Icon className="w-5 h-5 shrink-0" />
                 {!isCollapsed && (
                   <>
                     <span className="font-medium">{item.label}</span>
@@ -233,7 +238,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <Icon className="w-5 h-5 shrink-0" />
                 {!isCollapsed && (
                   <span className="font-medium">{item.label}</span>
                 )}

@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Home, ShoppingCart, ChefHat, Receipt, Settings } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { icon: Home, label: 'Home', id: 'dashboard', route: '/dashboard' },
@@ -12,13 +13,13 @@ const navItems = [
 export default function MobileNavbar({ activeItem, setActiveItem }) {
   const navigate = useNavigate()
   
-  const handleNavigation = (item) => {
+  const handleNavigation = async (item) => {
     setActiveItem(item.id)
     
-    // Identity-Safe Mobile Navigation: Redirect to isolated console
+    // Identity-Safe Mobile Navigation
     if (item.route === '/dashboard') {
-      const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-      if (user.email) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.email) {
         navigate(`/console/${user.email}`)
         return
       }
@@ -38,7 +39,7 @@ export default function MobileNavbar({ activeItem, setActiveItem }) {
             <button
               key={item.id}
               onClick={() => handleNavigation(item)}
-              className={`flex flex-col items-center gap-1 pt-1 pb-1 px-3 min-w-[64px] rounded-xl transition-all duration-300 relative ${
+              className={`flex flex-col items-center gap-1 pt-1 pb-1 px-3 min-w-16 rounded-xl transition-all duration-300 relative ${
                 isActive 
                   ? 'text-blue-600' 
                   : 'text-gray-400 hover:text-gray-600 active:scale-90'

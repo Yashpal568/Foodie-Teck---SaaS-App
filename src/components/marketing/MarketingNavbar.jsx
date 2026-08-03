@@ -4,6 +4,7 @@ import { Menu, X, ArrowRight, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Logo from '@/components/ui/Logo'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { name: 'Home', href: '/' },
@@ -26,9 +27,11 @@ export default function MarketingNavbar() {
     }
     window.addEventListener('scroll', handleScroll)
     
-    // Check for plan in localStorage
-    const plan = localStorage.getItem('servora_plan')
-    setHasPlan(!!plan)
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setHasPlan(!!session)
+    }
+    checkAuth()
 
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
@@ -41,7 +44,7 @@ export default function MarketingNavbar() {
   return (
     <nav
       className={cn(
-        'fixed top-0 inset-x-0 z-[100] transition-all duration-500',
+        'fixed top-0 inset-x-0 z-100 transition-all duration-500',
         isScrolled 
           ? 'h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/50 shadow-xl shadow-slate-900/5' 
           : 'h-24 bg-transparent'
@@ -122,7 +125,7 @@ export default function MarketingNavbar() {
       {/* Mobile Menu Overlay */}
       <div 
         className={cn(
-          "fixed inset-0 bg-white z-[200] transition-transform duration-500 lg:hidden",
+          "fixed inset-0 bg-white z-200 transition-transform duration-500 lg:hidden",
           mobileMenuOpen ? "translate-x-0" : "translate-x-full"
         )}
       >

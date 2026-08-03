@@ -62,46 +62,39 @@ const generateQRCode = async (restaurantId, tableNumber) => {
   }
 }
 
-// Save QR codes to localStorage
-const saveQRCodesToStorage = (restaurantId, qrCodes) => {
+// Sync QR codes with Supabase
+const saveQRCodesToStorage = async (restaurantId, qrCodes) => {
   try {
-    // Convert QR codes to storable format (exclude blobs, keep data URLs)
-    const storableQRCodes = qrCodes.map(qr => ({
-      url: qr.url,
-      qrDataUrl: qr.qrDataUrl,
-      tableNumber: qr.tableNumber,
-      restaurantId: qr.restaurantId,
-      generatedAt: qr.generatedAt
-    }))
-    
-    const data = {
-      restaurantId,
-      qrCodes: storableQRCodes,
-      savedAt: new Date().toISOString()
-    }
-    localStorage.setItem(`qrCodes_${restaurantId}`, JSON.stringify(data))
+     if (restaurantId) {
+        await bulkSaveQRCodes(restaurantId, qrCodes)
+     }
   } catch (error) {
-    console.error('Error saving QR codes:', error)
+     console.error('Error syncing QR codes with Supabase:', error)
   }
 }
 
-// Load QR codes from localStorage
-const loadQRCodesFromStorage = (restaurantId) => {
+// Load QR codes from Supabase
+const loadQRCodesFromStorage = async (restaurantId) => {
   try {
-    const saved = localStorage.getItem(`qrCodes_${restaurantId}`)
-    if (saved) {
-      const data = JSON.parse(saved)
-      return data.qrCodes || []
+    if (!restaurantId) return []
+    const { data } = await supabase.from('qr_codes').select('*').eq('restaurant_id', restaurantId)
+    if (data && data.length > 0) {
+       return data.map(q => ({
+          url: q.url || `${window.location.origin}/menu?restaurant=${restaurantId}&table=${q.table_number}`,
+          qrDataUrl: q.qr_data_url || q.image_url,
+          tableNumber: q.table_number,
+          restaurantId: q.restaurant_id,
+          generatedAt: q.created_at
+       }))
     }
   } catch (error) {
-    console.error('Error loading QR codes:', error)
+    console.error('Error loading QR codes from Supabase:', error)
   }
   return []
 }
 
 export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan }) {
   const tableLimit = plan?.name === 'Enterprise' ? 1000 : plan?.name === 'Professional' ? 30 : 10
-  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
   const [restaurantId, setRestaurantId] = useState(getCachedRestaurantId())
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState('idle')
@@ -114,8 +107,6 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         const profile = await getMyRestaurant()
         if (profile) {
           setRestaurantId(profile.id)
-          // Update session for the whole app
-          localStorage.setItem('servora_user', JSON.stringify({ ...user, restaurantId: profile.id }))
         }
       }
     }
@@ -128,21 +119,25 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
   const [activeTab, setActiveTab] = useState('generate')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Load QR codes from localStorage on component mount
+  // Load QR codes from Supabase on component mount
   useEffect(() => {
-    const savedQRCodes = loadQRCodesFromStorage(restaurantId)
-    if (savedQRCodes.length > 0) {
-      // Recreate blob URLs from stored data URLs
-      const restoredQRCodes = savedQRCodes.map(qr => ({
-        ...qr,
-        qrImageUrl: qr.qrDataUrl, // Use data URL as image source
-        qrBlob: null // Blob is not needed for display
-      }))
-      setQrCodes(restoredQRCodes)
+    const loadData = async () => {
+      if (!restaurantId) return
+      const savedQRCodes = await loadQRCodesFromStorage(restaurantId)
+      if (savedQRCodes && savedQRCodes.length > 0) {
+        const restoredQRCodes = savedQRCodes.map(qr => ({
+          ...qr,
+          qrImageUrl: qr.qrDataUrl,
+          qrBlob: null
+        }))
+        setQrCodes(restoredQRCodes)
+        setTableCount(savedQRCodes.length)
+      }
     }
+    loadData()
   }, [restaurantId])
 
-  // Save QR codes to localStorage whenever they change
+  // Sync QR codes with database whenever they change
   useEffect(() => {
     if (qrCodes.length > 0) {
       saveQRCodesToStorage(restaurantId, qrCodes)
@@ -206,13 +201,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
   const clearQRCodes = () => {
     setQrCodes([])
-    try {
-      localStorage.removeItem(`qrCodes_${restaurantId}`)
-      // Emit event to notify TableSessions component
-      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: [] } }))
-    } catch (error) {
-      console.error('Error clearing QR codes:', error)
-    }
+    window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: [] } }))
   }
 
   const downloadQRCode = async (qrCode) => {
@@ -303,7 +292,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         </div>
         <div className="flex items-center gap-1">
           <NotificationDropdown restaurantId={restaurantId} />
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
+          <div className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
             <span className="text-[10px] font-bold text-blue-700">JD</span>
           </div>
         </div>
@@ -498,7 +487,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-xs font-medium text-blue-600">1</span>
                     </div>
                     <div>
@@ -508,7 +497,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-xs font-medium text-blue-600">2</span>
                     </div>
                     <div>
@@ -520,7 +509,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                 
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-xs font-medium text-blue-600">3</span>
                     </div>
                     <div>
@@ -530,7 +519,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-xs font-medium text-blue-600">4</span>
                     </div>
                     <div>

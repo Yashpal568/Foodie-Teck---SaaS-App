@@ -39,36 +39,29 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
     avatar: ''
   })
 
-  // Sync with LocalStorage
+  // Sync profile with Supabase Session
   useEffect(() => {
     const loadProfile = async () => {
-      const saved = localStorage.getItem('userProfile')
-      // Removed dependency on local storage user mapping -> rely on active Supabase Session explicitly
       const { data: { user } } = await supabase.auth.getUser()
 
-      if (saved) {
-        setUserProfile(JSON.parse(saved))
-      } else if (user && user.email) {
-        // Automatically sync fresh registrations with their actual authentication payload
+      if (user && user.email) {
+        const { data: rest } = await supabase.from('restaurants').select('business_name').eq('email', user.email.toLowerCase()).single()
         setUserProfile({
-          name: user.user_metadata?.business_name || 'Merchant Admin',
+          name: rest?.business_name || user.user_metadata?.business_name || 'Merchant Admin',
           email: user.email,
           avatar: ''
         })
       } else {
-        // Fallback only if literally everything is strictly stripped
         setUserProfile({
            name: 'System Admin',
-           email: 'admin@servora.tech',
+           email: restaurantId || 'admin@servora.tech',
            avatar: ''
         })
       }
     }
 
     loadProfile()
-    window.addEventListener('storage', loadProfile)
-    return () => window.removeEventListener('storage', loadProfile)
-  }, [])
+  }, [restaurantId])
 
   // Combined searchable items
   const searchableItems = [
@@ -111,7 +104,6 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   }
 
   const handleSignOut = async () => {
-    localStorage.removeItem('userProfile')
     await supabase.auth.signOut()
     
     // Reroute to authentication gate
@@ -119,13 +111,13 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   }
 
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 sticky top-0 z-[40]">
+    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 sticky top-0 z-40">
       <div className="flex items-center justify-between gap-8">
         
         {/* Search Bar Container */}
         <div className="flex-1 max-w-2xl hidden lg:block" ref={searchRef}>
           <div className="relative group">
-            <div className="absolute inset-x-0 -inset-y-0.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl opacity-0 group-focus-within:opacity-10 transition-opacity duration-300 pointer-events-none" />
+            <div className="absolute inset-x-0 -inset-y-0.5 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl opacity-0 group-focus-within:opacity-10 transition-opacity duration-300 pointer-events-none" />
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-blue-600 transition-colors" />
             <Input
               value={searchQuery}
@@ -146,7 +138,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
             {/* Premium Search Results Overlay */}
             {showResults && (
               <div className="absolute top-14 left-0 right-0 bg-white rounded-[2rem] shadow-2xl shadow-blue-900/10 border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
-                <div className="p-4 max-h-[480px] overflow-y-auto scrollbar-hide">
+                <div className="p-4 max-h-120 overflow-y-auto scrollbar-hide">
                   {filteredResults.length > 0 ? (
                     <div className="space-y-4">
                       {['Actions', 'Navigation', 'Resources', 'Support'].map(category => {
@@ -202,7 +194,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-6 ml-auto flex-shrink-0">
+        <div className="flex items-center gap-6 ml-auto shrink-0">
           {/* Dashboard Mode Badge */}
           <div className="hidden xl:flex items-center gap-2 px-4 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-xl">
              <LayoutDashboard className="w-3.5 h-3.5 text-indigo-600" />
@@ -230,7 +222,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
                 <div className="relative">
                   <Avatar className="w-9 h-9 border-2 border-white shadow-xl shadow-blue-500/10">
                     <AvatarImage src={userProfile.avatar || "/api/placeholder/32/32"} alt="User" className="aspect-square h-full w-full object-cover" />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-black text-xs">
+                    <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-700 text-white font-black text-xs">
                       {userProfile.name.charAt(0)}D
                     </AvatarFallback>
                   </Avatar>

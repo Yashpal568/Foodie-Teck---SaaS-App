@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { useNavigate } from 'react-router-dom'
-import { getMyRestaurant, bulkSaveQRCodes, getQRCodes } from '@/lib/api'
+import { getMyRestaurant, bulkSaveQRCodes, getQRCodes, supabase } from '@/lib/api'
 
 // QR Code generator using QRServer API
 const generateQRCode = async (restaurantId, tableNumber) => {
@@ -36,27 +36,28 @@ const generateQRCode = async (restaurantId, tableNumber) => {
 
 export default function QRCodePage() {
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
+  const [userEmail, setUserEmail] = useState('')
   
   const [restaurantData, setRestaurantData] = useState(null)
   const [tableCount, setTableCount] = useState(10)
   const [qrCodes, setQrCodes] = useState([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [syncStatus, setSyncStatus] = useState('idle') // idle | syncing | success
+  const [syncStatus, setSyncStatus] = useState('idle')
   const [activeLimit, setActiveLimit] = useState(10)
 
   useEffect(() => {
-     if (!user.email) {
-        navigate('/login')
-        return
-     }
-
      const fetchId = async () => {
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (!currentUser) {
+           navigate('/login')
+           return
+        }
+        setUserEmail(currentUser.email)
+
         const data = await getMyRestaurant()
         setRestaurantData(data)
         
-        // Load existing from cloud
         if (data) {
            const existing = await getQRCodes(data.id)
            if (existing.length > 0) {
@@ -67,15 +68,15 @@ export default function QRCodePage() {
                 url: qr.url
               })))
            }
+
+           const { data: sub } = await supabase.from('subscriptions').select('plan_name').eq('restaurant_id', data.id).single()
+           if (sub) {
+              const limit = sub.plan_name === 'Enterprise' ? 1000 : sub.plan_name === 'Professional' ? 30 : 10
+              setActiveLimit(limit)
+           }
         }
      }
      fetchId()
-
-     const plan = JSON.parse(localStorage.getItem('servora_plan'))
-     if (plan && plan.tableLimit) {
-        setActiveLimit(plan.tableLimit)
-        if (tableCount > plan.tableLimit) setTableCount(plan.tableLimit)
-     }
   }, [navigate])
 
   const generateAndSync = async () => {
@@ -153,11 +154,11 @@ export default function QRCodePage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" onClick={() => navigate(`/console/${user.email}`)} className="p-2">
+          <Button variant="ghost" onClick={() => navigate(`/console/${userEmail}`)} className="p-2">
             <Home className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 font-black uppercase tracking-tight">QR Studio</h1>
+            <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tight">QR Studio</h1>
             <p className="text-slate-500 font-medium text-sm">Generate and sync table sessions to your live floor plan.</p>
           </div>
         </div>
@@ -210,7 +211,7 @@ export default function QRCodePage() {
           
           <Button 
             onClick={generateAndSync} 
-            className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-[1.25rem] shadow-2xl shadow-blue-200/50 font-black uppercase tracking-[0.2em] text-xs transition-all hover:-translate-y-1 active:scale-[0.98]"
+            className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-4xl shadow-2xl shadow-blue-200/50 font-black uppercase tracking-[0.2em] text-xs transition-all hover:-translate-y-1 active:scale-[0.98]"
             disabled={isGenerating || !restaurantData}
           >
             {isGenerating ? (

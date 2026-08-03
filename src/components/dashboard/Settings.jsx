@@ -132,7 +132,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           })
         }
 
-        // Hydrate Plan (from subscriptions relation if exists, fallback to localStorage cache)
+        // Hydrate Plan from subscriptions relation
         const sub = restaurant.subscriptions?.[0]
         if (sub) {
           setBillingData(prev => ({
@@ -140,16 +140,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             plan: sub.plan_name,
             price: sub.price.toLocaleString()
           }))
-        } else {
-          // Fallback to local cache for plan if not in DB yet
-          const activePlan = JSON.parse(localStorage.getItem('servora_plan') || '{}')
-          if (activePlan.name) {
-            setBillingData(prev => ({
-              ...prev,
-              plan: activePlan.name,
-              price: activePlan.price.toLocaleString()
-            }))
-          }
         }
       }
     } catch (err) {
@@ -207,14 +197,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         // 2. Update GST in Supabase
         await saveGstSettings(restaurantId, gstData)
 
-        // 3. Optional: Sync local storage for faster UI identity
-        const user = JSON.parse(localStorage.getItem('servora_user') || '{}')
-        localStorage.setItem('servora_user', JSON.stringify({
-          ...user,
-          businessName: profileData.name,
-          phone: profileData.phone
-        }))
-
         showToast('Settings successfully synchronized to Supabase Cloud.', 'success')
       }
     } catch (err) {
@@ -240,9 +222,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   }
 
   const handleSignOut = async () => {
-    // Terminate secure session state and save snapshot
-    saveAndClearWorkspace()
-    localStorage.removeItem('userProfile')
     await supabase.auth.signOut()
     // Reroute to authentication gate
     navigate('/login')
@@ -296,7 +275,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     <div className="flex-1 flex flex-col min-h-screen bg-[#f8fafc] relative">
       {/* Servora Platform Notification Engine */}
       <div className={cn(
-        "fixed top-32 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 pointer-events-none transform",
+        "fixed top-32 left-1/2 -translate-x-1/2 z-100 transition-all duration-700 pointer-events-none transform",
         toast.show ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-8 scale-90"
       )}>
         <div className={cn(
@@ -328,7 +307,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         <div className="flex items-center gap-10 h-full">
           {/* Page Identity */}
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-white rounded-[1.25rem] shadow-sm border border-gray-100 flex items-center justify-center text-blue-600 transition-all hover:scale-105 active:scale-95 group">
+            <div className="w-11 h-11 bg-white rounded-4xl shadow-sm border border-gray-100 flex items-center justify-center text-blue-600 transition-all hover:scale-105 active:scale-95 group">
               <SettingsIcon className="w-5 h-5 group-hover:rotate-45 transition-transform duration-500" />
             </div>
             <div className="flex flex-col">
@@ -403,7 +382,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         <Tabs value={activeTab} onValueChange={setActiveTabState} className="w-full h-full flex flex-col">
           <TabsList className="hidden"><></></TabsList>
 
-          <div className="w-full max-w-[1600px] mx-auto lg:p-8 space-y-8 animate-in fade-in duration-500">
+          <div className="w-full max-w-400 mx-auto lg:p-8 space-y-8 animate-in fade-in duration-500">
             {/* Redesigned Premium Mobile Tab Navigation */}
             <div className="lg:hidden sticky top-20 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100 p-2 overflow-x-auto no-scrollbar scroll-smooth">
               <div className="flex gap-2 min-w-max px-2">
@@ -453,7 +432,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
               <Card className="border-0 shadow-2xl shadow-blue-500/5 ring-1 ring-gray-100 rounded-[3rem] overflow-hidden bg-white">
                 {/* Compact Immersive Cover Photography Section */}
                 <div 
-                  className="h-48 sm:h-56 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 relative overflow-hidden bg-center bg-cover transition-all duration-700"
+                  className="h-48 sm:h-56 bg-linear-to-br from-blue-600 via-indigo-600 to-purple-700 relative overflow-hidden bg-center bg-cover transition-all duration-700"
                   style={{ backgroundImage: profileData.cover ? `url(${profileData.cover})` : 'none' }}
                 >
                   {!profileData.cover && (
@@ -474,7 +453,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                 <CardContent className="px-6 sm:px-12 pb-12 -mt-12 sm:-mt-16 relative z-10 text-center sm:text-left">
                   {/* Scaled Identity Header: Responsive Orchestration */}
                   <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 mb-12">
-                    <div className="relative group shadow-[0_24px_48px_-12px_rgba(0,0,0,0.15)] rounded-full border-[8px] sm:border-[12px] border-white bg-white">
+                    <div className="relative group shadow-[0_24px_48px_-12px_rgba(0,0,0,0.15)] rounded-full border-8 sm:border-12 border-white bg-white">
                       <Avatar className="w-32 h-32 sm:w-44 sm:h-44 shadow-2xl transition-transform group-hover:scale-[1.03] duration-700">
                         <AvatarImage src={profileData.avatar || "/api/placeholder/192/192"} className="aspect-square h-full w-full object-cover" />
                         <AvatarFallback className="bg-slate-50 text-slate-200 text-4xl sm:text-5xl font-black italic tracking-tighter uppercase">
@@ -501,7 +480,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                         <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none italic uppercase">
                           {profileData.name}
                         </h3>
-                        <Badge className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-none rounded-lg px-3 py-1 text-[9px] font-black uppercase tracking-[0.1em] shadow-xl shadow-blue-500/30">
+                        <Badge className="bg-linear-to-r from-blue-600 to-indigo-600 text-white border-none rounded-lg px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/30">
                           Administrator
                         </Badge>
                       </div>
@@ -692,8 +671,8 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
                   {/* Cloud MFA Card */}
                   <Card className="border-0 shadow-2xl rounded-[3rem] bg-slate-900 text-white relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/30 via-transparent to-indigo-600/30 opacity-60" />
-                    <Sparkles className="absolute -top-16 -right-16 w-64 h-64 text-white/5 rotate-12 group-hover:scale-125 transition-all duration-[2000ms] blur-sm" />
+                    <div className="absolute inset-0 bg-linear-to-br from-blue-600/30 via-transparent to-indigo-600/30 opacity-60" />
+                    <Sparkles className="absolute -top-16 -right-16 w-64 h-64 text-white/5 rotate-12 group-hover:scale-125 transition-all duration-2000 blur-sm" />
                     <CardHeader className="px-12 pt-12 relative z-10">
                       <div className="flex gap-4 items-center mb-2">
                          <div className="w-14 h-14 rounded-[1.5rem] bg-blue-500/20 flex items-center justify-center border border-white/10 backdrop-blur-3xl shadow-2xl">
@@ -735,7 +714,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             <TabsContent value="billing" className="mt-0 outline-none w-full animate-in fade-in duration-500">
                <Card className="border-0 shadow-2xl shadow-slate-200/50 ring-1 ring-gray-100 rounded-[3rem] bg-white overflow-hidden">
                 <div className="p-24 text-center bg-slate-50 border-b border-gray-100 relative group overflow-hidden">
-                   <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-all duration-1000" />
+                   <div className="absolute inset-0 bg-linear-to-br from-blue-600/5 to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-all duration-1000" />
                    <div className="w-28 h-28 bg-white rounded-[2.5rem] shadow-2xl flex items-center justify-center mx-auto mb-12 border border-slate-100 group-hover:scale-110 transition-all duration-700 relative z-10">
                       <CreditCard className="w-12 h-12 text-blue-600" />
                    </div>
@@ -754,7 +733,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                       <Button 
                         variant="outline" 
                         onClick={handleTransactionLogs}
-                        className="h-16 px-12 rounded-[1.5rem] font-bold bg-white border-slate-200 text-slate-600 shadow-xl hover:bg-slate-50 transition-all text-xl border-b-[6px] hover:border-b-[2px] active:scale-95 group"
+                        className="h-16 px-12 rounded-[1.5rem] font-bold bg-white border-slate-200 text-slate-600 shadow-xl hover:bg-slate-50 transition-all text-xl border-b-[6px] hover:border-b-2 active:scale-95 group"
                       >
                         Transaction Logs
                       </Button>
@@ -786,7 +765,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                        <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
                          <DialogTrigger asChild>
                            <button 
-                             className="p-12 bg-slate-50/50 rounded-[3rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-6 group hover:bg-white hover:border-blue-500 hover:shadow-2xl transition-all duration-700 outline-none min-h-[160px]"
+                             className="p-12 bg-slate-50/50 rounded-[3rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-6 group hover:bg-white hover:border-blue-500 hover:shadow-2xl transition-all duration-700 outline-none min-h-40"
                            >
                               <div className="w-20 h-20 rounded-[2rem] bg-white shadow-2xl border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
                                  <Plus className="w-12 h-12 stroke-[3px]" />
@@ -796,7 +775,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                          </DialogTrigger>
                          <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden bg-white">
                             <div className="bg-slate-900 p-10 text-white relative overflow-hidden">
-                               <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-transparent" />
+                               <div className="absolute inset-0 bg-linear-to-br from-blue-600/20 to-transparent" />
                                <DialogHeader className="relative z-10">
                                  <DialogTitle className="text-2xl font-bold tracking-tight">Secure Asset Integration</DialogTitle>
                                  <DialogDescription className="text-slate-400 font-bold">Transmit financial identifiers to the vault.</DialogDescription>
@@ -870,7 +849,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
               <div className="space-y-8">
                 {/* Hero Card */}
                 <Card className="border-0 shadow-2xl shadow-emerald-500/5 ring-1 ring-gray-100 rounded-[3rem] overflow-hidden bg-white">
-                  <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 p-10 sm:p-14 text-white relative overflow-hidden">
+                  <div className="bg-linear-to-br from-emerald-950 via-slate-900 to-slate-900 p-10 sm:p-14 text-white relative overflow-hidden">
                     <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl" />
                     <Percent className="absolute right-10 top-10 w-32 h-32 text-white/5" />
                     <div className="relative z-10">

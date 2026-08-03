@@ -17,18 +17,9 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true, 
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Load categories from Supabase (fallback to local for guest mode)
+  // Load categories from Supabase
   useEffect(() => {
     const loadData = async () => {
-      if (!restaurantId) {
-        // Legacy fallback
-        const saved = localStorage.getItem('menuCategories')
-        const initial = saved ? JSON.parse(saved) : ['Starters', 'Main Course', 'Desserts', 'Beverages']
-        setCategories(initial)
-        if (onCategoriesChange) onCategoriesChange(initial)
-        return
-      }
-
       setLoading(true)
       try {
         const cloudCategories = await getCategories(restaurantId)
@@ -37,14 +28,13 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true, 
           setCategories(names)
           if (onCategoriesChange) onCategoriesChange(names)
         } else {
-          // If none in cloud, seed with defaults
           const defaults = ['Starters', 'Main Course', 'Desserts', 'Beverages']
           setCategories(defaults)
-          await syncCategories(restaurantId, defaults)
+          if (restaurantId) await syncCategories(restaurantId, defaults)
           if (onCategoriesChange) onCategoriesChange(defaults)
         }
       } catch (err) {
-        console.error('Failed to load categories:', err)
+        console.error('Failed to load categories from Supabase:', err)
       } finally {
         setLoading(false)
       }
@@ -62,8 +52,6 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true, 
       } catch (err) {
         console.error('Failed to sync categories:', err)
       }
-    } else {
-      localStorage.setItem('menuCategories', JSON.stringify(updated))
     }
   }
 

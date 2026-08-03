@@ -9,7 +9,8 @@ import {
   Settings2, 
   PackageSearch,
   LogOut,
-  X
+  X,
+  ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Logo from '@/components/ui/Logo'
@@ -28,28 +29,22 @@ const navLinks = [
 export default function AdminSidebar({ isOpen, setIsOpen }) {
   const location = useLocation()
 
-  const handleLogout = () => {
-    localStorage.removeItem('servora_admin_token')
-    localStorage.removeItem('servora_admin_user')
-    window.location.href = '/admin/login'
-  }
-
   const SidebarContent = (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-300 w-[260px] border-r border-slate-900 shadow-2xl relative overflow-hidden">
-      {/* Decorative Blur */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[50px] rounded-full pointer-events-none" />
+    <div className="flex flex-col h-full bg-slate-950 text-slate-300 w-65 border-r border-slate-800/80 shadow-2xl relative overflow-hidden">
+      {/* Decorative Blur Glow */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-600/15 blur-[60px] rounded-full pointer-events-none" />
 
       {/* Header section with brand */}
-      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-900 z-10">
+      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800/80 z-10">
         <div className="flex items-center gap-3">
-           <Logo showText={true} iconSize={28} className="text-white drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]" />
-           <div className="px-2 py-0.5 rounded-md bg-blue-500/20 border border-blue-500/30 text-[9px] font-black uppercase tracking-widest text-blue-400">Owner</div>
+           <Logo showText={true} iconSize={28} className="text-white drop-shadow-[0_0_12px_rgba(99,102,241,0.4)]" />
+           <div className="px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/30 text-[9px] font-black uppercase tracking-widest text-indigo-400">Owner</div>
         </div>
         {/* Mobile close button */}
         <Button 
           variant="ghost" 
           size="icon" 
-          className="lg:hidden text-slate-400 hover:text-white"
+          className="lg:hidden text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl"
           onClick={() => setIsOpen(false)}
         >
           <X className="w-5 h-5" />
@@ -59,7 +54,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
       {/* Navigation section */}
       <div className="flex-1 overflow-y-auto py-8 px-4 space-y-2 z-10 no-scrollbar">
         <div className="mb-4 px-2">
-           <p className="text-[10px] uppercase font-black tracking-widest text-slate-600 mb-2">Platform Control</p>
+           <p className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-500 mb-2">Platform Control</p>
         </div>
         {navLinks.map((link) => {
           const isActive = location.pathname.startsWith(link.path)
@@ -69,79 +64,82 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
               to={link.path}
               onClick={() => setIsOpen(false)}
               className={cn(
-                "group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 relative",
+                "group flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-200 relative border cursor-pointer",
                 isActive 
-                  ? "bg-blue-600/10 text-blue-500 shadow-inner" 
-                  : "hover:bg-slate-900 hover:text-white"
+                  ? "bg-indigo-600/20 text-indigo-400 border-indigo-500/30 shadow-lg shadow-indigo-500/10 font-black" 
+                  : "bg-transparent border-transparent text-slate-400 hover:bg-slate-800/80 hover:border-slate-700/60 hover:text-white hover:translate-x-1 hover:shadow-md"
               )}
             >
               {isActive && (
-                 <motion.div layoutId="activeNavAdmin" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-blue-500 rounded-r-md shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+                 <motion.div 
+                   layoutId="activeNavAdmin" 
+                   className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-3/5 bg-indigo-500 rounded-r-md shadow-[0_0_12px_rgba(99,102,241,0.8)]" 
+                 />
               )}
               <link.icon className={cn(
-                 "w-5 h-5 transition-transform duration-300",
-                 isActive ? "text-blue-500" : "text-slate-500 group-hover:scale-110 group-hover:text-blue-400"
+                 "w-5 h-5 transition-all duration-200 shrink-0",
+                 isActive 
+                   ? "text-indigo-400" 
+                   : "text-slate-500 group-hover:scale-110 group-hover:text-indigo-400"
               )} />
               <span className={cn(
-                 "text-sm font-bold tracking-tight",
-                 isActive ? "text-blue-500" : "text-slate-400 group-hover:text-slate-200"
-              )}>{link.name}</span>
+                 "text-xs font-bold tracking-tight flex-1 truncate",
+                 isActive ? "text-indigo-300 font-black" : "text-slate-400 group-hover:text-white"
+              )}>
+                 {link.name}
+              </span>
+              <ChevronRight className={cn(
+                 "w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-all duration-200",
+                 isActive ? "opacity-100 text-indigo-400" : "text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5"
+              )} />
             </Link>
           )
         })}
       </div>
 
       {/* Security Footer block */}
-      <div className="p-4 border-t border-slate-900 z-10">
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/50 border border-slate-800 mb-4">
-           <ShieldAlert className="w-8 h-8 text-emerald-500 p-1.5 bg-emerald-500/10 rounded-lg shrink-0" />
+      <div className="p-4 border-t border-slate-800/80 z-10">
+        <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors">
+           <ShieldAlert className="w-8 h-8 text-emerald-400 p-1.5 bg-emerald-500/10 rounded-xl shrink-0" />
            <div>
               <p className="text-xs font-black text-white leading-none mb-1">System Secure</p>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">No Alerts Detected</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">No Alerts Detected</p>
            </div>
         </div>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-500/10 pl-2 h-12 rounded-xl transition-all"
-          onClick={handleLogout}
-        >
-          <LogOut className="w-5 h-5 mr-3 opacity-70" />
-          <span className="text-sm font-bold tracking-tight">Terminate Session</span>
-        </Button>
       </div>
     </div>
   )
 
   return (
     <>
-      <aside className="hidden lg:block h-screen fixed inset-y-0 left-0 z-40 bg-slate-950">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block h-screen sticky top-0 shrink-0 z-40">
         {SidebarContent}
       </aside>
 
+      {/* Mobile Drawer */}
       <AnimatePresence>
         {isOpen && (
           <>
-            <motion.div
+            <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden"
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 lg:hidden"
             />
             <motion.aside
-              initial={{ x: "-100%" }}
+              initial={{ x: '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-              className="fixed inset-y-0 left-0 z-50 lg:hidden shadow-2xl"
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 z-50 lg:hidden h-full"
             >
               {SidebarContent}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
-
-      <div className="hidden lg:block w-[260px] flex-shrink-0" />
     </>
   )
 }

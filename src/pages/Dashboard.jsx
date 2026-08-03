@@ -33,6 +33,8 @@ function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [plan, setPlan] = useState(null)
   
+  const [subDetails, setSubDetails] = useState({ pendingApproval: false, utrNumber: '', status: 'Active' })
+
   // Database-First: Derive context completely from the authenticated URL and Supabase session
   const dashboardEmail = urlId || 'guest'
   const [resolvedId, setResolvedId] = useState(null)
@@ -63,38 +65,32 @@ function Dashboard() {
   const [isExpired, setIsExpired] = useState(false)
   const [isSuspended, setIsSuspended] = useState(false)
 
+  // Verify Auth & Plan Status
   useEffect(() => {
     async function verifyAuthAndPlan() {
-      // 1. Mandatory Identity Sovereignty Check via Supabase Auth
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (!session || sessionError) {
-        navigate('/login')
+      if (!urlId) {
+        setIsLoading(false)
         return
       }
 
-      // Check if URL context matches authentic owner
-      const currentUserId = session.user.id
-      if (resolvedId && resolvedId !== currentUserId && urlId !== currentUserId) {
-         console.warn('Identity Displacement Detected. Redirecting to authorized console...')
-         navigate(`/console/${currentUserId}`, { replace: true })
-         return
+      const activeRestaurantId = resolvedId || profile?.id || urlId
+
+      // 1. Fetch Restaurant Status
+      if (activeRestaurantId && activeRestaurantId !== 'guest') {
+        const { data: rest } = await supabase
+          .from('restaurants')
+          .select('status')
+          .eq('id', activeRestaurantId)
+          .single()
+          
+        if (rest && rest.status === 'Suspended') {
+          setIsSuspended(true)
+          setIsLoading(false)
+          return
+        }
       }
 
-      const activeRestaurantId = resolvedId || currentUserId
-
-      // 2. Check for Global Suspension via DB
-      const { data: restaurant } = await supabase
-        .from('restaurants')
-        .select('status')
-        .eq('id', activeRestaurantId)
-        .single()
-        
-      if (restaurant?.status === 'Suspended') {
-         setIsSuspended(true)
-      }
-
-      // 3. Check for Plan Entitlement & Subscription Cycle via DB
+      // 2. Fetch Subscription & UTR status
       const { data: subscription } = await supabase
         .from('subscriptions')
         .select('*')
@@ -104,7 +100,13 @@ function Dashboard() {
         .single()
 
       if (subscription) {
-        // Mock a plan object for backward compatibility with UI components
+        const isPending = subscription.status === 'PENDING_APPROVAL'
+        setSubDetails({
+           pendingApproval: isPending,
+           utrNumber: subscription.utr_number || '',
+           status: subscription.status || 'Active'
+        })
+
         setPlan({ 
            name: subscription.plan_name || 'Standard', 
            purchaseDate: subscription.start_date || subscription.created_at
@@ -118,20 +120,18 @@ function Dashboard() {
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24))
         
         setDaysRemaining(daysLeft)
-        if (daysLeft <= 0) {
+        if (daysLeft <= 0 || isPending || subscription.status === 'REJECTED') {
           setIsExpired(true)
         }
       } else {
-         // No subscription found but let's default to basic standard so we don't block right away, or block it. 
          setPlan({ name: 'Standard', purchaseDate: new Date() })
          setDaysRemaining(30)
       }
       setIsLoading(false)
     }
 
-    // Since we depend on resolvedId logic above, wait for it unless we are guest
     verifyAuthAndPlan()
-  }, [navigate, resolvedId, urlId])
+  }, [navigate, resolvedId, urlId, profile])
 
   if (isLoading) return null // Quick flash prevention
 
@@ -144,7 +144,17 @@ function Dashboard() {
   }
 
   if (isExpired) {
-    return <SubscriptionLockOverlay planName={plan.name} expiredSince={plan.purchaseDate} />
+    return (
+      <SubscriptionLockOverlay 
+        planName={plan.name} 
+        expiredSince={plan.purchaseDate} 
+        pendingApproval={subDetails.pendingApproval}
+        utrNumber={subDetails.utrNumber}
+        restaurantId={resolvedId || profile?.id || urlId}
+        merchantEmail={dashboardEmail}
+        merchantName={profile?.business_name || 'Merchant'}
+      />
+    )
   }
 
   const handleRefresh = () => {

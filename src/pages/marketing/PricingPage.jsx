@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
+import { supabase } from '@/lib/supabase'
 
 const defaultPlans = [
-  { id: 'PLN-1', name: "Starter", price: 1499, tableLimit: 10, color: "slate", popular: false, desc: "Essential features for smaller venues." },
-  { id: 'PLN-2', name: "Professional", price: 2999, tableLimit: 30, color: "blue", popular: true, desc: "The sweet spot for active dining rooms." },
+  { id: 'PLN-1', name: "Starter", price: 999, tableLimit: 10, color: "slate", popular: false, desc: "Essential features for smaller venues." },
+  { id: 'PLN-2', name: "Professional", price: 2499, tableLimit: 30, color: "blue", popular: true, desc: "The sweet spot for active dining rooms." },
   { id: 'PLN-3', name: "Enterprise", price: 4999, tableLimit: 9999, color: "indigo", popular: false, desc: "Maximum control for high-volume chains." },
 ]
 
@@ -39,71 +40,70 @@ export default function PricingPage() {
   const [targetPlan, setTargetPlan] = useState(null)
 
   useEffect(() => {
-     const stored = JSON.parse(localStorage.getItem('servora_subscription_plans'))
-     if (stored && stored.length > 0) {
-        setPlans(stored)
-     } else {
-        localStorage.setItem('servora_subscription_plans', JSON.stringify(defaultPlans))
+     const fetchPlans = async () => {
+        try {
+           const { data: dbPlans } = await supabase.from('subscription_plans').select('*')
+           if (dbPlans && dbPlans.length > 0) {
+              setPlans(dbPlans.map(p => ({
+                 id: p.id || `PLN-${p.name}`,
+                 name: p.name,
+                 price: parseInt(p.price || 999),
+                 tableLimit: parseInt(p.table_limit || p.tableLimit || 30),
+                 color: p.color || 'blue',
+                 popular: p.popular || false,
+                 desc: p.description || p.desc || 'Complete feature access for venues.'
+              })))
+              return
+           }
+        } catch (err) {
+           console.warn('Fallback to default plans:', err)
+        }
      }
+     fetchPlans()
   }, [])
 
   const selectPlan = async (plan) => {
-    // 1. Mandatory Authentication Check
-    if (!localStorage.getItem('servora_user')) {
-      localStorage.setItem('intended_plan', JSON.stringify(plan))
-      navigate('/register')
-      return
+    try {
+      setIsProcessing(true)
+      setTargetPlan(plan)
+
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session || !session.user) {
+        sessionStorage.setItem('intended_plan', JSON.stringify(plan))
+        navigate('/register')
+        return
+      }
+
+      const userEmail = session.user.email
+
+      // Fetch restaurant ID for current user
+      const { data: rest } = await supabase.from('restaurants').select('id').eq('email', userEmail).single()
+
+      if (rest?.id) {
+         await supabase.from('subscriptions').upsert({
+            restaurant_id: rest.id,
+            plan_name: plan.name,
+            price: plan.price,
+            status: 'PENDING_APPROVAL',
+            start_date: new Date().toISOString(),
+            end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+         }, { onConflict: 'restaurant_id' })
+      }
+
+      navigate(`/console/${userEmail}`)
+    } catch (err) {
+      console.error('Plan selection failed:', err)
+    } finally {
+      setIsProcessing(false)
     }
-
-    // 2. Start Secure Payment Simulation
-    setIsProcessing(true)
-    setTargetPlan(plan)
-
-    // Simulate Payment Gateway Link (Razorpay/Stripe)
-    await new Promise(resolve => setTimeout(resolve, 800))
-
-    // 3. Finalize Entitlement
-    localStorage.setItem('servora_plan', JSON.stringify({
-      name: plan.name,
-      price: plan.price,
-      tableLimit: plan.tableLimit,
-      purchaseDate: new Date().toISOString()
-    }))
-
-    const activeSubs = JSON.parse(localStorage.getItem('servora_db_subscriptions') || '[]')
-    activeSubs.push({
-        tier: plan.name,
-        price: plan.price,
-        limit: plan.tableLimit,
-        activeSince: new Date().toISOString()
-    })
-    localStorage.setItem('servora_db_subscriptions', JSON.stringify(activeSubs))
-
-    // 4. Manual Workspace Sync for Real-Time Admin Visibility
-    const user = JSON.parse(localStorage.getItem('servora_user'))
-    if (user && user.email) {
-       const workspaces = JSON.parse(localStorage.getItem('servora_db_workspaces') || '{}')
-       const userWorkspace = workspaces[user.email] || {}
-       userWorkspace['servora_plan'] = JSON.stringify({
-         name: plan.name,
-         price: plan.price,
-         tableLimit: plan.tableLimit,
-         purchaseDate: new Date().toISOString()
-       })
-       workspaces[user.email] = userWorkspace
-       localStorage.setItem('servora_db_workspaces', JSON.stringify(workspaces))
-    }
-
-    // 5. Redirect to Activated Isolated Console
-    navigate(`/console/${user.email}`)
-    window.location.reload()
   }
 
   return (
     <div className="pt-32 pb-24 bg-white overflow-hidden">
       {/* ─── Header Section ─────────────────────────────────────────── */}
       <section className="relative px-6 text-center space-y-8 mb-24">
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-blue-50/50 to-transparent -z-10 blur-3xl opacity-50" />
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-150 bg-linear-to-b from-blue-50/50 to-transparent -z-10 blur-3xl opacity-50" />
          <Badge variant="outline" className="px-6 py-2 rounded-full border-blue-500 text-blue-600 font-bold uppercase tracking-[0.2em] text-[10px]">Investment Options</Badge>
          <h1 className="text-6xl lg:text-[7.5rem] font-black text-slate-950 tracking-tightest leading-none">
             Scale with <span className="text-blue-600">Precision.</span>
@@ -150,7 +150,7 @@ export default function PricingPage() {
                   )}>per month</span>
                 </div>
                 <p className={cn(
-                  "text-lg font-medium leading-relaxed max-w-[240px]",
+                  "text-lg font-medium leading-relaxed max-w-60",
                   p.popular ? "text-slate-400" : "text-slate-500"
                 )}>{p.desc}</p>
               </div>
@@ -172,7 +172,7 @@ export default function PricingPage() {
                 ].map(f => (
                   <div key={f} className="flex items-center gap-4">
                     <div className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
+                      "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
                       p.popular ? "bg-blue-600/20" : "bg-slate-100"
                     )}>
                       <CheckCircle className={cn(
@@ -187,7 +187,7 @@ export default function PricingPage() {
 
               <Button 
                 className={cn(
-                  "w-full h-20 rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl group",
+                  "w-full h-20 rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl group cursor-pointer",
                   p.popular 
                     ? "bg-blue-600 text-white hover:bg-white hover:text-blue-600" 
                     : "bg-slate-950 text-white hover:bg-black"
@@ -195,7 +195,7 @@ export default function PricingPage() {
                 disabled={isProcessing}
                 onClick={() => selectPlan(p)}
               >
-                {isProcessing ? 'Processing Transaction...' : `Purchase ${p.name}`}
+                {isProcessing && targetPlan?.name === p.name ? 'Processing...' : `Purchase ${p.name}`}
                 <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
               </Button>
             </motion.div>

@@ -7,100 +7,17 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { getCachedRestaurantId } from '@/lib/api'
-import { Loader2 } from 'lucide-react'
+import { logPriceChange as apiLogPriceChange, fetchPriceHistory } from '@/lib/api'
 
-// Load price history from localStorage
-const loadPriceHistory = () => {
+// Record price change directly to Supabase DB
+export const recordPriceChange = async (itemId, itemName, oldPrice, newPrice, restaurantId) => {
   try {
-    const saved = localStorage.getItem('priceHistory')
-    if (saved) {
-      return JSON.parse(saved)
-    }
-    
-    // Return sample data for testing if no saved data
-    return {
-      '1': {
-        itemName: 'Butter Chicken',
-        changes: [
-          {
-            date: new Date('2024-01-20').toISOString(),
-            oldPrice: 200,
-            newPrice: 250,
-            change: 50,
-            changePercent: '25.00'
-          }
-        ]
-      },
-      '2': {
-        itemName: 'Paneer Tikka',
-        changes: [
-          {
-            date: new Date('2024-01-15').toISOString(),
-            oldPrice: 150,
-            newPrice: 180,
-            change: 30,
-            changePercent: '20.00'
-          }
-        ]
-      }
-    }
+     if (restaurantId) {
+        await apiLogPriceChange(restaurantId, itemId, itemName, oldPrice, newPrice)
+     }
   } catch (error) {
-    console.error('Error loading price history:', error)
-    return {}
+     console.error('Error logging price change to Supabase:', error)
   }
-}
-
-// Save price history to localStorage
-const savePriceHistory = (history) => {
-  try {
-    localStorage.setItem('priceHistory', JSON.stringify(history))
-  } catch (error) {
-    if (error.name === 'QuotaExceededError') {
-      // If quota exceeded, try to clear old data and save again
-      console.warn('LocalStorage quota exceeded for price history, clearing old data...')
-      try {
-        // Clear any old data that might be taking up space
-        const keys = Object.keys(localStorage)
-        for (const key of keys) {
-          if (key.startsWith('temp_') || key.startsWith('image_')) {
-            localStorage.removeItem(key)
-          }
-        }
-        // Try saving again
-        localStorage.setItem('priceHistory', JSON.stringify(history))
-      } catch (retryError) {
-        console.error('Still unable to save price history to localStorage:', retryError)
-        // Fallback: show error to user but don't crash
-        alert('Storage quota exceeded. Please clear some data or try again later.')
-      }
-    } else {
-      console.error('Error saving price history:', error)
-    }
-  }
-}
-
-// Record price change
-export const recordPriceChange = (itemId, itemName, oldPrice, newPrice) => {
-  const history = loadPriceHistory()
-  if (!history[itemId]) {
-    history[itemId] = { itemName, changes: [] }
-  }
-  
-  history[itemId].changes.unshift({
-    date: new Date().toISOString(),
-    oldPrice,
-    newPrice,
-    change: newPrice - oldPrice,
-    changePercent: ((newPrice - oldPrice) / oldPrice * 100).toFixed(2)
-  })
-  
-  // Keep only last 10 changes per item
-  if (history[itemId].changes.length > 10) {
-    history[itemId].changes = history[itemId].changes.slice(0, 10)
-  }
-  
-  savePriceHistory(history)
 }
 
 export default function PriceHistory({ menuItems, showLabel = true }) {
