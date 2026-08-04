@@ -102,7 +102,22 @@ npm run build
 1. Access dashboard to manage menu items
 2. Monitor and process incoming orders
 3. Update order status in real-time
-4. View order history and analytics
+## 📸 Application Screenshots & Live Demos
+
+### 1. Admin Financial Intelligence & Platform Control
+![Admin Financial Intelligence](./admin_revenue_after_sql_fix.png)
+
+### 2. Merchant Subscription Gateway
+![Merchant Subscription Gateway](./new_merchant_paywall.png)
+
+### 3. UPI QR Code & Instant UTR Verification Modal
+![UPI Payment Modal](./enterprise_upi_modal.png)
+
+### 4. Real-Time Payment Verification Pending State
+![Waiting Window](./merchant_waiting_window_live.png)
+
+### 5. Unlocked Active Merchant Console Dashboard
+![Unlocked Dashboard](./merchant_dashboard_unlocked_final.png)
 
 ## 🎯 Key Features Highlight
 

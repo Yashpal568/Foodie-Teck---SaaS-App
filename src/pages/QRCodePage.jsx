@@ -69,7 +69,7 @@ export default function QRCodePage() {
               })))
            }
 
-           const { data: sub } = await supabase.from('subscriptions').select('plan_name').eq('restaurant_id', data.id).single()
+           const { data: sub } = await supabase.from('subscriptions').select('*').eq('restaurant_id', data.id).maybeSingle()
            if (sub) {
               const limit = sub.plan_name === 'Enterprise' ? 1000 : sub.plan_name === 'Professional' ? 30 : 10
               setActiveLimit(limit)

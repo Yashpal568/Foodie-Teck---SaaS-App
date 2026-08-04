@@ -40,18 +40,10 @@ function MaintenanceGuard({ children }) {
         return
       }
 
-      try {
-        const stored = localStorage.getItem('servora_maintenance_mode')
-        if (stored !== null) {
-          setIsMaintenance(stored === 'true')
-        }
-
-        const { data, error } = await supabase.from('platform_config').select('maintenance_mode').maybeSingle()
-        if (!error && data) {
-          setIsMaintenance(data.maintenance_mode === true)
-          localStorage.setItem('servora_maintenance_mode', String(data.maintenance_mode === true))
-        }
-      } catch (err) {
+      const stored = localStorage.getItem('servora_maintenance_mode')
+      if (stored !== null) {
+        setIsMaintenance(stored === 'true')
+      } else {
         setIsMaintenance(false)
       }
     }

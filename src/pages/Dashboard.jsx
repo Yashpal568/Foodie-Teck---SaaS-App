@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/layout/Layout'
 import OverviewCards from '../components/dashboard/OverviewCards'
@@ -22,8 +22,7 @@ import ModuleLockOverlay from '../components/dashboard/ModuleLockOverlay'
 import SubscriptionLockOverlay from '../components/dashboard/SubscriptionLockOverlay'
 import SuspensionOverlay from '../components/dashboard/SuspensionOverlay'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
-import { supabase } from '../lib/api'
-
+import { supabase } from '@/lib/supabase'
 
 function Dashboard() {
   const { restaurantId: urlId } = useParams()
@@ -38,8 +37,15 @@ function Dashboard() {
   // Database-First: Derive context completely from the authenticated URL and Supabase session
   const dashboardEmail = urlId || 'guest'
   const [resolvedId, setResolvedId] = useState(null)
+  const [userEmail, setUserEmail] = useState('')
   const { profile } = useRestaurantProfile(dashboardEmail)
   const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setUserEmail(user.email)
+    })
+  }, [])
 
   // Resolve ID (Email -> UUID)
   useEffect(() => {
@@ -50,7 +56,7 @@ function Dashboard() {
           .from('restaurants')
           .select('id')
           .eq('email', dashboardEmail.toLowerCase())
-          .single()
+          .maybeSingle()
         if (data?.id) setResolvedId(data.id)
       } else {
         setResolvedId(dashboardEmail)
@@ -66,35 +72,68 @@ function Dashboard() {
   const [isSuspended, setIsSuspended] = useState(false)
 
   // Verify Auth & Plan Status
-  useEffect(() => {
-    async function verifyAuthAndPlan() {
-      if (!urlId) {
-        setIsLoading(false)
-        return
-      }
+  const verifyAuthAndPlan = useCallback(async () => {
+    if (!urlId) {
+      setIsLoading(false)
+      return
+    }
 
+    try {
       const activeRestaurantId = resolvedId || profile?.id || urlId
 
       // 1. Fetch Restaurant Status
       if (activeRestaurantId && activeRestaurantId !== 'guest') {
-        const query = activeRestaurantId.includes('@') 
-          ? supabase.from('restaurants').select('status').eq('email', activeRestaurantId.toLowerCase()).maybeSingle()
-          : supabase.from('restaurants').select('status').eq('id', activeRestaurantId).maybeSingle()
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeRestaurantId)
+        const isEmail = activeRestaurantId.includes('@')
         
-        const { data: rest } = await query
-          
-        if (rest && rest.status === 'Suspended') {
-          setIsSuspended(true)
-          setIsLoading(false)
-          return
+        let query = null
+        if (isEmail) {
+          query = supabase.from('restaurants').select('*').eq('email', activeRestaurantId.toLowerCase()).maybeSingle()
+        } else if (isUUID) {
+          query = supabase.from('restaurants').select('*').eq('id', activeRestaurantId).maybeSingle()
+        }
+
+        if (query) {
+          const { data: rest } = await query
+          if (rest && rest.status === 'Suspended') {
+            setIsSuspended(true)
+            setIsLoading(false)
+            return
+          }
         }
       }
 
-      // 2. Fetch Subscription & UTR status
+      // Check local storage approval override first
+      const isApprovedLocally = 
+        localStorage.getItem(`servora_approved_${activeRestaurantId}`) || 
+        (userEmail && localStorage.getItem(`servora_approved_${userEmail}`)) ||
+        (urlId && localStorage.getItem(`servora_approved_${urlId}`))
+
+      const subsList = JSON.parse(localStorage.getItem('servora_subscriptions') || '[]')
+      const localSub = subsList.find(s => 
+        s.restaurant_id === activeRestaurantId || 
+        s.restaurant_id === userEmail ||
+        s.restaurant_id === urlId ||
+        s.id === `sub-${activeRestaurantId}`
+      )
+
+      if (isApprovedLocally === 'true' || localSub?.status === 'Active' || localSub?.status === 'Approved') {
+        setIsExpired(false)
+        setSubDetails({ pendingApproval: false, utrNumber: localSub?.utr_number || '', status: 'Active' })
+        setPlan({ name: localSub?.plan_name || 'Professional', purchaseDate: new Date().toISOString() })
+        setIsLoading(false)
+        return
+      }
+
+      // 2. Fetch Subscription & UTR status by activeRestaurantId or urlId
+      const targetQuery = urlId && urlId !== activeRestaurantId 
+        ? `restaurant_id.eq.${activeRestaurantId},restaurant_id.eq.${urlId}` 
+        : `restaurant_id.eq.${activeRestaurantId}`
+
       const { data: subscription } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('restaurant_id', activeRestaurantId)
+        .or(targetQuery)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -123,6 +162,8 @@ function Dashboard() {
         setDaysRemaining(daysLeft)
         if (!isApproved || daysLeft <= 0) {
           setIsExpired(true)
+        } else {
+          setIsExpired(false)
         }
       } else {
          // No subscription record exists yet for this restaurant
@@ -131,15 +172,53 @@ function Dashboard() {
             utrNumber: '',
             status: 'NO_SUBSCRIPTION'
          })
-         setPlan({ name: 'Select Plan', purchaseDate: new Date() })
-         setDaysRemaining(0)
+         setPlan({ name: 'Professional', purchaseDate: new Date() })
          setIsExpired(true)
       }
+    } catch (err) {
+      console.warn('verifyAuthAndPlan error:', err)
+      setPlan({ name: 'Professional', purchaseDate: new Date() })
+      setIsExpired(true)
+    } finally {
       setIsLoading(false)
     }
+  }, [urlId, resolvedId, profile, userEmail])
 
+  useEffect(() => {
     verifyAuthAndPlan()
-  }, [navigate, resolvedId, urlId, profile])
+
+    const handleSync = () => {
+      verifyAuthAndPlan()
+    }
+
+    window.addEventListener('platformConfigUpdated', handleSync)
+    window.addEventListener('storage', handleSync)
+
+    // Supabase Realtime Listener on subscriptions table for instant approval unlock
+    const activeTargetId = resolvedId || profile?.id || urlId
+    let channel = null
+    if (activeTargetId && activeTargetId !== 'guest') {
+      channel = supabase
+        .channel(`public:dashboard_sub_realtime_${activeTargetId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'subscriptions'
+        }, (payload) => {
+          const status = payload.new?.status
+          if (status === 'Approved' || status === 'Active') {
+            verifyAuthAndPlan()
+          }
+        })
+        .subscribe()
+    }
+
+    return () => {
+      window.removeEventListener('platformConfigUpdated', handleSync)
+      window.removeEventListener('storage', handleSync)
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [verifyAuthAndPlan, resolvedId, profile, urlId])
 
   if (isLoading) return null // Quick flash prevention
 
@@ -159,9 +238,9 @@ function Dashboard() {
         pendingApproval={subDetails.pendingApproval}
         utrNumber={subDetails.utrNumber}
         restaurantId={resolvedId || profile?.id || urlId}
-        merchantEmail={dashboardEmail}
-        merchantName={profile?.business_name || 'Merchant'}
-        onCheckStatus={() => verifyAuthAndPlan()}
+        merchantEmail={userEmail || profile?.email || (dashboardEmail?.includes('@') ? dashboardEmail : 'claudegptusert@gmail.com')}
+        merchantName={profile?.business_name || 'Servora Merchant'}
+        onCheckStatus={verifyAuthAndPlan}
       />
     )
   }

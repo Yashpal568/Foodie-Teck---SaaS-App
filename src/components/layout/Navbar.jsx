@@ -45,7 +45,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user && user.email) {
-        const { data: rest } = await supabase.from('restaurants').select('business_name').eq('email', user.email.toLowerCase()).single()
+        const { data: rest } = await supabase.from('restaurants').select('*').eq('email', user.email.toLowerCase()).maybeSingle()
         setUserProfile({
           name: rest?.business_name || user.user_metadata?.business_name || 'Merchant Admin',
           email: user.email,

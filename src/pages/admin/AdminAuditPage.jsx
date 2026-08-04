@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Database, ShieldAlert, CheckCircle, Clock, Filter, Trash2, DownloadCloud } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase'
+import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 
 export default function AdminAuditPage() {
   const [search, setSearch] = useState('')

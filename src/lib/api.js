@@ -16,7 +16,7 @@ export const getMyRestaurant = async () => {
     .from('restaurants')
     .select('*')
     .eq('owner_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (data?.id) {
     sessionStorage.setItem('servora_restaurant_id', data.id)
@@ -40,7 +40,7 @@ export const updateRestaurantProfile = async (restaurantId, profileData) => {
     })
     .eq('id', restaurantId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) throw error
   return data
@@ -53,7 +53,7 @@ export const getRestaurantByEmail = async (email) => {
     .from('restaurants')
     .select('id')
     .eq('email', email.toLowerCase())
-    .single()
+    .maybeSingle()
   return data
 }
 

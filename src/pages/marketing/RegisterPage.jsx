@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import Logo from '@/components/ui/Logo'
 import { supabase } from '@/lib/supabase'
+import { recordNewMerchant } from '@/lib/adminDataService'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -82,21 +83,30 @@ export default function RegisterPage() {
     // Fetch the auto-created restaurant
     const { data: restaurant } = await supabase
       .from('restaurants')
-      .select('id, business_name')
+      .select('*')
       .eq('owner_id', data.user.id)
-      .single()
+      .maybeSingle()
+
+    const restId = restaurant?.id || data.user.id
+    recordNewMerchant({
+       id: restId,
+       business_name: formData.businessName || 'Servora Merchant',
+       email: formData.email.toLowerCase(),
+       status: 'Pending',
+       created_at: new Date().toISOString()
+    })
 
     const intendedPlanStr = sessionStorage.getItem('intended_plan')
-    if (intendedPlanStr && restaurant?.id) {
+    if (intendedPlanStr && restId) {
        try {
           const planObj = JSON.parse(intendedPlanStr)
           await supabase.from('subscriptions').upsert({
-             restaurant_id: restaurant.id,
+             restaurant_id: restId,
              plan_name: planObj.name,
              price: planObj.price,
              status: 'PENDING_PAYMENT',
              start_date: new Date().toISOString()
-          }, { onConflict: 'restaurant_id' })
+          }, { onConflict: 'restaurant_id' }).catch(() => {})
           sessionStorage.removeItem('intended_plan')
        } catch (err) {
           console.warn('Failed to save intended plan on register:', err)
@@ -104,7 +114,7 @@ export default function RegisterPage() {
     }
 
     // Redirect to merchant console (which will enforce subscription payment & admin approval)
-    navigate(`/console/${restaurant?.id || data.user.id}`)
+    navigate(`/console/${restId}`)
   }
 
 

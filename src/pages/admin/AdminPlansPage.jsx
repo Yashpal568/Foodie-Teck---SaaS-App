@@ -15,7 +15,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from '@/components/ui/dialog'
-import { supabase } from '@/lib/supabase'
+import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 import { toast } from 'sonner'
 
 const defaultPlans = [
@@ -82,7 +82,7 @@ export default function AdminPlansPage() {
       setPlans(activePlans)
 
       try {
-        const { data: subs } = await supabase.from('subscriptions').select('plan_name, price')
+        const { data: subs } = await supabase.from('subscriptions').select('*')
         const metrics = {}
         activePlans.forEach(p => {
           const matchingSubs = (subs || []).filter(s => (s.plan_name || '').toUpperCase() === p.name.toUpperCase())

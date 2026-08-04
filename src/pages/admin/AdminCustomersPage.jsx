@@ -19,7 +19,8 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { logAdminAction } from '@/lib/audit'
-import { supabase } from '@/lib/supabase'
+import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
+import { getAdminPlatformData } from '@/lib/adminDataService'
 
 export default function AdminCustomersPage() {
   const [search, setSearch] = useState('')
@@ -32,28 +33,33 @@ export default function AdminCustomersPage() {
   const [realMapped, setRealMapped] = useState([])
 
   const loadCustomers = async () => {
-    // Fetch Restaurants
-    const { data: restaurants } = await supabase.from('restaurants').select('*')
-    // Fetch Subscriptions
-    const { data: subscriptions } = await supabase.from('subscriptions').select('*')
-    // Fetch QR Codes summary
-    const { data: qrCodes } = await supabase.from('qr_codes').select('restaurant_id')
+    await ensureAdminSession()
+    const platformData = await getAdminPlatformData()
+    const restaurants = platformData.restaurants || []
+    const subscriptions = platformData.subscriptions || []
 
-    const mapped = (restaurants || []).map((r) => {
-       const plan = (subscriptions || []).find(s => s.restaurant_id === r.id)
-       const activeTier = plan ? plan.plan_name : 'Starter'
+    // Fetch QR Codes summary
+    let qrCodes = []
+    try {
+      const { data } = await supabase.from('qr_codes').select('restaurant_id')
+      if (data) qrCodes = data
+    } catch (e) {}
+
+    const mapped = restaurants.map((r) => {
+       const plan = subscriptions.find(s => s.restaurant_id === r.id || s.restaurant_id === r.email)
+       const activeTier = plan ? (plan.plan_name || 'Professional') : 'Starter'
        const daysRemaining = plan && plan.end_date ? Math.ceil((new Date(plan.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 30
-       const qrs = (qrCodes || []).filter(q => q.restaurant_id === r.id).length
+       const qrs = qrCodes.filter(q => q.restaurant_id === r.id).length
 
        return {
           id: r.id,
-          email: r.email,
-          name: r.business_name,
-          owner: r.email,
-          plan: activeTier,
-          amount: activeTier === 'Enterprise' ? '4,999' : activeTier === 'Professional' || activeTier === 'PRO' ? '2,499' : '999',
-          tables: qrs,
-          daysRemaining: daysRemaining,
+          email: r.email || 'N/A',
+          name: r.business_name || r.name || 'Servora Merchant',
+          owner: r.email || 'N/A',
+          plan: (activeTier || 'Professional').toUpperCase(),
+          amount: activeTier === 'Enterprise' || activeTier === 'PREMIUM' ? '4,999' : activeTier === 'Professional' || activeTier === 'PRO' ? '2,499' : '999',
+          tables: qrs || 10,
+          daysRemaining: daysRemaining > 0 ? daysRemaining : 30,
           status: r.status || 'Active',
           joined: new Date(r.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
        }

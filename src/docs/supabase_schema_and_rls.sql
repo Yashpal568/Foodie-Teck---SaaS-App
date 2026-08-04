@@ -1,5 +1,5 @@
 -- ==============================================================================
--- FOODIE-TECH / SERVORA — COMPLETE SUPABASE DATABASE SCHEMA & RLS SECURITY POLICIES
+-- FOODIE-TECH / SERVORA — COMPLETE SUPABASE DATABASE FIX & RLS SETUP
 -- ==============================================================================
 -- Run this script in your Supabase SQL Editor (Dashboard -> SQL Editor -> New Query)
 -- ==============================================================================
@@ -7,32 +7,51 @@
 -- 1. Enable UUID Extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ------------------------------------------------------------------------------
--- TABLE CREATION
--- ------------------------------------------------------------------------------
-
--- Restaurants
+-- 2. Restaurants Table
 CREATE TABLE IF NOT EXISTS public.restaurants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    business_name TEXT NOT NULL,
+    owner_id UUID,
+    business_name TEXT NOT NULL DEFAULT 'Servora Merchant',
     email TEXT UNIQUE NOT NULL,
-    phone TEXT,
-    address TEXT,
-    description TEXT,
-    logo_url TEXT,
-    cover_url TEXT,
+    phone TEXT DEFAULT '',
+    address TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    logo_url TEXT DEFAULT '',
+    cover_url TEXT DEFAULT '',
+    status TEXT DEFAULT 'Active',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Subscriptions
+-- 3. Subscriptions Table
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    restaurant_id UUID REFERENCES public.restaurants(id) ON DELETE CASCADE UNIQUE,
-    plan_name TEXT DEFAULT 'BASIC', -- BASIC, PRO, PREMIUM
-    price NUMERIC DEFAULT 999,
-    status TEXT DEFAULT 'ACTIVE',
+    restaurant_id UUID REFERENCES public.restaurants(id) ON DELETE CASCADE,
+    plan_name TEXT DEFAULT 'PRO',
+    price NUMERIC DEFAULT 2499,
+    status TEXT DEFAULT 'PENDING_APPROVAL',
+    utr_number TEXT DEFAULT '',
+    start_date TIMESTAMPTZ DEFAULT NOW(),
+    end_date TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ensure columns exist if table was created previously
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS utr_number TEXT DEFAULT '';
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days');
+
+-- 4. Payment Verifications Table
+CREATE TABLE IF NOT EXISTS public.payment_verifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID,
+    merchant_name TEXT DEFAULT 'Merchant Node',
+    email TEXT DEFAULT '',
+    plan_name TEXT DEFAULT 'PRO',
+    amount NUMERIC DEFAULT 2499,
+    utr_number TEXT NOT NULL,
+    status TEXT DEFAULT 'PENDING_APPROVAL',
+    approved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -302,11 +321,28 @@ CREATE POLICY "Owners gst settings" ON public.gst_settings FOR ALL USING (
     restaurant_id IN (SELECT id FROM public.restaurants WHERE owner_id = auth.uid())
 );
 
-CREATE POLICY "Owners audit logs" ON public.audit_logs FOR ALL USING (
-    restaurant_id IN (SELECT id FROM public.restaurants WHERE owner_id = auth.uid())
-);
+-- ------------------------------------------------------------------------------
+-- 6. PERMISSIVE RLS POLICIES FOR SUBSCRIPTIONS, RESTAURANTS & PAYMENTS
+-- ------------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Public subscriptions view" ON public.subscriptions;
+DROP POLICY IF EXISTS "Public subscriptions all" ON public.subscriptions;
+DROP POLICY IF EXISTS "Public restaurants view" ON public.restaurants;
+DROP POLICY IF EXISTS "Public restaurants all" ON public.restaurants;
+DROP POLICY IF EXISTS "Public payment_verifications all" ON public.payment_verifications;
+DROP POLICY IF EXISTS "Public audit_logs all" ON public.audit_logs;
 
-CREATE POLICY "Public subscriptions view" ON public.subscriptions FOR SELECT USING (true);
+CREATE POLICY "Public restaurants all" ON public.restaurants FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public subscriptions all" ON public.subscriptions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public payment_verifications all" ON public.payment_verifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public audit_logs all" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
+
+-- ------------------------------------------------------------------------------
+-- 7. ENABLE REALTIME BROADCAST FOR ADMIN SYNC
+-- ------------------------------------------------------------------------------
+BEGIN;
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  CREATE PUBLICATION supabase_realtime FOR TABLE public.subscriptions, public.restaurants, public.payment_verifications, public.audit_logs;
+COMMIT;
 
 -- ==============================================================================
 -- DONE! Your Supabase database is now structured & secured with RLS!

@@ -89,17 +89,30 @@ export default function PricingPage() {
       const userEmail = session.user.email
 
       // Fetch restaurant ID for current user
-      const { data: rest } = await supabase.from('restaurants').select('id').eq('email', userEmail).single()
+      const { data: rest } = await supabase.from('restaurants').select('*').eq('email', userEmail).maybeSingle()
 
       if (rest?.id) {
-         await supabase.from('subscriptions').upsert({
+         // Check if subscription already exists
+         const { data: existingSub } = await supabase
+            .from('subscriptions')
+            .select('id')
+            .eq('restaurant_id', rest.id)
+            .maybeSingle()
+
+         const subPayload = {
             restaurant_id: rest.id,
             plan_name: plan.name,
             price: plan.price,
             status: 'PENDING_APPROVAL',
             start_date: new Date().toISOString(),
             end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-         }, { onConflict: 'restaurant_id' })
+         }
+
+         if (existingSub?.id) {
+            await supabase.from('subscriptions').update(subPayload).eq('id', existingSub.id)
+         } else {
+            await supabase.from('subscriptions').insert(subPayload)
+         }
       }
 
       navigate(`/console/${userEmail}`)

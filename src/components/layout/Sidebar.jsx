@@ -161,9 +161,9 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-          const { data: rest } = await supabase.from('restaurants').select('id').eq('email', user.email.toLowerCase()).single()
+          const { data: rest } = await supabase.from('restaurants').select('id').eq('email', user.email.toLowerCase()).maybeSingle()
           if (rest) {
-            const { data: sub } = await supabase.from('subscriptions').select('*').eq('restaurant_id', rest.id).single()
+            const { data: sub } = await supabase.from('subscriptions').select('*').eq('restaurant_id', rest.id).maybeSingle()
             if (sub) {
               const startDate = new Date(sub.start_date || sub.created_at)
               const expiryDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000))
