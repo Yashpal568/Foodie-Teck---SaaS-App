@@ -27,6 +27,10 @@ import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 import AdminAuditPage from './pages/admin/AdminAuditPage'
 import AdminSupportPage from './pages/admin/AdminSupportPage'
 import MaintenanceNode from './pages/MaintenanceNode'
+import { Toaster, toast } from 'sonner'
+if (typeof window !== 'undefined') {
+  window.toast = toast
+}
 import { supabase } from './lib/supabase'
 
 function MaintenanceGuard({ children }) {
@@ -60,6 +64,7 @@ function MaintenanceGuard({ children }) {
 function App() {
   return (
     <Router>
+      <Toaster position="top-right" richColors closeButton duration={4000} className="z-[99999]" toastOptions={{ style: { zIndex: 999999 } }} />
       <MaintenanceGuard>
         <Routes>
           {/* Marketing Routes */}
