@@ -15,8 +15,10 @@ import CurrencySelector from '@/components/ui/currency-selector'
 import ImageStorage from '@/utils/imageStorage'
 import MenuNavbar from './MenuNavbar'
 import MenuMobileNavbar from './MenuMobileNavbar'
+import DeleteConfirmModal from './DeleteConfirmModal'
 import { fetchMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemStock, bulkReplaceMenuItems, bulkAddMenuItems, getCachedRestaurantId, getMyRestaurant, fetchPriceHistory, recordPriceChange } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 
 export default function MenuManagement({ currency, onCurrencyChange, activeItem, setActiveItem, navigate }) {
@@ -29,6 +31,10 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
   const [currentRid, setCurrentRid] = useState(null)
   const [dynamicCategories, setDynamicCategories] = useState(['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads'])
   
+  // Custom Delete Modal state
+  const [itemToDelete, setItemToDelete] = useState(null)
+  const [isDeletingItem, setIsDeletingItem] = useState(false)
+  
   // Filter states
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
@@ -38,30 +44,26 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
   // ── Smart Data Fetching: Handle missing restaurantId automatically ──
   useEffect(() => {
     const init = async () => {
-      let rid = getCachedRestaurantId()
+      let rid = getCachedRestaurantId() || (window.location.pathname.includes('/console/') ? window.location.pathname.split('/console/')[1] : null)
       
-      // Fail-safe: If ID is missing OR it's a legacy ID (email), fetch the real UUID
       if (!rid || rid.includes('@')) {
-        console.log('Session cache issue (missing or email ID). Fetching from database...')
         try {
           const profile = await getMyRestaurant()
-          if (profile) {
+          if (profile?.id) {
             rid = profile.id
           }
-        } catch (e) { 
-          console.error('Profile fetch failed', e) 
-        }
+        } catch (e) {}
       }
 
-      if (rid) {
-        setCurrentRid(rid)
-        try {
-          const items = await fetchMenuItems(rid)
-          setMenuItems(items)
-          setFilteredItems(items)
-        } catch (err) { 
-          console.error('Menu load error:', err) 
-        }
+      if (!rid) rid = 'demo-restaurant'
+
+      setCurrentRid(rid)
+      try {
+        const items = await fetchMenuItems(rid)
+        setMenuItems(items)
+        setFilteredItems(items)
+      } catch (err) { 
+        console.error('Menu load error:', err) 
       }
       setIsLoading(false)
     }
@@ -94,26 +96,31 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
 
   // ── Create or Update menu item via Supabase ──
   const handleSaveItem = async (itemData) => {
-    if (!currentRid) return
+    const rid = currentRid || getCachedRestaurantId() || 'demo-restaurant'
     setIsSaving(true)
     try {
       if (editingItem) {
         // UPDATE
-        const oldItem = menuItems.find(item => item.id === editingItem.id)
-        const updated = await updateMenuItem(editingItem.id, itemData)
-        setMenuItems(prev => prev.map(i => i.id === editingItem.id ? updated : i))
+        const oldItem = menuItems.find(item => item.id === editingItem.id || item._id === editingItem._id)
+        const updated = await updateMenuItem(editingItem.id || editingItem._id, itemData, rid)
+        setMenuItems(prev => prev.map(i => (i.id === editingItem.id || i._id === editingItem._id) ? updated : i))
+        setFilteredItems(prev => prev.map(i => (i.id === editingItem.id || i._id === editingItem._id) ? updated : i))
         if (oldItem && Number(oldItem.price) !== Number(itemData.price)) {
-          recordPriceChange(currentRid, itemData.name, oldItem.price, itemData.price, editingItem.id)
+          recordPriceChange(rid, itemData.name, oldItem.price, itemData.price, editingItem.id || editingItem._id)
         }
-        if (itemData.photo) ImageStorage.saveImage(editingItem.id, itemData.photo)
+        if (itemData.photo) ImageStorage.saveImage(editingItem.id || editingItem._id, itemData.photo)
+        toast.success(`✨ "${itemData.name}" has been updated successfully!`)
       } else {
         // CREATE
-        const created = await createMenuItem(currentRid, itemData)
+        const created = await createMenuItem(rid, itemData)
         setMenuItems(prev => [...prev, created])
+        setFilteredItems(prev => [...prev, created])
         if (itemData.photo) ImageStorage.saveImage(created.id, itemData.photo)
+        toast.success(`🎉 "${itemData.name}" has been added successfully!`)
       }
     } catch (err) {
       console.error('Save menu item error:', err)
+      toast.error('Failed to save menu item')
     } finally {
       setIsSaving(false)
       setShowForm(false)
@@ -129,6 +136,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
       const savedItems = await bulkReplaceMenuItems(currentRid, items)
       setMenuItems(savedItems)
       setFilteredItems(savedItems)
+      toast.success(`📦 ${savedItems.length} menu items imported successfully!`)
     } catch (err) {
       console.error('Bulk import error:', err)
     } finally {
@@ -144,6 +152,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
       const savedItems = await bulkAddMenuItems(currentRid, items)
       // Merge new items with current menuItems
       setMenuItems(prev => [...prev, ...savedItems])
+      toast.success(`📦 ${savedItems.length} menu items appended successfully!`)
     } catch (err) {
       console.error('Bulk append error:', err)
     } finally {
@@ -156,23 +165,45 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     setShowForm(true)
   }
 
-  // ── Delete via Supabase ──
-  const handleDeleteItem = async (itemId) => {
-    if (!confirm('Are you sure you want to delete this menu item?')) return
+  // ── Open Custom Delete Confirmation Modal ──
+  const handleDeleteItem = (itemOrId) => {
+    let target = itemOrId
+    if (typeof itemOrId === 'string') {
+      target = menuItems.find(i => (i.id === itemOrId || i._id === itemOrId)) || { id: itemOrId, _id: itemOrId, name: 'Menu Item' }
+    }
+    setItemToDelete(target)
+  }
+
+  // ── Execute Delete via Supabase ──
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return
+    setIsDeletingItem(true)
+    const itemId = itemToDelete.id || itemToDelete._id
+    const itemName = itemToDelete.name || 'Menu item'
     try {
-      await deleteMenuItem(itemId)
-      setMenuItems(prev => prev.filter(i => i._id !== itemId))
+      await deleteMenuItem(itemId, currentRid)
+      setMenuItems(prev => prev.filter(i => (i.id !== itemId && i._id !== itemId)))
+      setFilteredItems(prev => prev.filter(i => (i.id !== itemId && i._id !== itemId)))
       ImageStorage.removeImage(itemId)
+      toast.success(`🗑️ "${itemName}" has been deleted successfully!`)
     } catch (err) {
       console.error('Delete error:', err)
+      toast.error('Failed to delete menu item')
+    } finally {
+      setIsDeletingItem(false)
+      setItemToDelete(null)
     }
   }
 
   // ── Toggle stock via Supabase ──
   const handleToggleStock = async (itemId, newStockStatus) => {
+    const rid = currentRid || getCachedRestaurantId() || 'demo-restaurant'
+    const itemObj = menuItems.find(i => (i.id === itemId || i._id === itemId))
+    const itemName = itemObj?.name || 'Item'
     try {
-      const updated = await toggleMenuItemStock(itemId, newStockStatus)
-      setMenuItems(prev => prev.map(i => i._id === itemId ? updated : i))
+      const updated = await toggleMenuItemStock(itemId, newStockStatus, rid)
+      setMenuItems(prev => prev.map(i => (i.id === itemId || i._id === itemId) ? { ...i, ...updated, isInStock: newStockStatus } : i))
+      toast.success(`⚡ "${itemName}" is now ${newStockStatus ? 'In Stock' : 'Out of Stock'}!`)
     } catch (err) {
       console.error('Toggle stock error:', err)
     }
@@ -326,6 +357,16 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           </div>
         </div>
       </div>
+
+      {/* Premium Shadcn Studio Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(itemToDelete)}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteItem}
+        title="Delete Menu Item?"
+        itemName={typeof itemToDelete === 'object' ? itemToDelete?.name : ''}
+        isDeleting={isDeletingItem}
+      />
     </TooltipProvider>
   )
 }

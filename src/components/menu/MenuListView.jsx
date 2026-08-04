@@ -44,7 +44,23 @@ export default function MenuListView({
       label: 'NON-VEG',
       color: 'bg-red-100 text-red-800 border-red-200',
       dotColor: 'bg-red-500'
+    },
+    'NON-VEG': {
+      label: 'NON-VEG',
+      color: 'bg-red-100 text-red-800 border-red-200',
+      dotColor: 'bg-red-500'
+    },
+    EGG: {
+      label: 'EGG',
+      color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      dotColor: 'bg-yellow-500'
     }
+  }
+
+  const getTypeConfig = (rawType) => {
+    if (!rawType) return typeConfig.VEG
+    const normalized = String(rawType).toUpperCase().replace('-', '_')
+    return typeConfig[normalized] || typeConfig[rawType] || typeConfig.VEG
   }
 
   const handleItemClick = (item) => {
@@ -188,7 +204,7 @@ export default function MenuListView({
                     </TableHeader>
                     <TableBody className="">
                       {items.map((item) => {
-                        const config = typeConfig[item.type]
+                        const config = getTypeConfig(item.type)
                         
                         return (
                           <TableRow key={item._id} className="hover:bg-gray-50/50">
@@ -285,7 +301,7 @@ export default function MenuListView({
                                 
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button size="sm" variant="ghost" onClick={() => onDelete(item._id)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors">
+                                    <Button size="sm" variant="ghost" onClick={() => onDelete(item)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors">
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </TooltipTrigger>
@@ -305,7 +321,7 @@ export default function MenuListView({
                 {/* Mobile Card List View */}
                 <div className="md:hidden space-y-4 px-4 pb-4">
                   {items.map((item) => {
-                    const config = typeConfig[item.type]
+                    const config = getTypeConfig(item.type)
                     
                     return (
                       <div key={item._id} className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-gray-100 flex flex-col gap-4 active:scale-[0.98] transition-all">
@@ -403,9 +419,9 @@ export default function MenuListView({
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900">{selectedItem.name}</h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge className={typeConfig[selectedItem.type].color}>
-                        <div className={`w-2 h-2 rounded-full ${typeConfig[selectedItem.type].dotColor} mr-1`}></div>
-                        {typeConfig[selectedItem.type].label}
+                      <Badge className={getTypeConfig(selectedItem.type).color}>
+                        <div className={`w-2 h-2 rounded-full ${getTypeConfig(selectedItem.type).dotColor} mr-1`}></div>
+                        {getTypeConfig(selectedItem.type).label}
                       </Badge>
                       <Badge variant="outline">{selectedItem.category}</Badge>
                       {!selectedItem.isInStock && (

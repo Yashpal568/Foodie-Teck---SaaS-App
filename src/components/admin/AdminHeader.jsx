@@ -16,7 +16,14 @@ import {
   Trash2,
   Command,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  CreditCard,
+  Store,
+  ShieldAlert,
+  CheckCheck,
+  Clock,
+  ChevronRight,
+  Filter
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
+import { getAdminPlatformData } from '@/lib/adminDataService'
 import { toast } from 'sonner'
 
 import { requestPushPermission, triggerPushNotification } from '@/lib/pushNotifications'
@@ -42,54 +50,94 @@ export default function AdminHeader({ onMenuClick }) {
   const [searchResults, setSearchResults] = useState({ merchants: [], tickets: [], audits: [] })
   const [showResults, setShowResults] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [activeTab, setActiveTab] = useState('ALL')
   const [showNotifications, setShowNotifications] = useState(false)
   const searchRef = useRef(null)
   const inputRef = useRef(null)
 
-  useEffect(() => {
-    // Request Desktop Web Push Notification Permission on Mount
-    requestPushPermission()
-
-    // Load Live Notifications from Audits via Supabase
-    const loadNotifs = async () => {
-      const { data: audits } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(5)
+  const loadNotifications = async () => {
+    try {
+      const platformData = await getAdminPlatformData()
+      const pendingVerifications = platformData.pendingVerifications || []
+      const restaurants = platformData.restaurants || []
       
-      if (audits) {
-         setNotifications(audits.map(a => ({
-            id: a.id,
-            action: a.action,
-            severity: a.severity || 'NOMINAL',
-            timestamp: new Date(a.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-         })))
-      }
+      let audits = []
+      try {
+        const { data } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(6)
+        if (data) audits = data
+      } catch (e) {}
+
+      const aggregatedList = []
+
+      // 1. Pending Payment Verifications
+      pendingVerifications.forEach(p => {
+        aggregatedList.push({
+          id: `pay-${p.id}`,
+          category: 'PAYMENTS',
+          title: `UTR Payment Verification Needed`,
+          desc: `${p.merchant} submitted UTR #${p.utr} for ${p.plan} (₹${p.amount?.toLocaleString('en-IN')})`,
+          timestamp: p.createdAt || 'Just now',
+          unread: true,
+          route: '/admin/revenue',
+          icon: CreditCard,
+          color: 'emerald'
+        })
+      })
+
+      // 2. Recent Merchant Signups
+      restaurants.slice(-4).forEach(r => {
+        aggregatedList.push({
+          id: `rest-${r.id}`,
+          category: 'MERCHANTS',
+          title: `New Merchant Node Registered`,
+          desc: `${r.business_name || r.name || 'Merchant'} (${r.email || 'N/A'}) initialized workspace.`,
+          timestamp: new Date(r.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          unread: false,
+          route: '/admin/customers',
+          icon: Store,
+          color: 'blue'
+        })
+      })
+
+      // 3. System Audits
+      audits.forEach(a => {
+        if (!aggregatedList.some(item => item.id === `audit-${a.id}`)) {
+          aggregatedList.push({
+            id: `audit-${a.id}`,
+            category: 'SYSTEM',
+            title: a.action || 'Security Telemetry Event',
+            desc: `Actor: ${a.actor || 'system@servora'} | Severity: ${a.severity || 'NOMINAL'}`,
+            timestamp: new Date(a.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            unread: a.severity === 'WARNING' || a.severity === 'CRITICAL',
+            route: '/admin/audit',
+            icon: ShieldAlert,
+            color: a.severity === 'CRITICAL' ? 'rose' : 'indigo'
+          })
+        }
+      })
+
+      setNotifications(aggregatedList)
+      setUnreadCount(aggregatedList.filter(n => n.unread).length)
+    } catch (err) {
+      console.error('Failed to load notifications:', err)
     }
-    
-    loadNotifs()
-    window.addEventListener('platformConfigUpdated', loadNotifs)
-    
-    // Realtime Listener for Instant Web & Push Notification Alerts
+  }
+
+  useEffect(() => {
+    requestPushPermission()
+    loadNotifications()
+
+    window.addEventListener('platformConfigUpdated', loadNotifications)
+    window.addEventListener('storage', loadNotifications)
+
     const channel = supabase
-      .channel('public:admin_push_alerts')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {
-         loadNotifs()
-         const audit = payload.new
-         triggerPushNotification({
-            title: `🚨 System Event: ${audit.action || 'New Audit Entry'}`,
-            body: `Performer: ${audit.actor || 'System'} | Severity: ${audit.severity || 'NOMINAL'}`,
-            onClick: () => navigate('/admin/audit')
-         })
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payment_verifications' }, (payload) => {
-         const pay = payload.new
-         triggerPushNotification({
-            title: `💳 New UPI Payment Request`,
-            body: `UTR #${pay.utr_number || 'N/A'} submitted by ${pay.merchant_name || pay.email || 'Merchant'}. Action required!`,
-            onClick: () => navigate('/admin/revenue')
-         })
-      })
+      .channel('public:admin_header_notifs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_verifications' }, () => loadNotifications())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => loadNotifications())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => loadNotifications())
       .subscribe()
 
-    // Keyboard shortcut Ctrl+K or Cmd+K
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
@@ -98,7 +146,6 @@ export default function AdminHeader({ onMenuClick }) {
     }
     window.addEventListener('keydown', handleKeyDown)
 
-    // Close search on click outside
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowResults(false)
@@ -107,11 +154,19 @@ export default function AdminHeader({ onMenuClick }) {
     document.addEventListener('mousedown', handleClickOutside)
 
     return () => {
-      window.removeEventListener('platformConfigUpdated', loadNotifs)
+      window.removeEventListener('platformConfigUpdated', loadNotifications)
+      window.removeEventListener('storage', loadNotifications)
       window.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('mousedown', handleClickOutside)
+      supabase.removeChannel(channel)
     }
   }, [])
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })))
+    setUnreadCount(0)
+    toast.success('All Notifications Marked Read')
+  }
 
   const handleSearch = async (val) => {
     setSearchTerm(val)
@@ -125,7 +180,6 @@ export default function AdminHeader({ onMenuClick }) {
     try {
        setSearching(true)
        setShowResults(true)
-       // Search via Supabase ILIKE queries
        const { data: merchantsData } = await supabase.from('restaurants').select('*').or(`business_name.ilike.%${val}%,email.ilike.%${val}%`).limit(3)
        const { data: ticketsData } = await supabase.from('support_tickets').select('*').or(`subject.ilike.%${val}%`).limit(3)
        const { data: auditsData } = await supabase.from('audit_logs').select('*').or(`action.ilike.%${val}%,type.ilike.%${val}%`).limit(3)
@@ -149,97 +203,78 @@ export default function AdminHeader({ onMenuClick }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const filteredNotifications = notifications.filter(n => {
+    if (activeTab === 'ALL') return true
+    return n.category === activeTab
+  })
+
   return (
-    <header className="h-20 shrink-0 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-8 z-50 sticky top-0 shadow-sm transition-all">
-      
-      {/* Left: Mobile Menu Toggle & Omni Search Bar */}
-      <div className="flex items-center gap-4 flex-1 max-w-2xl">
+    <header className="sticky top-0 z-30 flex h-20 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/80 px-6 sm:px-8 backdrop-blur-xl transition-all">
+      {/* Mobile Drawer Trigger & Search Input */}
+      <div className="flex items-center gap-4 flex-1 max-w-xl">
         <Button 
           variant="ghost" 
           size="icon" 
-          className="lg:hidden text-slate-600 hover:bg-slate-100/80 rounded-2xl transition-transform active:scale-95"
-          onClick={onMenuClick}
+          onClick={onMenuClick} 
+          className="lg:hidden rounded-2xl h-11 w-11 hover:bg-slate-100 border border-slate-200/80"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-5 h-5 text-slate-700" />
         </Button>
-        
-        {/* Global Search Bar */}
-        <div ref={searchRef} className="relative hidden md:block w-full">
-          <div className={`flex items-center bg-slate-100/80 hover:bg-slate-100 rounded-2xl px-5 py-3 border transition-all duration-300 ${
-            showResults 
-              ? 'ring-4 ring-indigo-500/10 bg-white border-indigo-400 shadow-lg shadow-indigo-500/5' 
-              : 'border-slate-200/80 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:bg-white focus-within:border-indigo-400'
-          }`}>
-            <Search className="w-4 h-4 text-slate-400 mr-3 shrink-0" />
-            <input 
+
+        {/* Global Forensic Command Search Bar */}
+        <div ref={searchRef} className="relative w-full">
+          <div className="relative flex items-center">
+            <Search className="absolute left-4 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
               ref={inputRef}
-              type="text" 
-              placeholder="Search Merchants, Support Tickets, Forensic Logs..."
+              type="text"
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
-              onFocus={() => searchTerm && setShowResults(true)}
-              className="bg-transparent border-none outline-none text-xs font-bold text-slate-900 w-full placeholder:text-slate-400 placeholder:font-medium tracking-tight"
+              onFocus={() => searchTerm.trim() && setShowResults(true)}
+              placeholder="Search Merchants, Support Tickets, Forensic Logs..."
+              className="w-full h-11 pl-11 pr-16 bg-slate-100/60 border border-slate-200/70 rounded-2xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 focus:bg-white transition-all shadow-inner"
             />
-            {searchTerm ? (
-              <X 
-                className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" 
-                onClick={() => { setSearchTerm(''); setShowResults(false); }}
-              />
-            ) : (
-              <div className="flex items-center gap-1 bg-white border border-slate-200/80 text-slate-400 font-black px-2 py-0.5 rounded-lg text-[9px] shadow-2xs pointer-events-none">
-                 <Command className="w-2.5 h-2.5" /> K
-              </div>
-            )}
+            <div className="absolute right-3.5 flex items-center gap-1 text-[10px] font-black text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded-lg border border-slate-300/50 pointer-events-none">
+              <Command className="w-3 h-3" /> K
+            </div>
           </div>
 
-          {/* Search Results Dropdown */}
+          {/* Search Dropdown Overlay */}
           <AnimatePresence>
             {showResults && (
               <motion.div 
                 initial={{ opacity: 0, y: 10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                transition={{ duration: 0.2 }}
-                className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2.25rem] shadow-2xl shadow-slate-900/10 border border-slate-200/80 p-5 z-50 overflow-hidden ring-1 ring-slate-900/5"
+                transition={{ duration: 0.15 }}
+                className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/10 overflow-hidden z-50 p-3"
               >
                 {searching ? (
-                  <div className="space-y-4 p-2">
-                     <div className="flex items-center gap-3">
-                        <Skeleton className="w-10 h-10 rounded-2xl" />
-                        <div className="space-y-2 flex-1">
-                           <Skeleton className="h-4 w-3/4" />
-                           <Skeleton className="h-3 w-1/2" />
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-3">
-                        <Skeleton className="w-10 h-10 rounded-2xl" />
-                        <div className="space-y-2 flex-1">
-                           <Skeleton className="h-4 w-2/3" />
-                           <Skeleton className="h-3 w-1/3" />
-                        </div>
-                     </div>
+                  <div className="p-6 space-y-3">
+                    <Skeleton className="h-10 rounded-2xl w-full" />
+                    <Skeleton className="h-10 rounded-2xl w-full" />
                   </div>
                 ) : (
-                  <div className="space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide p-1">
+                  <div className="space-y-3 max-h-96 overflow-y-auto p-1 scrollbar-hide">
                     {searchResults.merchants.length > 0 && (
                       <div className="space-y-2">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 flex items-center gap-1.5">
-                          <User className="w-3 h-3 text-indigo-500" /> Merchants & Nodes
+                          <User className="w-3 h-3 text-blue-500" /> Active Merchants
                         </h4>
-                        {searchResults.merchants.map(m => (
+                        {searchResults.merchants.map((m, idx) => (
                           <div 
-                            key={m.email} 
-                            onClick={() => { navigate('/admin/merchants'); setShowResults(false); }} 
-                            className="flex items-center gap-3 p-3.5 hover:bg-indigo-50/60 rounded-2xl cursor-pointer transition-all group border border-transparent hover:border-indigo-100"
+                            key={idx} 
+                            onClick={() => { navigate('/admin/customers'); setShowResults(false); }} 
+                            className="flex items-center gap-3 p-3.5 hover:bg-blue-50/60 rounded-2xl cursor-pointer transition-all group border border-transparent hover:border-blue-100"
                           >
-                            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition-transform">
-                              <User className="w-4 h-4" />
+                            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition-transform">
+                              {m.businessName?.substring(0, 2).toUpperCase() || 'MN'}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-black text-slate-900 leading-none truncate group-hover:text-indigo-600 transition-colors">{m.businessName}</p>
+                              <p className="text-xs font-black text-slate-900 leading-none truncate group-hover:text-blue-600 transition-colors">{m.businessName}</p>
                               <p className="text-[10px] font-bold text-slate-400 truncate mt-1">{m.email}</p>
                             </div>
-                            <ArrowRight className="w-4 h-4 text-indigo-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                            <ArrowRight className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                           </div>
                         ))}
                       </div>
@@ -307,69 +342,147 @@ export default function AdminHeader({ onMenuClick }) {
         </div>
       </div>
 
-      {/* Right Actions: Notifications & Owner Profile Menu */}
+      {/* Right Actions: Notifications Panel & Profile */}
       <div className="flex items-center gap-4">
         
-        {/* Live Notification Relay Drawer */}
+        {/* ─── ⚡ REDESIGNED ADMIN NOTIFICATION PANEL ─────────────────── */}
         <DropdownMenu open={showNotifications} onOpenChange={setShowNotifications}>
           <DropdownMenuTrigger asChild>
              <Button 
                variant="ghost" 
                size="icon" 
-               className="relative h-11 w-11 rounded-2xl hover:bg-slate-100 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-transparent hover:border-slate-200"
+               className="relative h-11 w-11 rounded-2xl hover:bg-slate-100 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-slate-200/60 shadow-xs"
              >
-                <Bell className="w-5 h-5 text-slate-600" />
-                {notifications.length > 0 && (
-                   <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+                <Bell className="w-5 h-5 text-slate-700" />
+                {unreadCount > 0 && (
+                   <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-mono text-[9px] font-black animate-pulse shadow-md border-2 border-white">
+                      {unreadCount}
+                   </span>
                 )}
              </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 p-0 rounded-[2.25rem] shadow-2xl shadow-slate-900/10 border-slate-200/80 overflow-hidden z-50 mt-3 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-linear-to-br from-slate-950 to-indigo-950 p-6 text-white overflow-hidden relative">
-               <Zap className="absolute -right-4 -bottom-4 w-24 h-24 text-white/5 pointer-events-none" />
-               <div className="flex items-center justify-between mb-3 relative z-10">
-                  <h4 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                     <ShieldCheck className="w-4 h-4 text-emerald-400" /> Forensic Relay
-                  </h4>
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[8px] font-black tracking-widest px-2 py-0.5">
-                     LIVE
-                  </Badge>
-               </div>
-               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Real-Time Security & System Events</p>
-            </div>
 
-            <div className="p-3 bg-white space-y-2 max-h-80 overflow-y-auto scrollbar-hide">
-               {notifications.length > 0 ? notifications.map((n, idx) => (
-                  <div 
-                    key={n.id || idx} 
-                    className="p-3 border border-slate-100 hover:bg-slate-50 hover:border-slate-200/80 rounded-2xl transition-all group flex items-start gap-3.5 cursor-pointer" 
-                    onClick={() => { navigate('/admin/audit'); setShowNotifications(false); }}
-                  >
-                     <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center font-black text-xs transition-transform group-hover:scale-105 ${
-                        n.severity === 'CRITICAL' || n.severity === 'WARNING' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                     }`}>
-                        <ShieldCheck className="w-4 h-4" />
-                     </div>
-                     <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">{n.action}</p>
-                        <p className="text-[9px] font-bold text-slate-400 truncate mt-1 italic">{n.timestamp}</p>
-                     </div>
-                  </div>
-               )) : (
-                  <div className="py-10 text-center space-y-2 opacity-40">
-                     <ShieldCheck className="w-8 h-8 mx-auto text-slate-400" />
-                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Protocol Buffer Clear</p>
-                  </div>
-               )}
-            </div>
-            <div className="p-4 bg-slate-50 border-t border-slate-100">
-               <Button 
-                onClick={() => { navigate('/admin/audit'); setShowNotifications(false); }}
-                className="w-full h-11 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest shadow-md hover:shadow-lg active:scale-95 transition-all"
-               >
-                  Full Forensic Audit Trail
-               </Button>
-            </div>
+          <DropdownMenuContent 
+             align="end" 
+             className="w-96 p-0 rounded-[2.25rem] shadow-2xl shadow-slate-900/20 border-slate-200/90 overflow-hidden z-50 mt-3 animate-in fade-in zoom-in-95 duration-200 bg-white"
+          >
+             {/* Notification Header */}
+             <div className="bg-slate-950 text-white p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+                
+                <div className="flex items-center justify-between mb-2 relative z-10">
+                   <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+                         <Bell className="w-4 h-4" />
+                      </div>
+                      <div>
+                         <h4 className="text-sm font-black uppercase tracking-widest text-white">Notifications</h4>
+                         <p className="text-[10px] text-slate-400 font-bold">Real-time SaaS Telemetry Alerts</p>
+                      </div>
+                   </div>
+
+                   {unreadCount > 0 && (
+                      <button 
+                         onClick={markAllAsRead}
+                         className="text-[10px] font-black text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20 transition-all"
+                         title="Mark all as read"
+                      >
+                         <CheckCheck className="w-3.5 h-3.5" />
+                         Read All
+                      </button>
+                   )}
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-1 mt-4 pt-3 border-t border-slate-800/80">
+                   {['ALL', 'PAYMENTS', 'MERCHANTS', 'SYSTEM'].map(tab => (
+                      <button
+                         key={tab}
+                         onClick={() => setActiveTab(tab)}
+                         className={`px-2.5 py-1 rounded-lg text-[9px] font-black transition-all ${
+                            activeTab === tab 
+                               ? 'bg-blue-600 text-white shadow-md' 
+                               : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                         }`}
+                      >
+                         {tab}
+                      </button>
+                   ))}
+                </div>
+             </div>
+
+             {/* Notification List Body */}
+             <div className="p-3 bg-slate-50/50 space-y-2 max-h-96 overflow-y-auto">
+                {filteredNotifications.length > 0 ? (
+                   filteredNotifications.map((n) => {
+                      const IconComp = n.icon || Bell
+                      return (
+                         <div 
+                            key={n.id} 
+                            onClick={() => {
+                               navigate(n.route)
+                               setShowNotifications(false)
+                            }}
+                            className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer group flex items-start gap-3.5 relative overflow-hidden ${
+                               n.unread 
+                                  ? 'bg-white border-blue-200 shadow-md hover:border-blue-300 hover:shadow-lg' 
+                                  : 'bg-white/60 border-slate-200/70 hover:bg-white hover:border-slate-300'
+                            }`}
+                         >
+                            {n.unread && (
+                               <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                            )}
+
+                            <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center text-white shadow-sm ${
+                               n.color === 'emerald' ? 'bg-emerald-600' : n.color === 'blue' ? 'bg-blue-600' : n.color === 'rose' ? 'bg-rose-600' : 'bg-indigo-600'
+                            }`}>
+                               <IconComp className="w-4.5 h-4.5" />
+                            </div>
+
+                            <div className="flex-1 min-w-0 pr-2">
+                               <p className="text-xs font-black text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">
+                                  {n.title}
+                               </p>
+                               <p className="text-[11px] font-medium text-slate-500 leading-snug mt-1 line-clamp-2">
+                                  {n.desc}
+                               </p>
+                               <p className="text-[9px] font-bold text-slate-400 mt-2 flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-slate-400" />
+                                  {n.timestamp}
+                               </p>
+                            </div>
+
+                            <ChevronRight className="w-4 h-4 text-slate-400 self-center opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                         </div>
+                      )
+                   })
+                ) : (
+                   <div className="py-12 text-center space-y-2 opacity-50">
+                      <ShieldCheck className="w-8 h-8 mx-auto text-slate-400" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">No Active Notifications</p>
+                   </div>
+                )}
+             </div>
+
+             {/* Footer Action Links */}
+             <div className="p-3 bg-white border-t border-slate-200/80 flex items-center gap-2">
+                <Button 
+                   onClick={() => { navigate('/admin/revenue'); setShowNotifications(false); }}
+                   variant="outline"
+                   className="flex-1 h-10 rounded-xl border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-600 font-bold text-[10px] uppercase tracking-wider"
+                >
+                   <CreditCard className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                   Revenue Queue
+                </Button>
+                <Button 
+                   onClick={() => { navigate('/admin/customers'); setShowNotifications(false); }}
+                   variant="outline"
+                   className="flex-1 h-10 rounded-xl border-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-bold text-[10px] uppercase tracking-wider"
+                >
+                   <Store className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
+                   Merchants
+                </Button>
+             </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -379,62 +492,51 @@ export default function AdminHeader({ onMenuClick }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
-              variant="outline" 
-              className="gap-2.5 h-11 px-3.5 pr-4 rounded-2xl border-indigo-200/80 bg-indigo-50/60 hover:bg-indigo-100/60 hover:border-indigo-300 transition-all shadow-sm cursor-pointer active:scale-95"
+              variant="ghost" 
+              className="flex items-center gap-3 h-12 pl-2 pr-3.5 rounded-2xl hover:bg-slate-100 border border-transparent hover:border-slate-200/80 transition-all cursor-pointer group"
             >
-              <div className="relative">
-                 <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center text-[11px] font-black text-white shrink-0 shadow-md shadow-indigo-500/20">
-                    SO
-                 </div>
-                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full shadow-2xs" />
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+                SO
               </div>
-              <div className="text-left hidden sm:block">
-                 <p className="font-black text-xs text-indigo-950 tracking-tight leading-none uppercase">System Owner</p>
-                 <p className="text-[9px] font-bold text-indigo-600/80 uppercase tracking-widest leading-none mt-0.5">Root Admin</p>
+              <div className="text-left hidden md:block leading-none">
+                 <p className="text-xs font-black text-slate-900 uppercase tracking-wider">System Owner</p>
+                 <p className="text-[10px] font-bold text-slate-400 mt-1">ROOT ADMIN</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
           
-          <DropdownMenuContent align="end" className="w-64 p-2 rounded-[2rem] shadow-2xl shadow-slate-900/10 border-slate-200/80 mt-3 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-5 py-5 border-b border-slate-100 mb-2 bg-linear-to-br from-slate-50 to-indigo-50/50 rounded-2xl">
-              <p className="text-xs font-black text-slate-900 tracking-tight leading-none uppercase">Root Authorization</p>
-              <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest truncate">admin@servora.com</p>
-            </div>
-            
-            <div className="p-1 space-y-1">
-               <div 
-                  className="flex items-center justify-between px-4 py-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer transition-all group"
-                  onClick={copyKey}
-               >
-                  <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest leading-none group-hover:text-slate-900">Secret Access Key</span>
-                  {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />}
-               </div>
+          <DropdownMenuContent align="end" className="w-72 p-3 rounded-[2rem] shadow-2xl border-slate-200/80 z-50 mt-3 space-y-1">
+             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-2">
+                <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Platform Key</p>
+                <div className="flex items-center justify-between mt-2 bg-white p-2 rounded-xl border border-slate-200/80">
+                   <span className="text-[10px] font-mono font-bold text-slate-600">SYS-ADM-2026-KEY</span>
+                   <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-400 hover:text-slate-900" onClick={copyKey}>
+                      {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                   </Button>
+                </div>
+             </div>
 
-               <DropdownMenuItem 
-                  inset={false}
-                  className="h-11 rounded-xl font-black text-[10px] text-slate-700 uppercase tracking-widest focus:bg-slate-100 cursor-pointer flex gap-3 mt-1 active:scale-95 transition-all"
-                  onClick={() => navigate('/admin/settings')}
-               >
-                  <Sparkles className="w-4 h-4 text-indigo-500" /> Platform Settings
-               </DropdownMenuItem>
+             <DropdownMenuItem onClick={() => navigate('/admin/settings')} className="p-3 rounded-xl font-bold text-xs cursor-pointer">
+                Platform Settings
+             </DropdownMenuItem>
+             <DropdownMenuItem onClick={() => navigate('/admin/audit')} className="p-3 rounded-xl font-bold text-xs cursor-pointer">
+                Security Audit Log
+             </DropdownMenuItem>
 
-               <DropdownMenuSeparator className="bg-slate-100 my-1" />
+             <DropdownMenuSeparator className="my-2 bg-slate-100" />
 
-               <DropdownMenuItem 
-                  inset={false}
-                  className="h-11 rounded-xl font-black text-[10px] text-red-600 uppercase tracking-widest focus:bg-red-50 focus:text-red-700 cursor-pointer flex gap-3 active:scale-95 transition-all"
-                  onClick={() => { 
-                    sessionStorage.clear()
-                    toast.success('Signed Out', { description: 'Admin session terminated' })
-                    navigate('/admin/login') 
-                  }}
-               >
-                  <Trash2 className="w-4 h-4" /> Sign Out Securely
-               </DropdownMenuItem>
-            </div>
+             <DropdownMenuItem 
+               onClick={() => {
+                  sessionStorage.removeItem('servora_admin_token')
+                  toast.info('Admin Session Terminated')
+                  navigate('/admin/login')
+               }} 
+               className="p-3 rounded-xl font-bold text-xs text-rose-600 hover:bg-rose-50 cursor-pointer"
+             >
+                Sign Out Admin Session
+             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
       </div>
     </header>
   )

@@ -11,11 +11,12 @@ import { currencies } from '@/components/ui/currency-selector'
 import ImageStorage from '@/utils/imageStorage'
 
 export default function MenuItemForm({ item = null, onSave, onCancel, currency = 'INR', categories = [] }) {
+  const defaultCategory = item?.category || (categories && categories.length > 0 ? categories[0] : 'Main Course')
   const [formData, setFormData] = useState({
     name: item?.name || '',
     description: item?.description || '',
     price: item?.price || '',
-    category: item?.category || '',
+    category: defaultCategory,
     type: item?.type || 'VEG',
     isInStock: item?.isInStock !== undefined ? item.isInStock : true,
     photo: item?.photo || ''
@@ -81,7 +82,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
     onSave(menuItemData)
   }
 
-  const isFormValid = formData.name && formData.description && formData.price && formData.category
+  const isFormValid = Boolean(formData.name && formData.price)
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -121,14 +122,13 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Describe the dish, ingredients, preparation method..."
               rows={3}
-              required
             />
           </div>
 

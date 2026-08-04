@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
+import DeleteConfirmModal from './DeleteConfirmModal'
 import { getCategories, syncCategories } from '@/lib/api'
 
 export default function CategoryManager({ onCategoriesChange, showLabel = true, restaurantId }) {
@@ -16,25 +17,28 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true, 
   const [editValue, setEditValue] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState(null)
 
-  // Load categories from Supabase
+  // Load categories from Supabase / Local Storage
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
       try {
         const cloudCategories = await getCategories(restaurantId)
         if (cloudCategories && cloudCategories.length > 0) {
-          const names = cloudCategories.map(c => c.name)
+          const names = cloudCategories.map(c => typeof c === 'string' ? c : c.name)
           setCategories(names)
           if (onCategoriesChange) onCategoriesChange(names)
         } else {
           const defaults = ['Starters', 'Main Course', 'Desserts', 'Beverages']
           setCategories(defaults)
-          if (restaurantId) await syncCategories(restaurantId, defaults)
+          if (restaurantId && restaurantId !== 'null' && !restaurantId.includes('@')) {
+            await syncCategories(restaurantId, defaults)
+          }
           if (onCategoriesChange) onCategoriesChange(defaults)
         }
       } catch (err) {
-        console.error('Failed to load categories from Supabase:', err)
+        console.warn('Fallback to default categories:', err)
       } finally {
         setLoading(false)
       }
@@ -63,12 +67,16 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true, 
   }
 
   const deleteCategory = (category) => {
-    if (confirm(`Are you sure you want to delete "${category}"? Items in this category will need to be reassigned.`)) {
-      const updated = categories.filter(cat => cat !== category)
-      setCategories(updated)
-      saveAndSync(updated)
-      if (onCategoriesChange) onCategoriesChange(updated)
-    }
+    setCategoryToDelete(category)
+  }
+
+  const confirmDeleteCategory = () => {
+    if (!categoryToDelete) return
+    const updated = categories.filter(cat => cat !== categoryToDelete)
+    setCategories(updated)
+    saveAndSync(updated)
+    if (onCategoriesChange) onCategoriesChange(updated)
+    setCategoryToDelete(null)
   }
 
   const startEdit = (category) => {
@@ -211,6 +219,15 @@ export default function CategoryManager({ onCategoriesChange, showLabel = true, 
           </div>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmModal
+        isOpen={Boolean(categoryToDelete)}
+        onClose={() => setCategoryToDelete(null)}
+        onConfirm={confirmDeleteCategory}
+        title="Delete Category?"
+        itemName={categoryToDelete || ''}
+        description="Deleting this category will unassign items currently under it. Are you sure you want to proceed?"
+      />
     </TooltipProvider>
   )
 }
