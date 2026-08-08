@@ -21,6 +21,8 @@ import PlanLockOverlay from '../components/dashboard/PlanLockOverlay'
 import ModuleLockOverlay from '../components/dashboard/ModuleLockOverlay'
 import SubscriptionLockOverlay from '../components/dashboard/SubscriptionLockOverlay'
 import SuspensionOverlay from '../components/dashboard/SuspensionOverlay'
+import UpgradePlanModal from '../components/dashboard/UpgradePlanModal'
+import { getPlanDetails } from '@/utils/planLimits'
 import { ChefHat, QrCode, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -31,6 +33,8 @@ function Dashboard() {
   const [currency, setCurrency] = useState('INR') // Default to Indian Rupee
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [plan, setPlan] = useState(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeLimitType, setUpgradeLimitType] = useState('general')
   
   const [subDetails, setSubDetails] = useState({ pendingApproval: false, utrNumber: '', status: 'Active' })
 
@@ -205,7 +209,7 @@ function Dashboard() {
           schema: 'public',
           table: 'subscriptions'
         }, (payload) => {
-          const status = payload.new?.status
+          const status = payload?.new ? payload.new['status'] : undefined
           if (status === 'Approved' || status === 'Active') {
             verifyAuthAndPlan()
           }
@@ -238,7 +242,7 @@ function Dashboard() {
         pendingApproval={subDetails.pendingApproval}
         utrNumber={subDetails.utrNumber}
         restaurantId={resolvedId || profile?.id || urlId}
-        merchantEmail={userEmail || profile?.email || (dashboardEmail?.includes('@') ? dashboardEmail : 'claudegptusert@gmail.com')}
+        merchantEmail={userEmail || (profile ? profile['email'] : '') || (dashboardEmail?.includes('@') ? dashboardEmail : 'claudegptusert@gmail.com')}
         merchantName={profile?.business_name || 'Servora Merchant'}
         onCheckStatus={verifyAuthAndPlan}
       />
@@ -332,6 +336,7 @@ function Dashboard() {
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
+          restaurantId={resolvedId || profile?.id || urlId}
         />
       
       case 'menu':
@@ -341,6 +346,7 @@ function Dashboard() {
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
+          plan={plan}
         />
       
       case 'orders':
@@ -358,7 +364,8 @@ function Dashboard() {
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               navigate={navigate}
-              restaurantId={profile?.id}
+              restaurantId={resolvedId || profile?.id || urlId}
+              plan={plan}
             />
           </div>
         )
@@ -369,16 +376,29 @@ function Dashboard() {
           setActiveItem={setActiveItem}
           navigate={navigate}
           restaurantId={profile?.id}
+          plan={plan}
         />
       
       case 'customers':
-        if (plan?.name !== 'Enterprise') {
+        if (plan?.name !== 'Enterprise' && plan?.name !== 'Professional') {
           return (
-            <ModuleLockOverlay 
-              featureName="Customer Management & CRM"
-              requiredPlan="Enterprise"
-              price="₹4,999"
-            />
+            <div className="h-full flex flex-col items-center justify-center p-6">
+              <ModuleLockOverlay 
+                featureName="Customer Management & CRM"
+                requiredPlan="Professional"
+                price="₹2,499"
+              />
+              <Button
+                size="lg"
+                onClick={() => {
+                  setUpgradeLimitType('crm')
+                  setShowUpgradeModal(true)
+                }}
+                className="mt-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              >
+                Upgrade to Professional (₹2,499)
+              </Button>
+            </div>
           )
         }
         return <CustomerManagement 
@@ -425,6 +445,11 @@ function Dashboard() {
             setActiveItem={setActiveItem}
             navigate={navigate}
             restaurantId={restaurantId}
+            plan={plan}
+            onUpgradeClick={() => {
+              setUpgradeLimitType('general')
+              setShowUpgradeModal(true)
+            }}
           />
         )
       
@@ -454,15 +479,37 @@ function Dashboard() {
   }
 
   return (
-    <Layout 
-      activeItem={activeItem}
-      setActiveItem={setActiveItem}
-      currency={currency}
-      onCurrencyChange={setCurrency}
-      restaurantId={urlId}
-    >
-      {renderContent()}
-    </Layout>
+    <>
+      <Layout 
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        restaurantId={urlId}
+        plan={plan}
+        onUpgradeClick={() => {
+          setUpgradeLimitType('general')
+          setShowUpgradeModal(true)
+        }}
+      >
+        {renderContent()}
+      </Layout>
+
+      {/* Global Upgrade Plan Modal */}
+      <UpgradePlanModal 
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        currentPlanName={plan?.name || 'Starter'}
+        limitType={upgradeLimitType}
+        restaurantId={resolvedId || profile?.id || urlId}
+        merchantEmail={userEmail || (profile ? profile['email'] : '')}
+        merchantName={profile?.business_name || 'Servora Merchant'}
+        onUpgradeSuccess={() => {
+          setShowUpgradeModal(false)
+          verifyAuthAndPlan()
+        }}
+      />
+    </>
   )
 }
 

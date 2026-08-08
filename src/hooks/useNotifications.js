@@ -41,13 +41,41 @@ export const useNotifications = (restaurantId) => {
     resolve()
   }, [restaurantId])
 
-  // Load cloud notifications
+  // Load notifications from cloud (with Orders table fallback)
   useEffect(() => {
     async function load() {
       if (!resolvedId) return
-      const dbNotifications = await fetchNotifications(resolvedId)
+      let dbNotifications = await fetchNotifications(resolvedId)
+      
+      // Fallback: If DB notifications is empty, construct notifications directly from Orders table
+      if (!dbNotifications || dbNotifications.length === 0) {
+        try {
+          const { data: recentOrders } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('restaurant_id', resolvedId)
+            .order('created_at', { ascending: false })
+            .limit(20)
+          
+          if (recentOrders && recentOrders.length > 0) {
+            dbNotifications = recentOrders.map(o => ({
+              id: `order-notif-${o.id}`,
+              type: 'new_order',
+              title: '🔔 New Order Received',
+              message: `Order #${o.id.slice(-6)} Table ${o.table_number || o.tableNumber || '?'} (${o.customer_name || 'Guest'})`,
+              order_id: o.id,
+              table_number: String(o.table_number || '?'),
+              created_at: o.created_at,
+              is_read: o.status === 'FINISHED' || o.status === 'SERVED'
+            }))
+          }
+        } catch (e) {
+          console.warn('Orders notification fallback error:', e)
+        }
+      }
+
       // Normalize to UI expectation
-      const mapped = dbNotifications.map(n => ({
+      const mapped = (dbNotifications || []).map(n => ({
          id: n.id,
          type: n.type,
          title: n.title,
@@ -90,9 +118,37 @@ export const useNotifications = (restaurantId) => {
     }
   }, [resolvedId])
 
-  // ── Listen for real-time Supabase Table Events ──
+  // ── Listen for real-time Events (Supabase + Window + LocalStorage) ──
   useEffect(() => {
     if (!resolvedId) return
+
+    const handleIncomingOrder = (order) => {
+      pushNotification({
+        type: 'new_order',
+        title: '🔔 New Order Received',
+        message: `Order #${order.id.slice(-6)} Table ${order.table_number || order.tableNumber || '?'} (${order.customer_name || order.customerName || 'Guest'})`,
+        orderId: order.id,
+        tableNumber: order.table_number || order.tableNumber,
+      })
+    }
+
+    const windowListener = (e) => {
+      if (e.detail) handleIncomingOrder(e.detail)
+    }
+
+    const storageListener = (e) => {
+      if (e.key === 'servora_latest_order' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (parsed && (!parsed.restaurant_id || String(parsed.restaurant_id) === String(resolvedId))) {
+            handleIncomingOrder(parsed)
+          }
+        } catch (err) {}
+      }
+    }
+
+    window.addEventListener('servora_new_order', windowListener)
+    window.addEventListener('storage', storageListener)
 
     const channel = supabase
       .channel(`notifications:rid=${resolvedId}`)
@@ -108,14 +164,7 @@ export const useNotifications = (restaurantId) => {
           console.log('🔔 Notification Triggered:', payload)
           
           if (payload.eventType === 'INSERT') {
-             const order = payload.new
-             pushNotification({
-               type: 'new_order',
-               title: '🔔 New Order Received',
-               message: `Order #${order.id.slice(-6)} from Table ${order.table_number || order.tableNumber}`,
-               orderId: order.id,
-               tableNumber: order.table_number || order.tableNumber,
-             })
+             handleIncomingOrder(payload.new)
           } else if (payload.eventType === 'UPDATE') {
              const order = payload.new
              const oldStatus = payload.old?.status
@@ -147,6 +196,8 @@ export const useNotifications = (restaurantId) => {
       .subscribe()
 
     return () => {
+      window.removeEventListener('servora_new_order', windowListener)
+      window.removeEventListener('storage', storageListener)
       supabase.removeChannel(channel)
     }
   }, [resolvedId, pushNotification])

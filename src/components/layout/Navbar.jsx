@@ -27,7 +27,7 @@ import { Separator } from '@/components/ui/separator'
 import { menuItems, supportItems } from './Sidebar'
 import { supabase } from '@/lib/api'
 
-export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId }) {
+export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId, plan, onUpgradeClick }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [showResults, setShowResults] = useState(false)
@@ -194,11 +194,25 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-6 ml-auto shrink-0">
-          {/* Dashboard Mode Badge */}
-          <div className="hidden xl:flex items-center gap-2 px-4 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-xl">
-             <LayoutDashboard className="w-3.5 h-3.5 text-indigo-600" />
-             <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Live Dashboard active</span>
+        <div className="flex items-center gap-4 lg:gap-6 ml-auto shrink-0">
+          {/* Active Plan Badge & Upgrade Trigger */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100/80 border border-slate-200/80 rounded-xl">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-[10px] font-mono font-black text-slate-800 uppercase tracking-wider">
+                {plan?.name || 'Starter'} Plan (₹{plan?.name === 'Enterprise' ? '4,999' : plan?.name === 'Professional' ? '2,499' : '999'})
+              </span>
+            </div>
+
+            {plan?.name !== 'Enterprise' && (
+              <button
+                onClick={onUpgradeClick}
+                className="hidden sm:flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-xl shadow-sm transition-all cursor-pointer"
+              >
+                <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+                <span>Upgrade</span>
+              </button>
+            )}
           </div>
 
           <Separator orientation="vertical" className="h-6 opacity-50 hidden lg:block" />

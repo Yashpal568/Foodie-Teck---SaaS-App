@@ -20,8 +20,13 @@ export default function MenuNavbar({
   onMenuItemsChange,
   onMenuItemsAppend,
   onCategoriesChange,
-  restaurantId
+  restaurantId,
+  planDetails,
+  onUpgradeClick
 }) {
+  const maxLimit = planDetails?.menuItemLimit || 25
+  const isNearLimit = itemsCount >= maxLimit
+
   return (
     <div className="hidden lg:flex items-center gap-4 lg:gap-5 xl:gap-6 px-4 lg:px-6 py-5 bg-white/70 backdrop-blur-md border-b border-gray-100 sticky top-0 z-40 transition-all">
       {/* Left Area: Branding & Context */}
@@ -32,12 +37,25 @@ export default function MenuNavbar({
         </div>
         <div className="flex items-center gap-3">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 tracking-tight whitespace-nowrap leading-none transition-all">Menu Management</h1>
-          <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-alpha-100 font-bold px-2 py-0.5 h-6 text-xs min-w-fit">
-            {itemsCount} Items
-          </Badge>
+          
+          <div className="flex items-center gap-1.5">
+            <Badge variant="secondary" className={`${isNearLimit ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-100'} font-bold px-2 py-0.5 h-6 text-xs min-w-fit flex items-center gap-1`}>
+              <span>{itemsCount}</span>
+              <span className="text-slate-400 font-normal">/ {maxLimit >= 9999 ? '∞' : maxLimit}</span>
+            </Badge>
+
+            {planDetails && planDetails.name === 'Starter' && (
+              <button 
+                onClick={onUpgradeClick}
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-black uppercase px-2 py-0.5 rounded-md transition-all cursor-pointer flex items-center gap-1"
+              >
+                <span>⚡ Upgrade</span>
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-xs lg:text-[11px] xl:text-xs text-gray-500 font-medium mt-1.5 max-w-[200px] lg:max-w-[250px] xl:max-w-lg line-clamp-1">
-          Refine your restaurant&apos;s digital storefront with precision item control.
+          {planDetails?.name || 'Starter'} Plan: {itemsCount} of {maxLimit >= 9999 ? 'Unlimited' : maxLimit} items configured.
         </p>
       </div>
 

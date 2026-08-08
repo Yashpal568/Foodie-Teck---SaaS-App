@@ -19,17 +19,21 @@ import DeleteConfirmModal from './DeleteConfirmModal'
 import { fetchMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemStock, bulkReplaceMenuItems, bulkAddMenuItems, getCachedRestaurantId, getMyRestaurant, fetchPriceHistory, recordPriceChange } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import UpgradePlanModal from '../dashboard/UpgradePlanModal'
+import { getPlanDetails } from '@/utils/planLimits'
 
-
-export default function MenuManagement({ currency, onCurrencyChange, activeItem, setActiveItem, navigate }) {
+export default function MenuManagement({ currency, onCurrencyChange, activeItem, setActiveItem, navigate, plan }) {
   const [menuItems, setMenuItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [showForm, setShowForm] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [currentRid, setCurrentRid] = useState(null)
   const [dynamicCategories, setDynamicCategories] = useState(['Starters', 'Main Course', 'Desserts', 'Beverages', 'Appetizers', 'Soups', 'Salads'])
+  
+  const planDetails = getPlanDetails(plan?.name)
   
   // Custom Delete Modal state
   const [itemToDelete, setItemToDelete] = useState(null)
@@ -229,6 +233,17 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     )
   }
 
+  const handleAddNew = () => {
+    if (menuItems.length >= planDetails.menuItemLimit) {
+      setShowUpgradeModal(true)
+      toast.error(`⚠️ Menu Item Limit Reached (${menuItems.length}/${planDetails.menuItemLimit})`, {
+        description: `Upgrade to ${planDetails.name === 'Starter' ? 'Professional' : 'Enterprise'} to add more dishes!`
+      })
+      return
+    }
+    setShowForm(true)
+  }
+
   return (
     <TooltipProvider>
       <div className="bg-[#f8fafc]/50 min-h-screen">
@@ -236,7 +251,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           itemsCount={menuItems.length}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          onAddNew={() => setShowForm(true)}
+          onAddNew={handleAddNew}
           currency={currency}
           onCurrencyChange={onCurrencyChange}
           menuItems={menuItems}
@@ -244,10 +259,12 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           onMenuItemsChange={handleBulkImport}
           onMenuItemsAppend={handleBulkAppend}
           onCategoriesChange={setDynamicCategories}
+          planDetails={planDetails}
+          onUpgradeClick={() => setShowUpgradeModal(true)}
         />
 
         <MenuMobileNavbar 
-          onAddNew={() => setShowForm(true)}
+          onAddNew={handleAddNew}
           activeItem={activeItem}
           setActiveItem={setActiveItem}
           navigate={navigate}
@@ -258,6 +275,24 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           restaurantId={currentRid}
           onMenuItemsChange={handleBulkImport}
           onMenuItemsAppend={handleBulkAppend}
+          planDetails={planDetails}
+          onUpgradeClick={() => setShowUpgradeModal(true)}
+        />
+
+        {/* Upgrade Plan Modal */}
+        <UpgradePlanModal 
+          open={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          currentPlanName={planDetails.name}
+          limitType="menu"
+          currentUsage={menuItems.length}
+          maxLimit={planDetails.menuItemLimit}
+          restaurantId={currentRid}
+          merchantName="Restaurant Admin"
+          onUpgradeSuccess={() => {
+            setShowUpgradeModal(false)
+            toast.success('🎉 Plan Upgraded Successfully! Catalog limits expanded.')
+          }}
         />
 
         <div className="p-4 md:p-8 pb-24 md:pb-8 space-y-6 md:space-y-8">

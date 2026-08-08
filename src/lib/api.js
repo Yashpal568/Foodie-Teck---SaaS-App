@@ -552,46 +552,63 @@ export const saveGstSettings = async (restaurantId, gstData) => {
 // ORDERS
 // ═══════════════════════════════════════════════════════════════
 
-/** Create a new order with its items */
+/** Create a new order with its items in Supabase DB */
 export const createOrder = async (orderData) => {
+  // 0. Resolve restaurantId (UUID or Email)
+  let targetRid = orderData.restaurantId
+  if (targetRid && targetRid.includes('@')) {
+    const profile = await getRestaurantByEmail(targetRid)
+    if (profile && profile.id) targetRid = profile.id
+  }
+
+  const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+  const validRestaurantId = isUUID(targetRid) ? targetRid : (await ensureValidRestaurantUUID(targetRid || 'demo-restaurant'))
+
+  // 1. Insert Order to Supabase DB table `orders`
   const { data: order, error } = await supabase
     .from('orders')
     .insert({
-      restaurant_id: orderData.restaurantId,
-      table_number: String(orderData.tableNumber),
-      customer_name: orderData.customerName || 'Guest',
+      restaurant_id: validRestaurantId,
+      table_number: String(orderData.tableNumber || 'N/A'),
+      customer_name: orderData.customerName || 'Guest Customer',
       status: 'PENDING',
-      subtotal: orderData.subtotal,
-      tax: orderData.tax || 0,
-      total: orderData.total,
-      gst_rate: orderData.gstRate || 0,
+      subtotal: Number(orderData.subtotal || 0),
+      tax: Number(orderData.tax || 0),
+      total: Number(orderData.total || 0),
+      gst_rate: Number(orderData.gstRate || 0),
       gst_label: orderData.gstLabel || 'GST',
       type: orderData.type || 'DINE-IN',
+      created_at: new Date().toISOString()
     })
     .select()
     .single()
 
-  if (error) throw error
-
-  // atomic sync to table session
-  if (orderData.type !== 'TAKE-AWAY') {
-     await supabase
-      .from('table_sessions')
-      .update({ 
-         status: 'occupied', 
-         customers: orderData.guests || 1, 
-         current_order_id: order.id,
-         session_start: new Date().toISOString(),
-         last_activity: new Date().toISOString()
-      })
-      .eq('restaurant_id', orderData.restaurantId)
-      .eq('table_number', parseInt(orderData.tableNumber))
+  if (error) {
+    console.error('❌ Supabase Order Insertion Error:', error)
+    throw error
   }
 
-  // Insert order line items
-  if (orderData.items && orderData.items.length > 0) {
-    const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+  console.log('✅ Supabase Order Created Successfully:', order)
 
+  // 2. Sync to table session
+  if (orderData.type !== 'TAKE-AWAY' && orderData.tableNumber) {
+    try {
+      await supabase
+        .from('table_sessions')
+        .update({ 
+           status: 'occupied', 
+           customers: orderData.guests || 1, 
+           current_order_id: order.id,
+           session_start: new Date().toISOString(),
+           last_activity: new Date().toISOString()
+        })
+        .eq('restaurant_id', validRestaurantId)
+        .eq('table_number', parseInt(orderData.tableNumber))
+    } catch (e) {}
+  }
+
+  // 3. Insert order line items into Supabase DB table `order_items`
+  if (orderData.items && orderData.items.length > 0) {
     const lineItems = orderData.items.map(item => {
       const rawId = item._id || item.id
       return {
@@ -608,6 +625,42 @@ export const createOrder = async (orderData) => {
       .insert(lineItems)
 
     if (itemsError) console.error('Error inserting order items:', itemsError)
+  }
+
+  // 4. Insert notification entry into Supabase DB table `notifications`
+  try {
+    const itemsSummary = orderData.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || 'Items'
+    await supabase.from('notifications').insert({
+      restaurant_id: validRestaurantId,
+      type: 'new_order',
+      title: '🔔 New Order Received',
+      message: `Order #${order.id.slice(-6)} from Table ${orderData.tableNumber || '?'}: ${orderData.customerName || 'Guest'} (${itemsSummary})`,
+      order_id: order.id,
+      table_number: String(orderData.tableNumber || '?'),
+      is_read: false,
+      created_at: new Date().toISOString()
+    })
+  } catch (e) {
+    console.warn('Notice: Notification insert notice:', e)
+  }
+
+  // 5. Trigger live local event, cross-tab storage broadcast & toast popup alert
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('servora_latest_order', JSON.stringify({
+        ...order,
+        restaurant_id: validRestaurantId,
+        itemsCount: orderData.items?.length || 1,
+        _broadcast_ts: Date.now()
+      }))
+    } catch (e) {}
+
+    window.dispatchEvent(new CustomEvent('servora_new_order', { detail: order }))
+    if (window['toast']) {
+      window['toast'].success(`🔔 New Order #${order.id.slice(-6)} Received!`, {
+        description: `Table ${orderData.tableNumber || '?'} • ${orderData.customerName || 'Guest'} (₹${orderData.total})`
+      })
+    }
   }
 
   return order
@@ -822,22 +875,31 @@ export const getMenuItems = async (restaurantId) => {
 
 /** Get floor plan (tables) */
 export const getTableSessions = async (restaurantId) => {
+  const validId = await ensureValidRestaurantUUID(restaurantId)
+  if (!validId) return []
+
   const { data, error } = await supabase
     .from('table_sessions')
     .select('*')
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', validId)
     .order('table_number', { ascending: true })
   
-  if (error) throw error
-  return data
+  if (error) {
+    console.warn('getTableSessions notice:', error)
+    return []
+  }
+  return data || []
 }
 
 /** Update Table Status (Resilient Upsert) */
 export const updateTableStatus = async (restaurantId, tableNumber, updates) => {
+  const validId = await ensureValidRestaurantUUID(restaurantId)
+  if (!validId) return null
+
   const { data, error } = await supabase
     .from('table_sessions')
     .upsert({
-      restaurant_id: restaurantId,
+      restaurant_id: validId,
       table_number: parseInt(tableNumber),
       ...updates,
       last_activity: new Date().toISOString()
@@ -851,10 +913,13 @@ export const updateTableStatus = async (restaurantId, tableNumber, updates) => {
 
 /** 🛎️ Request Waiter Service */
 export const requestWaiter = async (restaurantId, tableNumber, customerName = 'Guest') => {
+  const validId = await ensureValidRestaurantUUID(restaurantId)
+  if (!validId) return null
+
   const { data, error } = await supabase
     .from('waiter_calls')
     .insert({
-      restaurant_id: restaurantId,
+      restaurant_id: validId,
       table_number: String(tableNumber),
       customer_name: customerName,
       is_handled: false,
@@ -869,10 +934,13 @@ export const requestWaiter = async (restaurantId, tableNumber, customerName = 'G
 
 /** Sync Table Session Record */
 export const syncTableSession = async (restaurant_id, tableData) => {
+  const validId = await ensureValidRestaurantUUID(restaurant_id)
+  if (!validId) return null
+
   const { data, error } = await supabase
     .from('table_sessions')
     .upsert({
-      restaurant_id,
+      restaurant_id: validId,
       table_number: parseInt(tableData.tableNumber),
       status: tableData.status || 'available',
       customers: tableData.customers || 0,
@@ -887,49 +955,107 @@ export const syncTableSession = async (restaurant_id, tableData) => {
   return data
 }
 
-/** Get QR Codes */
+/** Get QR Codes directly from Supabase with LocalStorage fallback */
 export const getQRCodes = async (restaurantId) => {
-  const { data, error } = await supabase
-    .from('qr_codes')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .order('table_number', { ascending: true })
-  
-  if (error) throw error
-  return data
+  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+  if (!validId) return []
+
+  try {
+    const { data, error } = await supabase
+      .from('qr_codes')
+      .select('*')
+      .eq('restaurant_id', validId)
+      .order('table_number', { ascending: true })
+    
+    if (!error && data && data.length > 0) {
+      try {
+        localStorage.setItem(`servora_qr_codes_${validId}`, JSON.stringify(data))
+        if (restaurantId && restaurantId !== validId) {
+          localStorage.setItem(`servora_qr_codes_${restaurantId}`, JSON.stringify(data))
+        }
+      } catch (e) {}
+      return data
+    }
+  } catch (err) {
+    console.warn('getQRCodes Supabase query notice:', err)
+  }
+
+  // Resilient LocalStorage Cache Fallback
+  try {
+    const cached = localStorage.getItem(`servora_qr_codes_${validId}`) || 
+                   localStorage.getItem(`servora_qr_codes_${restaurantId}`)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+      }
+    }
+  } catch (e) {}
+
+  return []
 }
 
-/** Bulk Save QR Codes (Cloud Sync) */
+/** Bulk Save QR Codes (Cloud Sync to Supabase + LocalStorage Cache) */
 export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
   if (!qrCodes || qrCodes.length === 0) return
   
-  // 1. Sync QR Codes
-  const qrPayloads = qrCodes.map(qr => ({
-    restaurant_id: restaurantId,
-    table_number: parseInt(qr.tableNumber),
-    url: qr.url,
-    created_at: qr.generatedAt || new Date().toISOString()
-  }))
+  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+  if (!validId) return
 
-  const { error: qrError } = await supabase
-    .from('qr_codes')
-    .upsert(qrPayloads, { onConflict: 'restaurant_id, table_number' })
+  // Cache in LocalStorage immediately for instant offline & UI restore
+  try {
+    localStorage.setItem(`servora_qr_codes_${validId}`, JSON.stringify(qrCodes))
+    if (restaurantId && restaurantId !== validId) {
+      localStorage.setItem(`servora_qr_codes_${restaurantId}`, JSON.stringify(qrCodes))
+    }
+  } catch (e) {}
 
-  if (qrError) throw qrError
+  try {
+    // 1. Sync QR Codes table in Supabase
+    const qrPayloads = qrCodes.map(qr => ({
+      restaurant_id: validId,
+      table_number: parseInt(qr.tableNumber),
+      url: qr.url || `${window.location.origin}/menu?restaurant=${validId}&table=${qr.tableNumber}`,
+      created_at: qr.generatedAt || new Date().toISOString()
+    }))
 
-  // 2. Initialize Table Sessions (Ensures Dashboard/Floor plan visibility)
-  const sessionPayloads = qrCodes.map(qr => ({
-    restaurant_id: restaurantId,
-    table_number: parseInt(qr.tableNumber),
-    status: 'available',
-    last_activity: new Date().toISOString()
-  }))
+    // Delete any old extra records if count changed
+    await supabase
+      .from('qr_codes')
+      .delete()
+      .eq('restaurant_id', validId)
+      .not('table_number', 'in', `(${qrCodes.map(q => parseInt(q.tableNumber)).join(',')})`)
 
-  const { error: sessionError } = await supabase
-    .from('table_sessions')
-    .upsert(sessionPayloads, { onConflict: 'restaurant_id, table_number' })
+    const { error: qrError } = await supabase
+      .from('qr_codes')
+      .upsert(qrPayloads, { onConflict: 'restaurant_id, table_number' })
 
-  if (sessionError) throw sessionError
+    if (qrError) console.warn('QR code cloud upsert warning:', qrError)
+
+    // 2. Initialize / Upsert Table Sessions (Ensures Dashboard/Floor plan visibility)
+    const sessionPayloads = qrCodes.map(qr => ({
+      restaurant_id: validId,
+      table_number: parseInt(qr.tableNumber),
+      status: 'available',
+      customers: 0,
+      last_activity: new Date().toISOString()
+    }))
+
+    // Delete any excess table sessions
+    await supabase
+      .from('table_sessions')
+      .delete()
+      .eq('restaurant_id', validId)
+      .not('table_number', 'in', `(${qrCodes.map(q => parseInt(q.tableNumber)).join(',')})`)
+
+    const { error: sessionError } = await supabase
+      .from('table_sessions')
+      .upsert(sessionPayloads, { onConflict: 'restaurant_id, table_number' })
+
+    if (sessionError) console.warn('Table session cloud upsert warning:', sessionError)
+  } catch (err) {
+    console.error('bulkSaveQRCodes error:', err)
+  }
 
   return true
 }

@@ -106,7 +106,7 @@ export default function RegisterPage() {
              price: planObj.price,
              status: 'PENDING_PAYMENT',
              start_date: new Date().toISOString()
-          }, { onConflict: 'restaurant_id' }).catch(() => {})
+          }, { onConflict: 'restaurant_id' })
           sessionStorage.removeItem('intended_plan')
        } catch (err) {
           console.warn('Failed to save intended plan on register:', err)

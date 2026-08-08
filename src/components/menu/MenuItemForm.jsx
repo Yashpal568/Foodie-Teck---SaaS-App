@@ -61,18 +61,24 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
     e.preventDefault()
     
     const menuItemData = {
-      ...formData,
+      _id: item?._id || item?.id || undefined,
+      tempPhoto: undefined,
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      type: formData.type,
+      isInStock: formData.isInStock,
+      photo: formData.photo,
       price: parseFloat(formData.price),
-      restaurantId: 'restaurant-123', // Static for now
+      restaurantId: 'restaurant-123',
       createdAt: item?.createdAt || new Date(),
       updatedAt: new Date()
     }
 
     if (item) {
-      menuItemData._id = item._id
       // Save image to storage engine if it exists and is new
       if (formData.photo && formData.photo !== item.photo) {
-        ImageStorage.saveImage(item._id, formData.photo)
+        ImageStorage.saveImage(item._id || item.id, formData.photo)
       }
     } else {
       // For new items, we'll save the image after getting the ID from parent

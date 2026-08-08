@@ -35,9 +35,13 @@ export default function MenuMobileNavbar({
   menuItems,
   onMenuItemsChange,
   onMenuItemsAppend,
-  restaurantId
+  restaurantId,
+  planDetails,
+  onUpgradeClick
 }) {
-  
+  const maxLimit = planDetails?.menuItemLimit || 25
+  const isNearLimit = (menuItems?.length || 0) >= maxLimit
+
   const handleNavigation = (item) => {
     setActiveItem(item.id)
     navigate(item.route)
@@ -128,15 +132,29 @@ export default function MenuMobileNavbar({
            </DropdownMenu>
         </div>
         
-        <div className="h-8 w-[1px] bg-gray-200 mx-0.5 hidden sm:block" />
+        <div className="flex items-center gap-1.5">
+           <div className="flex items-center px-2 py-1 bg-blue-50/80 border border-blue-100 rounded-lg text-[10px] font-bold text-blue-700">
+             <span>{menuItems?.length || 0}</span>
+             <span className="text-slate-400 font-normal">/{maxLimit >= 9999 ? '∞' : maxLimit}</span>
+           </div>
 
-        <Button 
-          onClick={onAddNew} 
-          size="icon" 
-          className="h-10 w-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-lg shadow-orange-600/30 transition-all border-none shrink-0"
-        >
-          <Plus className="w-5 h-5" />
-        </Button>
+           {planDetails?.name === 'Starter' && (
+             <button
+               onClick={onUpgradeClick}
+               className="h-8 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold"
+             >
+               Upgrade
+             </button>
+           )}
+
+           <Button 
+             onClick={onAddNew} 
+             size="icon" 
+             className="h-9 w-9 bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-md shadow-orange-600/30 transition-all border-none shrink-0"
+           >
+             <Plus className="w-4 h-4" />
+           </Button>
+         </div>
       </div>
     </div>
   )

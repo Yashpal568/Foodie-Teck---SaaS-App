@@ -1,7 +1,7 @@
-# Foodie-Tech MongoDB Database Schema
+# Servora (Foodie-Tech) Supabase Database Schema
 
 ## Overview
-This document contains the complete database schema for the Foodie-Tech restaurant ordering system using MongoDB Atlas.
+This document contains the complete database schema for the Servora restaurant operating platform powered by Supabase Cloud PostgreSQL and Supabase Realtime.
 
 ---
 

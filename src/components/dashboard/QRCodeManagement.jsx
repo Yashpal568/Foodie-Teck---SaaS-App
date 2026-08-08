@@ -25,40 +25,18 @@ const blobToBase64 = (blob) => {
   })
 }
 
-// QR Code generator using QRServer API
-const generateQRCode = async (restaurantId, tableNumber) => {
+// Fast, instant QR Code generator using standard QRServer API URL
+const generateQRCode = (restaurantId, tableNumber) => {
   const url = `${window.location.origin}/menu?restaurant=${restaurantId}&table=${tableNumber}`
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
   
-  try {
-    const response = await fetch(qrApiUrl)
-    if (!response.ok) throw new Error('Failed to generate QR code')
-    
-    const blob = await response.blob()
-    const qrImageUrl = URL.createObjectURL(blob)
-    const qrDataUrl = await blobToBase64(blob)
-    
-    return {
-      url,
-      qrImageUrl,
-      qrDataUrl, // Store base64 data URL for persistence
-      qrBlob: blob,
-      tableNumber,
-      restaurantId,
-      generatedAt: new Date().toISOString()
-    }
-  } catch (error) {
-    console.error('Error generating QR code:', error)
-    // Fallback to placeholder
-    return {
-      url,
-      qrImageUrl: null,
-      qrDataUrl: null,
-      qrBlob: null,
-      tableNumber,
-      restaurantId,
-      generatedAt: new Date().toISOString()
-    }
+  return {
+    url,
+    qrImageUrl,
+    qrDataUrl: qrImageUrl,
+    tableNumber: Number(tableNumber),
+    restaurantId,
+    generatedAt: new Date().toISOString()
   }
 }
 
@@ -73,19 +51,32 @@ const saveQRCodesToStorage = async (restaurantId, qrCodes) => {
   }
 }
 
-// Load QR codes from Supabase
+import UpgradePlanModal from './UpgradePlanModal'
+import { getPlanDetails } from '@/utils/planLimits'
+
+// Load QR codes from Supabase with LocalStorage fallback
 const loadQRCodesFromStorage = async (restaurantId) => {
   try {
     if (!restaurantId) return []
-    const { data } = await supabase.from('qr_codes').select('*').eq('restaurant_id', restaurantId)
+    const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+    const { data } = await supabase.from('qr_codes').select('*').eq('restaurant_id', validId).order('table_number', { ascending: true })
     if (data && data.length > 0) {
        return data.map(q => ({
-          url: q.url || `${window.location.origin}/menu?restaurant=${restaurantId}&table=${q.table_number}`,
-          qrDataUrl: q.qr_data_url || q.image_url,
+          url: q.url || `${window.location.origin}/menu?restaurant=${validId}&table=${q.table_number}`,
+          qrDataUrl: q.qr_data_url || q.image_url || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(q.url || `${window.location.origin}/menu?restaurant=${validId}&table=${q.table_number}`)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`,
           tableNumber: q.table_number,
           restaurantId: q.restaurant_id,
           generatedAt: q.created_at
        }))
+    }
+
+    // LocalStorage fallback
+    const cached = localStorage.getItem(`servora_qr_codes_${validId}`) || localStorage.getItem(`servora_qr_codes_${restaurantId}`)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+      }
     }
   } catch (error) {
     console.error('Error loading QR codes from Supabase:', error)
@@ -93,59 +84,84 @@ const loadQRCodesFromStorage = async (restaurantId) => {
   return []
 }
 
-export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan }) {
-  const tableLimit = plan?.name === 'Enterprise' ? 1000 : plan?.name === 'Professional' ? 30 : 10
-  const [restaurantId, setRestaurantId] = useState(getCachedRestaurantId())
+export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan, restaurantId: propRestaurantId }) {
+  const planDetails = getPlanDetails(plan?.name)
+  const tableLimit = planDetails.tableLimit
+  const initialRid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'test2@gmail.com'
+  const [restaurantId, setRestaurantId] = useState(initialRid)
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState('idle')
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
-  // Initial ID Fixer: If we only have an email, go get the UUID
+  // Synchronously initialize QR codes from cache for instantaneous render
+  const getInitialQRs = () => {
+    try {
+      const rid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'test2@gmail.com'
+      const cached = localStorage.getItem(`servora_qr_codes_${rid}`) || 
+                     localStorage.getItem(`servora_qr_codes_test2@gmail.com`) ||
+                     Object.keys(localStorage).filter(k => k.startsWith('servora_qr_codes_')).map(k => localStorage.getItem(k)).find(Boolean)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(qr => ({
+            ...qr,
+            qrImageUrl: qr.qrDataUrl || qr.qrImageUrl || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr.url || '')}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`,
+            qrBlob: null
+          }))
+        }
+      }
+    } catch (e) {}
+    return []
+  }
+
+  const initialQRs = getInitialQRs()
+  const [tableCount, setTableCount] = useState(initialQRs.length > 0 ? initialQRs.length : (tableLimit > 10 ? tableLimit : 10))
+  const [qrCodes, setQrCodes] = useState(initialQRs)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [activeTab, setActiveTab] = useState(initialQRs.length > 0 ? 'manage' : 'generate')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Initial ID Fixer: Fetch valid UUID
   useEffect(() => {
     const repairSession = async () => {
-      if (!restaurantId || restaurantId.includes('@')) {
-        console.log('Detected legacy ID (email). Fetching UUID...')
-        const profile = await getMyRestaurant()
-        if (profile) {
-          setRestaurantId(profile.id)
+      const target = propRestaurantId || restaurantId || getCachedRestaurantId()
+      if (target) {
+        const uuid = await ensureValidRestaurantUUID(target)
+        if (uuid) {
+          setRestaurantId(uuid)
         }
       }
     }
     repairSession()
-  }, [])
+  }, [propRestaurantId])
 
-  const [tableCount, setTableCount] = useState(tableLimit > 10 ? 10 : tableLimit)
-  const [qrCodes, setQrCodes] = useState([])
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [activeTab, setActiveTab] = useState('generate')
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
-  // Load QR codes from Supabase on component mount
+  // Load QR codes on component mount and whenever restaurantId changes
   useEffect(() => {
+    let isMounted = true
     const loadData = async () => {
       if (!restaurantId) return
       const savedQRCodes = await loadQRCodesFromStorage(restaurantId)
-      if (savedQRCodes && savedQRCodes.length > 0) {
+      if (isMounted && savedQRCodes && savedQRCodes.length > 0) {
         const restoredQRCodes = savedQRCodes.map(qr => ({
           ...qr,
-          qrImageUrl: qr.qrDataUrl,
+          qrImageUrl: qr.qrDataUrl || qr.qrImageUrl || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr.url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`,
           qrBlob: null
         }))
         setQrCodes(restoredQRCodes)
         setTableCount(savedQRCodes.length)
+        setActiveTab('manage')
       }
     }
     loadData()
+    return () => { isMounted = false }
   }, [restaurantId])
 
   // Sync QR codes with database whenever they change
   useEffect(() => {
-    if (qrCodes.length > 0) {
+    if (qrCodes.length > 0 && restaurantId) {
       saveQRCodesToStorage(restaurantId, qrCodes)
       // Emit event to notify TableSessions component
       window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes } }))
-    } else {
-      // Also emit event when QR codes are cleared
-      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: [] } }))
     }
   }, [qrCodes, restaurantId])
 
@@ -160,11 +176,6 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     } catch (error) {
       console.error('Cloud Sync Error:', error)
       setSyncStatus('idle')
-      if (error.code === '42501' || error.status === 403) {
-        alert('CRITICAL: Supabase RLS Violation! Your "qr_codes" table is locked. Please enable "INSERT" and "UPDATE" permissions for researchers/owners in your Supabase dashboard SQL Editor.')
-      } else {
-        alert(`Cloud Sync Failed: ${error.message || 'Check connection'}`)
-      }
     } finally {
       setIsSyncing(false)
     }
@@ -172,26 +183,28 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
   const generateAllQRCodes = async () => {
     if (tableCount > tableLimit) {
-      alert(`Your current plan only supports up to ${tableLimit} tables.`)
+      setShowUpgradeModal(true)
       return
     }
     setIsGenerating(true)
     try {
+      const activeRid = restaurantId || (await ensureValidRestaurantUUID(propRestaurantId || 'test2@gmail.com'))
       const codes = []
       for (let i = 1; i <= tableCount; i++) {
-        const qrCode = await generateQRCode(restaurantId, i)
+        const qrCode = await generateQRCode(activeRid, i)
         codes.push(qrCode)
       }
       setQrCodes(codes)
+      setActiveTab('manage')
       
-      // SYNC TO CLOUD IMMEDIATELY
-      await handleSyncToCloud(codes)
+      // SYNC TO CLOUD & LOCAL STORAGE IMMEDIATELY
+      await bulkSaveQRCodes(activeRid, codes)
       
       console.log('Generated and Synced QR codes:', codes.length, 'codes')
       // Emit event to notify TableSessions component
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: codes } }))
-      }, 100)
+      }, 50)
     } catch (error) {
       console.error('Error generating QR codes:', error)
     } finally {
@@ -318,6 +331,21 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
             {/* Action Tools */}
             <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex items-center gap-1.5 mr-2">
+                <Badge variant="outline" className="h-9 px-3 text-xs font-bold border-indigo-200 bg-indigo-50 text-indigo-800 flex items-center gap-1">
+                  <span>{qrCodes.length} / {tableLimit >= 9999 ? '∞' : tableLimit} Tables</span>
+                </Badge>
+
+                {planDetails?.name === 'Starter' && (
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                  >
+                    <span>⚡ Upgrade</span>
+                  </button>
+                )}
+              </div>
+
               <Badge 
                 variant="outline" 
                 className={`h-9 px-3 text-xs font-semibold transition-all ${syncStatus === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-purple-700 border-purple-200 bg-purple-50/50'}`}
@@ -608,6 +636,21 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Upgrade Plan Modal */}
+      <UpgradePlanModal 
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        currentPlanName={planDetails.name}
+        limitType="tables"
+        currentUsage={qrCodes.length}
+        maxLimit={tableLimit}
+        restaurantId={restaurantId}
+        merchantName="Restaurant Admin"
+        onUpgradeSuccess={() => {
+          setShowUpgradeModal(false)
+        }}
+      />
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ import Navbar from './Navbar'
 import MobileNavbar from './MobileNavbar'
 import OrderNotification from '../dashboard/OrderNotification'
 
-export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange, restaurantId }) {
+export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange, restaurantId, plan, onUpgradeClick }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
@@ -30,6 +30,8 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
             currency={currency}
             onCurrencyChange={onCurrencyChange}
             restaurantId={restaurantId}
+            plan={plan}
+            onUpgradeClick={onUpgradeClick}
           />
         </div>
         <main className="flex-1 overflow-auto pb-20 lg:pb-0">

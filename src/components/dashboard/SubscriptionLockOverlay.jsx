@@ -171,7 +171,7 @@ export default function SubscriptionLockOverlay({
         schema: 'public', 
         table: 'subscriptions'
       }, (payload) => {
-        const status = payload.new?.status
+        const status = payload?.new ? payload.new['status'] : undefined
         if (status === 'Approved' || status === 'Active') {
           setIsApproved(true)
           if (onCheckStatus) onCheckStatus()

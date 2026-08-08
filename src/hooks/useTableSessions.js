@@ -43,7 +43,7 @@ export const useTableSessions = (restaurantId) => {
 
     refreshTables()
 
-    // Real-time subscription
+    // Real-time subscription to table_sessions & orders
     const channel = supabase
       .channel(`public:table_sessions:rid=${resolvedId}`)
       .on(
@@ -58,10 +58,32 @@ export const useTableSessions = (restaurantId) => {
           refreshTables()
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${resolvedId}`
+        },
+        () => {
+          refreshTables()
+        }
+      )
       .subscribe()
+
+    const handleNewOrder = () => refreshTables()
+    const handleStorage = (e) => {
+      if (e.key === 'servora_latest_order') refreshTables()
+    }
+
+    window.addEventListener('servora_new_order', handleNewOrder)
+    window.addEventListener('storage', handleStorage)
 
     return () => {
       supabase.removeChannel(channel)
+      window.removeEventListener('servora_new_order', handleNewOrder)
+      window.removeEventListener('storage', handleStorage)
     }
   }, [resolvedId, refreshTables])
 

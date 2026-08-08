@@ -33,6 +33,49 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
   useEffect(() => {
     if (!resolvedId) return
 
+    const playChime = () => {
+      try {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+        audio.play().catch(() => {})
+      } catch (e) {}
+    }
+
+    const handleNewOrder = (order) => {
+      console.log('🍞 Fresh Order for Toast:', order)
+      const itemsCount = order.items_count || order.itemsCount || 
+                        (Array.isArray(order.items) ? order.items.length : 0) || 1
+
+      playChime()
+      setToast({
+        id: order.id,
+        type: 'order',
+        tableNumber: order.table_number || order.tableNumber || '?',
+        customerName: order.customer_name || order.customerName || 'Guest',
+        itemsCount: itemsCount,
+        total: order.total || 0,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+
+      setTimeout(() => setToast(current => current?.id === order.id ? null : current), 8000)
+    }
+
+    // ── Local Window Custom Event & Cross-Tab Storage Event ──
+    const customEventListener = (e) => {
+      if (e.detail) handleNewOrder(e.detail)
+    }
+    const storageListener = (e) => {
+      if (e.key === 'servora_latest_order' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (parsed && (!parsed.restaurant_id || String(parsed.restaurant_id) === String(resolvedId))) {
+            handleNewOrder(parsed)
+          }
+        } catch (err) {}
+      }
+    }
+    window.addEventListener('servora_new_order', customEventListener)
+    window.addEventListener('storage', storageListener)
+
     // ── 1. Order Subscription ──
     const orderChannel = supabase
       .channel(`order-toasts:rid=${resolvedId}`)
@@ -44,24 +87,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
           table: 'orders',
           filter: `restaurant_id=eq.${resolvedId}`
         },
-        (payload) => {
-          console.log('🍞 Fresh Order for Toast:', payload)
-          const order = payload.new
-          const itemsCount = order.items_count || order.itemsCount || 
-                            (Array.isArray(order.items) ? order.items.length : 0) || 1
-
-          setToast({
-            id: order.id,
-            type: 'order',
-            tableNumber: order.table_number || order.tableNumber || '?',
-            customerName: order.customer_name || order.customerName || 'Guest',
-            itemsCount: itemsCount,
-            total: order.total || 0,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-
-          setTimeout(() => setToast(current => current?.id === order.id ? null : current), 8000)
-        }
+        (payload) => handleNewOrder(payload.new)
       )
       .subscribe()
 
@@ -94,6 +120,8 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       .subscribe()
 
     return () => {
+      window.removeEventListener('servora_new_order', customEventListener)
+      window.removeEventListener('storage', storageListener)
       supabase.removeChannel(orderChannel)
       supabase.removeChannel(waiterChannel)
     }

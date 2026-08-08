@@ -76,6 +76,7 @@ export default function AdminRevenuePage() {
   const [platformRawData, setPlatformRawData] = useState({
      restaurants: [],
      subscriptions: [],
+     pendingVerifications: [],
      paymentVerifications: []
   })
 
@@ -241,7 +242,7 @@ export default function AdminRevenuePage() {
       try {
           setLoading(true)
           const platformData = await getAdminPlatformData()
-          setPlatformRawData(platformData)
+          setPlatformRawData({ paymentVerifications: [], ...platformData })
           
           const rawSubs = platformData.subscriptions || []
           const rawUsers = platformData.restaurants || []

@@ -29,7 +29,7 @@ import AdminSupportPage from './pages/admin/AdminSupportPage'
 import MaintenanceNode from './pages/MaintenanceNode'
 import { Toaster, toast } from 'sonner'
 if (typeof window !== 'undefined') {
-  window.toast = toast
+  window['toast'] = toast
 }
 import { supabase } from './lib/supabase'
 

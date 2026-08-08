@@ -51,7 +51,7 @@ function DropdownMenuGroup({
 
 function DropdownMenuItem({
   className,
-  inset,
+  inset = false,
   variant = "default",
   ...props
 }) {
