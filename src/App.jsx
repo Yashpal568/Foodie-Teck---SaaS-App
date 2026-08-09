@@ -5,6 +5,7 @@ import CustomerMenu from './pages/CustomerMenu'
 import DocumentationPage from './pages/DocumentationPage'
 import ReleaseNotesPage from './pages/ReleaseNotesPage'
 import VideoTutorialsPage from './pages/VideoTutorialsPage'
+import SubscriptionLockOverlay from './components/dashboard/SubscriptionLockOverlay'
 
 import MarketingLayout from './layouts/MarketingLayout'
 import LandingPage from './pages/marketing/LandingPage'
@@ -88,6 +89,7 @@ function App() {
           <Route path="/internal-docs" element={<DocumentationPage />} />
           <Route path="/releases" element={<ReleaseNotesPage />} />
           <Route path="/tutorials" element={<VideoTutorialsPage />} />
+          <Route path="/preview/lock" element={<SubscriptionLockOverlay pendingApproval={true} utrNumber="789789789789" planName="Professional" restaurantId="preview-node" merchantName="The Royal Bistro" />} />
 
           {/* Protected System Administrator Area */}
           <Route path="/admin/login" element={<AdminLoginPage />} />

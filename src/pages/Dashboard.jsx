@@ -170,14 +170,38 @@ function Dashboard() {
           setIsExpired(false)
         }
       } else {
-         // No subscription record exists yet for this restaurant
-         setSubDetails({
-            pendingApproval: false,
-            utrNumber: '',
-            status: 'NO_SUBSCRIPTION'
-         })
-         setPlan({ name: 'Professional', purchaseDate: new Date() })
-         setIsExpired(true)
+         // No active subscription record in subscriptions table - check payment_verifications
+         let pendingVerif = null
+         try {
+           const { data: verif } = await supabase
+             .from('payment_verifications')
+             .select('*')
+             .or(targetQuery)
+             .order('created_at', { ascending: false })
+             .limit(1)
+             .maybeSingle()
+           if (verif && (verif.status === 'PENDING_APPROVAL' || verif.status === 'PENDING' || verif.status === 'pending')) {
+             pendingVerif = verif
+           }
+         } catch (e) {}
+
+         if (pendingVerif) {
+           setSubDetails({
+              pendingApproval: true,
+              utrNumber: pendingVerif.utr_number || '',
+              status: 'PENDING_APPROVAL'
+           })
+           setPlan({ name: pendingVerif.plan_name || 'Starter', purchaseDate: pendingVerif.created_at })
+           setIsExpired(true)
+         } else {
+           setSubDetails({
+              pendingApproval: false,
+              utrNumber: '',
+              status: 'NO_SUBSCRIPTION'
+           })
+           setPlan({ name: 'Professional', purchaseDate: new Date() })
+           setIsExpired(true)
+         }
       }
     } catch (err) {
       console.warn('verifyAuthAndPlan error:', err)

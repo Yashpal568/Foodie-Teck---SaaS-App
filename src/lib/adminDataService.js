@@ -46,14 +46,17 @@ export const getAdminPlatformData = async () => {
   // 3. Merge Restaurants
   const mergedRestaurantsMap = new Map()
   
-  // Add default system merchant if empty
-  mergedRestaurantsMap.set('demo-1', {
-    id: 'demo-1',
-    business_name: 'The Grand Royale Bistro',
-    email: 'bistro@servora.app',
-    status: 'Active',
-    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  })
+  // Only add default system demo merchant if database is completely empty
+  const hasRealRestaurants = (dbRestaurants && dbRestaurants.length > 0) || (localRestaurants && localRestaurants.length > 0)
+  if (!hasRealRestaurants) {
+    mergedRestaurantsMap.set('demo-1', {
+      id: 'demo-1',
+      business_name: 'The Grand Royale Bistro',
+      email: 'bistro@servora.app',
+      status: 'Active',
+      created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    })
+  }
 
   localRestaurants.forEach(r => {
     if (r?.id) mergedRestaurantsMap.set(r.id, r)
@@ -68,17 +71,20 @@ export const getAdminPlatformData = async () => {
   // 4. Merge Subscriptions (Local active status overrides stale DB pending status)
   const mergedSubsMap = new Map()
   
-  // Default active sub for demo merchant
-  mergedSubsMap.set('sub-demo-1', {
-    id: 'sub-demo-1',
-    restaurant_id: 'demo-1',
-    plan_name: 'Professional',
-    price: 2499,
-    status: 'Active',
-    start_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    end_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-    utr_number: '998877665544'
-  })
+  // Only add demo sub if database has no real subscriptions
+  const hasRealSubs = (dbSubscriptions && dbSubscriptions.length > 0) || (localSubscriptions && localSubscriptions.length > 0)
+  if (!hasRealSubs && !hasRealRestaurants) {
+    mergedSubsMap.set('sub-demo-1', {
+      id: 'sub-demo-1',
+      restaurant_id: 'demo-1',
+      plan_name: 'Professional',
+      price: 2499,
+      status: 'Active',
+      start_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+      end_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      utr_number: '998877665544'
+    })
+  }
 
   dbSubscriptions.forEach(s => {
     const key = s.id || s.restaurant_id

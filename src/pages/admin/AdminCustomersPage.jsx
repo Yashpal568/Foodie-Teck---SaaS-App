@@ -47,7 +47,18 @@ export default function AdminCustomersPage() {
 
     const mapped = restaurants.map((r) => {
        const plan = subscriptions.find(s => s.restaurant_id === r.id || s.restaurant_id === r.email)
-       const activeTier = plan ? (plan.plan_name || 'Professional') : 'Starter'
+       const rawTier = plan?.plan_name || 'Starter'
+       const tierUpper = rawTier.toUpperCase()
+       const displayPlan = tierUpper.includes('ENTERPRISE') || tierUpper.includes('PREMIUM') 
+         ? 'Enterprise' 
+         : tierUpper.includes('PRO') 
+           ? 'Professional' 
+           : 'Starter'
+       
+       const planPrice = plan?.price 
+         ? Number(plan.price).toLocaleString('en-IN') 
+         : (displayPlan === 'Enterprise' ? '4,999' : displayPlan === 'Professional' ? '2,499' : '999')
+
        const daysRemaining = plan && plan.end_date ? Math.ceil((new Date(plan.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 30
        const qrs = qrCodes.filter(q => q.restaurant_id === r.id).length
 
@@ -56,8 +67,8 @@ export default function AdminCustomersPage() {
           email: r.email || 'N/A',
           name: r.business_name || r.name || 'Servora Merchant',
           owner: r.email || 'N/A',
-          plan: (activeTier || 'Professional').toUpperCase(),
-          amount: activeTier === 'Enterprise' || activeTier === 'PREMIUM' ? '4,999' : activeTier === 'Professional' || activeTier === 'PRO' ? '2,499' : '999',
+          plan: displayPlan,
+          amount: planPrice,
           tables: qrs || 10,
           daysRemaining: daysRemaining > 0 ? daysRemaining : 30,
           status: r.status || 'Active',

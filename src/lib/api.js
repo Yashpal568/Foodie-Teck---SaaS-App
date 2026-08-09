@@ -1095,37 +1095,44 @@ export const getCustomers = async (restaurantId) => {
 // ─── Notifications ─────────────────────────────────────────────────────────
 
 export const fetchNotifications = async (restaurantId) => {
+  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+  if (!validId) return []
+
   const { data, error } = await supabase
     .from('notifications')
     .select('*')
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', validId)
     .order('created_at', { ascending: false })
     .limit(50)
   
   if (error) {
-    console.warn('fetchNotifications failed - returning empty array', error)
+    console.warn('fetchNotifications notice:', error)
     return []
   }
   return data || []
 }
 
 export const insertNotification = async (restaurantId, payload) => {
+  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+  if (!validId) return null
+
   const { data, error } = await supabase
     .from('notifications')
     .insert({
-      restaurant_id: restaurantId,
-      type: payload.type,
-      title: payload.title,
-      message: payload.message,
-      order_id: payload.orderId,
+      restaurant_id: validId,
+      type: payload.type || 'info',
+      title: payload.title || 'Notification',
+      message: payload.message || '',
+      order_id: payload.orderId || null,
       table_number: payload.tableNumber ? String(payload.tableNumber) : null,
-      is_read: false
+      is_read: false,
+      created_at: new Date().toISOString()
     })
     .select()
     .single()
   
   if (error) {
-    console.warn('insertNotification failed', error)
+    console.warn('insertNotification notice:', error)
     return null
   }
   return data
@@ -1140,17 +1147,21 @@ export const markNotificationRead = async (notificationId) => {
 }
 
 export const markAllNotificationsRead = async (restaurantId) => {
+  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+  if (!validId) return
   const { error } = await supabase
     .from('notifications')
     .update({ is_read: true })
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', validId)
 }
 
 export const clearNotifications = async (restaurantId) => {
+  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+  if (!validId) return
   const { error } = await supabase
     .from('notifications')
     .delete()
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', validId)
 }
 
 export const logPriceChange = recordPriceChange

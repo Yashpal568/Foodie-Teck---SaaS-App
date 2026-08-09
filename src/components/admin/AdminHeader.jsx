@@ -117,6 +117,33 @@ export default function AdminHeader({ onMenuClick }) {
         }
       })
 
+      // 4. Live Supabase Platform Notifications
+      try {
+        const { data: dbNotifs } = await supabase
+          .from('notifications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10)
+        
+        if (dbNotifs && dbNotifs.length > 0) {
+          dbNotifs.forEach(n => {
+            if (!aggregatedList.some(item => item.id === `notif-${n.id}`)) {
+              aggregatedList.push({
+                id: `notif-${n.id}`,
+                category: n.type === 'new_order' ? 'ORDERS' : 'SYSTEM',
+                title: n.title || 'Platform Notification',
+                desc: n.message || 'Notification received.',
+                timestamp: new Date(n.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                unread: !n.is_read,
+                route: '/admin/audit',
+                icon: Zap,
+                color: 'blue'
+              })
+            }
+          })
+        }
+      } catch (e) {}
+
       setNotifications(aggregatedList)
       setUnreadCount(aggregatedList.filter(n => n.unread).length)
     } catch (err) {
@@ -136,6 +163,7 @@ export default function AdminHeader({ onMenuClick }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_verifications' }, () => loadNotifications())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => loadNotifications())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => loadNotifications())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => loadNotifications())
       .subscribe()
 
     const handleKeyDown = (e) => {
@@ -395,7 +423,7 @@ export default function AdminHeader({ onMenuClick }) {
 
                 {/* Filter Tabs */}
                 <div className="flex items-center gap-1 mt-4 pt-3 border-t border-slate-800/80">
-                   {['ALL', 'PAYMENTS', 'MERCHANTS', 'SYSTEM'].map(tab => (
+                   {['ALL', 'PAYMENTS', 'MERCHANTS', 'ORDERS', 'SYSTEM'].map(tab => (
                       <button
                          key={tab}
                          onClick={() => setActiveTab(tab)}
