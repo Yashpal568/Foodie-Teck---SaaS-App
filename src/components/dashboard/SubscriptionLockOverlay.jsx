@@ -40,7 +40,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import Logo from '../ui/Logo'
+import Logo, { LogoIcon } from '../ui/Logo'
 import UPIPaymentModal from './UPIPaymentModal'
 import { supabase } from '@/lib/supabase'
 
@@ -206,15 +206,34 @@ export default function SubscriptionLockOverlay({
       }
 
       try {
-        const { data: sub } = await supabase
-          .from('subscriptions')
-          .select('status')
-          .or(`restaurant_id.eq.${restaurantId}${merchantEmail ? `,restaurant_id.eq.${merchantEmail}` : ''}`)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId || '')
+        let subData = null
 
-        if (sub && (sub.status === 'Approved' || sub.status === 'Active')) {
+        if (isUUID) {
+          const { data: sub } = await supabase
+            .from('subscriptions')
+            .select('status')
+            .eq('restaurant_id', restaurantId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          subData = sub
+        }
+
+        if (!subData && merchantEmail) {
+          const { data: pv } = await supabase
+            .from('payment_verifications')
+            .select('status')
+            .eq('email', merchantEmail)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (pv && (pv.status === 'Approved' || pv.status === 'Active')) {
+            subData = pv
+          }
+        }
+
+        if (subData && (subData.status === 'Approved' || subData.status === 'Active')) {
           setIsApproved(true)
           if (onCheckStatus) onCheckStatus()
           toast.success('🎉 Payment Verified & Approved!', {
@@ -226,8 +245,10 @@ export default function SubscriptionLockOverlay({
       } catch (e) {}
     }, 3500)
 
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId || '')
+    const channelName = isUUID ? `subscription_lock_${restaurantId}` : `subscription_lock_${Date.now()}`
     const channel = supabase
-      .channel(`public:subscription_lock_luxe_${restaurantId}`)
+      .channel(channelName)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -270,7 +291,8 @@ export default function SubscriptionLockOverlay({
 
   const silentCheckStatus = async () => {
     try {
-      if (restaurantId && restaurantId !== 'guest') {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId || '')
+      if (isUUID) {
         const { data: sub } = await supabase
           .from('subscriptions')
           .select('status')
@@ -293,7 +315,7 @@ export default function SubscriptionLockOverlay({
       
       try {
         const subs = JSON.parse(localStorage.getItem('servora_subscriptions') || '[]')
-        const matched = subs.find(s => s.restaurant_id === restaurantId || s.id === `sub-${restaurantId}`)
+        const matched = subs.find(s => s.restaurant_id === restaurantId || s.id === `sub-${restaurantId}` || (merchantEmail && s.restaurant_id === merchantEmail))
         if (matched && (matched.status === 'Approved' || matched.status === 'Active')) {
           setIsApproved(true)
           toast.success('Subscription Verified & Active!', { description: 'Opening restaurant dashboard...' })
@@ -302,7 +324,8 @@ export default function SubscriptionLockOverlay({
         }
       } catch (e) {}
 
-      if (restaurantId && restaurantId !== 'guest') {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId || '')
+      if (isUUID) {
         const { data: sub } = await supabase
           .from('subscriptions')
           .select('*')
@@ -310,6 +333,22 @@ export default function SubscriptionLockOverlay({
           .maybeSingle()
 
         if (sub && (sub.status === 'Approved' || sub.status === 'Active')) {
+          setIsApproved(true)
+          toast.success('Subscription Verified & Active!', { description: 'Opening restaurant dashboard...' })
+          setTimeout(() => window.location.reload(), 600)
+          return
+        }
+      }
+
+      if (merchantEmail) {
+        const { data: pv } = await supabase
+          .from('payment_verifications')
+          .select('*')
+          .eq('email', merchantEmail)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (pv && (pv.status === 'Approved' || pv.status === 'Active')) {
           setIsApproved(true)
           toast.success('Subscription Verified & Active!', { description: 'Opening restaurant dashboard...' })
           setTimeout(() => window.location.reload(), 600)
@@ -352,17 +391,15 @@ export default function SubscriptionLockOverlay({
       </div>
 
       {/* ── Executive Top Navbar Bar ── */}
-      <header className="w-full bg-white/85 backdrop-blur-xl border-b border-slate-200/90 px-6 sm:px-10 py-3 flex items-center justify-between sticky top-0 z-40 shadow-xs">
+      <header className="w-full bg-white/85 backdrop-blur-xl border-b border-slate-200/90 px-4 sm:px-10 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-40 shadow-xs">
         
         {/* Left Brand & Restaurant Identity */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm hover:scale-105 transition-transform">
-              <Logo iconSize={18} showText={false} />
-            </div>
-            <div>
-              <span className="font-extrabold text-sm tracking-tight text-slate-900">Servora</span>
-              <p className="text-[10px] font-medium text-slate-400">Restaurant Management</p>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <LogoIcon size={30} className="shrink-0 rounded-xl shadow-xs" />
+            <div className="flex flex-col">
+              <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-900 leading-tight">Servora</span>
+              <p className="text-[9px] sm:text-[10px] font-medium text-slate-400 leading-none">Restaurant Management</p>
             </div>
           </div>
 

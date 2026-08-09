@@ -1,14 +1,15 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-export const LogoIcon = ({ className = '', size = 36 }) => (
+export const LogoIcon = ({ className = '', size = 32 }) => (
   <svg 
     width={size} 
     height={size} 
     viewBox="0 0 96 96" 
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
-    className={className}
+    className={cn("shrink-0", className)}
+    style={{ minWidth: size, minHeight: size }}
   >
     <rect width="96" height="96" rx="20" fill="#EDE9FE"/>
     <rect x="12" y="12" width="22" height="22" rx="4" fill="none" stroke="#6C5CE7" strokeWidth="2.5"/>
@@ -36,12 +37,10 @@ export const LogoText = ({ className = '' }) => (
   </div>
 )
 
-export const Logo = ({ className = '', showText = true, subtitle = '', iconSize = 36 }) => {
+export const Logo = ({ className = '', showText = true, subtitle = '', iconSize = 32 }) => {
   return (
-    <div className={cn("flex items-center gap-2.5 sm:gap-3", className)}>
-      <div className="flex-shrink-0">
-        <LogoIcon size={iconSize} className="w-[28px] h-[28px] sm:w-[32px] sm:h-[32px] lg:w-[36px] lg:h-[36px]" />
-      </div>
+    <div className={cn("flex items-center gap-2.5 shrink-0", className)}>
+      <LogoIcon size={iconSize} />
       {showText && (
         <div className="flex flex-col">
           <LogoText className="text-xl sm:text-2xl leading-tight" />
