@@ -134,6 +134,8 @@ export default function UpgradePlanModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[580px] p-0 gap-0 bg-white border-0 shadow-2xl shadow-slate-900/15 rounded-3xl overflow-hidden [&>button]:hidden">
+          <DialogTitle className="sr-only">Upgrade Plan</DialogTitle>
+          <DialogDescription className="sr-only">Upgrade your current Servora plan.</DialogDescription>
           {/* Top gradient accent bar */}
           <div className="h-[3px] w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
 

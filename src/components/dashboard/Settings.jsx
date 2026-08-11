@@ -217,14 +217,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
         await saveGstSettings(targetRid, gstData)
 
-        if (securityData.newPassword) {
-          const { error: passError } = await supabase.auth.updateUser({
-            password: securityData.newPassword
-          })
-          if (passError) throw passError
-          setSecurityData(prev => ({ ...prev, currentPassword: '', newPassword: '' }))
-        }
-
         localStorage.setItem(`servora_notifs_${targetRid}`, JSON.stringify(notifications))
 
         showToast('Settings saved & synchronized successfully.', 'success')
@@ -232,6 +224,26 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     } catch (err) {
       console.error('Save failed:', err)
       showToast(`Save failed: ${err.message || 'Database update error.'}`, 'error')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handlePasswordUpdate = async () => {
+    if (!securityData.newPassword) return;
+    setIsSaving(true)
+    
+    try {
+      const { error: passError } = await supabase.auth.updateUser({
+        password: securityData.newPassword
+      })
+      if (passError) throw passError
+      
+      setSecurityData(prev => ({ ...prev, currentPassword: '', newPassword: '' }))
+      showToast('Password updated successfully.', 'success')
+    } catch (err) {
+      console.error('Password update failed:', err)
+      showToast(`Password update failed: ${err.message}`, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -338,7 +350,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
           <Tabs value={activeTab} onValueChange={setActiveTabState} className="h-full">
             <div className="h-full flex items-center">
-              <TabsList className="bg-slate-100/70 p-1 rounded-xl border border-slate-200/50 gap-1 h-11">
+              <TabsList className="bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/50 gap-1 h-14">
                 {[
                   { id: 'profile', label: 'Profile & Details', icon: User },
                   { id: 'notifications', label: 'Alerts', icon: Bell },
@@ -349,9 +361,9 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                   <TabsTrigger 
                     key={tab.id}
                     value={tab.id}
-                    className="px-4 rounded-lg border-none data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-all h-full"
+                    className="px-4 rounded-xl border-none data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm font-semibold text-xs transition-all duration-300 h-full text-slate-500 hover:text-slate-800"
                   >
-                    <tab.icon className="w-3.5 h-3.5 mr-2" /> {tab.label}
+                    <tab.icon className="w-4 h-4 mr-2" /> {tab.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -425,7 +437,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             <input type="file" ref={coverRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} />
             <input type="file" ref={profileRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
 
-            <Card className="border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden bg-white">
+            <Card className="border border-slate-200/60 shadow-sm rounded-3xl overflow-hidden bg-white">
               <div 
                 className="h-44 sm:h-52 bg-gradient-to-r from-indigo-600 via-purple-600 to-slate-800 relative overflow-hidden bg-center bg-cover transition-all"
                 style={{ backgroundImage: profileData.cover ? `url(${profileData.cover})` : 'none' }}
@@ -485,62 +497,62 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <Store className="w-3.5 h-3.5 text-indigo-500" /> Business / Restaurant Name
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Store className="w-4 h-4 text-indigo-500" /> Business / Restaurant Name
                     </Label>
                     <Input 
                       value={profileData.name} 
                       onChange={(e) => setProfileData({...profileData, name: e.target.value})}
                       placeholder="e.g. Royal Bistro"
-                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <Smartphone className="w-3.5 h-3.5 text-indigo-500" /> Phone Number
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Smartphone className="w-4 h-4 text-indigo-500" /> Phone Number
                     </Label>
                     <Input 
                       value={profileData.phone} 
                       onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
                       placeholder="+91 9876543210"
-                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-indigo-500" /> Contact Email Address
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Mail className="w-4 h-4 text-indigo-500" /> Contact Email Address
                     </Label>
                     <Input 
                       value={profileData.email} 
                       onChange={(e) => setProfileData({...profileData, email: e.target.value})}
                       placeholder="owner@restaurant.com"
-                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <Info className="w-3.5 h-3.5 text-indigo-500" /> Short Description / Tagline
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Info className="w-4 h-4 text-indigo-500" /> Short Description / Tagline
                     </Label>
                     <Input 
                       value={profileData.description} 
                       onChange={(e) => setProfileData({...profileData, description: e.target.value})}
                       placeholder="Authentic North Indian & Chinese Fine Dining"
-                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
                     />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-indigo-500" /> Full Physical Address
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-indigo-500" /> Full Physical Address
                     </Label>
                     <Input 
                       value={profileData.address} 
                       onChange={(e) => setProfileData({...profileData, address: e.target.value})}
                       placeholder="Plot 45, MG Road, Connaught Place, New Delhi"
-                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
                     />
                   </div>
                 </div>
@@ -569,15 +581,15 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           </TabsContent>
 
           <TabsContent value="notifications" className="mt-0 outline-none">
-            <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white overflow-hidden">
-              <CardHeader className="px-6 py-5 border-b border-slate-100">
+            <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
+              <CardHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shadow-inner">
                     <Bell className="w-5 h-5" />
                   </div>
                   <div>
-                    <CardTitle className="text-base font-black text-slate-900 tracking-tight">Notification Alerts</CardTitle>
-                    <CardDescription className="text-xs text-slate-500 font-medium">Configure real-time push events and system alerts.</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">Notification Alerts</CardTitle>
+                    <CardDescription className="text-sm text-slate-500 font-medium">Configure real-time push events and system alerts.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -611,33 +623,34 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
           <TabsContent value="security" className="mt-0 outline-none">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white">
-                <CardHeader className="px-6 py-5 border-b border-slate-100">
+              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
+                <CardHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center shadow-inner">
                       <Lock className="w-5 h-5" />
                     </div>
                     <div>
-                      <CardTitle className="text-base font-black text-slate-900 tracking-tight">Password & Password Security</CardTitle>
-                      <CardDescription className="text-xs text-slate-500 font-medium">Update your account login password.</CardDescription>
+                      <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">Password Security</CardTitle>
+                      <CardDescription className="text-sm text-slate-500 font-medium">Update your account login password.</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">New Password</Label>
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">New Password</Label>
                     <div className="relative">
                       <Input 
                         type={showPassword ? "text" : "password"} 
+                        autoComplete="new-password"
                         placeholder="Min. 8 characters" 
                         value={securityData.newPassword}
                         onChange={(e) => setSecurityData({...securityData, newPassword: e.target.value})}
-                        className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 pr-10" 
+                        className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 pr-10" 
                       />
                       <button 
                         type="button"
                         onClick={() => setShowPassword(!showPassword)} 
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -645,7 +658,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                   </div>
 
                   <Button 
-                    onClick={handleSave}
+                    onClick={handlePasswordUpdate}
                     disabled={isSaving || !securityData.newPassword}
                     className="w-full h-11 rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
                   >
@@ -654,15 +667,15 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                 </CardContent>
               </Card>
 
-              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white">
-                <CardHeader className="px-6 py-5 border-b border-slate-100">
+              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
+                <CardHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shadow-inner">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <CardTitle className="text-base font-black text-slate-900 tracking-tight">Account Protection</CardTitle>
-                      <CardDescription className="text-xs text-slate-500 font-medium">Session verification & two-step alerts.</CardDescription>
+                      <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">Account Protection</CardTitle>
+                      <CardDescription className="text-sm text-slate-500 font-medium">Session verification & two-step alerts.</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -690,10 +703,10 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
           <TabsContent value="billing" className="mt-0 outline-none">
             <div className="space-y-6">
-              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 text-white overflow-hidden p-6 sm:p-8 relative">
+              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 text-white overflow-hidden p-6 sm:p-8 relative">
                 <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                   <div className="space-y-2">
-                    <Badge className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-lg">
+                    <Badge className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-lg">
                       Active Subscription
                     </Badge>
                     <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
@@ -716,11 +729,11 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                 </div>
               </Card>
 
-              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white overflow-hidden">
-                <CardHeader className="px-6 py-5 border-b border-slate-100 flex flex-row items-center justify-between">
+              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
+                <CardHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-base font-black text-slate-900 tracking-tight">Saved Payment Methods</CardTitle>
-                    <CardDescription className="text-xs text-slate-500 font-medium">Manage corporate cards and UPI handles.</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">Saved Payment Methods</CardTitle>
+                    <CardDescription className="text-sm text-slate-500 font-medium">Manage corporate cards and UPI handles.</CardDescription>
                   </div>
                   <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
                     <DialogTrigger asChild>
@@ -813,15 +826,15 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           </TabsContent>
 
           <TabsContent value="tax" className="mt-0 outline-none">
-            <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white overflow-hidden">
-              <CardHeader className="px-6 py-5 border-b border-slate-100">
+            <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
+              <CardHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shadow-inner">
                     <Receipt className="w-5 h-5" />
                   </div>
                   <div>
-                    <CardTitle className="text-base font-black text-slate-900 tracking-tight">GST & Tax Configuration</CardTitle>
-                    <CardDescription className="text-xs text-slate-500 font-medium">Define tax percentage automatically added to customer orders.</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">GST & Tax Configuration</CardTitle>
+                    <CardDescription className="text-sm text-slate-500 font-medium">Define tax percentage automatically added to customer orders.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -845,7 +858,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
                 <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-6 transition-all", !gstData.enabled && "opacity-40 pointer-events-none")}>
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">GST Rate (%)</Label>
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">GST Rate (%)</Label>
                     <div className="relative">
                       <Input
                         type="number"
@@ -855,7 +868,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                         placeholder="5"
                         value={gstData.rate}
                         onChange={(e) => setGstData(p => ({...p, rate: e.target.value}))}
-                        className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-bold text-lg text-slate-900 pr-10"
+                        className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-bold text-lg text-slate-900 pr-10"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
                     </div>
@@ -878,15 +891,15 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bill Tax Label</Label>
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Bill Tax Label</Label>
                     <Input
                       type="text"
                       placeholder="e.g. GST, SGST+CGST"
                       value={gstData.label}
                       onChange={(e) => setGstData(p => ({...p, label: e.target.value}))}
-                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900"
+                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4"
                     />
-                    <p className="text-[11px] text-slate-400 font-medium">This text is shown on the customer's digital bill.</p>
+                    <p className="text-xs text-slate-400 font-medium">This text is shown on the customer's digital bill.</p>
                   </div>
                 </div>
 

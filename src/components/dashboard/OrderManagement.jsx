@@ -491,11 +491,25 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                             </div>
                           </div>
 
-                          <div className="border-t pt-3">
+                          <div className="border-t pt-3 space-y-1.5">
                             <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Total Amount:</span>
-                              <span className="font-semibold text-gray-900">
-                                ${order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
+                              <span className="text-sm text-gray-500">Subtotal:</span>
+                              <span className="font-semibold text-gray-700">
+                                ₹{(order.subtotal || order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)).toFixed(2)}
+                              </span>
+                            </div>
+                            {Number(order.tax || 0) > 0 && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-500">{order.gst_label || order.gstLabel || 'Tax'} ({order.gst_rate || order.gstRate || 0}%):</span>
+                                <span className="font-semibold text-gray-700">
+                                  ₹{Number(order.tax).toFixed(2)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                              <span className="text-sm font-bold text-gray-900">Total Amount:</span>
+                              <span className="font-black text-gray-900">
+                                ₹{(order.total || order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)).toFixed(2)}
                               </span>
                             </div>
                           </div>
@@ -562,11 +576,25 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                       </div>
                     ))}
                   </div>
-                  <div className="border-t mt-3 pt-3">
+                  <div className="border-t mt-3 pt-3 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold">Total:</span>
-                      <span className="font-bold text-lg">
-                        ${selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="font-semibold text-gray-800">
+                        ₹{(selectedOrder.subtotal || selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)).toFixed(2)}
+                      </span>
+                    </div>
+                    {Number(selectedOrder.tax || 0) > 0 && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">{selectedOrder.gst_label || selectedOrder.gstLabel || 'Tax'} ({selectedOrder.gst_rate || selectedOrder.gstRate || 0}%):</span>
+                        <span className="font-semibold text-gray-700">
+                          ₹{Number(selectedOrder.tax).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                      <span className="font-bold text-gray-900 text-lg">Total:</span>
+                      <span className="font-black text-2xl text-gray-900">
+                        ₹{(selectedOrder.total || selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)).toFixed(2)}
                       </span>
                     </div>
                   </div>
