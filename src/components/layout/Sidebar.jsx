@@ -74,11 +74,10 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
 
     const fetchActiveCounts = async () => {
       try {
-        // 1. Fetch Active Orders count (include PLACED, PENDING, ORDERED, PREPARING, READY, BILL_REQUESTED, etc.)
+        // 1. Fetch Orders directly and count active non-finished orders
         let orderQuery = supabase
           .from('orders')
-          .select('*', { count: 'exact', head: true })
-          .not('status', 'in', '("FINISHED","FINISHED_CLOSED","CANCELLED","cancelled","finished")')
+          .select('id, status, restaurant_id')
 
         if (resolvedId && restaurantId && resolvedId !== restaurantId) {
           orderQuery = orderQuery.or(`restaurant_id.eq.${resolvedId},restaurant_id.eq.${restaurantId}`)
@@ -86,7 +85,12 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
           orderQuery = orderQuery.eq('restaurant_id', targetId)
         }
 
-        const { count: orderCount } = await orderQuery
+        const { data: rawOrders } = await orderQuery
+
+        const activeOrderCount = (rawOrders || []).filter(o => {
+          const st = String(o.status || '').toUpperCase()
+          return !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(st)
+        }).length
 
         // 2. Fetch Active Tables count
         let tableQuery = supabase
@@ -117,7 +121,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
         const { count: waiterCount } = await waiterQuery
 
         setCounts({
-          orders: (orderCount || 0) + (waiterCount || 0),
+          orders: (activeOrderCount || 0) + (waiterCount || 0),
           tables: tableCount || 0
         })
       } catch (err) {
@@ -127,6 +131,9 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
 
     fetchActiveCounts()
 
+    // Safety Poll every 4 seconds for instant real-time sync
+    const pollInterval = setInterval(fetchActiveCounts, 4000)
+
     // 🏆 Subscribe to Real-time Changes & Window Events
     const handleNewOrderEvent = () => fetchActiveCounts()
     window.addEventListener('servora_new_order', handleNewOrderEvent)
@@ -134,7 +141,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     window.addEventListener('qrCodesUpdated', handleNewOrderEvent)
 
     const orderChannel = supabase
-      .channel(`sidebar-orders-v2-${targetId}`)
+      .channel(`sidebar-orders-v3-${targetId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -143,7 +150,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       .subscribe()
 
     const tableChannel = supabase
-      .channel(`sidebar-tables-v2-${targetId}`)
+      .channel(`sidebar-tables-v3-${targetId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -152,7 +159,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       .subscribe()
 
     const waiterChannel = supabase
-      .channel(`sidebar-waiter-v2-${targetId}`)
+      .channel(`sidebar-waiter-v3-${targetId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -161,6 +168,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       .subscribe()
 
     return () => {
+      clearInterval(pollInterval)
       window.removeEventListener('servora_new_order', handleNewOrderEvent)
       window.removeEventListener('orderStatusUpdated', handleNewOrderEvent)
       window.removeEventListener('qrCodesUpdated', handleNewOrderEvent)
@@ -241,23 +249,25 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
                 onClick={() => handleNavigation(item)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                   activeItem === item.id
-                    ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                    ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 font-bold'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >
                 <div className="relative shrink-0">
                   <Icon className="w-5 h-5" />
                   {isCollapsed && badgeCount > 0 && (
-                    <span className="absolute -top-1 -right-1.5 w-3 h-3 bg-rose-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white animate-pulse" />
+                    <span className="absolute -top-1 -right-1.5 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center ring-1 ring-white shadow-sm">
+                      {badgeCount}
+                    </span>
                   )}
                 </div>
                 {!isCollapsed && (
                   <>
                     <span className="font-medium">{item.label}</span>
                     {badgeCount > 0 && (
-                      <Badge variant="destructive" className="ml-auto animate-pulse">
+                      <span className="ml-auto min-w-4.5 h-4.5 px-1.5 text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center shadow-xs">
                         {badgeCount}
-                      </Badge>
+                      </span>
                     )}
                   </>
                 )}
