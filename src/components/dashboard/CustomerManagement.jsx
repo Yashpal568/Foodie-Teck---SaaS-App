@@ -26,6 +26,7 @@ import {
   RefreshCw 
 } from 'lucide-react'
 import { useOrderManagement } from '@/hooks/useOrderManagement'
+import { fetchCustomers } from '@/lib/api'
 import CustomerMobileNavbar from './CustomerMobileNavbar'
 import PremiumLock from './PremiumLock'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -86,110 +87,131 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
   
   // Real-time Cloud Sync
   const { orderHistory, loading: ordersLoading, refreshOrders } = useOrderManagement(restaurantId)
+  const [dbCustomers, setDbCustomers] = useState([])
+  const [customersLoading, setCustomersLoading] = useState(true)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // Dynamic Data Calculation (Derived from Cloud orderHistory)
+  // Load customers from Supabase `customers` table
+  useEffect(() => {
+    if (!restaurantId || restaurantId === 'default') return
+    setCustomersLoading(true)
+    fetchCustomers(restaurantId)
+      .then(data => setDbCustomers(data || []))
+      .catch(() => setDbCustomers([]))
+      .finally(() => setCustomersLoading(false))
+  }, [restaurantId])
+
+  // Dynamic Data Calculation (Derived from Cloud orderHistory + Supabase customers table)
   const { customers, chartData, stats } = useMemo(() => {
-    // If we have no history yet, return empty
-    if (!orderHistory || orderHistory.length === 0) {
-      return { customers: [], chartData: [], stats: { total: 0, vip: 0, new: 0, retention: "0.0", revenue: 0 } }
+    // Build spend map from order history for LTV enrichment
+    const spendMap = {}
+    const visitsMap = {}
+    orderHistory.forEach(order => {
+      const name = order.customerName || order.customer_name || 'Guest Customer'
+      spendMap[name] = (spendMap[name] || 0) + (order.total || 0)
+      visitsMap[name] = (visitsMap[name] || 0) + 1
+    })
+
+    // If we have DB customers, use them as the source of truth
+    const sourceCustomers = dbCustomers.length > 0 ? dbCustomers : []
+
+    if (sourceCustomers.length === 0 && orderHistory.length === 0) {
+      return { customers: [], chartData: [], stats: { total: 0, vip: 0, new: 0, retention: '0.0', revenue: 0 } }
     }
-    
-    // 1. First, find individual customer acquisition dates (first order date)
-    const firstOrders = {}
-    orderHistory.forEach(order => {
-      const name = order.customerName || 'Guest Customer'
-      const dateRaw = order.createdAt || order.created_at
-      if (!dateRaw) return
-      
-      const d = new Date(dateRaw)
-      if (!firstOrders[name] || d < new Date(firstOrders[name])) {
-        firstOrders[name] = dateRaw
-      }
-    })
 
-    // 2. Count signups per day using normalized format
-    const dailySignups = {}
-    Object.values(firstOrders).forEach(dateRaw => {
-      const dateObj = new Date(dateRaw)
-      const dateKey = dateObj.toISOString().split('T')[0] // YYYY-MM-DD
-      dailySignups[dateKey] = (dailySignups[dateKey] || 0) + 1
-    })
+    // Build customer list from DB customers table (source of truth)
+    // Enrich each with spend/visits data from order history
+    const customerList = sourceCustomers.map(c => {
+      const name = c.name
+      const totalSpent = spendMap[name] || 0
+      const visits = visitsMap[name] || 1
 
-    const customerMap = {}
-    orderHistory.forEach(order => {
-      const name = order.customerName || 'Guest Customer'
-      const dateRaw = order.createdAt || order.created_at
-      if (!dateRaw) return
-      
-      if (!customerMap[name]) {
-        customerMap[name] = {
-          name,
-          visits: 0,
-          totalSpent: 0,
-          lastVisit: dateRaw,
-          firstVisit: dateRaw,
-          email: name.toLowerCase().replace(' ', '.') + '@example.com',
-          phone: '+91 9' + Math.floor(100000000 + Math.random() * 900000000),
-          orders: [],
-          status: 'Active'
-        }
-      }
-      customerMap[name].visits += 1
-      customerMap[name].totalSpent += (order.total || 0)
-      customerMap[name].orders.push(order)
-      if (new Date(dateRaw) > new Date(customerMap[name].lastVisit)) {
-        customerMap[name].lastVisit = dateRaw
-      }
-    })
+      // Tagging Logic
+      let tag = 'New'
+      if (visits > 5 || totalSpent > 10000) tag = 'VIP'
+      else if (visits > 1) tag = 'Regular'
 
-    const customerList = Object.values(customerMap).map(c => {
-        // Tagging Logic
+      // Health Logic
+      const lastVisitDate = new Date(c.last_visit || c.created_at)
+      const daysSinceLast = (Date.now() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24)
+      const health = daysSinceLast > 30 ? 'At Risk' : 'Healthy'
+
+      return {
+        id: c.id,
+        name,
+        email: c.email || '',
+        phone: c.phone || '',
+        visits,
+        totalSpent,
+        lastVisit: c.last_visit || c.created_at,
+        firstVisit: c.created_at,
+        tag,
+        health,
+        status: 'Active',
+        orders: [],
+      }
+    }).sort((a, b) => b.totalSpent - a.totalSpent)
+
+    // If no DB customers yet but orders exist — fall back to order-derived (before first upsert)
+    const fallbackList = customerList.length === 0 ? (() => {
+      const map = {}
+      orderHistory.forEach(order => {
+        const name = order.customerName || order.customer_name || 'Guest Customer'
+        const dateRaw = order.createdAt || order.created_at
+        if (!dateRaw || name === 'Guest Customer') return
+        if (!map[name]) map[name] = { name, visits: 0, totalSpent: 0, lastVisit: dateRaw, firstVisit: dateRaw, email: '', phone: '', tag: 'New', health: 'Healthy', orders: [], status: 'Active' }
+        map[name].visits += 1
+        map[name].totalSpent += (order.total || 0)
+        map[name].orders.push(order)
+        if (new Date(dateRaw) > new Date(map[name].lastVisit)) map[name].lastVisit = dateRaw
+      })
+      return Object.values(map).map(c => {
         let tag = 'New'
         if (c.visits > 5 || c.totalSpent > 10000) tag = 'VIP'
         else if (c.visits > 1) tag = 'Regular'
-        
-        // Health Logic
-        const lastVisitDate = new Date(c.lastVisit)
-        const daysSinceLast = (new Date().getTime() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24)
-        const health = daysSinceLast > 30 ? 'At Risk' : 'Healthy'
-        
-        return { ...c, tag, health }
-    }).sort((a, b) => b.totalSpent - a.totalSpent)
+        const days = (Date.now() - new Date(c.lastVisit).getTime()) / (1000 * 60 * 60 * 24)
+        return { ...c, tag, health: days > 30 ? 'At Risk' : 'Healthy' }
+      }).sort((a, b) => b.totalSpent - a.totalSpent)
+    })() : []
 
-    // Generate last 7 days with 0 counts to ensure chart is always populated
+    const finalList = customerList.length > 0 ? customerList : fallbackList
+
+    // Daily signups chart: from DB created_at or from order history
+    const dailySignups = {}
+    sourceCustomers.forEach(c => {
+      if (!c.created_at) return
+      const key = new Date(c.created_at).toISOString().split('T')[0]
+      dailySignups[key] = (dailySignups[key] || 0) + 1
+    })
+
     const last7Days = []
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
       const dateKey = d.toISOString().split('T')[0]
-      const displayDate = d.toLocaleDateString()
-      
-      last7Days.push({
-        date: displayDate,
-        count: dailySignups[dateKey] || 0
-      })
+      last7Days.push({ date: d.toLocaleDateString(), count: dailySignups[dateKey] || 0 })
     }
-    
-    const retentionRate = customerList.length > 0 
-        ? (customerList.filter(c => c.visits > 1).length / customerList.length) * 100 
-        : 0
-    
-    return { 
-        customers: customerList,
-        chartData: last7Days,
-        stats: {
-            total: customerList.length,
-            vip: customerList.filter(c => c.tag === 'VIP').length,
-            new: customerList.filter(c => c.tag === 'New').length,
-            retention: retentionRate.toFixed(1),
-            revenue: customerList.reduce((sum, c) => sum + c.totalSpent, 0)
-        }
+
+    const retentionRate = finalList.length > 0
+      ? (finalList.filter(c => c.visits > 1).length / finalList.length) * 100
+      : 0
+
+    return {
+      customers: finalList,
+      chartData: last7Days,
+      stats: {
+        total: finalList.length,
+        vip: finalList.filter(c => c.tag === 'VIP').length,
+        new: finalList.filter(c => c.tag === 'New').length,
+        retention: retentionRate.toFixed(1),
+        revenue: finalList.reduce((sum, c) => sum + c.totalSpent, 0)
+      }
     }
-  }, [orderHistory])
+  }, [orderHistory, dbCustomers, spendMap, visitsMap])
+
 
   const filteredCustomers = customers.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 

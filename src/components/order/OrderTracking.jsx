@@ -37,60 +37,98 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
   const [journey, setJourney] = useState([]);
 
   // Load order details with table session auto-refresh logic
+  // Direct single-order fetch and real-time listener for instant tracking updates
   useEffect(() => {
-    // If hook finished loading, we definitely want to stop our local spinner
+    if (!orderId) return
+
+    const fetchSingleOrder = async () => {
+      try {
+        const { data } = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .eq('id', orderId)
+          .maybeSingle()
+
+        if (data) {
+          const formatted = {
+            ...data,
+            id: data.id,
+            tableNumber: data.table_number,
+            customerName: data.customer_name,
+            items: data.order_items || [],
+            total: data.total || 0,
+            status: data.status || 'PENDING',
+            createdAt: data.created_at
+          }
+          setOrder(formatted)
+
+          const storedJourney = JSON.parse(sessionStorage.getItem(`order_journey_${orderId}`) || '[]');
+          if (storedJourney.length === 0) {
+            const initialStep = { 
+              status: formatted.status || 'PENDING', 
+              timestamp: formatted.createdAt || new Date().toISOString(),
+              note: 'Order Received'
+            };
+            setJourney([initialStep]);
+            sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify([initialStep]));
+          } else {
+            const lastStep = storedJourney[storedJourney.length - 1];
+            if (lastStep.status !== formatted.status) {
+              const updated = [...storedJourney, {
+                status: formatted.status,
+                timestamp: new Date().toISOString(),
+                note: `Order status updated to ${formatted.status.toLowerCase()}`
+              }];
+              setJourney(updated);
+              sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify(updated));
+            } else {
+              setJourney(storedJourney);
+            }
+          }
+          setLoading(false)
+        }
+      } catch (e) {
+        console.error('Error fetching single tracking order:', e)
+      }
+    }
+
+    fetchSingleOrder()
+
+    const orderChannel = supabase
+      .channel(`tracking-order-${orderId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `id=eq.${orderId}`
+      }, (payload) => {
+        console.log('⚡ Instant Tracking Order Update:', payload)
+        fetchSingleOrder()
+      })
+      .subscribe()
+
+    const safetyPoll = setInterval(() => {
+      fetchSingleOrder()
+    }, 5000)
+
+    return () => {
+      clearInterval(safetyPoll)
+      supabase.removeChannel(orderChannel)
+    }
+  }, [orderId])
+
+  useEffect(() => {
+    // If hook finished loading, fallback check
     if (!hookLoading) {
       const allOrders = [...orders, ...orderHistory]
       const foundOrder = allOrders.find(o => String(o.id) === String(orderId))
       
-      if (foundOrder) {
+      if (foundOrder && !order) {
         setOrder(foundOrder)
-        
-        // ── Client-Side Journey Fallback ──
-        // Since the DB lacks a status_history column, we simulate it in the session
-        const storedJourney = JSON.parse(sessionStorage.getItem(`order_journey_${orderId}`) || '[]');
-        
-        // If we have nothing yet, initialize from current status
-        if (storedJourney.length === 0) {
-           const initialStep = { 
-              status: foundOrder.status || 'PENDING', 
-              timestamp: foundOrder.createdAt || new Date().toISOString(),
-              note: 'Tracking initialized'
-           };
-           setJourney([initialStep]);
-           sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify([initialStep]));
-        } else {
-           // If the current status is NEWER than our last journey step, append it
-           const lastStep = storedJourney[storedJourney.length - 1];
-           if (lastStep.status !== foundOrder.status) {
-              const updated = [...storedJourney, {
-                 status: foundOrder.status,
-                 timestamp: new Date().toISOString(),
-                 note: `Order marked as ${foundOrder.status.toLowerCase()}`
-              }];
-              setJourney(updated);
-              sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify(updated));
-           } else {
-              setJourney(storedJourney);
-           }
-        }
+        setLoading(false)
       }
-      setLoading(false)
     }
-  }, [orders, orderHistory, orderId, hookLoading])
-
-  useEffect(() => {
-    // ── Primary: Real-time via hook ──
-    // ── Secondary: Safety Poll ──
-    const safetyPoll = setInterval(() => {
-      console.log('🔄 Performing safety status refresh...')
-      refreshOrders()
-    }, 30000)
-
-    return () => {
-      clearInterval(safetyPoll)
-    }
-  }, [])
+  }, [orders, orderHistory, orderId, hookLoading, order])
 
   const handleCallConcierge = async () => {
     if (isCallingWaiter || !profile?.id) return;

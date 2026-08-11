@@ -466,8 +466,8 @@ export default function CustomerMenu() {
                   >
                     <div className="space-y-4">
                       <div className="relative aspect-square w-full rounded-[1.75rem] overflow-hidden bg-slate-50 shadow-[0_12px_24px_-12px_rgba(0,0,0,0.08)] border border-slate-100/50">
-                        {item.photo ? (
-                          <img src={item.photo} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                        {(item.photo || item.image_url || item.image || item.imageUrl) ? (
+                          <img src={item.photo || item.image_url || item.image || item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">
                             {item.category.toLowerCase().includes('drink') ? '🥤' : '🥘'}
@@ -524,8 +524,8 @@ export default function CustomerMenu() {
                     className="shrink-0 w-70 bg-white rounded-3xl p-4 flex items-center gap-4 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.04)] border border-slate-50"
                   >
                     <div className="h-20 w-20 rounded-2xl overflow-hidden bg-slate-50 shrink-0">
-                      {item.photo ? (
-                        <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                      {(item.photo || item.image_url || item.image || item.imageUrl) ? (
+                        <img src={item.photo || item.image_url || item.image || item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-3xl opacity-20">
                           {item.category.toLowerCase().includes('drink') ? '🥤' : '🥘'}
@@ -615,11 +615,13 @@ export default function CustomerMenu() {
                   <Badge className="bg-slate-900 text-white font-bold ml-auto rounded-lg px-3 py-1 text-[10px] shadow-sm shadow-slate-200">{items.length} OPTIONS</Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:grid-cols-2">
-                  {items.map((item, idx) => (
+                  {items.map((item, idx) => {
+                    const itemImg = item.photo || item.image_url || item.image || item.imageUrl
+                    return (
                     <Card key={item._id} className="border border-zinc-100/50 shadow-[0_15px_60px_-15px_rgba(0,0,0,0.06)] rounded-[2.5rem] overflow-hidden group hover:shadow-2xl hover:shadow-slate-200 hover:-translate-y-1 transition-all duration-500 bg-white">
                       <CardContent className="p-0 lg:hidden">
                         <div className="flex flex-col">
-                          <div className="relative h-56 w-full bg-zinc-100 overflow-hidden">{item.photo ? <img src={item.photo} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-5xl opacity-40">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
+                          <div className="relative h-56 w-full bg-zinc-100 overflow-hidden">{itemImg ? <img src={itemImg} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-5xl opacity-40">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
                           <div className="p-6 relative">
                             <div className="absolute -top-6 right-6">
                               {getQuantity(item._id) > 0 ? (
@@ -639,7 +641,7 @@ export default function CustomerMenu() {
                       </CardContent>
                       <CardContent className="p-5 max-lg:hidden relative">
                         <div className="flex gap-6 items-center">
-                          <div className="w-28 h-28 bg-slate-50 rounded-2xl overflow-hidden shrink-0 relative">{item.photo ? <img src={item.photo} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
+                          <div className="w-28 h-28 bg-slate-50 rounded-2xl overflow-hidden shrink-0 relative">{itemImg ? <img src={itemImg} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
                           <div className="flex-1 flex flex-col py-1">
                             <div className="flex justify-between items-start mb-1"><div><h3 className="text-base font-bold text-slate-900 tracking-tight uppercase leading-none">{item.name}</h3></div></div>
                             <p className="text-xs text-slate-400 line-clamp-2 mt-1 italic">{item.description}</p>
@@ -648,14 +650,17 @@ export default function CustomerMenu() {
                               <div className="flex items-center gap-2">
                                 {getQuantity(item._id) > 0 ? (
                                   <div className="flex items-center bg-slate-900 rounded-2xl p-1 shadow-xl"><Button size="icon" variant="ghost" className="h-8 w-8 text-white" onClick={(e) => { e.stopPropagation(); removeFromCart(item._id); }}><Minus className="h-4 w-4" /></Button><span className="w-6 text-center text-[13px] text-white font-black">{getQuantity(item._id)}</span><Button size="icon" variant="ghost" className="h-8 w-8 text-white" onClick={(e) => { e.stopPropagation(); addToCart(item); }}><Plus className="h-4 w-4" /></Button></div>
-                                ) : ( <Button size="sm" className="h-11 px-8 bg-slate-900 text-white font-black rounded-2xl uppercase tracking-widest text-[11px]" onClick={(e) => { e.stopPropagation(); addToCart(item); }}>Add</Button> )}
+                                ) : (
+                                  <Button size="icon" className="h-9 w-9 bg-slate-900 text-white rounded-xl shadow-lg border-0 shrink-0 active:scale-90 transition-transform" onClick={(e) => { e.stopPropagation(); addToCart(item); }}><Plus className="h-4 w-4" /></Button>
+                                )}
                               </div>
                             </div>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    )
+                  })}
                 </div>
               </motion.div>
             ))}

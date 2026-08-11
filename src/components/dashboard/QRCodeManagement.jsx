@@ -115,7 +115,10 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
   }
 
   const initialQRs = getInitialQRs()
-  const [tableCount, setTableCount] = useState(initialQRs.length > 0 ? initialQRs.length : (tableLimit > 10 ? tableLimit : 10))
+  const effectiveLimit = tableLimit || 10
+  const [tableCount, setTableCount] = useState(
+    initialQRs.length > 0 ? Math.min(initialQRs.length, effectiveLimit) : effectiveLimit
+  )
   const [qrCodes, setQrCodes] = useState(initialQRs)
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeTab, setActiveTab] = useState(initialQRs.length > 0 ? 'manage' : 'generate')
@@ -148,13 +151,13 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
           qrBlob: null
         }))
         setQrCodes(restoredQRCodes)
-        setTableCount(savedQRCodes.length)
+        setTableCount(Math.min(savedQRCodes.length, effectiveLimit))
         setActiveTab('manage')
       }
     }
     loadData()
     return () => { isMounted = false }
-  }, [restaurantId])
+  }, [restaurantId, effectiveLimit])
 
   // Sync QR codes with database whenever they change
   useEffect(() => {
@@ -181,8 +184,18 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     }
   }
 
+  const handleTableCountInputChange = (e) => {
+    const rawVal = parseInt(e.target.value) || 0
+    if (rawVal > effectiveLimit) {
+      setTableCount(effectiveLimit)
+      setShowUpgradeModal(true)
+    } else {
+      setTableCount(Math.max(1, rawVal))
+    }
+  }
+
   const generateAllQRCodes = async () => {
-    if (tableCount > tableLimit) {
+    if (tableCount > effectiveLimit) {
       setShowUpgradeModal(true)
       return
     }
@@ -190,7 +203,8 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     try {
       const activeRid = restaurantId || (await ensureValidRestaurantUUID(propRestaurantId || 'test2@gmail.com'))
       const codes = []
-      for (let i = 1; i <= tableCount; i++) {
+      const targetCount = Math.min(tableCount, effectiveLimit)
+      for (let i = 1; i <= targetCount; i++) {
         const qrCode = await generateQRCode(activeRid, i)
         codes.push(qrCode)
       }
@@ -333,10 +347,10 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
             <div className="flex items-center gap-2 self-end sm:self-center">
               <div className="flex items-center gap-1.5 mr-2">
                 <Badge variant="outline" className="h-9 px-3 text-xs font-bold border-indigo-200 bg-indigo-50 text-indigo-800 flex items-center gap-1">
-                  <span>{qrCodes.length} / {tableLimit >= 9999 ? '∞' : tableLimit} Tables</span>
+                  <span>{Math.min(qrCodes.length, effectiveLimit)} / {effectiveLimit >= 9999 ? '∞' : effectiveLimit} Tables</span>
                 </Badge>
 
-                {planDetails?.name === 'Starter' && (
+                {effectiveLimit < 9999 && (
                   <button
                     onClick={() => setShowUpgradeModal(true)}
                     className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow-sm"
@@ -357,7 +371,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                 ) : (
                   <QrCode className="w-3.5 h-3.5 mr-2" />
                 )}
-                {isSyncing ? 'Syncing...' : syncStatus === 'success' ? 'Cloud Verified' : `${qrCodes.length} Generated`}
+                {isSyncing ? 'Syncing...' : syncStatus === 'success' ? 'Cloud Verified' : `${Math.min(qrCodes.length, effectiveLimit)} Generated`}
               </Badge>
               {qrCodes.length > 0 && (
                 <>
@@ -396,7 +410,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                 <Table className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{tableCount}</p>
+                <p className="text-2xl font-bold text-gray-900">{Math.min(tableCount, effectiveLimit)}</p>
                 <p className="text-sm text-gray-600">Total Tables</p>
               </div>
             </div>
@@ -410,7 +424,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                 <QrCode className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{qrCodes.length}</p>
+                <p className="text-2xl font-bold text-green-600">{Math.min(qrCodes.length, effectiveLimit)}</p>
                 <p className="text-sm text-gray-600">QR Codes Generated</p>
               </div>
             </div>
@@ -437,7 +451,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="generate">Generate QR Codes</TabsTrigger>
           <TabsTrigger value="manage" disabled={qrCodes.length === 0}>
-            Manage QR Codes {qrCodes.length > 0 && `(${qrCodes.length})`}
+            Manage QR Codes {qrCodes.length > 0 && `(${Math.min(qrCodes.length, effectiveLimit)})`}
           </TabsTrigger>
         </TabsList>
 
@@ -471,13 +485,13 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                     id="tableCount"
                     type="number"
                     min="1"
-                    max={tableLimit}
+                    max={effectiveLimit}
                     value={tableCount}
-                    onChange={(e) => setTableCount(Math.min(parseInt(e.target.value) || 1, tableLimit))}
+                    onChange={handleTableCountInputChange}
                     disabled={isGenerating}
-                    className="h-11"
+                    className="h-11 font-bold"
                   />
-                  <p className="text-xs text-gray-500">Your current plan supports up to {tableLimit} tables.</p>
+                  <p className="text-xs text-gray-500">Your current plan ({planDetails.name}) supports up to {effectiveLimit >= 9999 ? 'unlimited' : effectiveLimit} tables.</p>
                 </div>
               </div>
               
@@ -485,7 +499,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               
               <Button 
                 onClick={generateAllQRCodes} 
-                className="w-full h-12"
+                className="w-full h-12 bg-slate-900 hover:bg-black text-white font-bold"
                 disabled={isGenerating}
               >
                 {isGenerating ? (
@@ -496,7 +510,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                 ) : (
                   <>
                     <QrCode className="w-4 h-4 mr-2" />
-                    Generate QR Codes for {tableCount} Tables
+                    Generate QR Codes for {Math.min(tableCount, effectiveLimit)} Tables
                   </>
                 )}
               </Button>

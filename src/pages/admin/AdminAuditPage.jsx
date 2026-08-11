@@ -34,7 +34,7 @@ export default function AdminAuditPage() {
 
   const handleClearLogs = async () => {
     setIsClearing(true)
-    await supabase.from('audit_logs').delete().neq('id', 'mock_id') // We clear everything by condition or you can choose to just clear ADMIN_ACTION
+    await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000')
     await loadLogs()
     setIsClearing(false)
   }

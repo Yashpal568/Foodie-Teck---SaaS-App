@@ -1,14 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { 
-  User, Settings as SettingsIcon, Bell, 
-  ShieldCheck, CreditCard, Store, 
-  Mail, Phone, MapPin, Camera, 
-  Trash2, Save, Globe, Lock,
-  Smartphone, Eye, EyeOff, CheckCircle2,
-  ChevronRight, Sparkles, Building2, Languages,
-  DollarSign, Plus, RefreshCcw, Loader2, ArrowLeft,
-  ShoppingCart, Users, X, Instagram, Twitter, Facebook, Clock, Activity, ExternalLink, AlertCircle, LogOut,
-  Percent, Receipt, ToggleLeft, ToggleRight, Info
+  User, 
+  Settings as SettingsIcon, 
+  Bell, 
+  ShieldCheck, 
+  CreditCard, 
+  Store, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Camera, 
+  Save, 
+  Lock,
+  Smartphone, 
+  Eye, 
+  EyeOff, 
+  CheckCircle2,
+  Loader2, 
+  ShoppingCart, 
+  Users, 
+  X, 
+  Info,
+  LogOut,
+  Percent, 
+  Receipt, 
+  Crown,
+  ArrowRight,
+  Trash2,
+  Plus,
+  AlertCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { 
@@ -40,6 +60,7 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import SettingsMobileNavbar from './SettingsMobileNavbar'
+import UpgradePlanModal from './UpgradePlanModal'
 import { 
   fetchGstSettings, 
   saveGstSettings, 
@@ -48,6 +69,7 @@ import {
   updateRestaurantProfile,
   supabase
 } from '@/lib/api'
+
 export default function Settings({ activeItem, setActiveItem, navigate, restaurantId }) {
   const profileRef = useRef(null)
   const coverRef = useRef(null)
@@ -56,8 +78,8 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTabState] = useState('profile')
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
-  // Data States
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
@@ -78,25 +100,29 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     cards: [
       { id: 1, type: 'Visa', last4: '8849', expiry: '12/28', logo: 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg' }
     ],
-    plan: 'Loading...',
-    price: '...'
+    plan: 'Starter',
+    price: '999'
   })
 
-  // GST / Tax Configuration State
   const [gstData, setGstData] = useState({
     enabled: false,
-    rate: '',
+    rate: '5',
     label: 'GST'
   })
 
-  // Notification Overlay State
+  const [notifications, setNotifications] = useState({
+    orders: true,
+    revenue: true,
+    inventory: false,
+    customers: true
+  })
+
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type })
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000)
   }
 
-  // Add Asset Modal State
   const [isAddCardOpen, setIsAddCardOpen] = useState(false)
   const [addCardError, setAddCardError] = useState('')
   const [newCardData, setNewCardData] = useState({
@@ -106,7 +132,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     cvv: ''
   })
 
-  // Load Configuration from Supabase
   const loadCloudConfig = async () => {
     try {
       setLoading(true)
@@ -122,7 +147,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           cover: restaurant.cover_url || ''
         })
 
-        // Hydrate GST
         const gst = await fetchGstSettings(restaurant.id)
         if (gst) {
           setGstData({
@@ -132,19 +156,23 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           })
         }
 
-        // Hydrate Plan from subscriptions relation
         const sub = restaurant.subscriptions?.[0]
         if (sub) {
           setBillingData(prev => ({
             ...prev,
-            plan: sub.plan_name,
-            price: sub.price.toLocaleString()
+            plan: sub.plan_name || 'Starter',
+            price: (sub.price || 999).toLocaleString()
           }))
+        }
+
+        const savedNotifs = localStorage.getItem(`servora_notifs_${restaurant.id}`)
+        if (savedNotifs) {
+          try { setNotifications(JSON.parse(savedNotifs)) } catch (e) {}
         }
       }
     } catch (err) {
       console.error('Failed to load settings:', err)
-      showToast('Synchronization error: Cloud unavailable.', 'error')
+      showToast('Cloud sync warning: Using cached settings.', 'error')
     } finally {
       setLoading(false)
     }
@@ -153,13 +181,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   useEffect(() => {
     loadCloudConfig()
   }, [])
-
-  const [notifications, setNotifications] = useState({
-    orders: true,
-    revenue: true,
-    inventory: false,
-    customers: true
-  })
 
   const handleImageUpload = (e, type) => {
     const file = e.target.files[0]
@@ -173,6 +194,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           ...prev,
           [type]: result
         }))
+        showToast(`${type === 'avatar' ? 'Logo' : 'Cover'} updated in preview. Click Save to deploy.`, 'success')
       }
       reader.readAsDataURL(file)
     }
@@ -180,12 +202,11 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
   const handleSave = async () => {
     setIsSaving(true)
-    const restaurantId = getCachedRestaurantId()
+    const targetRid = restaurantId || getCachedRestaurantId()
     
     try {
-      if (restaurantId) {
-        // 1. Update Profile in Supabase
-        await updateRestaurantProfile(restaurantId, {
+      if (targetRid) {
+        await updateRestaurantProfile(targetRid, {
           name: profileData.name,
           phone: profileData.phone,
           address: profileData.address,
@@ -194,51 +215,59 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           cover: profileData.cover
         })
 
-        // 2. Update GST in Supabase
-        await saveGstSettings(restaurantId, gstData)
+        await saveGstSettings(targetRid, gstData)
 
-        showToast('Settings successfully synchronized to Supabase Cloud.', 'success')
+        if (securityData.newPassword) {
+          const { error: passError } = await supabase.auth.updateUser({
+            password: securityData.newPassword
+          })
+          if (passError) throw passError
+          setSecurityData(prev => ({ ...prev, currentPassword: '', newPassword: '' }))
+        }
+
+        localStorage.setItem(`servora_notifs_${targetRid}`, JSON.stringify(notifications))
+
+        showToast('Settings saved & synchronized successfully.', 'success')
       }
     } catch (err) {
       console.error('Save failed:', err)
-      showToast('Synchronization failed: Cloud database update error.', 'error')
+      showToast(`Save failed: ${err.message || 'Database update error.'}`, 'error')
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleDiscard = () => {
-    if (window.confirm('Discard all unsynchronized administrative changes?')) {
-      window.location.reload()
+    if (window.confirm('Discard all unsaved changes and reload?')) {
+      loadCloudConfig()
+      showToast('Changes discarded.', 'success')
     }
   }
 
-  // Financial Handlers
   const handleRemoveCard = (id) => {
     setBillingData(prev => ({
       ...prev,
       cards: prev.cards.filter(card => card.id !== id)
     }))
+    showToast('Payment method removed.', 'success')
   }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    // Reroute to authentication gate
-    navigate('/login')
+    if (navigate) navigate('/login')
   }
 
   const handleAddCard = (e) => {
     e.preventDefault()
     setAddCardError('')
     
-    // Validate structural integrity
     if (!newCardData.number || newCardData.number.length < 16) {
-      setAddCardError('Invalid Account Number: Insufficient length detected.')
+      setAddCardError('Please enter a valid 16-digit card number.')
       return
     }
 
     if (!newCardData.expiry || !newCardData.expiry.includes('/')) {
-      setAddCardError('Lifecycle Breach: Ensure MM/YY format is correctly defined.')
+      setAddCardError('Expiry date must be in MM/YY format.')
       return
     }
 
@@ -257,85 +286,70 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
       cards: [...prev.cards, newCard]
     }))
 
-    // Reset and Close
     setNewCardData({ name: '', number: '', expiry: '', cvv: '' })
     setIsAddCardOpen(false)
-    showToast(`${newCard.type} Asset successfully integrated and hardened.`, 'success')
-  }
-
-  const handleUpgrade = () => {
-    showToast('Initializing Upgrade Protocol: Contacting Servora Relations...', 'success')
-  }
-
-  const handleTransactionLogs = () => {
-    showToast('Fiscal encryption layer active. No external sessions detected.', 'error')
+    showToast(`${newCard.type} card successfully added.`, 'success')
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#f8fafc] relative">
-      {/* Servora Platform Notification Engine */}
+    <div className="flex-1 flex flex-col min-h-screen bg-slate-50/50 relative">
       <div className={cn(
-        "fixed top-32 left-1/2 -translate-x-1/2 z-100 transition-all duration-700 pointer-events-none transform",
-        toast.show ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-8 scale-90"
+        "fixed top-24 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 pointer-events-none transform",
+        toast.show ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-6 scale-95"
       )}>
         <div className={cn(
-          "px-8 py-5 rounded-[2rem] shadow-2xl backdrop-blur-3xl border flex items-center gap-5 min-w-[320px]",
+          "px-6 py-4 rounded-2xl shadow-xl backdrop-blur-xl border flex items-center gap-4 min-w-[300px]",
           toast.type === 'success' 
-            ? "bg-slate-900/95 text-white border-white/10" 
-            : "bg-rose-500/95 text-white border-rose-400/20"
+            ? "bg-slate-900/95 text-white border-slate-800" 
+            : "bg-rose-600 text-white border-rose-500"
         )}>
           {toast.type === 'success' ? (
-            <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
           ) : (
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border border-white/30">
-              <AlertCircle className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center border border-white/30">
+              <AlertCircle className="w-4 h-4 text-white" />
             </div>
           )}
           <div className="flex flex-col">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-1">System Event</p>
-            <p className="text-[13px] font-bold tracking-tight">{toast.message}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest opacity-60">System Notice</p>
+            <p className="text-[12px] font-bold tracking-tight">{toast.message}</p>
           </div>
         </div>
       </div>
-      {/* 
-        PREMIUM UNIFIED SETTINGS NAVBAR 
-        Integrates Title, Tabs, and Actions into a single professional bar.
-      */}
-      <div className="hidden lg:flex items-center justify-between px-8 bg-white/70 backdrop-blur-xl border-b border-gray-100/50 h-20 sticky top-0 z-40 transition-all">
-        <div className="flex items-center gap-10 h-full">
-          {/* Page Identity */}
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-white rounded-4xl shadow-sm border border-gray-100 flex items-center justify-center text-blue-600 transition-all hover:scale-105 active:scale-95 group">
-              <SettingsIcon className="w-5 h-5 group-hover:rotate-45 transition-transform duration-500" />
+
+      <div className="hidden lg:flex items-center justify-between px-8 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 h-20 sticky top-0 z-40">
+        <div className="flex items-center gap-8 h-full">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+              <SettingsIcon className="w-5 h-5" />
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-none mb-1">Configuration</h1>
+            <div>
+              <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">Restaurant Settings</h1>
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Secure Admin Channel</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Cloud Synchronization</span>
               </div>
             </div>
           </div>
           
-          <Separator orientation="vertical" className="h-8 opacity-50" />
+          <Separator orientation="vertical" className="h-7 opacity-60" />
 
-          {/* Premium Glass-Capsule Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTabState} className="h-full">
             <div className="h-full flex items-center">
-              <TabsList className="bg-slate-50/50 p-1 rounded-2xl border border-slate-100/50 gap-1 h-12">
+              <TabsList className="bg-slate-100/70 p-1 rounded-xl border border-slate-200/50 gap-1 h-11">
                 {[
-                  { id: 'profile', label: 'Identity', icon: User },
+                  { id: 'profile', label: 'Profile & Details', icon: User },
                   { id: 'notifications', label: 'Alerts', icon: Bell },
-                  { id: 'security', label: 'Defenses', icon: ShieldCheck },
-                  { id: 'billing', label: 'Treasury', icon: CreditCard },
-                  { id: 'tax', label: 'GST / Tax', icon: Percent }
+                  { id: 'security', label: 'Security', icon: ShieldCheck },
+                  { id: 'billing', label: 'Subscription & Billing', icon: CreditCard },
+                  { id: 'tax', label: 'GST & Taxes', icon: Percent }
                 ].map(tab => (
                   <TabsTrigger 
                     key={tab.id}
                     value={tab.id}
-                    className="px-5 rounded-xl border-none data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm font-bold text-[10px] uppercase tracking-wider text-slate-400 transition-all hover:text-slate-600 h-full"
+                    className="px-4 rounded-lg border-none data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-all h-full"
                   >
                     <tab.icon className="w-3.5 h-3.5 mr-2" /> {tab.label}
                   </TabsTrigger>
@@ -345,29 +359,28 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           </Tabs>
         </div>
 
-        {/* Executive Actions */}
-        <div className="flex items-center gap-3">
-           <Button 
-             variant="ghost" 
-             onClick={handleDiscard}
-             className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-wider text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all group border border-transparent hover:border-rose-100"
-           >
-             <X className="w-3.5 h-3.5 mr-2 group-hover:rotate-90 transition-transform" />
-             Rollback
-           </Button>
+        <div className="flex items-center gap-2.5">
+          <Button 
+            variant="outline" 
+            onClick={handleDiscard}
+            className="h-10 px-5 rounded-xl font-bold text-[11px] uppercase tracking-wider text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 border-slate-200 transition-all"
+          >
+            <X className="w-3.5 h-3.5 mr-1.5" />
+            Discard
+          </Button>
 
-           <Button 
-             onClick={handleSave}
-             disabled={isSaving}
-             className="bg-slate-900 hover:bg-black text-white font-bold h-10 px-8 rounded-xl shadow-lg shadow-slate-900/10 transition-all hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap text-[10px] uppercase tracking-wider flex items-center gap-2 group disabled:opacity-70 border-b-2 border-black"
-           >
-             {isSaving ? (
-               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-             ) : (
-               <Save className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-             )}
-             <span>{isSaving ? 'Syncing...' : 'Deploy Changes'}</span>
-           </Button>
+          <Button 
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-6 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-[11px] uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+          >
+            {isSaving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5" />
+            )}
+            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+          </Button>
         </div>
       </div>
 
@@ -378,609 +391,549 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         setActiveItem={setActiveItem}
       />
 
-      <div className="flex-1 p-0 overflow-x-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTabState} className="w-full h-full flex flex-col">
+      <div className="flex-1 p-4 lg:p-8 max-w-5xl mx-auto w-full space-y-6">
+        <div className="lg:hidden sticky top-20 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200 p-2 overflow-x-auto no-scrollbar">
+          <div className="flex gap-2 min-w-max">
+            {[
+              { id: 'profile', label: 'Profile', icon: User },
+              { id: 'notifications', label: 'Alerts', icon: Bell },
+              { id: 'security', label: 'Security', icon: ShieldCheck },
+              { id: 'billing', label: 'Billing', icon: CreditCard },
+              { id: 'tax', label: 'GST Tax', icon: Percent }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTabState(tab.id)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all",
+                  activeTab === tab.id 
+                    ? "bg-indigo-600 text-white shadow-sm" 
+                    : "bg-slate-100 text-slate-500 hover:text-slate-800"
+                )}
+              >
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTabState} className="w-full">
           <TabsList className="hidden"><></></TabsList>
 
-          <div className="w-full max-w-400 mx-auto lg:p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Redesigned Premium Mobile Tab Navigation */}
-            <div className="lg:hidden sticky top-20 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100 p-2 overflow-x-auto no-scrollbar scroll-smooth">
-              <div className="flex gap-2 min-w-max px-2">
-                {[
-                  { id: 'profile', label: 'Profile', icon: User },
-                  { id: 'notifications', label: 'Alerts', icon: Bell },
-                  { id: 'security', label: 'Security', icon: ShieldCheck },
-                  { id: 'billing', label: 'Billing', icon: CreditCard },
-                  { id: 'tax', label: 'GST / Tax', icon: Percent }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTabState(tab.id)}
-                    className={cn(
-                      "flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-[11px] uppercase tracking-wider transition-all duration-300",
-                      activeTab === tab.id 
-                        ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10 scale-105" 
-                        : "bg-slate-50 text-slate-400 hover:text-slate-600 border border-slate-100/50"
-                    )}
-                  >
-                    <tab.icon className={cn("w-3.5 h-3.5", activeTab === tab.id ? "text-blue-400" : "text-slate-400")} />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <TabsContent value="profile" className="mt-0 space-y-6 outline-none">
+            <input type="file" ref={coverRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} />
+            <input type="file" ref={profileRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
 
-            <div className="p-4 md:p-8 space-y-8">
-
-            {/* Profile Tab Content */}
-            <TabsContent value="profile" className="mt-0 outline-none">
-              <input 
-                type="file" 
-                ref={coverRef} 
-                className="hidden" 
-                accept="image/*" 
-                onChange={(e) => handleImageUpload(e, 'cover')} 
-              />
-              <input 
-                type="file" 
-                ref={profileRef} 
-                className="hidden" 
-                accept="image/*" 
-                onChange={(e) => handleImageUpload(e, 'avatar')} 
-              />
-
-              <Card className="border-0 shadow-2xl shadow-blue-500/5 ring-1 ring-gray-100 rounded-[3rem] overflow-hidden bg-white">
-                {/* Compact Immersive Cover Photography Section */}
-                <div 
-                  className="h-48 sm:h-56 bg-linear-to-br from-blue-600 via-indigo-600 to-purple-700 relative overflow-hidden bg-center bg-cover transition-all duration-700"
-                  style={{ backgroundImage: profileData.cover ? `url(${profileData.cover})` : 'none' }}
+            <Card className="border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden bg-white">
+              <div 
+                className="h-44 sm:h-52 bg-gradient-to-r from-indigo-600 via-purple-600 to-slate-800 relative overflow-hidden bg-center bg-cover transition-all"
+                style={{ backgroundImage: profileData.cover ? `url(${profileData.cover})` : 'none' }}
+              >
+                <Button 
+                  onClick={() => coverRef.current?.click()}
+                  variant="secondary" 
+                  size="sm"
+                  className="absolute right-4 top-4 bg-white/90 hover:bg-white text-slate-800 font-bold text-[11px] uppercase tracking-wider rounded-xl backdrop-blur-md shadow-sm border border-white/40 cursor-pointer"
                 >
-                  {!profileData.cover && (
-                    <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] animate-pulse" />
-                  )}
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-all duration-500" />
-                  
-                  <Button 
-                    onClick={() => coverRef.current?.click()}
-                    variant="secondary" 
-                    className="absolute right-6 top-6 sm:right-8 sm:bottom-8 h-12 px-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] bg-white/90 backdrop-blur-xl text-slate-900 border border-white/20 hover:bg-white transition-all shadow-2xl hover:scale-105 active:scale-95 z-20 group"
-                  >
-                    <Camera className="w-4 h-4 mr-2 text-blue-600 group-hover:rotate-12 transition-transform" /> 
-                    Change Cover
-                  </Button>
+                  <Camera className="w-3.5 h-3.5 mr-1.5 text-indigo-600" /> 
+                  Change Cover Banner
+                </Button>
+              </div>
+
+              <CardContent className="px-6 sm:px-8 pb-8 -mt-14 relative z-10">
+                <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 mb-8 text-center sm:text-left">
+                  <div className="relative group rounded-2xl border-4 border-white bg-white shadow-md">
+                    <Avatar className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl">
+                      <AvatarImage src={profileData.avatar} className="object-cover" />
+                      <AvatarFallback className="bg-indigo-50 text-indigo-600 text-3xl font-black uppercase">
+                        {profileData.name.charAt(0) || 'R'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <button 
+                      onClick={() => profileRef.current?.click()}
+                      className="absolute -bottom-1 -right-1 w-9 h-9 bg-indigo-600 text-white rounded-xl shadow-md border-2 border-white flex items-center justify-center hover:bg-indigo-700 transition-all cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 pb-1">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 mb-2">
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                        {profileData.name || 'Restaurant Name'}
+                      </h2>
+                      <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-lg">
+                        Verified Merchant
+                      </Badge>
+                    </div>
+
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-xs text-slate-500 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-slate-400" />
+                        {profileData.email || 'No email set'}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        {profileData.address || 'Location not specified'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <CardContent className="px-6 sm:px-12 pb-12 -mt-12 sm:-mt-16 relative z-10 text-center sm:text-left">
-                  {/* Scaled Identity Header: Responsive Orchestration */}
-                  <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 mb-12">
-                    <div className="relative group shadow-[0_24px_48px_-12px_rgba(0,0,0,0.15)] rounded-full border-8 sm:border-12 border-white bg-white">
-                      <Avatar className="w-32 h-32 sm:w-44 sm:h-44 shadow-2xl transition-transform group-hover:scale-[1.03] duration-700">
-                        <AvatarImage src={profileData.avatar || "/api/placeholder/192/192"} className="aspect-square h-full w-full object-cover" />
-                        <AvatarFallback className="bg-slate-50 text-slate-200 text-4xl sm:text-5xl font-black italic tracking-tighter uppercase">
-                          {profileData.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      {/* Fixed Camera Trigger for Mobile/Touch */}
-                      <button 
-                        onClick={() => profileRef.current?.click()}
-                        className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 text-white rounded-xl shadow-2xl border-2 sm:border-4 border-white flex items-center justify-center hover:bg-blue-700 transition-all hover:scale-110 active:scale-90 z-30 shadow-blue-500/40"
-                      >
-                        <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </button>
+                <Separator className="mb-8" />
 
-                      {/* Desktop Hover Overlay */}
-                      <div className="hidden sm:flex absolute inset-0 bg-black/40 rounded-full items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-md cursor-pointer pointer-events-none">
-                        <Sparkles className="w-10 h-10 animate-pulse" />
-                      </div>
-                    </div>
-
-                    <div className="flex-1 pb-2 flex flex-col items-center sm:items-start">
-                      <div className="flex flex-col sm:flex-row items-center gap-3 mb-3">
-                        <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none italic uppercase">
-                          {profileData.name}
-                        </h3>
-                        <Badge className="bg-linear-to-r from-blue-600 to-indigo-600 text-white border-none rounded-lg px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/30">
-                          Administrator
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap justify-center sm:justify-start gap-3 items-center">
-                        <div className="flex items-center gap-3 text-slate-500 font-bold text-[11px] uppercase tracking-wider bg-slate-50/80 backdrop-blur-sm px-5 py-3 rounded-2xl border border-slate-100/50 shadow-sm">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-                          <Mail className="w-3.5 h-3.5 opacity-60" />
-                          {profileData.email}
-                        </div>
-                        <div className="flex items-center gap-3 text-slate-500 font-bold text-[11px] uppercase tracking-wider bg-slate-50/80 backdrop-blur-sm px-5 py-3 rounded-2xl border border-slate-100/50 shadow-sm">
-                          <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                          {profileData.address || 'Address not set'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="sm:mb-6 px-6 py-4 rounded-[2rem] bg-emerald-50/50 border border-emerald-100 shadow-sm flex items-center gap-3 transition-transform hover:scale-105">
-                      <div className="relative">
-                        <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                        <div className="absolute inset-0 w-3 h-3 rounded-full bg-emerald-500 animate-ping opacity-75" />
-                      </div>
-                      <span className="text-[10px] font-black text-emerald-700 uppercase tracking-[0.2em]">Platform Verified</span>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Store className="w-3.5 h-3.5 text-indigo-500" /> Business / Restaurant Name
+                    </Label>
+                    <Input 
+                      value={profileData.name} 
+                      onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                      placeholder="e.g. Royal Bistro"
+                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                    />
                   </div>
 
-                  {/* Redesigned Compact Identity Terminal */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8 bg-slate-50/30 p-6 sm:p-10 rounded-[2.5rem] border border-slate-100/50">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-2">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Profile Identity</Label>
-                        <User className="w-3 h-3 text-blue-500 opacity-40" />
-                      </div>
-                      <Input 
-                        value={profileData.name} 
-                        onChange={(e) => setProfileData({...profileData, name: e.target.value})}
-                        className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-blue-500/50" 
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-2">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Nexus Terminal (Phone)</Label>
-                        <Smartphone className="w-3 h-3 text-indigo-500 opacity-40" />
-                      </div>
-                      <Input 
-                        value={profileData.phone} 
-                        onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
-                        className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-indigo-500/50" 
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-2">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Communication Node (Mail)</Label>
-                        <Mail className="w-3 h-3 text-blue-500 opacity-40" />
-                      </div>
-                      <Input 
-                        value={profileData.email} 
-                        onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                        className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-blue-500/50" 
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-2">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Restaurant Description</Label>
-                        <Info className="w-3 h-3 text-indigo-500 opacity-40" />
-                      </div>
-                      <Input 
-                        value={profileData.description} 
-                        onChange={(e) => setProfileData({...profileData, description: e.target.value})}
-                        className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-indigo-500/50" 
-                      />
-                    </div>
-                    <div className="space-y-3 md:col-span-2">
-                      <div className="flex items-center justify-between px-2">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Physical Address</Label>
-                        <MapPin className="w-3 h-3 text-blue-500 opacity-40" />
-                      </div>
-                      <Input 
-                        value={profileData.address} 
-                        onChange={(e) => setProfileData({...profileData, address: e.target.value})}
-                        className="h-14 bg-white border-slate-100 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all text-base shadow-lg shadow-slate-200/10 px-6 border-2 focus:border-blue-500/50" 
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-indigo-500" /> Phone Number
+                    </Label>
+                    <Input 
+                      value={profileData.phone} 
+                      onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                      placeholder="+91 9876543210"
+                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                    />
                   </div>
 
-                  {/* Red Button Sign Out for Mobile Users */}
-                  <div className="mt-8">
-                     <Button 
-                        onClick={handleSignOut}
-                        variant="destructive"
-                        className="w-full sm:w-auto h-16 sm:h-auto sm:px-8 py-3 rounded-2xl sm:rounded-xl font-black uppercase tracking-widest text-xs sm:text-[10px] bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100/50 shadow-xl shadow-rose-500/10 transition-all flex items-center justify-center gap-3 active:scale-95 group mx-auto sm:mx-0 sm:ml-auto"
-                     >
-                        <LogOut className="w-5 h-5 sm:w-4 sm:h-4 opacity-70 group-hover:opacity-100 group-hover:-translate-x-1 transition-all" />
-                        Secure Session Logout
-                     </Button>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-indigo-500" /> Contact Email Address
+                    </Label>
+                    <Input 
+                      value={profileData.email} 
+                      onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                      placeholder="owner@restaurant.com"
+                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-indigo-500" /> Short Description / Tagline
+                    </Label>
+                    <Input 
+                      value={profileData.description} 
+                      onChange={(e) => setProfileData({...profileData, description: e.target.value})}
+                      placeholder="Authentic North Indian & Chinese Fine Dining"
+                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                    />
+                  </div>
 
-            <TabsContent value="notifications" className="mt-0 outline-none animate-in fade-in duration-500">
-              <Card className="border-0 shadow-2xl shadow-slate-200/50 ring-1 ring-gray-100 rounded-[3rem] bg-white overflow-hidden">
-                <CardHeader className="px-12 pt-12 border-b border-gray-50 pb-10">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-slate-900/20">
-                      <Bell className="w-6 h-6" />
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-500" /> Full Physical Address
+                    </Label>
+                    <Input 
+                      value={profileData.address} 
+                      onChange={(e) => setProfileData({...profileData, address: e.target.value})}
+                      placeholder="Plot 45, MG Road, Connaught Place, New Delhi"
+                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white transition-all px-4" 
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
+                  <Button 
+                    onClick={handleSignOut}
+                    variant="outline"
+                    className="h-10 px-4 rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 font-bold text-xs cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                    Sign Out Account
+                  </Button>
+
+                  <Button 
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-md cursor-pointer"
+                  >
+                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+                    Save Profile
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notifications" className="mt-0 outline-none">
+            <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white overflow-hidden">
+              <CardHeader className="px-6 py-5 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-black text-slate-900 tracking-tight">Notification Alerts</CardTitle>
+                    <CardDescription className="text-xs text-slate-500 font-medium">Configure real-time push events and system alerts.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 divide-y divide-slate-100">
+                {[
+                  { key: 'orders', title: 'New Customer Orders Feed', desc: 'Receive instant chimes and popups when customers place QR orders.', icon: ShoppingCart },
+                  { key: 'revenue', title: 'Daily Revenue Summaries', desc: 'Get daily sales rollups and daily target milestone alerts.', icon: Percent },
+                  { key: 'inventory', title: 'Low Inventory & Stock Alerts', desc: 'Get notified when menu items are toggled out of stock.', icon: Store },
+                  { key: 'customers', title: 'Customer Concierge & Waiter Calls', desc: 'Hear loud chimes when guests press Call Waiter from table.', icon: Users },
+                ].map(({ key, title, desc, icon: Icon }) => (
+                  <div key={key} className="flex items-center justify-between p-5 hover:bg-slate-50/60 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm">{title}</h4>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">{desc}</p>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={notifications[key]} 
+                      onCheckedChange={(val) => setNotifications({...notifications, [key]: val})}
+                      className="data-[state=checked]:bg-indigo-600"
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="security" className="mt-0 outline-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white">
+                <CardHeader className="px-6 py-5 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
+                      <Lock className="w-5 h-5" />
                     </div>
                     <div>
-                      <CardTitle className="text-2xl font-black text-slate-900 tracking-tight">Alert Engine</CardTitle>
-                      <CardDescription className="text-slate-500 font-bold text-sm">Real-time operational stream for enterprise activities.</CardDescription>
+                      <CardTitle className="text-base font-black text-slate-900 tracking-tight">Password & Password Security</CardTitle>
+                      <CardDescription className="text-xs text-slate-500 font-medium">Update your account login password.</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-0">
-                  {Object.entries(notifications).map(([key, value], idx) => (
-                    <div key={key} className="flex items-center justify-between p-10 lg:p-14 hover:bg-slate-50/50 transition-all group border-b border-slate-50 last:border-0">
-                      <div className="flex items-center gap-8">
-                        <div className="w-16 h-16 bg-white text-slate-400 rounded-3xl flex items-center justify-center border border-slate-100 group-hover:scale-110 group-hover:text-blue-600 transition-all duration-500 shadow-sm">
-                          {key === 'orders' ? <ShoppingCart className="w-6 h-6" /> : 
-                           key === 'revenue' ? <DollarSign className="w-6 h-6" /> : 
-                           key === 'inventory' ? <Store className="w-6 h-6" /> : <Users className="w-6 h-6" />}
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-black text-slate-900 tracking-tight text-xl capitalize">{key} Operational Feed</h4>
-                          <p className="text-sm font-bold text-slate-400">Deploy instant push events for all {key} activities.</p>
-                        </div>
-                      </div>
-                      <Switch 
-                        checked={value} 
-                        onCheckedChange={(val) => setNotifications({...notifications, [key]: val})}
-                        className="data-[state=checked]:bg-blue-600 scale-150 mx-2"
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">New Password</Label>
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="Min. 8 characters" 
+                        value={securityData.newPassword}
+                        onChange={(e) => setSecurityData({...securityData, newPassword: e.target.value})}
+                        className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900 pr-10" 
                       />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="security" className="mt-0 outline-none animate-in zoom-in-95 duration-500">
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                  {/* Security Key Card */}
-                  <Card className="border-0 shadow-2xl shadow-slate-200/50 ring-1 ring-gray-100 rounded-[3rem] bg-white">
-                    <CardHeader className="px-12 pt-12 pb-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-sm shadow-rose-500/5">
-                          <Lock className="w-6 h-6" />
-                        </div>
-                        <CardTitle className="text-3xl font-bold text-slate-900 tracking-tight">Key Rotation</CardTitle>
-                      </div>
-                      <CardDescription className="text-slate-500 font-bold mt-2 ml-16 text-base">Authorize credential refresh protocol.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-12 pb-14 space-y-10 mt-4 ml-0 lg:ml-16">
-                      <div className="space-y-4">
-                        <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Administrator Password</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••" 
-                          value={securityData.currentPassword}
-                          onChange={(e) => setSecurityData({...securityData, currentPassword: e.target.value})}
-                          className="h-16 bg-slate-50/50 border-slate-100 rounded-2xl font-bold shadow-sm px-8" 
-                        />
-                      </div>
-                      <div className="space-y-4">
-                        <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Target Hardened Instance</Label>
-                        <div className="relative group">
-                          <Input 
-                            type={showPassword ? "text" : "password"} 
-                            placeholder="••••••••" 
-                            value={securityData.newPassword}
-                            onChange={(e) => setSecurityData({...securityData, newPassword: e.target.value})}
-                            className="h-16 bg-slate-50/50 border-slate-100 rounded-2xl font-bold shadow-sm px-8" 
-                          />
-                          <button onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900 transition-all p-2 bg-white rounded-xl shadow-sm border border-slate-100">
-                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                          </button>
-                        </div>
-                      </div>
-                      <Button 
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="w-full h-16 rounded-[1.5rem] font-bold bg-slate-900 hover:bg-black text-white shadow-2xl shadow-slate-900/20 transition-all active:scale-[0.98] text-xl tracking-tight"
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)} 
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
                       >
-                        {isSaving ? 'Authorizing...' : 'Authorize Refresh'}
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Cloud MFA Card */}
-                  <Card className="border-0 shadow-2xl rounded-[3rem] bg-slate-900 text-white relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-linear-to-br from-blue-600/30 via-transparent to-indigo-600/30 opacity-60" />
-                    <Sparkles className="absolute -top-16 -right-16 w-64 h-64 text-white/5 rotate-12 group-hover:scale-125 transition-all duration-2000 blur-sm" />
-                    <CardHeader className="px-12 pt-12 relative z-10">
-                      <div className="flex gap-4 items-center mb-2">
-                         <div className="w-14 h-14 rounded-[1.5rem] bg-blue-500/20 flex items-center justify-center border border-white/10 backdrop-blur-3xl shadow-2xl">
-                            <ShieldCheck className="w-8 h-8 text-blue-400" />
-                         </div>
-                         <div>
-                           <CardTitle className="text-3xl font-bold tracking-tighter">Hardened MFA</CardTitle>
-                           <CardDescription className="text-slate-400 font-bold text-base">Physical identifier required.</CardDescription>
-                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="px-12 pb-14 space-y-12 mt-10 relative z-10">
-                      <div className="p-10 bg-white/5 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 space-y-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)]">
-                        <div className="flex items-center gap-8">
-                          <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20 animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                            <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-xl text-slate-100 tracking-tight">Identity Tunnel Synchronized</p>
-                          </div>
-                        </div>
-                        <Separator className="bg-white/10" />
-                        <div className="flex items-center justify-between group/row">
-                          <p className="text-base font-bold text-slate-300 tracking-tight">
-                            {securityData.mfaEnabled ? 'Push Authentication Enabled' : 'MFA currently deactivated'}
-                          </p>
-                          <Switch 
-                            checked={securityData.mfaEnabled} 
-                            onCheckedChange={(val) => setSecurityData({...securityData, mfaEnabled: val})}
-                            className="data-[state=checked]:bg-blue-500 border-white/10 scale-150" 
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-               </div>
-            </TabsContent>
-
-            <TabsContent value="billing" className="mt-0 outline-none w-full animate-in fade-in duration-500">
-               <Card className="border-0 shadow-2xl shadow-slate-200/50 ring-1 ring-gray-100 rounded-[3rem] bg-white overflow-hidden">
-                <div className="p-24 text-center bg-slate-50 border-b border-gray-100 relative group overflow-hidden">
-                   <div className="absolute inset-0 bg-linear-to-br from-blue-600/5 to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-all duration-1000" />
-                   <div className="w-28 h-28 bg-white rounded-[2.5rem] shadow-2xl flex items-center justify-center mx-auto mb-12 border border-slate-100 group-hover:scale-110 transition-all duration-700 relative z-10">
-                      <CreditCard className="w-12 h-12 text-blue-600" />
-                   </div>
-                   <h2 className="text-5xl font-bold text-slate-900 tracking-tighter relative z-10">{billingData.plan} License</h2>
-                   <div className="flex items-baseline justify-center gap-1 mt-6 relative z-10">
-                      <span className="text-7xl font-bold text-slate-900 tracking-tight">₹{billingData.price}</span>
-                      <span className="text-slate-400 text-2xl font-bold ml-4">/ mo</span>
-                   </div>
-                   <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-16 relative z-10">
-                      <Button 
-                        onClick={handleUpgrade}
-                        className="h-16 px-16 rounded-[1.5rem] font-bold bg-blue-600 hover:bg-blue-700 shadow-2xl shadow-blue-500/40 active:scale-95 transition-all text-xl group"
-                      >
-                        Upgrade Scope
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={handleTransactionLogs}
-                        className="h-16 px-12 rounded-[1.5rem] font-bold bg-white border-slate-200 text-slate-600 shadow-xl hover:bg-slate-50 transition-all text-xl border-b-[6px] hover:border-b-2 active:scale-95 group"
-                      >
-                        Transaction Logs
-                      </Button>
-                   </div>
-                </div>
-                <CardContent className="p-20">
-                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                       {billingData.cards.map(card => (
-                         <div key={card.id} className="p-12 bg-white rounded-[3rem] border-2 border-slate-100 shadow-2xl shadow-slate-200/50 flex items-center justify-between group hover:border-blue-500 transition-all cursor-pointer relative overflow-hidden">
-                           <div className="flex items-center gap-10 relative z-10">
-                              <div className="w-24 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-white group-hover:scale-110 transition-all duration-500 shadow-sm">
-                                 <img src={card.logo} className="w-14 opacity-80" alt={card.type} />
-                              </div>
-                              <div>
-                                 <p className="font-bold text-slate-900 text-3xl leading-none tracking-tighter">{card.type} • {card.last4}</p>
-                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3">Verified • {card.expiry}</p>
-                              </div>
-                           </div>
-                           <Button 
-                             onClick={() => handleRemoveCard(card.id)}
-                             variant="ghost" 
-                             size="icon" 
-                             className="w-16 h-16 rounded-[2rem] text-slate-200 hover:text-rose-600 hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100 border border-transparent hover:border-rose-100 shadow-2xl"
-                           >
-                              <Trash2 className="w-8 h-8" />
-                           </Button>
-                         </div>
-                       ))}
-                       <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
-                         <DialogTrigger asChild>
-                           <button 
-                             className="p-12 bg-slate-50/50 rounded-[3rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-6 group hover:bg-white hover:border-blue-500 hover:shadow-2xl transition-all duration-700 outline-none min-h-40"
-                           >
-                              <div className="w-20 h-20 rounded-[2rem] bg-white shadow-2xl border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
-                                 <Plus className="w-12 h-12 stroke-[3px]" />
-                              </div>
-                              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Attach Asset</span>
-                           </button>
-                         </DialogTrigger>
-                         <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden bg-white">
-                            <div className="bg-slate-900 p-10 text-white relative overflow-hidden">
-                               <div className="absolute inset-0 bg-linear-to-br from-blue-600/20 to-transparent" />
-                               <DialogHeader className="relative z-10">
-                                 <DialogTitle className="text-2xl font-bold tracking-tight">Secure Asset Integration</DialogTitle>
-                                 <DialogDescription className="text-slate-400 font-bold">Transmit financial identifiers to the vault.</DialogDescription>
-                               </DialogHeader>
-                            </div>
-                            <form onSubmit={handleAddCard} className="p-10 space-y-6">
-                               {addCardError && (
-                                 <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                   <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center shrink-0">
-                                     <X className="w-4 h-4 text-rose-600" />
-                                   </div>
-                                   <p className="text-[11px] font-black text-rose-700 uppercase tracking-wider italic">{addCardError}</p>
-                                 </div>
-                               )}
-                               <div className="space-y-3">
-                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Cardholder Authority</Label>
-                                  <Input 
-                                    placeholder="JOHN DOE"
-                                    value={newCardData.name}
-                                    onChange={(e) => setNewCardData({...newCardData, name: e.target.value.toUpperCase()})}
-                                    className="h-14 bg-slate-50 border-slate-100 rounded-2xl font-bold px-6 focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                  />
-                               </div>
-                               <div className="space-y-3">
-                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Primary Account Number</Label>
-                                  <Input 
-                                    placeholder="•••• •••• •••• ••••"
-                                    maxLength={16}
-                                    value={newCardData.number}
-                                    onChange={(e) => setNewCardData({...newCardData, number: e.target.value.replace(/\D/g, '')})}
-                                    className="h-14 bg-slate-50 border-slate-100 rounded-2xl font-bold px-6 focus:ring-4 focus:ring-blue-500/5 transition-all text-lg tracking-widest"
-                                  />
-                               </div>
-                               <div className="grid grid-cols-2 gap-6">
-                                  <div className="space-y-3">
-                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Lifecycle (MM/YY)</Label>
-                                     <Input 
-                                       placeholder="12/28"
-                                       maxLength={5}
-                                       value={newCardData.expiry}
-                                       onChange={(e) => setNewCardData({...newCardData, expiry: e.target.value})}
-                                       className="h-14 bg-slate-50 border-slate-100 rounded-2xl font-bold px-6 focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                     />
-                                  </div>
-                                  <div className="space-y-3">
-                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Security Code</Label>
-                                     <Input 
-                                       placeholder="•••"
-                                       maxLength={3}
-                                       value={newCardData.cvv}
-                                       onChange={(e) => setNewCardData({...newCardData, cvv: e.target.value.replace(/\D/g, '')})}
-                                       className="h-14 bg-slate-50 border-slate-100 rounded-2xl font-bold px-6 focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                     />
-                                  </div>
-                               </div>
-                               <div className="pt-4">
-                                  <Button type="submit" className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-xl shadow-blue-500/20 active:scale-95 transition-all">
-                                     Harden Asset
-                                  </Button>
-                               </div>
-                            </form>
-                         </DialogContent>
-                       </Dialog>
-                    </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* ─── GST / TAX CONFIGURATION TAB ─── */}
-            <TabsContent value="tax" className="mt-0 outline-none animate-in fade-in duration-500">
-              <div className="space-y-8">
-                {/* Hero Card */}
-                <Card className="border-0 shadow-2xl shadow-emerald-500/5 ring-1 ring-gray-100 rounded-[3rem] overflow-hidden bg-white">
-                  <div className="bg-linear-to-br from-emerald-950 via-slate-900 to-slate-900 p-10 sm:p-14 text-white relative overflow-hidden">
-                    <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl" />
-                    <Percent className="absolute right-10 top-10 w-32 h-32 text-white/5" />
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                          <Receipt className="w-6 h-6 text-emerald-400" />
-                        </div>
-                        <div>
-                          <h2 className="text-2xl font-black uppercase tracking-tighter">GST / Tax Configuration</h2>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Billing Engine</p>
-                        </div>
-                      </div>
-                      <p className="text-sm font-bold text-slate-400 leading-relaxed max-w-xl">
-                        Define your restaurant's tax policy. When enabled, the configured GST rate will be applied automatically on every customer order and displayed transparently in the checkout modal.
-                        <span className="block mt-2 text-emerald-400 italic">This field is optional — if disabled or set to 0%, no tax will be charged.</span>
-                      </p>
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
-                  <CardContent className="p-8 sm:p-14 space-y-10">
-                    {/* Enable/Disable Toggle */}
-                    <div className="flex items-center justify-between p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${ gstData.enabled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                          <Percent className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{gstData.enabled ? 'GST Collection Active' : 'GST Disabled'}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Toggle to {gstData.enabled ? 'disable' : 'enable'} tax on orders</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={gstData.enabled}
-                        onCheckedChange={(val) => setGstData(p => ({...p, enabled: val}))}
-                        className="data-[state=checked]:bg-emerald-500 scale-150 mx-2"
-                      />
+                  <Button 
+                    onClick={handleSave}
+                    disabled={isSaving || !securityData.newPassword}
+                    className="w-full h-11 rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
+                  >
+                    {isSaving ? 'Updating Password...' : 'Update Password'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white">
+                <CardHeader className="px-6 py-5 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                      <ShieldCheck className="w-5 h-5" />
                     </div>
-
-                    {/* GST Rate Input */}
-                    <div className={`space-y-4 transition-all duration-500 ${gstData.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-3">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
-                            <Percent className="w-3 h-3" /> GST Rate (%)
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="28"
-                              step="0.5"
-                              placeholder="e.g. 5, 12, 18, 28"
-                              value={gstData.rate}
-                              onChange={(e) => setGstData(p => ({...p, rate: e.target.value}))}
-                              className="h-16 bg-white border-slate-100 border-2 rounded-2xl font-black text-2xl text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all px-6 pr-16 shadow-sm"
-                            />
-                            <span className="absolute right-5 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300">%</span>
-                          </div>
-                          <p className="text-[10px] font-bold text-slate-400 pl-1">Common rates: 5% · 12% · 18% · 28%</p>
-                        </div>
-
-                        <div className="space-y-3">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
-                            <Receipt className="w-3 h-3" /> Tax Label (shown on bill)
-                          </Label>
-                          <Input
-                            type="text"
-                            placeholder="e.g. GST, SGST+CGST, VAT"
-                            value={gstData.label}
-                            onChange={(e) => setGstData(p => ({...p, label: e.target.value}))}
-                            className="h-16 bg-white border-slate-100 border-2 rounded-2xl font-black text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all px-6 shadow-sm"
-                          />
-                          <p className="text-[10px] font-bold text-slate-400 pl-1">This label appears in the customer's order summary.</p>
-                        </div>
-                      </div>
-
-                      {/* Live Preview */}
-                      {gstData.enabled && Number(gstData.rate) > 0 && (
-                        <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-3">
-                          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-4">Live Preview — Customer Bill</p>
-                          <div className="flex justify-between text-sm text-slate-600 font-bold">
-                            <span>Subtotal</span><span>₹100.00</span>
-                          </div>
-                          <div className="flex justify-between text-sm text-emerald-700 font-black">
-                            <span>{gstData.label || 'GST'} ({gstData.rate}%)</span>
-                            <span>₹{(100 * Number(gstData.rate) / 100).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-emerald-100">
-                            <span>Total Amount</span>
-                            <span>₹{(100 + 100 * Number(gstData.rate) / 100).toFixed(2)}</span>
-                          </div>
-                        </div>
-                      )}
+                    <div>
+                      <CardTitle className="text-base font-black text-slate-900 tracking-tight">Account Protection</CardTitle>
+                      <CardDescription className="text-xs text-slate-500 font-medium">Session verification & two-step alerts.</CardDescription>
                     </div>
-
-                    {/* Info Banner */}
-                    <div className="flex items-start gap-4 p-5 bg-blue-50/50 border border-blue-100 rounded-2xl">
-                      <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                      <p className="text-[11px] font-bold text-blue-700 leading-relaxed">
-                        GST is optional and fully controllable. If you do not set a rate or disable this toggle, <strong>no tax will be shown or charged</strong> to your customers. Each restaurant operates under an isolated tax policy.
-                      </p>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">Two-Factor Push Security</h4>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">Require device authorization on new logins.</p>
                     </div>
+                    <Switch 
+                      checked={securityData.mfaEnabled} 
+                      onCheckedChange={(val) => setSecurityData({...securityData, mfaEnabled: val})}
+                      className="data-[state=checked]:bg-emerald-600"
+                    />
+                  </div>
 
-                    <Button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="w-full sm:w-auto h-14 px-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all"
-                    >
-                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                      {isSaving ? 'Saving GST Policy...' : 'Save Tax Configuration'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
+                  <div className="p-4 bg-emerald-50/60 border border-emerald-200/60 rounded-xl flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-bold text-emerald-800">Your account authentication session is encrypted and active.</span>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </div>
+          </TabsContent>
+
+          <TabsContent value="billing" className="mt-0 outline-none">
+            <div className="space-y-6">
+              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 text-white overflow-hidden p-6 sm:p-8 relative">
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                  <div className="space-y-2">
+                    <Badge className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-lg">
+                      Active Subscription
+                    </Badge>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      {billingData.plan} Plan
+                    </h2>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-black text-white">₹{billingData.price}</span>
+                      <span className="text-xs text-slate-300 font-bold">/month</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="h-12 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-500/30 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <Crown className="w-4 h-4 text-amber-300" />
+                    Upgrade Plan
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </Card>
+
+              <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white overflow-hidden">
+                <CardHeader className="px-6 py-5 border-b border-slate-100 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-black text-slate-900 tracking-tight">Saved Payment Methods</CardTitle>
+                    <CardDescription className="text-xs text-slate-500 font-medium">Manage corporate cards and UPI handles.</CardDescription>
+                  </div>
+                  <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer">
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Card
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md rounded-2xl p-6 bg-white border-0 shadow-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-lg font-black">Add Payment Card</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">Save a new credit or debit card for subscription billing.</DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleAddCard} className="space-y-4 mt-4">
+                        {addCardError && (
+                          <p className="text-xs font-bold text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-200">{addCardError}</p>
+                        )}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold">Cardholder Name</Label>
+                          <Input 
+                            placeholder="JOHN DOE"
+                            value={newCardData.name}
+                            onChange={(e) => setNewCardData({...newCardData, name: e.target.value.toUpperCase()})}
+                            className="h-11 rounded-xl"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold">Card Number</Label>
+                          <Input 
+                            placeholder="4000 0000 0000 0000"
+                            maxLength={16}
+                            value={newCardData.number}
+                            onChange={(e) => setNewCardData({...newCardData, number: e.target.value.replace(/\D/g, '')})}
+                            className="h-11 rounded-xl tracking-widest"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-bold">Expiry (MM/YY)</Label>
+                            <Input 
+                              placeholder="12/28"
+                              maxLength={5}
+                              value={newCardData.expiry}
+                              onChange={(e) => setNewCardData({...newCardData, expiry: e.target.value})}
+                              className="h-11 rounded-xl"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-bold">CVV</Label>
+                            <Input 
+                              placeholder="123"
+                              maxLength={3}
+                              value={newCardData.cvv}
+                              onChange={(e) => setNewCardData({...newCardData, cvv: e.target.value.replace(/\D/g, '')})}
+                              className="h-11 rounded-xl"
+                            />
+                          </div>
+                        </div>
+                        <Button type="submit" className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl mt-2 cursor-pointer">
+                          Save Card
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {billingData.cards.map(card => (
+                      <div key={card.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-8 bg-white rounded-lg border border-slate-200 flex items-center justify-center p-1">
+                            <img src={card.logo} className="h-4 object-contain" alt={card.type} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 text-sm">{card.type} ending in {card.last4}</p>
+                            <p className="text-[11px] text-slate-500 font-semibold">Expires {card.expiry}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleRemoveCard(card.id)}
+                          className="text-slate-400 hover:text-rose-600 p-2 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="tax" className="mt-0 outline-none">
+            <Card className="border border-slate-200/80 shadow-sm rounded-2xl bg-white overflow-hidden">
+              <CardHeader className="px-6 py-5 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-black text-slate-900 tracking-tight">GST & Tax Configuration</CardTitle>
+                    <CardDescription className="text-xs text-slate-500 font-medium">Define tax percentage automatically added to customer orders.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", gstData.enabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500")}>
+                      <Percent className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{gstData.enabled ? 'GST Enabled' : 'GST Disabled'}</h4>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">Toggle to {gstData.enabled ? 'disable' : 'enable'} tax on customer bills.</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={gstData.enabled}
+                    onCheckedChange={(val) => setGstData(p => ({...p, enabled: val}))}
+                    className="data-[state=checked]:bg-emerald-600"
+                  />
+                </div>
+
+                <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-6 transition-all", !gstData.enabled && "opacity-40 pointer-events-none")}>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">GST Rate (%)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="28"
+                        step="0.5"
+                        placeholder="5"
+                        value={gstData.rate}
+                        onChange={(e) => setGstData(p => ({...p, rate: e.target.value}))}
+                        className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-bold text-lg text-slate-900 pr-10"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      {['5', '12', '18', '28'].map(r => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setGstData(p => ({...p, rate: r}))}
+                          className={cn(
+                            "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+                            gstData.rate === r ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          )}
+                        >
+                          {r}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bill Tax Label</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. GST, SGST+CGST"
+                      value={gstData.label}
+                      onChange={(e) => setGstData(p => ({...p, label: e.target.value}))}
+                      className="h-12 bg-slate-50/50 border-slate-200 rounded-xl font-semibold text-slate-900"
+                    />
+                    <p className="text-[11px] text-slate-400 font-medium">This text is shown on the customer's digital bill.</p>
+                  </div>
+                </div>
+
+                {gstData.enabled && Number(gstData.rate) > 0 && (
+                  <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2">
+                    <p className="text-[10px] font-black text-emerald-800 uppercase tracking-wider mb-2">Live Customer Order Preview</p>
+                    <div className="flex justify-between text-xs text-slate-600 font-semibold">
+                      <span>Subtotal (Items)</span>
+                      <span>₹500.00</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-emerald-700 font-bold">
+                      <span>{gstData.label || 'GST'} ({gstData.rate}%)</span>
+                      <span>₹{(500 * Number(gstData.rate) / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-emerald-200">
+                      <span>Total Payable</span>
+                      <span>₹{(500 + 500 * Number(gstData.rate) / 100).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+                  Save Tax Settings
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
-      {/* Unified Platform Footer */}
-      <div className="py-24 text-center opacity-40 hover:opacity-100 transition-opacity">
-        <Separator className="mb-16 opacity-30 mx-32" />
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCcw className="w-8 h-8 text-slate-200 animate-[spin_20s_linear_infinite]" />
-          <p className="text-[12px] font-bold text-slate-900 uppercase tracking-widest">
-            Servora Enterprise Architectural Core
-          </p>
-        </div>
-      </div>
+      <UpgradePlanModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        currentPlanName={billingData.plan}
+        restaurantId={restaurantId}
+        merchantEmail={profileData.email}
+        merchantName={profileData.name}
+        onUpgradeSuccess={() => {
+          loadCloudConfig()
+          showToast('Plan upgraded successfully!', 'success')
+        }}
+      />
     </div>
   )
 }

@@ -131,6 +131,7 @@ export const ensureValidRestaurantUUID = async (restaurantId) => {
 export const normalizeMenuItem = (item) => {
   if (!item) return null
   const id = item.id || item._id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+  const photo = item.photo || item.photo_url || item.image_url || item.image || item.imageUrl || item.photoUrl || null
   return {
     id: id,
     _id: id,
@@ -140,7 +141,11 @@ export const normalizeMenuItem = (item) => {
     category: item.category || 'Main Course',
     type: item.type || 'VEG',
     isInStock: item.is_in_stock ?? item.isInStock ?? true,
-    photo: item.photo_url || item.photo || null,
+    photo: photo,
+    photo_url: photo,
+    image_url: photo,
+    image: photo,
+    imageUrl: photo,
     created_at: item.created_at || item.createdAt || new Date().toISOString()
   }
 }
@@ -180,6 +185,7 @@ export const fetchMenuItems = async (restaurantId) => {
 /** Create a new menu item directly in Supabase DB */
 export const createMenuItem = async (restaurantId, itemData) => {
   const newItemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+  const photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
   const normalizedNewItem = normalizeMenuItem({
     id: newItemId,
     name: itemData.name,
@@ -188,7 +194,7 @@ export const createMenuItem = async (restaurantId, itemData) => {
     category: itemData.category || 'Main Course',
     type: itemData.type || 'VEG',
     isInStock: itemData.isInStock ?? true,
-    photo: itemData.photo || null,
+    photo: photoVal,
     created_at: new Date().toISOString()
   })
 
@@ -199,12 +205,10 @@ export const createMenuItem = async (restaurantId, itemData) => {
     localStorage.setItem(`servora_menu_items_${restaurantId}`, JSON.stringify([...localItems, normalizedNewItem]))
   } catch (e) {}
 
-  // Post directly to Supabase DB (sanitize photo_url so base64 strings don't exceed body limit)
+  // Post directly to Supabase DB
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (uuid) {
     try {
-      const cleanPhotoUrl = (typeof itemData.photo === 'string' && (itemData.photo.startsWith('http://') || itemData.photo.startsWith('https://'))) ? itemData.photo : null
-
       const payload = {
         restaurant_id: uuid,
         name: itemData.name,
@@ -213,7 +217,7 @@ export const createMenuItem = async (restaurantId, itemData) => {
         category: itemData.category || 'Main Course',
         type: itemData.type || 'VEG',
         is_in_stock: itemData.isInStock ?? true,
-        photo_url: cleanPhotoUrl,
+        photo_url: photoVal,
       }
 
       const { data, error } = await supabase
@@ -223,7 +227,7 @@ export const createMenuItem = async (restaurantId, itemData) => {
         .single()
 
       if (!error && data) {
-        return normalizeMenuItem({ ...data, photo_url: itemData.photo || data.photo_url })
+        return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
       } else if (error) {
         console.warn('createMenuItem Supabase DB insert notice:', error.message || error)
       }
@@ -238,6 +242,7 @@ export const createMenuItem = async (restaurantId, itemData) => {
 /** Update an existing menu item in Supabase DB */
 export const updateMenuItem = async (itemId, itemData, restaurantId) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+  const photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
 
   const updatedItem = normalizeMenuItem({
     id: itemId,
@@ -247,7 +252,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
     category: itemData.category,
     type: itemData.type || 'VEG',
     isInStock: itemData.isInStock ?? true,
-    photo: itemData.photo || null,
+    photo: photoVal,
   })
 
   // 1. Update local storage cache
@@ -261,9 +266,6 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
     } catch (e) {}
   }
 
-  // Sanitize photo_url to prevent PostgREST 400 Bad Request on base64 data URIs
-  const cleanPhotoUrl = (typeof itemData.photo === 'string' && (itemData.photo.startsWith('http://') || itemData.photo.startsWith('https://'))) ? itemData.photo : null
-
   // 2. Post update to Supabase DB table `menu_items`
   if (isUUID(itemId)) {
     await ensureAdminSession()
@@ -275,7 +277,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
         category: itemData.category,
         type: itemData.type || 'VEG',
         is_in_stock: itemData.isInStock ?? true,
-        photo_url: cleanPhotoUrl,
+        photo_url: photoVal,
         updated_at: new Date().toISOString(),
       }
 
@@ -287,7 +289,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
         .single()
 
       if (!error && data) {
-        return normalizeMenuItem({ ...data, photo_url: itemData.photo || data.photo_url })
+        return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
       } else if (error) {
         console.warn('updateMenuItem Supabase DB update notice:', error.message || error)
       }
@@ -307,7 +309,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
           category: itemData.category,
           type: itemData.type || 'VEG',
           is_in_stock: itemData.isInStock ?? true,
-          photo_url: cleanPhotoUrl,
+          photo_url: photoVal,
         }
 
         const { data, error } = await supabase
@@ -317,7 +319,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
           .single()
 
         if (!error && data) {
-          return normalizeMenuItem({ ...data, photo_url: itemData.photo || data.photo_url })
+          return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
         }
       } catch (err) {}
     }
@@ -644,7 +646,25 @@ export const createOrder = async (orderData) => {
     console.warn('Notice: Notification insert notice:', e)
   }
 
-  // 5. Trigger live local event, cross-tab storage broadcast & toast popup alert
+  // 5. Upsert customer into `customers` table — track every unique visitor
+  try {
+    const customerName = orderData.customerName?.trim() || 'Guest Customer'
+    if (customerName && customerName !== 'Guest Customer') {
+      // Use name as the dedup key per restaurant (upsert by restaurant_id + name)
+      await supabase
+        .from('customers')
+        .upsert({
+          restaurant_id: validRestaurantId,
+          name: customerName,
+          last_visit: new Date().toISOString(),
+          // Only set created_at on first insert — upsert won't overwrite it
+        }, { onConflict: 'restaurant_id,name', ignoreDuplicates: false })
+    }
+  } catch (e) {
+    console.warn('Customer upsert notice:', e)
+  }
+
+  // 6. Trigger live local event, cross-tab storage broadcast & toast popup alert
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('servora_latest_order', JSON.stringify({
@@ -675,6 +695,22 @@ export const fetchOrders = async (restaurantId) => {
     .order('created_at', { ascending: false })
 
   if (error) throw error
+  return data || []
+}
+
+/** Fetch all customers for a restaurant from the customers table */
+export const fetchCustomers = async (restaurantId) => {
+  if (!restaurantId) return []
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('last_visit', { ascending: false })
+
+  if (error) {
+    console.error('fetchCustomers error:', error)
+    return []
+  }
   return data || []
 }
 

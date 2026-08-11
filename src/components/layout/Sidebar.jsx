@@ -38,7 +38,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   const navigate = useNavigate()
   const [counts, setCounts] = useState({ orders: 0, tables: 0 })
 
-  const [resolvedId, setResolvedId] = useState(null)
+  const [resolvedId, setResolvedId] = useState(restaurantId || null)
   
   // Resolve Identity (Email to UUID)
   useEffect(() => {
@@ -49,48 +49,80 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
         return
       }
       
-      const { data } = await supabase
-        .from('restaurants')
-        .select('id')
-        .eq('email', restaurantId.toLowerCase())
-        .single()
-      
-      if (data?.id) {
-        setResolvedId(data.id)
+      try {
+        const { data } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('email', restaurantId.toLowerCase())
+          .maybeSingle()
+        
+        if (data?.id) {
+          setResolvedId(data.id)
+        } else {
+          setResolvedId(restaurantId)
+        }
+      } catch (err) {
+        setResolvedId(restaurantId)
       }
     }
     resolve()
   }, [restaurantId])
 
   useEffect(() => {
-    if (!resolvedId) return
+    const targetId = resolvedId || restaurantId
+    if (!targetId) return
 
     const fetchActiveCounts = async () => {
-      // 1. Fetch Orders count (Pending & Preparing)
-      const { count: orderCount } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('restaurant_id', resolvedId)
-        .in('status', ['PENDING', 'PREPARING'])
+      try {
+        // 1. Fetch Active Orders count (include PLACED, PENDING, ORDERED, PREPARING, READY, BILL_REQUESTED, etc.)
+        let orderQuery = supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .not('status', 'in', '("FINISHED","FINISHED_CLOSED","CANCELLED","cancelled","finished")')
 
-      // 2. Fetch Active Tables count
-      const { count: tableCount } = await supabase
-        .from('table_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('restaurant_id', resolvedId)
-        .in('status', ['occupied', 'billing'])
+        if (resolvedId && restaurantId && resolvedId !== restaurantId) {
+          orderQuery = orderQuery.or(`restaurant_id.eq.${resolvedId},restaurant_id.eq.${restaurantId}`)
+        } else {
+          orderQuery = orderQuery.eq('restaurant_id', targetId)
+        }
 
-      // 3. Fetch Active Waiter Calls count
-      const { count: waiterCount } = await supabase
-        .from('waiter_calls')
-        .select('*', { count: 'exact', head: true })
-        .eq('restaurant_id', resolvedId)
-        .eq('is_handled', false)
+        const { count: orderCount } = await orderQuery
 
-      setCounts({
-        orders: (orderCount || 0) + (waiterCount || 0), // Include service requests in the orders alert
-        tables: tableCount || 0
-      })
+        // 2. Fetch Active Tables count
+        let tableQuery = supabase
+          .from('table_sessions')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['occupied', 'billing'])
+
+        if (resolvedId && restaurantId && resolvedId !== restaurantId) {
+          tableQuery = tableQuery.or(`restaurant_id.eq.${resolvedId},restaurant_id.eq.${restaurantId}`)
+        } else {
+          tableQuery = tableQuery.eq('restaurant_id', targetId)
+        }
+
+        const { count: tableCount } = await tableQuery
+
+        // 3. Fetch Active Waiter Calls count
+        let waiterQuery = supabase
+          .from('waiter_calls')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_handled', false)
+
+        if (resolvedId && restaurantId && resolvedId !== restaurantId) {
+          waiterQuery = waiterQuery.or(`restaurant_id.eq.${resolvedId},restaurant_id.eq.${restaurantId}`)
+        } else {
+          waiterQuery = waiterQuery.eq('restaurant_id', targetId)
+        }
+
+        const { count: waiterCount } = await waiterQuery
+
+        setCounts({
+          orders: (orderCount || 0) + (waiterCount || 0),
+          tables: tableCount || 0
+        })
+      } catch (err) {
+        console.warn('Sidebar count fetch error:', err)
+      }
     }
 
     fetchActiveCounts()
@@ -98,44 +130,45 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     // 🏆 Subscribe to Real-time Changes & Window Events
     const handleNewOrderEvent = () => fetchActiveCounts()
     window.addEventListener('servora_new_order', handleNewOrderEvent)
+    window.addEventListener('orderStatusUpdated', handleNewOrderEvent)
+    window.addEventListener('qrCodesUpdated', handleNewOrderEvent)
 
     const orderChannel = supabase
-      .channel('sidebar-orders')
+      .channel(`sidebar-orders-v2-${targetId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'orders',
-        filter: `restaurant_id=eq.${resolvedId}`
+        table: 'orders'
       }, () => fetchActiveCounts())
       .subscribe()
 
     const tableChannel = supabase
-      .channel('sidebar-tables')
+      .channel(`sidebar-tables-v2-${targetId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'table_sessions',
-        filter: `restaurant_id=eq.${resolvedId}`
+        table: 'table_sessions'
       }, () => fetchActiveCounts())
       .subscribe()
 
     const waiterChannel = supabase
-      .channel('sidebar-waiter')
+      .channel(`sidebar-waiter-v2-${targetId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'waiter_calls',
-        filter: `restaurant_id=eq.${resolvedId}`
+        table: 'waiter_calls'
       }, () => fetchActiveCounts())
       .subscribe()
 
     return () => {
       window.removeEventListener('servora_new_order', handleNewOrderEvent)
+      window.removeEventListener('orderStatusUpdated', handleNewOrderEvent)
+      window.removeEventListener('qrCodesUpdated', handleNewOrderEvent)
       supabase.removeChannel(orderChannel)
       supabase.removeChannel(tableChannel)
       supabase.removeChannel(waiterChannel)
     }
-  }, [resolvedId])
+  }, [resolvedId, restaurantId])
 
   const handleNavigation = (item) => {
     setActiveItem(item.id)

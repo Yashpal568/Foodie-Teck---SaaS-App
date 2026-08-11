@@ -174,32 +174,21 @@ const TableStatus = ({ restaurantId = 'default' }) => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Table Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="space-y-4">
+      {/* Compact Table Stats Strip */}
+      <div className="grid grid-cols-4 gap-2">
         {['available', 'occupied', 'billing', 'needs-cleaning'].map((status) => (
-          <div key={status} className={statusConfig[status].bgColor + " p-4 rounded-2xl border flex flex-col items-center justify-center text-center shadow-xs"}>
-             <p className="text-xl font-black text-slate-900 leading-none">{stats[status] || 0}</p>
-             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1.5">{statusConfig[status].label}</p>
+          <div key={status} className={`${statusConfig[status].bgColor} px-2 py-2.5 rounded-xl border flex flex-col items-center text-center`}>
+            <p className="text-lg font-black text-slate-900 leading-none">{stats[status] || 0}</p>
+            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1 leading-tight">
+              {statusConfig[status].label.split(' ').map((w, i) => <span key={i} className="block">{w}</span>)}
+            </p>
           </div>
         ))}
       </div>
 
-      {/* Table Grid Card */}
-      <Card className="border-gray-100 shadow-sm overflow-hidden rounded-[2rem] bg-white">
-        <CardHeader className="pb-3 px-6 pt-5 border-b border-slate-50">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-lg font-black text-gray-900 tracking-tight">
-              <Activity className="w-5 h-5 text-blue-600" />
-              Live POS Floor Status
-            </CardTitle>
-            <Badge variant="outline" className="text-[10px] font-mono font-bold text-emerald-600 border-emerald-200 bg-emerald-50">
-              Live Ticker Active
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="px-5 pb-5 pt-4">
-          <div className="grid grid-cols-1 gap-3">
+      {/* Table Cards */}
+      <div className="grid grid-cols-1 gap-3">
             {displayTables.map((table) => {
               const tableNum = table.table_number || table.tableNumber
               const statusKey = table.status || 'available'
@@ -316,8 +305,6 @@ const TableStatus = ({ restaurantId = 'default' }) => {
               )
             })}
           </div>
-        </CardContent>
-      </Card>
 
       {/* 🧾 DASHBOARD POS VIEW TABLE MODAL */}
       {selectedTable && (
