@@ -78,6 +78,7 @@ export default function AdminHeader({ onMenuClick }) {
           title: `UTR Payment Verification Needed`,
           desc: `${p.merchant} submitted UTR #${p.utr} for ${p.plan} (₹${p.amount?.toLocaleString('en-IN')})`,
           timestamp: p.createdAt || 'Just now',
+          rawDate: p.createdAt ? new Date(p.createdAt).getTime() : Date.now(),
           unread: true,
           route: '/admin/revenue',
           icon: CreditCard,
@@ -93,6 +94,7 @@ export default function AdminHeader({ onMenuClick }) {
           title: `New Merchant Node Registered`,
           desc: `${r.business_name || r.name || 'Merchant'} (${r.email || 'N/A'}) initialized workspace.`,
           timestamp: new Date(r.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          rawDate: new Date(r.created_at || Date.now()).getTime(),
           unread: false,
           route: '/admin/customers',
           icon: Store,
@@ -109,6 +111,7 @@ export default function AdminHeader({ onMenuClick }) {
             title: a.action || 'Security Telemetry Event',
             desc: `Actor: ${a.actor || 'system@servora'} | Severity: ${a.severity || 'NOMINAL'}`,
             timestamp: new Date(a.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            rawDate: new Date(a.created_at || Date.now()).getTime(),
             unread: a.severity === 'WARNING' || a.severity === 'CRITICAL',
             route: '/admin/audit',
             icon: ShieldAlert,
@@ -134,6 +137,7 @@ export default function AdminHeader({ onMenuClick }) {
                 title: n.title || 'Platform Notification',
                 desc: n.message || 'Notification received.',
                 timestamp: new Date(n.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                rawDate: new Date(n.created_at || Date.now()).getTime(),
                 unread: !n.is_read,
                 route: '/admin/audit',
                 icon: Zap,
@@ -143,6 +147,37 @@ export default function AdminHeader({ onMenuClick }) {
           })
         }
       } catch (e) {}
+
+      // 5. Support Tickets
+      try {
+        const { data: supportTickets } = await supabase
+          .from('support_tickets')
+          .select('*')
+          .in('status', ['OPEN', 'IN-PROGRESS'])
+          .order('updated_at', { ascending: false })
+          .limit(5)
+        
+        if (supportTickets && supportTickets.length > 0) {
+          supportTickets.forEach(t => {
+            if (!aggregatedList.some(item => item.id === `ticket-${t.id}`)) {
+              aggregatedList.push({
+                id: `ticket-${t.id}`,
+                category: 'SYSTEM',
+                title: `Support Ticket: ${t.status}`,
+                desc: `[${t.subject}] - Merchant Ticket`,
+                timestamp: new Date(t.updated_at || t.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                rawDate: new Date(t.updated_at || t.created_at || Date.now()).getTime(),
+                unread: t.status === 'OPEN',
+                route: '/admin/support',
+                icon: MessageSquare,
+                color: 'emerald'
+              })
+            }
+          })
+        }
+      } catch (e) {}
+
+      aggregatedList.sort((a, b) => b.rawDate - a.rawDate)
 
       setNotifications(aggregatedList)
       setUnreadCount(aggregatedList.filter(n => n.unread).length)
@@ -164,6 +199,8 @@ export default function AdminHeader({ onMenuClick }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => loadNotifications())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => loadNotifications())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => loadNotifications())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => loadNotifications())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_replies' }, () => loadNotifications())
       .subscribe()
 
     const handleKeyDown = (e) => {

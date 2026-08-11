@@ -5,31 +5,59 @@ import {
   MessageSquare, 
   CheckCircle, 
   Trash2, 
-  AlertCircle, 
   Search, 
   User, 
-  ExternalLink,
-  ChevronRight,
+  Send,
+  Clock,
   Filter,
-  LifeBuoy
+  LifeBuoy,
+  ChevronRight,
+  MoreHorizontal
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { logAdminAction } from '@/lib/audit'
 import { toast } from 'sonner'
 import { fetchAllTickets, addTicketReply, updateTicketStatus } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 export default function AdminSupportPage() {
   const [search, setSearch] = useState('')
   const [tickets, setTickets] = useState([])
-  const [activeFilter, setActiveFilter] = useState('OPEN')
+  const [activeFilter, setActiveFilter] = useState('ALL')
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [replyMessage, setReplyMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
 
-  const loadTickets = async () => {
+  // Load tickets using secure edge routing simulation
+  const loadTickets = async (isSilent = false) => {
     try {
-      setLoading(true)
+      if (!isSilent) setLoading(true)
       const data = await fetchAllTickets()
       
       // Map API data to component requirements
@@ -57,12 +85,19 @@ export default function AdminSupportPage() {
       console.error('Failed to load cloud tickets:', err)
       toast.error('Error loading secure support feed')
     } finally {
-      setLoading(false)
+      if (!isSilent) setLoading(false)
     }
   }
 
   useEffect(() => {
     loadTickets()
+    
+    // Fallback polling every 10 seconds to keep admin support page in sync automatically
+    const interval = setInterval(() => {
+      loadTickets(true)
+    }, 10000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const handleReply = async (ticketId, resolve = false) => {
@@ -79,10 +114,13 @@ export default function AdminSupportPage() {
       logAdminAction(`Admin Reply & Update to Ticket: ${ticketId}`, 'SUPPORT_RELAY', 'NOMINAL')
       
       setReplyMessage('')
-      if (resolve) setSelectedTicket(null)
+      if (resolve) {
+        setIsSheetOpen(false)
+        setSelectedTicket(null)
+      }
       
-      toast.success("Command Reply Transmitted", {
-        description: resolve ? "Relay closed and resolved." : "Merchant notified of progress."
+      toast.success("Reply Sent", {
+        description: resolve ? "Ticket has been resolved." : "Merchant notified of progress."
       })
       
       await loadTickets()
@@ -96,7 +134,9 @@ export default function AdminSupportPage() {
     try {
       await updateTicketStatus(ticketId, 'RESOLVED')
       logAdminAction(`Manual Resolution: ${ticketId}`, 'SUPPORT_RELAY', 'NOMINAL')
-      toast.success("Ticket Resolved", { description: "Forensic cloud record updated." })
+      toast.success("Ticket Resolved", { description: "The ticket status has been updated." })
+      setIsSheetOpen(false)
+      setSelectedTicket(null)
       await loadTickets()
     } catch (err) {
       console.error('Resolve failed:', err)
@@ -104,13 +144,9 @@ export default function AdminSupportPage() {
     }
   }
 
-  const handleDelete = async (ticketId) => {
-    // We typically don't delete from cloud to maintain audit trails.
-    // If strict deletion is needed, it requires a delete API endpoint. 
-    // Here we can simply close/reject it or show a dummy success if API doesn't support deletion.
-    toast.error("Ticket Deletion Blocked", {
-      description: "Cloud policy mandates records must be closed, not erased."
-    })
+  const openTicketDetails = (ticket) => {
+    setSelectedTicket(ticket)
+    setIsSheetOpen(true)
   }
 
   const filtered = tickets.filter(t => {
@@ -121,268 +157,244 @@ export default function AdminSupportPage() {
     return matchesSearch && matchesFilter
   })
 
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'OPEN':
+        return <Badge className="bg-rose-50 text-rose-600 border-rose-200 shadow-none font-bold">Open</Badge>
+      case 'IN-PROGRESS':
+        return <Badge className="bg-blue-50 text-blue-600 border-blue-200 shadow-none font-bold">In Progress</Badge>
+      case 'RESOLVED':
+        return <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 shadow-none font-bold">Resolved</Badge>
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
   return (
-    <div className="p-8 pb-32 max-w-7xl mx-auto space-y-12 font-sans overflow-hidden">
-      {/* ─── Header Node ───────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-slate-200">
-        <div className="space-y-2">
-           <h1 className="text-4xl font-black text-slate-950 tracking-tight leading-none uppercase italic">Support Command Node</h1>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mt-2">Merchant Dispute & Assistance Resolution</p>
+    <div className="p-8 pb-32 max-w-7xl mx-auto space-y-8 font-sans">
+      {/* ─── Header ───────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Support Center</h1>
+           <p className="text-sm text-slate-500 mt-1">Manage merchant tickets and provide assistance.</p>
         </div>
-        <div className="flex items-center gap-3">
-           <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100">
-              <LifeBuoy className="w-4 h-4 text-indigo-600 animate-spin-slow" />
-              <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Relay Active</span>
-           </div>
+        <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
+           <LifeBuoy className="w-4 h-4 text-emerald-600" />
+           <span className="text-xs font-bold text-emerald-700">System Active</span>
         </div>
       </div>
 
       {/* ─── Control Bar ───────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-         <div className="bg-white border-2 border-slate-100 flex items-center gap-4 px-6 py-4 rounded-[1.5rem] w-full max-w-2xl shadow-xl shadow-slate-200/20">
-            <Search className="w-5 h-5 text-slate-400" />
-            <input 
-               type="text" 
-               placeholder="Search Ticket ID, Merchant Cluster, or Subject Payload..."
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+         <div className="relative w-full sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input 
+               placeholder="Search by Ticket ID, Merchant, or Subject..."
                value={search}
                onChange={e => setSearch(e.target.value)}
-               className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-black tracking-tight"
+               className="pl-9 h-11 bg-white border-slate-200 rounded-xl shadow-sm text-sm focus-visible:ring-blue-500"
             />
          </div>
-
-         <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 border-slate-100 shadow-sm w-fit self-end lg:self-auto">
-            {['OPEN', 'RESOLVED', 'ALL'].map(f => (
-               <Button
-                  key={f}
-                  onClick={() => setActiveFilter(f)}
-                  variant={activeFilter === f ? 'default' : 'ghost'}
-                  className={`h-11 rounded-xl text-[10px] font-black uppercase tracking-widest px-6 ${
-                     activeFilter === f ? 'bg-slate-950 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
-                  }`}
-               >
-                  {f}
-               </Button>
-            ))}
-         </div>
+         <Select value={activeFilter} onValueChange={setActiveFilter}>
+            <SelectTrigger className="w-full sm:w-[180px] h-11 bg-white border-slate-200 rounded-xl shadow-sm">
+               <div className="flex items-center gap-2 text-sm font-medium">
+                  <Filter className="w-4 h-4 text-slate-400" />
+                  <SelectValue placeholder="Filter Status" />
+               </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-slate-200 shadow-lg">
+               <SelectItem value="ALL" className="rounded-lg text-sm font-medium">All Tickets</SelectItem>
+               <SelectItem value="OPEN" className="rounded-lg text-sm font-medium text-rose-600 focus:text-rose-700 focus:bg-rose-50">Open</SelectItem>
+               <SelectItem value="IN-PROGRESS" className="rounded-lg text-sm font-medium text-blue-600 focus:text-blue-700 focus:bg-blue-50">In Progress</SelectItem>
+               <SelectItem value="RESOLVED" className="rounded-lg text-sm font-medium text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">Resolved</SelectItem>
+            </SelectContent>
+         </Select>
       </div>
 
-      {/* ─── Ticket Loop ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-         <AnimatePresence>
-            {filtered.map((ticket, idx) => (
-               <motion.div 
-                  key={ticket.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ delay: idx * 0.05 }}
-               >
-                  <Card className={`border-2 rounded-[2.5rem] overflow-hidden bg-white shadow-sm hover:shadow-2xl transition-all h-full flex flex-col ${
-                     ticket.status === 'RESOLVED' ? 'border-emerald-100 opacity-80' : 'border-slate-100'
-                  }`}>
-                     <div className="p-8 pb-4 space-y-6 flex-1">
-                        <div className="flex items-center justify-between">
-                           <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-inner ${
-                                 ticket.status === 'RESOLVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
-                              }`}>
-                                 <MessageSquare className="w-5 h-5" />
-                              </div>
-                              <div>
-                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Inbound Ticket</p>
-                                 <p className="text-xs font-black text-slate-900 tracking-tight leading-none uppercase">{ticket.id}</p>
-                              </div>
-                           </div>
-                           <div className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] border ${
-                              ticket.status === 'RESOLVED' 
-                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                                 : 'bg-rose-50 text-rose-600 border-rose-100'
-                           }`}>
-                              {ticket.status}
-                           </div>
+      {/* ─── Tickets Table ───────────────────────────────────────────── */}
+      <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-slate-50/80 border-b border-slate-100">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wider py-4">Ticket ID</TableHead>
+                <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wider py-4">Merchant</TableHead>
+                <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wider py-4">Subject</TableHead>
+                <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wider py-4">Status</TableHead>
+                <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wider py-4 text-right">Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-32 text-center text-slate-400">Loading tickets...</TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-48 text-center text-slate-500">
+                    <Inbox className="w-8 h-8 mx-auto mb-3 opacity-30 text-slate-400" />
+                    <p className="text-sm font-medium">No tickets found</p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((ticket) => (
+                  <TableRow 
+                    key={ticket.id} 
+                    className="cursor-pointer hover:bg-slate-50/80 transition-colors group"
+                    onClick={() => openTicketDetails(ticket)}
+                  >
+                    <TableCell className="font-medium text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                      {ticket.id}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-[10px]">
+                          {ticket.businessName?.substring(0, 2).toUpperCase() || 'MR'}
                         </div>
+                        <span className="text-sm font-medium text-slate-700">{ticket.businessName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm font-medium text-slate-900 line-clamp-1">{ticket.subject}</p>
+                      {ticket.replies?.length > 0 && (
+                        <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3" /> {ticket.replies.length} replies
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(ticket.status)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <p className="text-sm text-slate-600">{ticket.date}</p>
+                      <p className="text-xs text-slate-400">{ticket.time}</p>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
 
-                        <div className="space-y-4 cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
-                           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 border-l-4 border-l-slate-900 group hover:bg-slate-100 transition-all">
-                              <h4 className="text-sm font-black text-slate-950 tracking-tight leading-none mb-2 flex items-center justify-between">
-                                 {ticket.subject}
-                                 <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-all" />
-                              </h4>
-                              <p className="text-xs font-medium text-slate-500 line-clamp-2 leading-relaxed">
-                                 {ticket.description}
-                              </p>
-                           </div>
-
-                           <div className="flex items-center gap-3 px-1">
-                              <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                                 <User className="w-4 h-4 text-slate-400" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                 <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight leading-none mb-0.5 truncate">{ticket.businessName}</p>
-                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none truncate">{ticket.restaurantId}</p>
-                              </div>
-                              <div className="flex gap-1">
-                                 {ticket.replies?.length > 0 && (
-                                    <div className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md text-[8px] font-black">
-                                       {ticket.replies.length} REPLIES
-                                    </div>
-                                 )}
-                              </div>
-                           </div>
-                        </div>
-                     </div>
-
-                     <div className="p-8 pt-0 mt-4 border-t border-slate-50">
-                        <div className="flex items-center gap-3">
-                           <Button 
-                              onClick={() => setSelectedTicket(ticket)}
-                              className="flex-1 h-12 rounded-2xl bg-slate-950 hover:bg-black text-white font-black text-[10px] uppercase tracking-widest flex gap-2 active:scale-95 transition-all shadow-xl"
-                           >
-                              <ExternalLink className="w-4 h-4" /> Open Relay Detail
-                           </Button>
-                           <Button 
-                              onClick={() => handleDelete(ticket.id)}
-                              variant="outline" 
-                              className="h-12 w-12 rounded-2xl border-rose-100 text-rose-600 hover:bg-rose-50 font-black text-[10px] uppercase tracking-widest flex items-center justify-center active:scale-95 transition-all"
-                           >
-                              <Trash2 className="w-4 h-4" />
-                           </Button>
-                        </div>
-                     </div>
-                  </Card>
-               </motion.div>
-            ))}
-         </AnimatePresence>
-      </div>
-
-      {/* ─── Full Relief Relay Modal ───────────────────────────────────────────── */}
-      <AnimatePresence>
-         {selectedTicket && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 pointer-events-none">
-               <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setSelectedTicket(null)}
-                  className="absolute inset-0 bg-slate-950/40 backdrop-blur-xl pointer-events-auto"
-               />
-               <motion.div 
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                  className="relative w-full max-w-4xl bg-white rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] pointer-events-auto border border-white/20"
-               >
-                  {/* Modal Header */}
-                  <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-950 text-white flex items-center justify-center shadow-2xl">
-                           <Inbox className="w-6 h-6" />
-                        </div>
-                        <div>
-                           <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Command Detail Node</span>
-                              <div className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
-                                 selectedTicket.status === 'RESOLVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'
-                              }`}>
-                                 {selectedTicket.status}
-                              </div>
-                           </div>
-                           <h2 className="text-xl font-black text-slate-950 tracking-tight leading-none uppercase">{selectedTicket.id}</h2>
-                        </div>
-                     </div>
-                     <Button 
-                        onClick={() => setSelectedTicket(null)}
-                        variant="ghost" 
-                        className="w-12 h-12 rounded-2xl hover:bg-slate-100"
-                     >
-                        <Trash2 className="w-5 h-5 rotate-45 text-slate-400" />
-                     </Button>
+      {/* ─── Ticket Details Sheet ───────────────────────────────────────────── */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col bg-slate-50 border-l border-slate-200">
+          {selectedTicket && (
+            <>
+              {/* Sheet Header */}
+              <div className="p-6 bg-white border-b border-slate-200">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ticket {selectedTicket.id}</span>
+                      {getStatusBadge(selectedTicket.status)}
+                    </div>
+                    <SheetTitle className="text-xl font-bold text-slate-900">{selectedTicket.subject}</SheetTitle>
+                    <SheetDescription className="mt-1 flex items-center gap-2">
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm font-medium text-slate-700">{selectedTicket.businessName}</span>
+                      <span className="text-slate-300">&bull;</span>
+                      <span className="text-sm text-slate-500">{selectedTicket.date} {selectedTicket.time}</span>
+                    </SheetDescription>
                   </div>
+                </div>
+              </div>
 
-                  {/* Modal Content - Chat Stream */}
-                  <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar bg-slate-50/20">
-                     {/* Original Query */}
-                     <div className="flex gap-4">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0 border-2 border-white shadow-sm">
-                           <User className="w-5 h-5 text-slate-500" />
-                        </div>
-                        <div className="space-y-3 max-w-[80%]">
-                           <div className="bg-white p-6 rounded-t-3xl rounded-br-3xl shadow-sm border border-slate-100 space-y-4">
-                              <div className="border-b border-slate-50 pb-2">
-                                 <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{selectedTicket.subject}</h4>
-                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedTicket.businessName} &bull; {selectedTicket.restaurantId}</p>
-                              </div>
-                              <p className="text-sm font-medium text-slate-600 leading-relaxed italic">
-                                 "{selectedTicket.description}"
-                              </p>
-                           </div>
-                           <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] ml-2">{selectedTicket.time} &bull; {selectedTicket.date}</span>
-                        </div>
-                     </div>
-
-                     {/* Reply Stream */}
-                     {(selectedTicket.replies || []).map((reply, ridx) => (
-                        <div key={ridx} className={`flex gap-4 ${reply.isAdmin ? 'flex-row-reverse' : ''}`}>
-                           <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 border-white shadow-sm ${
-                              reply.isAdmin ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-500'
-                           }`}>
-                              {reply.isAdmin ? <LifeBuoy className="w-5 h-5" /> : <User className="w-5 h-5" />}
-                           </div>
-                           <div className={`space-y-3 max-w-[80%] ${reply.isAdmin ? 'items-end' : ''}`}>
-                              <div className={`p-6 rounded-3xl shadow-sm border ${
-                                 reply.isAdmin 
-                                    ? 'bg-slate-900 text-slate-100 border-slate-800 rounded-tr-none' 
-                                    : 'bg-white text-slate-700 border-slate-100 rounded-tl-none'
-                              }`}>
-                                 <p className="text-sm font-medium leading-relaxed">{reply.message}</p>
-                              </div>
-                              <div className={`flex items-center gap-2 px-2 ${reply.isAdmin ? 'justify-end' : ''}`}>
-                                 <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">
-                                    {reply.isAdmin ? 'HQ RESPONSE' : 'FIELD UPDATE'} &bull; {new Date(reply.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                 </span>
-                              </div>
-                           </div>
-                        </div>
-                     ))}
+              {/* Chat History */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Original Query */}
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 border border-blue-200">
+                    <User className="w-4 h-4 text-blue-600" />
                   </div>
+                  <div className="space-y-1 w-full max-w-[85%]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-700">{selectedTicket.businessName}</span>
+                      <span className="text-[10px] text-slate-400">{selectedTicket.time}</span>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl rounded-tl-sm shadow-sm border border-slate-200">
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {selectedTicket.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                  {/* Modal Footer - Command Input */}
-                  <div className="p-8 bg-white border-t border-slate-100 space-y-4">
-                     <textarea 
-                        value={replyMessage}
-                        onChange={e => setReplyMessage(e.target.value)}
-                        placeholder="Type high-fidelity relief payload..."
-                        className="w-full h-32 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:border-slate-900 transition-all resize-none shadow-inner"
-                     />
-                     <div className="flex items-center gap-3">
+                {/* Replies */}
+                {(selectedTicket.replies || []).map((reply, ridx) => (
+                  <div key={ridx} className={cn('flex gap-4', reply.isAdmin ? 'flex-row-reverse' : '')}>
+                    <div className={cn('w-8 h-8 rounded-full flex items-center justify-center shrink-0 border', 
+                      reply.isAdmin ? 'bg-slate-800 border-slate-700' : 'bg-blue-100 border-blue-200'
+                    )}>
+                      {reply.isAdmin ? <LifeBuoy className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-blue-600" />}
+                    </div>
+                    <div className={cn('space-y-1 w-full max-w-[85%]', reply.isAdmin ? 'items-end flex flex-col' : '')}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-700">{reply.author}</span>
+                        <span className="text-[10px] text-slate-400">{new Date(reply.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <div className={cn('p-4 rounded-2xl shadow-sm border',
+                        reply.isAdmin 
+                          ? 'bg-blue-600 text-white border-blue-700 rounded-tr-sm text-left' 
+                          : 'bg-white text-slate-700 border-slate-200 rounded-tl-sm'
+                      )}>
+                        <p className={cn('text-sm whitespace-pre-wrap leading-relaxed', reply.isAdmin ? 'text-white' : 'text-slate-700')}>
+                          {reply.message}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Reply Box */}
+              <div className="p-6 bg-white border-t border-slate-200">
+                <div className="flex flex-col gap-3">
+                  <textarea 
+                    value={replyMessage}
+                    onChange={e => setReplyMessage(e.target.value)}
+                    placeholder="Type your reply here..."
+                    className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+                  />
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      {selectedTicket.status !== 'RESOLVED' && (
                         <Button 
-                           onClick={() => handleReply(selectedTicket.id, false)}
-                           disabled={!replyMessage.trim()}
-                           className="flex-1 h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
+                          onClick={() => handleResolveOnly(selectedTicket.id)}
+                          variant="outline"
+                          className="h-9 px-4 rounded-lg border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 font-semibold text-xs"
                         >
-                           Transmit Reply
+                          <CheckCircle className="w-4 h-4 mr-2" /> Resolve Ticket
                         </Button>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {selectedTicket.status !== 'RESOLVED' && (
                         <Button 
-                           onClick={() => handleReply(selectedTicket.id, true)}
-                           className="flex-1 h-14 rounded-2xl bg-slate-950 hover:bg-black text-white font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-slate-950/20 active:scale-95 transition-all flex gap-3"
+                          onClick={() => handleReply(selectedTicket.id, true)}
+                          variant="secondary"
+                          disabled={!replyMessage.trim()}
+                          className="h-9 px-4 rounded-lg font-semibold text-xs bg-slate-800 text-white hover:bg-slate-700"
                         >
-                           <CheckCircle className="w-5 h-5" /> Transmit & Resolve
+                          Reply & Resolve
                         </Button>
-                        {selectedTicket.status === 'OPEN' && (
-                           <Button 
-                              onClick={() => handleResolveOnly(selectedTicket.id)}
-                              variant="outline"
-                              className="h-14 px-8 rounded-2xl border-2 border-emerald-100 text-emerald-600 hover:bg-emerald-50 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all"
-                           >
-                              Resolve Only
-                           </Button>
-                        )}
-                     </div>
+                      )}
+                      <Button 
+                        onClick={() => handleReply(selectedTicket.id, false)}
+                        disabled={!replyMessage.trim()}
+                        className="h-9 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs"
+                      >
+                        <Send className="w-3 h-3 mr-2" /> Send
+                      </Button>
+                    </div>
                   </div>
-               </motion.div>
-            </div>
-         )}
-      </AnimatePresence>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

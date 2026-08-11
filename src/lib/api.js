@@ -771,6 +771,7 @@ export const createTicket = async (restaurantId, ticketData) => {
       category: ticketData.category || 'General',
       priority: ticketData.priority || 'MEDIUM',
       status: 'OPEN',
+      updated_at: new Date().toISOString()
     })
     .select()
     .single()
@@ -811,6 +812,13 @@ export const addTicketReply = async (ticketId, message, senderRole = 'merchant')
     .single()
 
   if (error) throw error
+
+  // Update parent ticket timestamp so it bubbles up in admin view
+  await supabase
+    .from('support_tickets')
+    .update({ updated_at: new Date().toISOString(), status: senderRole === 'merchant' ? 'OPEN' : 'IN-PROGRESS' })
+    .eq('id', ticketId)
+
   return data
 }
 

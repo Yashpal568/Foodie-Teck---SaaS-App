@@ -136,6 +136,8 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
   const [contactMessage, setContactMessage] = useState('')
   const [messageSent, setMessageSent] = useState(false)
   const [newTicketId, setNewTicketId] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [isReplying, setIsReplying] = useState(false)
 
   useEffect(() => {
     async function loadUser() {
@@ -155,10 +157,10 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
   const [loading, setLoading] = useState(true)
 
   // Load tickets from Supabase
-  const loadCloudTickets = async () => {
+  const loadCloudTickets = async (isSilent = false) => {
     if (!restaurantId) return
     try {
-      setLoading(true)
+      if (!isSilent) setLoading(true)
       const data = await fetchTickets(restaurantId)
       // Normalize Supabase fields to match component expectations if needed
       const normalized = (data || []).map(t => ({
@@ -178,12 +180,35 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
     } catch (err) {
       console.error('Failed to fetch tickets:', err)
     } finally {
-      setLoading(false)
+      if (!isSilent) setLoading(false)
     }
   }
 
   useEffect(() => {
     loadCloudTickets()
+
+    if (!restaurantId) return
+
+    const channel = supabase
+      .channel(`merchant_tickets_${restaurantId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, (payload) => {
+        loadCloudTickets(true)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_replies' }, (payload) => {
+        loadCloudTickets(true)
+      })
+      .subscribe()
+
+    // Fallback polling every 10 seconds to guarantee synchronization 
+    // even if Supabase Realtime is disabled for this table.
+    const interval = setInterval(() => {
+      loadCloudTickets(true)
+    }, 10000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(interval)
+    }
   }, [restaurantId])
 
   const openTicketCount = tickets.filter(t => t.status === 'OPEN' || t.status === 'IN-PROGRESS').length
@@ -229,6 +254,20 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
       console.error('Failed to create ticket:', err)
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  const handleMerchantReply = async (ticketId) => {
+    if (!replyText.trim()) return
+    setIsReplying(true)
+    try {
+      await addCloudReply(ticketId, replyText, 'merchant')
+      setReplyText('')
+      await loadCloudTickets()
+    } catch (err) {
+      console.error('Failed to reply:', err)
+    } finally {
+      setIsReplying(false)
     }
   }
 
@@ -378,12 +417,52 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                 </Card>
               ))}
             </div>
+          ) : ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? (
+            <Card className="border-0 shadow-sm bg-emerald-50/50 ring-1 ring-emerald-100 rounded-2xl mt-4">
+              <CardContent className="p-6 text-center">
+                <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+                <h3 className="font-bold text-gray-900 mb-1">Ticket {ticket.status === 'RESOLVED' ? 'Resolved' : 'Closed'}</h3>
+                <p className="text-sm text-gray-500">This ticket has been marked as {ticket.status.toLowerCase()} by our support team.</p>
+              </CardContent>
+            </Card>
           ) : (
-            <Card className="border-0 shadow-sm bg-amber-50/50 ring-1 ring-amber-100 rounded-2xl">
+            <Card className="border-0 shadow-sm bg-amber-50/50 ring-1 ring-amber-100 rounded-2xl mt-4">
               <CardContent className="p-6 text-center">
                 <Clock className="w-10 h-10 text-amber-400 mx-auto mb-3" />
                 <h3 className="font-bold text-gray-900 mb-1">Awaiting Response</h3>
                 <p className="text-sm text-gray-500">Our support team will reply to your ticket soon. Check back later for updates.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Reply Form */}
+          {ticket.status !== 'CLOSED' && ticket.status !== 'RESOLVED' && (
+            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden mt-6">
+              <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-gray-500" />
+                <span className="text-sm font-bold text-gray-700">Add a Reply</span>
+              </div>
+              <CardContent className="p-0">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Type your reply here..."
+                  className="w-full min-h-[120px] p-4 text-sm resize-none focus:outline-none placeholder:text-gray-400"
+                />
+                <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end">
+                  <Button 
+                    onClick={() => handleMerchantReply(ticket.id)} 
+                    disabled={!replyText.trim() || isReplying}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm text-sm px-6 h-9 font-semibold"
+                  >
+                    {isReplying ? (
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Send Reply
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

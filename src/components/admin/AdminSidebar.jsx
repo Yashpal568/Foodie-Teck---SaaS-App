@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '@/lib/api'
 import { 
   Building2, 
   BarChart3, 
@@ -28,6 +30,31 @@ const navLinks = [
 
 export default function AdminSidebar({ isOpen, setIsOpen }) {
   const location = useLocation()
+  const [openTicketsCount, setOpenTicketsCount] = useState(0)
+
+  useEffect(() => {
+    const fetchOpenTickets = async () => {
+      try {
+        const { count } = await supabase
+          .from('support_tickets')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'OPEN')
+        setOpenTicketsCount(count || 0)
+      } catch (err) {}
+    }
+    
+    fetchOpenTickets()
+    
+    const channel = supabase.channel('admin_sidebar_tickets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
+        fetchOpenTickets()
+      })
+      .subscribe()
+      
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   const SidebarContent = (
     <div className="flex flex-col h-full bg-slate-950 text-slate-300 w-65 border-r border-slate-800/80 shadow-2xl relative overflow-hidden">
@@ -88,6 +115,11 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
               )}>
                  {link.name}
               </span>
+              {link.name === 'Support Tickets' && openTicketsCount > 0 && (
+                 <div className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-[9px] font-black absolute right-8">
+                   {openTicketsCount > 9 ? '9+' : openTicketsCount}
+                 </div>
+              )}
               <ChevronRight className={cn(
                  "w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-all duration-200",
                  isActive ? "opacity-100 text-indigo-400" : "text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5"
