@@ -100,35 +100,42 @@ function Dashboard() {
       return;
     }
 
+    // Wait until the email→UUID resolution completes before proceeding
+    // This prevents double-firing with stale email IDs
+    const isEmailUrl = urlId.includes('@')
+    if (isEmailUrl && !resolvedId) {
+      // Resolution still in progress, do not run yet
+      return;
+    }
+
     try {
       const activeRestaurantId = resolvedId || profile?.id || urlId;
 
-      // 1. Fetch Restaurant Status
+      // ── Single merged query: fetch restaurant + subscriptions in one round trip ──
+      let rest = null;
       if (activeRestaurantId && activeRestaurantId !== "guest") {
-        const isUUID =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            activeRestaurantId,
-          );
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeRestaurantId);
         const isEmail = activeRestaurantId.includes("@");
 
-        let query = null;
+        let q = null;
         if (isEmail) {
-          query = supabase
+          q = supabase
             .from("restaurants")
-            .select("*")
+            .select("id, status, plan_name, subscriptions(id, plan_name, status, price, start_date, end_date, utr_number, created_at)")
             .eq("email", activeRestaurantId.toLowerCase())
             .maybeSingle();
         } else if (isUUID) {
-          query = supabase
+          q = supabase
             .from("restaurants")
-            .select("*")
+            .select("id, status, plan_name, subscriptions(id, plan_name, status, price, start_date, end_date, utr_number, created_at)")
             .eq("id", activeRestaurantId)
             .maybeSingle();
         }
 
-        if (query) {
-          const { data: rest } = await query;
-          if (rest && rest.status === "Suspended") {
+        if (q) {
+          const { data } = await q;
+          rest = data;
+          if (rest?.status === "Suspended") {
             setIsSuspended(true);
             setIsLoading(false);
             return;
@@ -136,15 +143,13 @@ function Dashboard() {
         }
       }
 
-      // Check local storage approval override first
+      // Check local storage approval override first (fast path — no DB needed)
       const isApprovedLocally =
         localStorage.getItem(`servora_approved_${activeRestaurantId}`) ||
         (userEmail && localStorage.getItem(`servora_approved_${userEmail}`)) ||
         (urlId && localStorage.getItem(`servora_approved_${urlId}`));
 
-      const subsList = JSON.parse(
-        localStorage.getItem("servora_subscriptions") || "[]",
-      );
+      const subsList = JSON.parse(localStorage.getItem("servora_subscriptions") || "[]");
       const localSub = subsList.find(
         (s) =>
           s.restaurant_id === activeRestaurantId ||
@@ -153,38 +158,17 @@ function Dashboard() {
           s.id === `sub-${activeRestaurantId}`,
       );
 
-      if (
-        isApprovedLocally === "true" ||
-        localSub?.status === "Active" ||
-        localSub?.status === "Approved"
-      ) {
+      if (isApprovedLocally === "true" || localSub?.status === "Active" || localSub?.status === "Approved") {
         setIsExpired(false);
-        setSubDetails({
-          pendingApproval: false,
-          utrNumber: localSub?.utr_number || "",
-          status: "Active",
-        });
-        setPlan({
-          name: localSub?.plan_name || "Starter",
-          purchaseDate: new Date().toISOString(),
-        });
+        setSubDetails({ pendingApproval: false, utrNumber: localSub?.utr_number || "", status: "Active" });
+        setPlan({ name: localSub?.plan_name || "Starter", purchaseDate: new Date().toISOString() });
         setIsLoading(false);
         return;
       }
 
-      // 2. Fetch Subscription & UTR status by activeRestaurantId or urlId
-      const targetQuery =
-        urlId && urlId !== activeRestaurantId
-          ? `restaurant_id.eq.${activeRestaurantId},restaurant_id.eq.${urlId}`
-          : `restaurant_id.eq.${activeRestaurantId}`;
-
-      const { data: subscription } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .or(targetQuery)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Use the subscription data from the joined query result
+      const subscriptions = Array.isArray(rest?.subscriptions) ? rest.subscriptions : [];
+      const subscription = subscriptions.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null;
 
       if (subscription) {
         const isApproved =
@@ -255,19 +239,30 @@ function Dashboard() {
           });
           setIsExpired(true);
         } else {
-          setSubDetails({
-            pendingApproval: false,
-            utrNumber: "",
-            status: "NO_SUBSCRIPTION",
-          });
-          setPlan({ name: "Professional", purchaseDate: new Date() });
-          setIsExpired(true);
+          // No subscription or payment record found.
+          // Check if the restaurant actually exists and is active in the DB.
+          // Also read the plan_name from the restaurant row itself.
+          // Reuse the restaurant data already fetched above — no extra DB call needed
+          const restaurantExists = rest && rest.status !== "Suspended";
+          const restaurantPlanName = rest?.plan_name || "Starter";
+
+          if (restaurantExists) {
+            // Restaurant exists — grant access with its actual plan name
+            setSubDetails({ pendingApproval: false, utrNumber: "", status: "Active" });
+            setPlan({ name: restaurantPlanName, purchaseDate: new Date().toISOString() });
+            setIsExpired(false);
+          } else {
+            setSubDetails({ pendingApproval: false, utrNumber: "", status: "NO_SUBSCRIPTION" });
+            setPlan({ name: "Professional", purchaseDate: new Date() });
+            setIsExpired(true);
+          }
         }
       }
     } catch (err) {
       console.warn("verifyAuthAndPlan error:", err);
-      setPlan({ name: "Professional", purchaseDate: new Date() });
-      setIsExpired(true);
+      // On error, don't lock out the merchant — grant default access instead
+      setPlan({ name: "Starter", purchaseDate: new Date().toISOString() });
+      setIsExpired(false);
     } finally {
       setIsLoading(false);
     }
@@ -574,7 +569,22 @@ function Dashboard() {
           </div>
         );
 
-      case "analytics":
+      case "analytics": {
+        const analyticsPlanDetails = getPlanDetails(plan?.name)
+        if (!analyticsPlanDetails.advancedAnalytics) {
+          return (
+            <ModuleLockOverlay
+              featureName="Advanced Analytics"
+              requiredPlan="Professional"
+              price="₹2,499"
+              featureKey="analytics"
+              onUpgradeClick={() => {
+                setUpgradeLimitType("analytics")
+                setShowUpgradeModal(true)
+              }}
+            />
+          )
+        }
         return (
           <AnalyticsDashboard
             activeItem={activeItem}
@@ -583,9 +593,25 @@ function Dashboard() {
             restaurantId={profile?.id}
             plan={plan}
           />
-        );
+        )
+      }
 
-      case "customers":
+      case "customers": {
+        const crmPlanDetails = getPlanDetails(plan?.name)
+        if (!crmPlanDetails.crmUnlocked) {
+          return (
+            <ModuleLockOverlay
+              featureName="Customer CRM"
+              requiredPlan="Professional"
+              price="₹2,499"
+              featureKey="crm"
+              onUpgradeClick={() => {
+                setUpgradeLimitType("crm")
+                setShowUpgradeModal(true)
+              }}
+            />
+          )
+        }
         return (
           <CustomerManagement
             plan={plan}
@@ -594,7 +620,8 @@ function Dashboard() {
             navigate={navigate}
             restaurantId={restaurantId}
           />
-        );
+        )
+      }
 
       case "help":
         return (

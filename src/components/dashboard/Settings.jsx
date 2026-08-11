@@ -135,7 +135,35 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   const loadCloudConfig = async () => {
     try {
       setLoading(true)
-      const restaurant = await getMyRestaurant()
+
+      // ── Step 1: Resolve restaurant record ──────────────────────────────
+      // Prefer the restaurantId prop (UUID from the URL) — fall back to getMyRestaurant()
+      let restaurant = null
+
+      if (restaurantId) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
+        if (isUUID) {
+          const { data } = await supabase
+            .from('restaurants')
+            .select('*, subscriptions(plan_name, status, price, start_date, end_date)')
+            .eq('id', restaurantId)
+            .maybeSingle()
+          restaurant = data
+        } else if (restaurantId.includes('@')) {
+          const { data } = await supabase
+            .from('restaurants')
+            .select('*, subscriptions(plan_name, status, price, start_date, end_date)')
+            .eq('email', restaurantId.toLowerCase())
+            .maybeSingle()
+          restaurant = data
+        }
+      }
+
+      // Final fallback to session-based lookup
+      if (!restaurant) {
+        restaurant = await getMyRestaurant()
+      }
+
       if (restaurant) {
         setProfileData({
           name: restaurant.business_name || '',
@@ -156,14 +184,68 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           })
         }
 
-        const sub = restaurant.subscriptions?.[0]
-        if (sub) {
-          setBillingData(prev => ({
-            ...prev,
-            plan: sub.plan_name || 'Starter',
-            price: (sub.price || 999).toLocaleString()
-          }))
+        // ── Step 2: Resolve subscription plan ─────────────────────────────
+        let planName = 'Starter'
+        let planPrice = '999'
+        try {
+          // 2a. Try joined subscriptions (freshest — any non-cancelled status)
+          const joinedSubs = restaurant.subscriptions
+          const activeSub = Array.isArray(joinedSubs)
+            ? joinedSubs
+                .filter(s => !['Cancelled', 'CANCELLED', 'cancelled', 'Rejected'].includes(s.status))
+                .sort((a, b) => new Date(b.start_date || 0) - new Date(a.start_date || 0))[0]
+            : null
+
+          if (activeSub?.plan_name) {
+            planName = activeSub.plan_name
+            planPrice = activeSub.price
+              ? activeSub.price.toString()
+              : (activeSub.plan_name === 'Professional' ? '2499' : activeSub.plan_name === 'Enterprise' ? '4999' : '999')
+          } else {
+            // 2b. Direct query — broaden filter to all non-cancelled statuses
+            const { data: sub } = await supabase
+              .from('subscriptions')
+              .select('plan_name, price, status')
+              .eq('restaurant_id', restaurant.id)
+              .not('status', 'in', '("Cancelled","CANCELLED","cancelled","Rejected")')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (sub?.plan_name) {
+              planName = sub.plan_name
+              planPrice = sub.price
+                ? sub.price.toString()
+                : (sub.plan_name === 'Professional' ? '2499' : sub.plan_name === 'Enterprise' ? '4999' : '999')
+            } else {
+              // 2c. Check payment_verifications as last resort
+              const { data: verif } = await supabase
+                .from('payment_verifications')
+                .select('plan_name, status')
+                .eq('restaurant_id', restaurant.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+              if (verif?.plan_name) {
+                planName = verif.plan_name
+                planPrice = planName === 'Professional' ? '2499' : planName === 'Enterprise' ? '4999' : '999'
+              } else if (restaurant.plan_name) {
+                // 2d. Plan stored directly on the restaurant row
+                planName = restaurant.plan_name
+                planPrice = planName === 'Professional' ? '2499' : planName === 'Enterprise' ? '4999' : '999'
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Could not load subscription:', e)
         }
+
+        setBillingData(prev => ({
+          ...prev,
+          plan: planName,
+          price: planPrice
+        }))
 
         const savedNotifs = localStorage.getItem(`servora_notifs_${restaurant.id}`)
         if (savedNotifs) {
@@ -178,9 +260,14 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     }
   }
 
+  const lastLoadedId = React.useRef(null)
   useEffect(() => {
+    // Only reload if restaurantId has actually changed to a real value
+    if (!restaurantId) return
+    if (lastLoadedId.current === restaurantId) return
+    lastLoadedId.current = restaurantId
     loadCloudConfig()
-  }, [])
+  }, [restaurantId])
 
   const handleImageUpload = (e, type) => {
     const file = e.target.files[0]

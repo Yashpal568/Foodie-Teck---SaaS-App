@@ -26,6 +26,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { menuItems, supportItems } from './Sidebar'
 import { supabase } from '@/lib/api'
+import { getPlanDetails } from '@/utils/planLimits'
 
 export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId, plan, onUpgradeClick }) {
   const navigate = useNavigate()
@@ -200,11 +201,11 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
             <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100/80 border border-slate-200/80 rounded-xl">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <span className="text-[10px] font-mono font-black text-slate-800 uppercase tracking-wider">
-                {plan?.name || 'Starter'} Plan (₹{plan?.name === 'Enterprise' ? '4,999' : plan?.name === 'Professional' ? '2,499' : '999'})
+                {getPlanDetails(plan?.name).name} Plan ({getPlanDetails(plan?.name).formattedPrice})
               </span>
             </div>
 
-            {plan?.name !== 'Enterprise' && (
+            {getPlanDetails(plan?.name).name !== 'Enterprise' && (
               <button
                 onClick={onUpgradeClick}
                 className="hidden sm:flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-xl shadow-sm transition-all cursor-pointer"

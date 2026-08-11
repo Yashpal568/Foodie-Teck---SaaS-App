@@ -11,8 +11,10 @@ import {
   X,
   Receipt,
   Table,
-  LogOut
+  LogOut,
+  Lock
 } from 'lucide-react'
+import { getPlanDetails } from '@/utils/planLimits'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -242,6 +244,10 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
           {menuItems.map((item) => {
             const Icon = item.icon
             const badgeCount = item.id === 'orders' ? counts.orders : item.id === 'tables' ? counts.tables : null
+            const planDetails = getPlanDetails(subData.planName)
+            const isLocked = 
+              (item.id === 'customers' && !planDetails.crmUnlocked) ||
+              (item.id === 'analytics' && !planDetails.advancedAnalytics)
 
             return (
               <button
@@ -250,6 +256,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                   activeItem === item.id
                     ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 font-bold'
+                    : isLocked
+                    ? 'text-gray-400 hover:bg-gray-50 hover:text-gray-500'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >
@@ -260,13 +268,24 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
                       {badgeCount}
                     </span>
                   )}
+                  {isCollapsed && isLocked && (
+                    <span className="absolute -top-1 -right-1.5 w-4 h-4 bg-amber-400 text-white rounded-full flex items-center justify-center ring-1 ring-white shadow-sm">
+                      <Lock className="w-2 h-2" />
+                    </span>
+                  )}
                 </div>
                 {!isCollapsed && (
                   <>
-                    <span className="font-medium">{item.label}</span>
+                    <span className={`font-medium ${isLocked ? 'text-gray-400' : ''}`}>{item.label}</span>
                     {badgeCount > 0 && (
                       <span className="ml-auto min-w-4.5 h-4.5 px-1.5 text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center shadow-xs">
                         {badgeCount}
+                      </span>
+                    )}
+                    {isLocked && !badgeCount && (
+                      <span className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-lg">
+                        <Lock className="w-2.5 h-2.5 text-amber-600" />
+                        <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Pro</span>
                       </span>
                     )}
                   </>

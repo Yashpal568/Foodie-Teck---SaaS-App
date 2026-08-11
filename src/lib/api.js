@@ -16,7 +16,7 @@ export const getMyRestaurant = async () => {
 
   const { data } = await supabase
     .from('restaurants')
-    .select('*')
+    .select('*, subscriptions(plan_name, status, price, start_date, end_date)')
     .eq('owner_id', user.id)
     .maybeSingle()
 

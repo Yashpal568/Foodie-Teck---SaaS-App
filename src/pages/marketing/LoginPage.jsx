@@ -50,11 +50,21 @@ export default function LoginPage() {
       return
     }
 
-    // Safety Fallback: Guarantee navigation occurs within 2.2 seconds maximum
-    const fallbackTimer = setTimeout(() => {
+    // Safety Fallback: Guarantee navigation occurs within 3 seconds maximum
+    const fallbackTimer = setTimeout(async () => {
       console.log('⏱️ Auth timer fallback triggered. Redirecting to merchant console...')
-      proceedToConsole(`/console/${cleanEmail}`)
-    }, 2200)
+      // Try to resolve UUID before redirecting to avoid the email→UUID round trip in Dashboard
+      try {
+        const { data: restFallback } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('email', cleanEmail)
+          .maybeSingle()
+        proceedToConsole(`/console/${restFallback?.id || cleanEmail}`)
+      } catch {
+        proceedToConsole(`/console/${cleanEmail}`)
+      }
+    }, 3000)
 
     try {
       // Race Supabase auth call against a 1.5s timeout so network hangs never block the UI

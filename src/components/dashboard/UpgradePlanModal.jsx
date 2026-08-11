@@ -19,6 +19,8 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogTitle,
+  DialogDescription
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import UPIPaymentModal from './UPIPaymentModal'
