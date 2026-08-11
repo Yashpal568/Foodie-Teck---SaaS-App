@@ -5,7 +5,7 @@ import {
   Zap, Shield, Clock, Star, Menu, Headphones, 
   LifeBuoy, Lightbulb, CheckCircle, AlertCircle, ArrowRight,
   Youtube, Twitter, Globe, Ticket, Eye, ArrowLeft, 
-  MessageSquare, RefreshCw, Hash, User, Calendar
+  MessageSquare, RefreshCw, Hash, User, Calendar, Sparkles, X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -317,122 +317,89 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
           </div>
         </div>
 
-        <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-32 lg:pb-8 max-w-4xl">
-          {/* Ticket Meta */}
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-            <CardContent className="p-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Hash className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ticket ID</p>
-                    <p className="text-xs font-bold text-gray-900">{ticket.id}</p>
-                  </div>
+        <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
+          {/* Ticket Meta Strip */}
+          <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-wrap divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            {[
+              { icon: Hash, label: 'Ticket ID', value: ticket.id.slice(0, 8), mono: true },
+              { icon: User, label: 'Submitted by', value: ticket.name },
+              { icon: Calendar, label: 'Created', value: timeAgo(ticket.createdAt) },
+              { icon: Mail, label: 'Email', value: ticket.email }
+            ].map((meta, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-4 flex-1 min-w-[200px]">
+                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
+                  <meta.icon className="w-4 h-4" />
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <User className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Submitted by</p>
-                    <p className="text-xs font-bold text-gray-900">{ticket.name}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Created</p>
-                    <p className="text-xs font-bold text-gray-900">{timeAgo(ticket.createdAt)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Mail className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email</p>
-                    <p className="text-xs font-bold text-gray-900 truncate max-w-35">{ticket.email}</p>
-                  </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{meta.label}</p>
+                  <p className={`text-sm font-semibold text-slate-900 truncate ${meta.mono ? 'font-mono' : ''}`}>{meta.value}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
 
-          {/* Original Message */}
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                  <User className="w-4 h-4 text-blue-600" />
+          <div className="space-y-6">
+            {/* Original Message (Merchant) */}
+            <div className="flex gap-4 max-w-[85%]">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0 shadow-inner">
+                <User className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="text-sm font-bold text-slate-900">{ticket.name}</span>
+                  <span className="text-xs font-medium text-slate-500">{formatDate(ticket.createdAt)}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-gray-900">{ticket.name}</span>
-                    <span className="text-[10px] text-gray-400 font-medium">{formatDate(ticket.createdAt)}</span>
-                  </div>
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{ticket.message}</p>
+                <div className="bg-white border border-slate-200/60 shadow-sm rounded-2xl rounded-tl-sm p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {ticket.message}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Replies */}
-          {ticket.replies && ticket.replies.length > 0 ? (
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-600 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Replies ({ticket.replies.length})
-              </h3>
-              {ticket.replies.map((reply, idx) => (
-                <Card key={idx} className={`border-0 shadow-sm rounded-2xl ${reply.isAdmin ? 'bg-emerald-50/50 ring-1 ring-emerald-100' : 'bg-white ring-1 ring-gray-100'}`}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${reply.isAdmin ? 'bg-emerald-200' : 'bg-blue-100'}`}>
-                        {reply.isAdmin ? (
-                          <Headphones className="w-4 h-4 text-emerald-700" />
-                        ) : (
-                          <User className="w-4 h-4 text-blue-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-gray-900">{reply.author}</span>
-                            {reply.isAdmin && (
-                              <Badge variant="outline" className="text-[9px] font-bold border-emerald-200 text-emerald-700 bg-emerald-50 px-1.5 py-0">
-                                Support Team
-                              </Badge>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-gray-400 font-medium">{formatDate(reply.createdAt)}</span>
-                        </div>
-                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{reply.message}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
             </div>
-          ) : ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? (
-            <Card className="border-0 shadow-sm bg-emerald-50/50 ring-1 ring-emerald-100 rounded-2xl mt-4">
-              <CardContent className="p-6 text-center">
-                <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
-                <h3 className="font-bold text-gray-900 mb-1">Ticket {ticket.status === 'RESOLVED' ? 'Resolved' : 'Closed'}</h3>
-                <p className="text-sm text-gray-500">This ticket has been marked as {ticket.status.toLowerCase()} by our support team.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-0 shadow-sm bg-amber-50/50 ring-1 ring-amber-100 rounded-2xl mt-4">
-              <CardContent className="p-6 text-center">
-                <Clock className="w-10 h-10 text-amber-400 mx-auto mb-3" />
-                <h3 className="font-bold text-gray-900 mb-1">Awaiting Response</h3>
-                <p className="text-sm text-gray-500">Our support team will reply to your ticket soon. Check back later for updates.</p>
-              </CardContent>
-            </Card>
+
+            {/* Replies */}
+            {ticket.replies && ticket.replies.length > 0 && ticket.replies.map((reply, idx) => (
+              <div key={idx} className={`flex gap-4 max-w-[85%] ${reply.isAdmin ? 'ml-auto flex-row-reverse' : ''}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-inner ${reply.isAdmin ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600'}`}>
+                  {reply.isAdmin ? <Headphones className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                </div>
+                <div className="space-y-1">
+                  <div className={`flex items-center gap-2 px-1 ${reply.isAdmin ? 'justify-end' : ''}`}>
+                    {reply.isAdmin && (
+                      <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-100 px-1.5 py-0 border-transparent shadow-xs">
+                        Support Team
+                      </Badge>
+                    )}
+                    <span className="text-sm font-bold text-slate-900">{reply.author}</span>
+                    <span className="text-xs font-medium text-slate-500">{formatDate(reply.createdAt)}</span>
+                  </div>
+                  <div className={`p-4 text-sm leading-relaxed whitespace-pre-wrap shadow-sm border ${
+                    reply.isAdmin 
+                      ? 'bg-blue-600 text-white border-blue-700 rounded-2xl rounded-tr-sm' 
+                      : 'bg-white border-slate-200/60 text-slate-700 rounded-2xl rounded-tl-sm'
+                  }`}>
+                    {reply.message}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Status Message */}
+          {(ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') ? (
+            <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-3xl p-8 text-center max-w-2xl mx-auto shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Ticket {ticket.status === 'RESOLVED' ? 'Resolved' : 'Closed'}</h3>
+              <p className="text-sm text-slate-600">This ticket has been marked as {ticket.status.toLowerCase()} by our support team.</p>
+            </div>
+          ) : (!ticket.replies || ticket.replies.length === 0) && (
+            <div className="bg-slate-50/80 border border-slate-200/60 rounded-3xl p-8 text-center max-w-2xl mx-auto shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-white border border-slate-200 flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Clock className="w-8 h-8 text-slate-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Awaiting Response</h3>
+              <p className="text-sm text-slate-500">Our support team will reply to your ticket soon. Check back later for updates.</p>
+            </div>
           )}
 
           {/* Reply Form */}
@@ -543,19 +510,25 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
 
       <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-32 lg:pb-8">
         {/* Hero Search */}
-        <Card className="border-0 shadow-sm bg-linear-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white overflow-hidden relative">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz48L3N2Zz4=')] opacity-40" />
-          <CardContent className="p-6 md:p-10 relative z-10">
-            <div className="max-w-2xl mx-auto text-center space-y-4">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto ring-1 ring-white/30">
-                <HelpCircle className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight">How can we help you?</h2>
-              <p className="text-sm md:text-base text-white/80 max-w-md mx-auto">
-                Search our knowledge base or browse frequently asked questions below.
-              </p>
-              <div className="relative max-w-lg mx-auto">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <div className="relative rounded-3xl overflow-hidden border border-slate-200/60 bg-slate-50/50">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+          <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-white to-transparent" />
+          <div className="relative z-10 px-6 py-12 md:py-16 text-center">
+            <Badge variant="secondary" className="mb-6 mx-auto bg-white/60 backdrop-blur-sm border-slate-200 text-slate-600 font-semibold px-4 py-1.5 rounded-full shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+              How can we help you today?
+            </Badge>
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
+              Support <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600">Center</span>
+            </h2>
+            <p className="text-sm md:text-base text-slate-500 max-w-lg mx-auto mb-10 font-medium">
+              Search our knowledge base, browse frequently asked questions, or get in touch with our team.
+            </p>
+            
+            <div className="max-w-2xl mx-auto relative group">
+              <div className="absolute -inset-1 bg-linear-to-r from-blue-500 to-indigo-500 rounded-2xl blur-md opacity-20 group-hover:opacity-40 transition duration-500"></div>
+              <div className="relative flex items-center bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-xl shadow-slate-200/50 rounded-2xl overflow-hidden ring-1 ring-white/50">
+                <Search className="w-5 h-5 text-slate-400 ml-5 shrink-0" />
                 <Input
                   value={searchTerm}
                   onChange={(e) => {
@@ -563,330 +536,312 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                     if (activeTab !== 'faq' && e.target.value.length > 0) setActiveTab('faq')
                   }}
                   onFocus={() => { if (searchTerm.length > 0) setActiveTab('faq') }}
-                  placeholder="Search for help topics, features, or issues..."
-                  className="pl-12 h-12 bg-white text-gray-900 border-0 shadow-xl rounded-xl placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-white/50"
+                  placeholder="Search for topics, features, or issues..."
+                  className="border-0 shadow-none bg-transparent h-14 pl-3 pr-4 text-base placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0 w-full"
                 />
-
-                {/* Live Search Results Overlay (Optional: only if you want a dropdown feel) */}
                 {searchTerm.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="p-2 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
-                        {filteredFaqs.reduce((acc, cat) => acc + cat.questions.length, 0)} Potential Matches
-                      </span>
-                      <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')} className="h-6 text-[10px] font-bold text-slate-400 hover:text-rose-500">
-                        Clear
-                      </Button>
-                    </div>
-                    <div className="max-h-75 overflow-y-auto p-2 space-y-1">
-                      {filteredFaqs.length > 0 ? (
-                        filteredFaqs.map((cat) => (
-                          cat.questions.map((q, idx) => (
-                            <button
-                              key={`${cat.category}-${idx}`}
-                              onClick={() => {
-                                setActiveTab('faq')
-                                const key = `${faqs.findIndex(f => f.category === cat.category)}-${faqs.find(f => f.category === cat.category).questions.findIndex(qu => qu.q === q.q)}`
-                                setExpandedFaq(key)
-                                setSearchTerm('')
-                                // Smooth scroll to results
-                                document.getElementById('faq-content')?.scrollIntoView({ behavior: 'smooth' })
-                              }}
-                              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-colors text-left group"
-                            >
-                              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                <HelpCircle className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 truncate">{q.q}</p>
-                                <p className="text-[10px] text-slate-400 font-medium truncate">{cat.category}</p>
-                              </div>
-                            </button>
-                          ))
-                        ))
-                      ) : (
-                        <div className="py-8 text-center">
-                          <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                          <p className="text-xs font-bold text-slate-400">No matching help articles</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSearchTerm('')} className="mr-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100/50">
+                    <X className="w-4 h-4" />
+                  </Button>
                 )}
               </div>
+              
+              {/* Live Search Results Overlay */}
+              {searchTerm.length > 0 && (
+                <div className="absolute top-[calc(100%+12px)] left-0 right-0 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/60 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      {filteredFaqs.reduce((acc, cat) => acc + cat.questions.length, 0)} Matches Found
+                    </span>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
+                    {filteredFaqs.length > 0 ? (
+                      filteredFaqs.map((cat) => (
+                        cat.questions.map((q, idx) => (
+                          <button
+                            key={`${cat.category}-${idx}`}
+                            onClick={() => {
+                              setActiveTab('faq')
+                              const key = `${faqs.findIndex(f => f.category === cat.category)}-${faqs.find(f => f.category === cat.category).questions.findIndex(qu => qu.q === q.q)}`
+                              setExpandedFaq(key)
+                              setSearchTerm('')
+                              document.getElementById('faq-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                            }}
+                            className="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-slate-100/80 transition-colors text-left group"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                              <BookOpen className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-1">{q.q}</p>
+                              <p className="text-xs text-slate-500 font-medium mt-0.5">{cat.category}</p>
+                            </div>
+                          </button>
+                        ))
+                      ))
+                    ) : (
+                      <div className="py-10 text-center">
+                        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                          <Search className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <h3 className="text-sm font-semibold text-slate-900 mb-1">No results found</h3>
+                        <p className="text-xs text-slate-500">Try adjusting your search terms</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Quick Action Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl hover:shadow-md hover:ring-blue-100 transition-all cursor-pointer group" onClick={() => setActiveTab('contact')}>
-            <CardContent className="p-4 md:p-5 text-center space-y-3">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto ring-1 ring-blue-100/50 group-hover:bg-blue-100 transition-colors">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-gray-900">New Ticket</h3>
-                <p className="text-[11px] text-gray-500 mt-0.5">Submit a request</p>
-              </div>
-              <Badge variant="outline" className="text-[10px] border-green-200 text-green-700 bg-green-50">Open 24/7</Badge>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl hover:shadow-md hover:ring-purple-100 transition-all cursor-pointer group" onClick={() => setActiveTab('tickets')}>
-            <CardContent className="p-4 md:p-5 text-center space-y-3">
-              <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center mx-auto ring-1 ring-purple-100/50 group-hover:bg-purple-100 transition-colors relative">
-                <Ticket className="w-6 h-6" />
-                {openTicketCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{openTicketCount}</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { id: 'contact', title: 'New Ticket', desc: 'Submit a request', icon: MessageCircle, color: 'blue', badge: 'Open 24/7' },
+            { id: 'tickets', title: 'My Tickets', desc: 'View & track tickets', icon: Ticket, color: 'indigo', badge: `${tickets.length} Total`, alert: openTicketCount },
+            { id: 'call', title: 'Call Us', desc: '+91 xxxxxxxxxx', icon: Phone, color: 'violet', badge: '9am–6pm' },
+            { id: 'contact-bug', title: 'Report Bug', desc: 'Found an issue?', icon: AlertCircle, color: 'rose', badge: 'Priority' }
+          ].map((action, idx) => (
+            <Card key={idx} 
+              onClick={() => {
+                if (action.id.startsWith('contact')) setActiveTab('contact')
+                else if (action.id === 'tickets') setActiveTab('tickets')
+              }}
+              className="border-slate-200/60 shadow-xs hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group bg-white rounded-2xl overflow-hidden relative"
+            >
+              <CardContent className="p-5 flex flex-col items-center text-center space-y-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${action.color}-50 text-${action.color}-600 group-hover:bg-${action.color}-600 group-hover:text-white transition-all duration-300 transform group-hover:scale-110 group-hover:-rotate-3`}>
+                  <action.icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm text-slate-900">{action.title}</h3>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">{action.desc}</p>
+                </div>
+                <Badge variant="secondary" className={`bg-${action.color}-50 text-${action.color}-700 border-${action.color}-200/50 hover:bg-${action.color}-100 font-semibold text-[10px]`}>
+                  {action.badge}
+                </Badge>
+                {action.alert > 0 && (
+                  <div className="absolute top-3 right-3 flex items-center justify-center w-6 h-6 bg-red-500 text-white rounded-full text-[10px] font-bold shadow-sm ring-2 ring-white animate-in zoom-in">
+                    {action.alert}
+                  </div>
                 )}
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-gray-900">My Tickets</h3>
-                <p className="text-[11px] text-gray-500 mt-0.5">View & track tickets</p>
-              </div>
-              <Badge variant="outline" className="text-[10px] border-purple-200 text-purple-700 bg-purple-50">{tickets.length} Total</Badge>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl hover:shadow-md hover:ring-amber-100 transition-all cursor-pointer group">
-            <CardContent className="p-4 md:p-5 text-center space-y-3">
-              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mx-auto ring-1 ring-amber-100/50 group-hover:bg-amber-100 transition-colors">
-                <Phone className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-gray-900">Call Us</h3>
-                <p className="text-[11px] text-gray-500 mt-0.5">+91 xxxxxxxxxx</p>
-              </div>
-              <Badge variant="outline" className="text-[10px] border-amber-200 text-amber-700 bg-amber-50">9am–6pm</Badge>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl hover:shadow-md hover:ring-rose-100 transition-all cursor-pointer group" onClick={() => setActiveTab('contact')}>
-            <CardContent className="p-4 md:p-5 text-center space-y-3">
-              <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center mx-auto ring-1 ring-rose-100/50 group-hover:bg-rose-100 transition-colors">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-gray-900">Report Bug</h3>
-                <p className="text-[11px] text-gray-500 mt-0.5">Found an issue?</p>
-              </div>
-              <Badge variant="outline" className="text-[10px] border-rose-200 text-rose-700 bg-rose-50">Priority</Badge>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-12 bg-white ring-1 ring-gray-100 rounded-xl p-1">
-            <TabsTrigger value="faq" className="rounded-lg font-semibold text-xs sm:text-sm data-[state=active]:bg-gray-900 data-[state=active]:text-white">
-              <HelpCircle className="w-4 h-4 mr-1 sm:mr-2" />
+          <TabsList className="grid w-full grid-cols-4 h-14 bg-slate-100/80 p-1.5 rounded-2xl">
+            <TabsTrigger value="faq" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
+              <HelpCircle className="w-4 h-4 mr-1.5 sm:mr-2" />
               FAQ
             </TabsTrigger>
-            <TabsTrigger value="contact" className="rounded-lg font-semibold text-xs sm:text-sm data-[state=active]:bg-gray-900 data-[state=active]:text-white">
-              <Send className="w-4 h-4 mr-1 sm:mr-2" />
+            <TabsTrigger value="contact" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
+              <Send className="w-4 h-4 mr-1.5 sm:mr-2" />
               Contact
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="rounded-lg font-semibold text-xs sm:text-sm data-[state=active]:bg-gray-900 data-[state=active]:text-white relative">
-              <Ticket className="w-4 h-4 mr-1 sm:mr-2" />
+            <TabsTrigger value="tickets" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300 relative">
+              <Ticket className="w-4 h-4 mr-1.5 sm:mr-2" />
               Tickets
               {openTicketCount > 0 && (
-                <span className="ml-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{openTicketCount}</span>
+                <span className="ml-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">{openTicketCount}</span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="resources" className="rounded-lg font-semibold text-xs sm:text-sm data-[state=active]:bg-gray-900 data-[state=active]:text-white">
-              <BookOpen className="w-4 h-4 mr-1 sm:mr-2" />
+            <TabsTrigger value="resources" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
+              <BookOpen className="w-4 h-4 mr-1.5 sm:mr-2" />
               Resources
             </TabsTrigger>
           </TabsList>
 
           {/* ═══ FAQ Tab ═══ */}
-          <TabsContent value="faq" id="faq-content" className="space-y-4">
+          <TabsContent value="faq" id="faq-content" className="space-y-6 mt-4">
             {filteredFaqs.length === 0 ? (
-              <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-                <CardContent className="p-10 text-center">
-                  <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="font-bold text-gray-900 mb-1">No results found</h3>
-                  <p className="text-sm text-gray-500">Try a different search term or browse all categories.</p>
-                </CardContent>
-              </Card>
+              <div className="py-20 text-center bg-white rounded-3xl border border-slate-200/60 shadow-sm">
+                <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No results found</h3>
+                <p className="text-sm text-slate-500">Try adjusting your search or browse the categories below.</p>
+              </div>
             ) : (
               filteredFaqs.map((category, catIdx) => (
-                <Card key={catIdx} className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-bold text-gray-800 flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4 text-amber-500" />
-                      {category.category}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 space-y-1">
+                <div key={catIdx} className="bg-white rounded-3xl border border-slate-200/60 shadow-xs overflow-hidden">
+                  <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner">
+                      <Lightbulb className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">{category.category}</h3>
+                  </div>
+                  <div className="divide-y divide-slate-100">
                     {category.questions.map((faq, faqIdx) => {
                       const key = `${catIdx}-${faqIdx}`
                       const isExpanded = expandedFaq === key
                       return (
-                        <div key={faqIdx}>
+                        <div key={faqIdx} className="group">
                           <button
                             onClick={() => setExpandedFaq(isExpanded ? null : key)}
-                            className="w-full flex items-center justify-between py-3.5 px-3 rounded-xl text-left hover:bg-gray-50 transition-colors group"
+                            className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:bg-slate-50"
                           >
-                            <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 pr-4">{faq.q}</span>
-                            <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isExpanded ? 'bg-gray-900 text-white rotate-180' : 'bg-gray-100 text-gray-500'}`}>
+                            <span className="text-sm font-semibold text-slate-700 group-hover:text-blue-700 transition-colors pr-6">{faq.q}</span>
+                            <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isExpanded ? 'bg-blue-100 text-blue-600 rotate-180' : 'bg-slate-100 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500'}`}>
                               <ChevronDown className="w-4 h-4" />
                             </div>
                           </button>
                           {isExpanded && (
-                            <div className="px-3 pb-4 animate-in slide-in-from-top-2 duration-200">
-                              <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
-                                <p className="text-sm text-gray-700 leading-relaxed">{faq.a}</p>
+                            <div className="px-6 pb-5 pt-1 animate-in slide-in-from-top-2 duration-300">
+                              <div className="bg-slate-50 border-l-2 border-blue-500 rounded-r-xl p-4 ml-2">
+                                <p className="text-sm text-slate-600 leading-relaxed">{faq.a}</p>
                               </div>
                             </div>
                           )}
-                          {faqIdx < category.questions.length - 1 && <Separator className="mx-3 opacity-50" />}
                         </div>
                       )
                     })}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))
             )}
           </TabsContent>
 
           {/* ═══ Contact / New Ticket Tab ═══ */}
-          <TabsContent value="contact" className="space-y-6">
+          <TabsContent value="contact" className="space-y-6 mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
               {/* Contact Form */}
-              <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl lg:col-span-3">
-                <CardHeader>
-                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <Send className="w-5 h-5 text-emerald-600" />
-                    Submit a Support Ticket
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+              <div className="lg:col-span-3 bg-white border border-slate-200/60 shadow-sm rounded-3xl overflow-hidden">
+                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
+                    <Send className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">Submit a Support Ticket</h3>
+                </div>
+                <div className="p-6 md:p-8">
                   {messageSent ? (
                     <div className="text-center py-10 animate-in zoom-in-95 duration-300">
-                      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="w-8 h-8 text-emerald-600" />
+                      <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-4 ring-emerald-50">
+                        <CheckCircle className="w-10 h-10 text-emerald-600" />
                       </div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-1">Ticket Created!</h3>
-                      <p className="text-sm text-gray-500 mb-3">Your ticket has been submitted successfully.</p>
+                      <h3 className="text-2xl font-bold text-slate-900 mb-2">Ticket Created!</h3>
+                      <p className="text-sm text-slate-500 mb-6 max-w-sm mx-auto">Your ticket has been submitted successfully and our team will get back to you shortly.</p>
                       {newTicketId && (
-                        <Badge variant="outline" className="text-sm font-bold text-blue-700 border-blue-200 bg-blue-50 px-4 py-1.5">
-                          <Hash className="w-3.5 h-3.5 mr-1.5" />
-                          {newTicketId}
-                        </Badge>
+                        <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl mb-6 shadow-xs">
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ticket ID:</span>
+                          <span className="text-sm font-bold text-slate-900 font-mono">{newTicketId}</span>
+                        </div>
                       )}
-                      <p className="text-xs text-gray-400 mt-3">
-                        View your ticket in the <button onClick={() => { setMessageSent(false); setActiveTab('tickets') }} className="text-emerald-600 font-bold underline">My Tickets</button> tab.
-                      </p>
+                      <div>
+                        <Button onClick={() => { setMessageSent(false); setActiveTab('tickets') }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl h-11 px-6 shadow-sm">
+                          View My Tickets
+                        </Button>
+                      </div>
                     </div>
                   ) : (
-                    <form onSubmit={handleSendMessage} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Your Name <span className="text-red-400">*</span></label>
+                    <form onSubmit={handleSendMessage} className="space-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Your Name <span className="text-red-500">*</span></label>
                           <Input 
                             value={contactName}
                             onChange={(e) => setContactName(e.target.value)}
                             placeholder="John Doe" 
-                            className="h-11 rounded-xl border-gray-200 focus:border-emerald-400 focus:ring-emerald-400" 
+                            className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors" 
                             required
                           />
                         </div>
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Email Address <span className="text-red-400">*</span></label>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Email Address <span className="text-red-500">*</span></label>
                           <Input 
                             type="email"
                             value={contactEmail}
                             onChange={(e) => setContactEmail(e.target.value)}
                             placeholder="john@restaurant.com" 
-                            className="h-11 rounded-xl border-gray-200 focus:border-emerald-400 focus:ring-emerald-400" 
+                            className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors" 
                             required
                           />
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Subject <span className="text-red-400">*</span></label>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Subject <span className="text-red-500">*</span></label>
                         <Input
                           value={contactSubject}
                           onChange={(e) => setContactSubject(e.target.value)}
                           placeholder="Brief description of your issue"
-                          className="h-11 rounded-xl border-gray-200 focus:border-emerald-400 focus:ring-emerald-400"
+                          className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors"
                           required
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Message <span className="text-red-400">*</span></label>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Message <span className="text-red-500">*</span></label>
                         <textarea 
                           value={contactMessage}
                           onChange={(e) => setContactMessage(e.target.value)}
                           placeholder="Describe your issue or question in detail..."
-                          rows={5}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none resize-none text-sm transition-colors"
+                          rows={6}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white outline-none resize-none text-sm transition-colors focus:ring-2 focus:ring-slate-900/5"
                           required
                         />
                       </div>
-                      <Button type="submit" className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]">
+                      <Button type="submit" className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-md transition-all active:scale-[0.98]">
                         <Send className="w-4 h-4 mr-2" />
                         Submit Ticket
                       </Button>
                     </form>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               {/* Contact Info Sidebar */}
               <div className="lg:col-span-2 space-y-4">
-                <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-                  <CardContent className="p-5 space-y-4">
-                    <h3 className="font-bold text-gray-900 text-sm">Contact Information</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-blue-100/50">
-                          <Mail className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Email</p>
-                          <p className="text-sm font-semibold text-gray-900">support@servora.com</p>
-                        </div>
+                <div className="bg-white border border-slate-200/60 shadow-sm rounded-3xl p-6">
+                  <h3 className="font-bold text-slate-900 text-sm mb-5">Contact Information</h3>
+                  <div className="space-y-5">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
+                        <Mail className="w-5 h-5" />
                       </div>
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 bg-green-50 text-green-600 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-green-100/50">
-                          <Phone className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</p>
-                          <p className="text-sm font-semibold text-gray-900">+91 xxxxxxxxxx</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-purple-100/50">
-                          <Clock className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Hours</p>
-                          <p className="text-sm font-semibold text-gray-900">Mon–Sat, 9am–6pm IST</p>
-                        </div>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</p>
+                        <p className="text-sm font-bold text-slate-900 mt-0.5">support@servora.com</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
+                        <Phone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Phone</p>
+                        <p className="text-sm font-bold text-slate-900 mt-0.5">+91 xxxxxxxxxx</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Hours</p>
+                        <p className="text-sm font-bold text-slate-900 mt-0.5">Mon–Sat, 9am–6pm IST</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                <Card className="border-0 shadow-sm bg-linear-to-br from-gray-900 to-gray-800 text-white ring-1 ring-gray-700 rounded-2xl">
-                  <CardContent className="p-5 space-y-3 text-center">
-                    <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mx-auto ring-1 ring-white/20">
-                      <Headphones className="w-6 h-6 text-emerald-400" />
+                <div className="bg-slate-950 text-white rounded-3xl p-6 relative overflow-hidden shadow-lg">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/20 rounded-full blur-2xl -ml-10 -mb-10"></div>
+                  
+                  <div className="relative z-10 text-center space-y-4">
+                    <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto ring-1 ring-white/20">
+                      <Headphones className="w-6 h-6 text-blue-400" />
                     </div>
-                    <h3 className="font-bold text-base">Priority Support</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">
+                    <h3 className="font-bold text-lg text-white">Priority Support</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed max-w-[200px] mx-auto">
                       Upgrade to Premium for priority ticket handling and a dedicated support agent.
                     </p>
-                    <Button variant="outline" size="sm" className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl w-full font-semibold">
-                      <Star className="w-3.5 h-3.5 mr-2 text-amber-400" />
+                    <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white rounded-xl w-full font-semibold border-t-white/40 h-11 mt-2 transition-all">
+                      <Star className="w-4 h-4 mr-2 text-amber-400" />
                       Upgrade Plan
                     </Button>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -915,27 +870,27 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
             </div>
 
             {filteredTickets.length === 0 ? (
-              <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-                <CardContent className="p-10 text-center">
-                  <Ticket className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="font-bold text-gray-900 mb-1">
-                    {tickets.length === 0 ? 'No tickets yet' : 'No matching tickets'}
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {tickets.length === 0 
-                      ? 'Submit a support ticket and it will appear here for tracking.'
-                      : 'Try a different filter to see your tickets.'}
-                  </p>
-                  {tickets.length === 0 && (
-                    <Button size="sm" className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" onClick={() => setActiveTab('contact')}>
-                      <Send className="w-3.5 h-3.5 mr-2" />
-                      Submit First Ticket
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
+              <div className="bg-slate-50/80 border border-slate-200/60 rounded-3xl p-12 text-center shadow-sm">
+                <div className="w-20 h-20 bg-white border border-slate-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-5">
+                  <Ticket className="w-10 h-10 text-slate-300" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">
+                  {tickets.length === 0 ? 'No tickets yet' : 'No matching tickets'}
+                </h3>
+                <p className="text-sm text-slate-500 mb-6 max-w-sm mx-auto">
+                  {tickets.length === 0 
+                    ? 'Submit a support ticket and it will appear here for tracking.'
+                    : 'Try a different filter to see your tickets.'}
+                </p>
+                {tickets.length === 0 && (
+                  <Button className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold h-11 px-6 shadow-md" onClick={() => setActiveTab('contact')}>
+                    <Send className="w-4 h-4 mr-2" />
+                    Submit First Ticket
+                  </Button>
+                )}
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="bg-white border border-slate-200/60 shadow-sm rounded-3xl overflow-hidden divide-y divide-slate-100">
                 {filteredTickets.map(ticket => {
                   const cfg = statusConfig[ticket.status] || statusConfig.open
                   const StatusIcon = cfg.icon
@@ -943,45 +898,48 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                   const lastReply = hasReplies ? ticket.replies[ticket.replies.length - 1] : null
                   
                   return (
-                    <Card 
+                    <div 
                       key={ticket.id} 
-                      className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl hover:shadow-md hover:ring-blue-100 transition-all cursor-pointer group"
+                      className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-slate-50 transition-colors cursor-pointer gap-4"
                       onClick={() => setSelectedTicket(ticket.id)}
                     >
-                      <CardContent className="p-4 md:p-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <div className={`w-10 h-10 bg-${cfg.color}-50 text-${cfg.color}-600 rounded-xl flex items-center justify-center shrink-0 ring-1 ring-${cfg.color}-100/50`}>
-                              <StatusIcon className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <span className="text-[10px] font-bold text-gray-400 font-mono">{ticket.id}</span>
-                                <Badge variant="outline" className={`text-[9px] font-bold border-${cfg.color}-200 text-${cfg.color}-700 bg-${cfg.color}-50 px-1.5 py-0`}>
-                                  {cfg.label}
-                                </Badge>
-                                {hasReplies && (
-                                  <Badge variant="outline" className="text-[9px] font-bold border-emerald-200 text-emerald-700 bg-emerald-50 px-1.5 py-0">
-                                    <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
-                                    {ticket.replies.length} {ticket.replies.length === 1 ? 'reply' : 'replies'}
-                                  </Badge>
-                                )}
-                              </div>
-                              <h3 className="font-bold text-sm text-gray-900 group-hover:text-blue-600 transition-colors truncate">{ticket.subject}</h3>
-                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-                                {hasReplies && lastReply.isAdmin 
-                                  ? `Admin replied: ${lastReply.message}` 
-                                  : ticket.message}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{timeAgo(ticket.updatedAt)}</span>
-                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
-                          </div>
+                      <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-${cfg.color}-50 text-${cfg.color}-600 ring-1 ring-${cfg.color}-100/50 shadow-inner`}>
+                          <StatusIcon className="w-5 h-5" />
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-[11px] font-bold text-slate-400 font-mono tracking-wider">#{ticket.id.slice(0,8)}</span>
+                            <Badge variant="outline" className={`text-[10px] font-semibold border-${cfg.color}-200 text-${cfg.color}-700 bg-${cfg.color}-50 px-2 py-0.5 rounded-full`}>
+                              {cfg.label}
+                            </Badge>
+                            {hasReplies && (
+                              <Badge variant="secondary" className="text-[10px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 border-transparent px-2 py-0.5 rounded-full">
+                                <MessageSquare className="w-3 h-3 mr-1" />
+                                {ticket.replies.length}
+                              </Badge>
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate pr-4">{ticket.subject}</h3>
+                          <p className="text-xs text-slate-500 mt-1 line-clamp-1 pr-4">
+                            {hasReplies && lastReply.isAdmin 
+                              ? <><span className="font-semibold text-slate-700">Support:</span> {lastReply.message}</>
+                              : ticket.message}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2 shrink-0 sm:min-w-[100px] border-t sm:border-0 border-slate-100 pt-3 sm:pt-0">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{timeAgo(ticket.updatedAt)}</span>
+                        </div>
+                        <div className="flex items-center text-xs font-semibold text-blue-600 opacity-0 sm:group-hover:opacity-100 transition-all sm:-translate-x-2 sm:group-hover:translate-x-0">
+                          View Ticket
+                          <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-all sm:hidden" />
+                      </div>
+                    </div>
                   )
                 })}
               </div>
@@ -989,65 +947,65 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
           </TabsContent>
 
           {/* ═══ Resources Tab ═══ */}
-          <TabsContent value="resources" className="space-y-6">
+          <TabsContent value="resources" className="space-y-6 mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {quickLinks.map((link, idx) => (
-                <Card key={idx} className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl hover:shadow-md transition-all cursor-pointer group" onClick={() => link.action ? setActiveItem(link.action) : null}>
-                  <CardContent className="p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className={`w-10 h-10 bg-${link.color}-50 text-${link.color}-600 rounded-xl flex items-center justify-center ring-1 ring-${link.color}-100/50`}>
-                        <link.icon className="w-5 h-5" />
+                <div key={idx} className="bg-white border border-slate-200/60 shadow-sm rounded-3xl hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group" onClick={() => link.action ? setActiveItem(link.action) : null}>
+                  <div className="p-5 flex flex-col h-full space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className={`w-12 h-12 bg-${link.color}-50 text-${link.color}-600 rounded-2xl flex items-center justify-center ring-1 ring-${link.color}-100/50 shadow-inner group-hover:scale-110 transition-transform`}>
+                        <link.icon className="w-6 h-6" />
                       </div>
-                      <Badge variant="outline" className="text-[10px] font-bold">{link.badge}</Badge>
+                      <Badge variant="secondary" className="text-[10px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200">{link.badge}</Badge>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-gray-900 group-hover:text-blue-600 transition-colors">{link.title}</h3>
-                      <p className="text-[11px] text-gray-500 mt-0.5">{link.desc}</p>
+                    <div className="mt-auto">
+                      <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">{link.title}</h3>
+                      <p className="text-xs text-slate-500 mt-1">{link.desc}</p>
                     </div>
-                    <div className="flex items-center text-xs font-semibold text-blue-600 group-hover:text-blue-700">
-                      <span>View</span>
+                    <div className="flex items-center text-xs font-semibold text-blue-600 group-hover:text-blue-700 pt-2 border-t border-slate-100/50">
+                      <span>View Resource</span>
                       <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
 
-            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-amber-500" />
-                  Getting Started Guide
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white border border-slate-200/60 shadow-sm rounded-3xl overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-inner">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">Getting Started Guide</h3>
+              </div>
+              <div className="p-6 md:p-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {[
                     { step: '1', title: 'Set Up Your Menu', desc: 'Add your dishes, prices, and categories in Menu Management.', color: 'blue' },
-                    { step: '2', title: 'Generate QR Codes', desc: 'Create scannable QR codes for each table in your restaurant.', color: 'purple' },
+                    { step: '2', title: 'Generate QR Codes', desc: 'Create scannable QR codes for each table in your restaurant.', color: 'indigo' },
                     { step: '3', title: 'Start Receiving Orders', desc: 'Customers scan, order, and you manage everything from the dashboard.', color: 'emerald' },
                   ].map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center text-center p-5 bg-gray-50/50 rounded-2xl ring-1 ring-gray-100 hover:ring-blue-100 transition-all">
-                      <div className={`w-10 h-10 bg-${item.color}-100 text-${item.color}-600 rounded-full flex items-center justify-center mb-3 font-black text-lg`}>
+                    <div key={idx} className="relative flex flex-col items-center text-center p-6 bg-slate-50 rounded-2xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/80 transition-all">
+                      <div className={`w-12 h-12 bg-${item.color}-100 text-${item.color}-600 rounded-full flex items-center justify-center mb-4 font-black text-xl shadow-inner`}>
                         {item.step}
                       </div>
-                      <h4 className="font-bold text-sm text-gray-900 mb-1">{item.title}</h4>
-                      <p className="text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+                      <h4 className="font-bold text-sm text-slate-900 mb-2">{item.title}</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed max-w-[200px]">{item.desc}</p>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-blue-600" />
-                  Tips & Best Practices
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-white border border-slate-200/60 shadow-sm rounded-3xl overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">Tips & Best Practices</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
                     'Keep your menu items updated with accurate pricing and availability.',
                     'Use high-quality photos for menu items to increase customer orders.',
@@ -1056,16 +1014,16 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                     'Regularly back up your QR codes and keep printed copies on tables.',
                     'Use the Customer Management section to build loyalty programs.',
                   ].map((tip, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                      <div className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                        <CheckCircle className="w-3 h-3" />
+                    <div key={idx} className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100/50 transition-colors">
+                      <div className="w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-inner">
+                        <CheckCircle className="w-3.5 h-3.5" />
                       </div>
-                      <p className="text-sm text-gray-700">{tip}</p>
+                      <p className="text-sm text-slate-700 leading-relaxed font-medium">{tip}</p>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
