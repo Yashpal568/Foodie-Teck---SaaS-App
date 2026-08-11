@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { useOrderManagement } from '@/hooks/useOrderManagement'
 import { fetchCustomers } from '@/lib/api'
-import CustomerMobileNavbar from './CustomerMobileNavbar'
+
 import PremiumLock from './PremiumLock'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -1000,11 +1000,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
     <div className="min-h-screen bg-gray-50/50 w-full pb-32 lg:pb-12 relative overflow-hidden">
       {!isPremium && <PremiumLock navigate={navigate} setActiveItem={setActiveItem} />}
       <div className={cn('transition-all duration-700', !isPremium && 'blur-xl grayscale-[0.5] opacity-50 pointer-events-none scale-[0.98]')}>
-        <CustomerMobileNavbar
-          activeItem={activeItem} setActiveItem={setActiveItem} navigate={navigate}
-          onRefresh={() => { setIsRefreshing(true); setTimeout(() => setIsRefreshing(false), 1000) }}
-          onDownload={() => exportCSV(customers)}
-        />
+
         {renderHeader()}
         <div className="px-4 md:px-8 space-y-6 relative">
           <Tabs defaultValue="overview" className="w-full shadow-none border-0" onValueChange={setActiveTab}>

@@ -18,7 +18,7 @@ import {
   TrendingUp as TrendingUpIcon,
   ChevronRight
 } from 'lucide-react'
-import AnalyticsMobileNavbar from './AnalyticsMobileNavbar'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -351,13 +351,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
 
   return (
     <div className="bg-[#f8fafc]/50 min-h-screen">
-      <AnalyticsMobileNavbar 
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        navigate={navigate}
-        timeRange={timeRange}
-        setTimeRange={setTimeRange}
-      />
+
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 pb-24 lg:pb-8">
         {/* Header (Desktop Only) */}

@@ -25,7 +25,7 @@ import {
   Utensils,
   Check
 } from 'lucide-react'
-import TableMobileNavbar from './TableMobileNavbar'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -390,13 +390,7 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <TableMobileNavbar 
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        navigate={navigate}
-        onRefresh={initializeFloorPlan}
-        onAddTable={() => setActiveItem('qr-codes')}
-      />
+
 
       <div className="hidden lg:block bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="px-4 md:px-6 py-4">

@@ -13,7 +13,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import OrderNavbar from './OrderNavbar'
-import OrderMobileNavbar from './OrderMobileNavbar'
 
 const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) => {
   const { orders, orderHistory, loading, refreshOrders, updateStatus } = useOrderManagement(restaurantId)
@@ -90,13 +89,6 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
           onShowHistory={() => setShowOrderHistory(true)} 
         />
       </div>
-      <OrderMobileNavbar 
-        onRefresh={refreshOrders} 
-        onShowHistory={() => setShowOrderHistory(true)} 
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        navigate={navigate}
-      />
 
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
 

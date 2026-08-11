@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+// Force HMR update to clear Vite 500 error
 import { useNavigate } from 'react-router-dom'
 import { 
   Home, 
@@ -199,7 +200,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   useEffect(() => {
     const checkSub = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { session } } = await supabase.auth.getSession()
+        const user = session?.user
         if (user) {
           const { data: rest } = await supabase.from('restaurants').select('id').eq('email', user.email.toLowerCase()).maybeSingle()
           if (rest) {
@@ -221,7 +223,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   }, [])
 
   return (
-    <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-screen flex flex-col ${isMobile ? 'flex' : 'hidden lg:flex'}`}>
+    <div className={`bg-white ${isMobile ? '' : 'border-r border-gray-200'} transition-all duration-300 ${isCollapsed ? 'w-20' : (isMobile ? 'w-full' : 'w-64')} h-screen flex flex-col shrink-0 ${isMobile ? 'flex' : 'hidden md:flex'}`}>
       {/* Logo */}
       <div className="p-5 border-b border-gray-100 flex items-center justify-center">
         {isCollapsed ? (
@@ -246,40 +248,40 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
               <button
                 key={item.id}
                 onClick={() => handleNavigation(item)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
+                title={isCollapsed ? item.label : ''}
+                className={`w-full flex items-center rounded-lg transition-all duration-200 relative group ${
+                  isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+                } ${
                   activeItem === item.id
-                    ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 font-bold'
+                    ? isCollapsed
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 font-bold'
                     : isLocked
                     ? 'text-gray-400 hover:bg-gray-50 hover:text-gray-500'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >
+                {/* Icon */}
                 <div className="relative shrink-0">
                   <Icon className="w-5 h-5" />
                   {isCollapsed && badgeCount > 0 && (
                     <span className="absolute -top-1 -right-1.5 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center ring-1 ring-white shadow-sm">
-                      {badgeCount}
-                    </span>
-                  )}
-                  {isCollapsed && isLocked && (
-                    <span className="absolute -top-1 -right-1.5 w-4 h-4 bg-amber-400 text-white rounded-full flex items-center justify-center ring-1 ring-white shadow-sm">
-                      <Lock className="w-2 h-2" />
+                      {badgeCount > 99 ? '99+' : badgeCount}
                     </span>
                   )}
                 </div>
+
+                {/* Label + badge — only when expanded */}
                 {!isCollapsed && (
                   <>
-                    <span className={`font-medium ${isLocked ? 'text-gray-400' : ''}`}>{item.label}</span>
+                    <span className="flex-1 text-sm text-left truncate">{item.label}</span>
                     {badgeCount > 0 && (
-                      <span className="ml-auto min-w-4.5 h-4.5 px-1.5 text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center shadow-xs">
-                        {badgeCount}
+                      <span className="ml-auto min-w-5 h-5 px-1.5 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shrink-0">
+                        {badgeCount > 99 ? '99+' : badgeCount}
                       </span>
                     )}
-                    {isLocked && !badgeCount && (
-                      <span className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-lg">
-                        <Lock className="w-2.5 h-2.5 text-amber-600" />
-                        <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Pro</span>
-                      </span>
+                    {isLocked && (
+                      <span className="ml-auto text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0">Pro</span>
                     )}
                   </>
                 )}
@@ -289,16 +291,23 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
         </div>
 
         <div className="space-y-2 mb-10">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-3 mb-2">Support & Ops</p>
+          {!isCollapsed && (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-3 mb-2">Support &amp; Ops</p>
+          )}
           {supportItems.map((item) => {
             const Icon = item.icon
             return (
               <button
                 key={item.id}
                 onClick={() => handleNavigation(item)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                title={isCollapsed ? item.label : ''}
+                className={`w-full flex items-center rounded-lg transition-all duration-200 ${
+                  isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+                } ${
                   activeItem === item.id
-                    ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                    ? isCollapsed
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >

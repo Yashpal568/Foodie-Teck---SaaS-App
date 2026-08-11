@@ -24,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
-import { menuItems, supportItems } from './Sidebar'
+import Sidebar, { menuItems, supportItems } from './Sidebar'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { supabase } from '@/lib/api'
 import { getPlanDetails } from '@/utils/planLimits'
 
@@ -32,6 +33,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [showResults, setShowResults] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const searchRef = useRef(null)
   
   const [userProfile, setUserProfile] = useState({
@@ -43,7 +45,8 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   // Sync profile with Supabase Session
   useEffect(() => {
     const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
 
       if (user && user.email) {
         const { data: rest } = await supabase.from('restaurants').select('*').eq('email', user.email.toLowerCase()).maybeSingle()
@@ -99,6 +102,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
     } else {
       setActiveItem(item.id)
       navigate(item.route)
+      setIsMobileMenuOpen(false) // Close sheet on navigation
     }
     setShowResults(false)
     setSearchQuery('')
@@ -112,11 +116,38 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   }
 
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 sticky top-0 z-40">
-      <div className="flex items-center justify-between gap-8">
+    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-3 lg:px-8 py-3 lg:py-4 sticky top-0 z-40 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 lg:gap-8 min-w-0">
         
+        {/* Mobile Menu & Logo */}
+        <div className="flex items-center gap-3 lg:hidden">
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="shrink-0 text-slate-600 hover:bg-slate-100">
+                <Menu className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-[280px] bg-white border-r-0">
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              <Sidebar 
+                activeItem={activeItem}
+                setActiveItem={(item) => {
+                  setActiveItem(item)
+                  setIsMobileMenuOpen(false)
+                }}
+                isCollapsed={false}
+                isMobile={true}
+                restaurantId={restaurantId}
+              />
+            </SheetContent>
+          </Sheet>
+          <div className="scale-90 origin-left">
+            <Logo showText={true} />
+          </div>
+        </div>
+
         {/* Search Bar Container */}
-        <div className="flex-1 max-w-2xl hidden lg:block" ref={searchRef}>
+        <div className="flex-1 max-w-2xl hidden md:block" ref={searchRef}>
           <div className="relative group">
             <div className="absolute inset-x-0 -inset-y-0.5 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl opacity-0 group-focus-within:opacity-10 transition-opacity duration-300 pointer-events-none" />
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-blue-600 transition-colors" />
@@ -195,12 +226,12 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-4 lg:gap-6 ml-auto shrink-0">
+        <div className="flex items-center gap-2 lg:gap-4 ml-auto shrink-0">
           {/* Active Plan Badge & Upgrade Trigger */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100/80 border border-slate-200/80 rounded-xl">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="text-[10px] font-mono font-black text-slate-800 uppercase tracking-wider">
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100/80 border border-slate-200/80 rounded-xl">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-[10px] font-mono font-black text-slate-800 uppercase tracking-wider whitespace-nowrap">
                 {getPlanDetails(plan?.name).name} Plan ({getPlanDetails(plan?.name).formattedPrice})
               </span>
             </div>
@@ -208,7 +239,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
             {getPlanDetails(plan?.name).name !== 'Enterprise' && (
               <button
                 onClick={onUpgradeClick}
-                className="hidden sm:flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-xl shadow-sm transition-all cursor-pointer"
+                className="hidden lg:flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap"
               >
                 <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
                 <span>Upgrade</span>
@@ -233,7 +264,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
           {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-3 p-1.5 pr-4 h-12 rounded-2xl hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
+              <Button variant="ghost" className="flex items-center gap-2 p-1.5 lg:pr-4 h-10 lg:h-12 rounded-2xl hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
                 <div className="relative">
                   <Avatar className="w-9 h-9 border-2 border-white shadow-xl shadow-blue-500/10">
                     <AvatarImage src={userProfile.avatar || "/api/placeholder/32/32"} alt="User" className="aspect-square h-full w-full object-cover" />

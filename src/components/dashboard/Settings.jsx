@@ -61,7 +61,7 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import SettingsMobileNavbar from './SettingsMobileNavbar'
+
 import UpgradePlanModal from './UpgradePlanModal'
 import { 
   fetchGstSettings, 
@@ -582,15 +582,10 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         </div>
       </div>
 
-      <SettingsMobileNavbar 
-        isSaving={isSaving}
-        onSave={handleSave}
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-      />
+
 
       <div className="flex-1 p-4 lg:p-8 max-w-5xl mx-auto w-full space-y-6">
-        <div className="lg:hidden sticky top-20 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200 p-2 overflow-x-auto no-scrollbar">
+        <div className="lg:hidden sticky top-0 -mx-4 px-4 sm:-mx-8 sm:px-8 z-40 bg-[#f8fafc] pb-2 pt-1 border-b border-slate-200 overflow-x-auto no-scrollbar">
           <div className="flex gap-2 min-w-max">
             {[
               { id: 'profile', label: 'Profile', icon: User },

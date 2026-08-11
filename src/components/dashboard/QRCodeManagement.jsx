@@ -574,8 +574,8 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               </Alert>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
-                {qrCodes.map((qrCode) => (
-                  <Card key={`${qrCode.restaurantId}-${qrCode.tableNumber}`} className="hover:shadow-md transition-shadow">
+                {qrCodes.map((qrCode, index) => (
+                  <Card key={qrCode.id || `${qrCode.restaurantId}-${qrCode.tableNumber}-${index}`} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="text-center space-y-4">
                         <div className="w-40 h-40 bg-gray-50 rounded-lg mx-auto flex items-center justify-center overflow-hidden border-2 border-gray-200">
