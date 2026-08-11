@@ -76,7 +76,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigate, restaurantId = 'default' }) => {
-  const isPremium = plan && (typeof plan === 'object' ? plan?.name === 'Enterprise' : plan === 'Enterprise')
+  const isPremium = true
   const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -106,48 +106,45 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
 
   // Dynamic Data Calculation (Derived from Cloud orderHistory + Supabase customers table)
   const { customers, chartData, stats } = useMemo(() => {
-    // Build spend map from order history for LTV enrichment
+    const history = orderHistory || []
+    const rawCustomers = dbCustomers || []
+
     const spendMap = {}
     const visitsMap = {}
-    orderHistory.forEach(order => {
+
+    history.forEach(order => {
       const name = order.customerName || order.customer_name || 'Guest Customer'
-      spendMap[name] = (spendMap[name] || 0) + (order.total || 0)
-      visitsMap[name] = (visitsMap[name] || 0) + 1
+      if (name) {
+        spendMap[name] = (spendMap[name] || 0) + (Number(order.total) || 0)
+        visitsMap[name] = (visitsMap[name] || 0) + 1
+      }
     })
 
-    // If we have DB customers, use them as the source of truth
-    const sourceCustomers = dbCustomers.length > 0 ? dbCustomers : []
-
-    if (sourceCustomers.length === 0 && orderHistory.length === 0) {
-      return { customers: [], chartData: [], stats: { total: 0, vip: 0, new: 0, retention: '0.0', revenue: 0 } }
-    }
+    const sourceCustomers = rawCustomers.length > 0 ? rawCustomers : []
 
     // Build customer list from DB customers table (source of truth)
-    // Enrich each with spend/visits data from order history
     const customerList = sourceCustomers.map(c => {
-      const name = c.name
+      const name = c.name || 'Guest Customer'
       const totalSpent = spendMap[name] || 0
       const visits = visitsMap[name] || 1
 
-      // Tagging Logic
       let tag = 'New'
       if (visits > 5 || totalSpent > 10000) tag = 'VIP'
       else if (visits > 1) tag = 'Regular'
 
-      // Health Logic
-      const lastVisitDate = new Date(c.last_visit || c.created_at)
+      const lastVisitDate = new Date(c.last_visit || c.created_at || Date.now())
       const daysSinceLast = (Date.now() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24)
       const health = daysSinceLast > 30 ? 'At Risk' : 'Healthy'
 
       return {
-        id: c.id,
+        id: c.id || Math.random().toString(),
         name,
         email: c.email || '',
         phone: c.phone || '',
         visits,
         totalSpent,
-        lastVisit: c.last_visit || c.created_at,
-        firstVisit: c.created_at,
+        lastVisit: c.last_visit || c.created_at || new Date().toISOString(),
+        firstVisit: c.created_at || new Date().toISOString(),
         tag,
         health,
         status: 'Active',
@@ -155,31 +152,43 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
       }
     }).sort((a, b) => b.totalSpent - a.totalSpent)
 
-    // If no DB customers yet but orders exist — fall back to order-derived (before first upsert)
-    const fallbackList = customerList.length === 0 ? (() => {
-      const map = {}
-      orderHistory.forEach(order => {
-        const name = order.customerName || order.customer_name || 'Guest Customer'
-        const dateRaw = order.createdAt || order.created_at
-        if (!dateRaw || name === 'Guest Customer') return
-        if (!map[name]) map[name] = { name, visits: 0, totalSpent: 0, lastVisit: dateRaw, firstVisit: dateRaw, email: '', phone: '', tag: 'New', health: 'Healthy', orders: [], status: 'Active' }
-        map[name].visits += 1
-        map[name].totalSpent += (order.total || 0)
-        map[name].orders.push(order)
-        if (new Date(dateRaw) > new Date(map[name].lastVisit)) map[name].lastVisit = dateRaw
-      })
-      return Object.values(map).map(c => {
-        let tag = 'New'
-        if (c.visits > 5 || c.totalSpent > 10000) tag = 'VIP'
-        else if (c.visits > 1) tag = 'Regular'
-        const days = (Date.now() - new Date(c.lastVisit).getTime()) / (1000 * 60 * 60 * 24)
-        return { ...c, tag, health: days > 30 ? 'At Risk' : 'Healthy' }
-      }).sort((a, b) => b.totalSpent - a.totalSpent)
-    })() : []
+    // Fallback list from order history
+    const map = {}
+    history.forEach(order => {
+      const name = order.customerName || order.customer_name || 'Guest Customer'
+      const dateRaw = order.createdAt || order.created_at || new Date().toISOString()
+      if (!map[name]) {
+        map[name] = { 
+          id: order.id || Math.random().toString(),
+          name, 
+          visits: 0, 
+          totalSpent: 0, 
+          lastVisit: dateRaw, 
+          firstVisit: dateRaw, 
+          email: order.customerEmail || '', 
+          phone: order.customerPhone || order.phone || '', 
+          tag: 'New', 
+          health: 'Healthy', 
+          orders: [], 
+          status: 'Active' 
+        }
+      }
+      map[name].visits += 1
+      map[name].totalSpent += (Number(order.total) || 0)
+      map[name].orders.push(order)
+      if (new Date(dateRaw) > new Date(map[name].lastVisit)) map[name].lastVisit = dateRaw
+    })
+
+    const fallbackList = Object.values(map).map(c => {
+      let tag = 'New'
+      if (c.visits > 5 || c.totalSpent > 10000) tag = 'VIP'
+      else if (c.visits > 1) tag = 'Regular'
+      const days = (Date.now() - new Date(c.lastVisit).getTime()) / (1000 * 60 * 60 * 24)
+      return { ...c, tag, health: days > 30 ? 'At Risk' : 'Healthy' }
+    }).sort((a, b) => b.totalSpent - a.totalSpent)
 
     const finalList = customerList.length > 0 ? customerList : fallbackList
 
-    // Daily signups chart: from DB created_at or from order history
     const dailySignups = {}
     sourceCustomers.forEach(c => {
       if (!c.created_at) return
@@ -207,10 +216,10 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
         vip: finalList.filter(c => c.tag === 'VIP').length,
         new: finalList.filter(c => c.tag === 'New').length,
         retention: retentionRate.toFixed(1),
-        revenue: finalList.reduce((sum, c) => sum + c.totalSpent, 0)
+        revenue: finalList.reduce((sum, c) => sum + (c.totalSpent || 0), 0)
       }
     }
-  }, [orderHistory, dbCustomers, spendMap, visitsMap])
+  }, [dbCustomers, orderHistory])
 
 
   const filteredCustomers = customers.filter(c => {

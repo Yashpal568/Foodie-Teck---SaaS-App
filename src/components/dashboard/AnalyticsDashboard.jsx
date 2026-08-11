@@ -527,7 +527,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="h-87.5 w-full min-h-87.5 relative">
+                <div className="h-[350px] w-full min-h-[350px] relative">
                   {isChartReady ? (
                     <ResponsiveContainer width="100%" height="100%" minHeight={350} minWidth={0} debounce={50}>
                       <AreaChart data={revenueTrend}>

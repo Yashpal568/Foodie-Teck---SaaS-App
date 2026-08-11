@@ -37,6 +37,7 @@ import {
   Zap,
   Bell,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 
 function Dashboard() {
@@ -585,27 +586,6 @@ function Dashboard() {
         );
 
       case "customers":
-        if (plan?.name !== "Enterprise" && plan?.name !== "Professional") {
-          return (
-            <div className="h-full flex flex-col items-center justify-center p-6">
-              <ModuleLockOverlay
-                featureName="Customer Management & CRM"
-                requiredPlan="Professional"
-                price="₹2,499"
-              />
-              <Button
-                size="lg"
-                onClick={() => {
-                  setUpgradeLimitType("crm");
-                  setShowUpgradeModal(true);
-                }}
-                className="mt-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-              >
-                Upgrade to Professional (₹2,499)
-              </Button>
-            </div>
-          );
-        }
         return (
           <CustomerManagement
             plan={plan}
