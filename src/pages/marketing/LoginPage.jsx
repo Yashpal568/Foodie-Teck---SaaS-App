@@ -50,21 +50,6 @@ export default function LoginPage() {
       return
     }
 
-    // Safety Fallback: Guarantee navigation occurs within 3 seconds maximum
-    const fallbackTimer = setTimeout(async () => {
-      console.log('⏱️ Auth timer fallback triggered. Redirecting to merchant console...')
-      // Try to resolve UUID before redirecting to avoid the email→UUID round trip in Dashboard
-      try {
-        const { data: restFallback } = await supabase
-          .from('restaurants')
-          .select('id')
-          .eq('email', cleanEmail)
-          .maybeSingle()
-        proceedToConsole(`/console/${restFallback?.id || cleanEmail}`)
-      } catch {
-        proceedToConsole(`/console/${cleanEmail}`)
-      }
-    }, 3000)
 
     try {
       // Race Supabase auth call against a 1.5s timeout so network hangs never block the UI
@@ -77,8 +62,15 @@ export default function LoginPage() {
 
       const result = await Promise.race([authPromise, timeoutPromise])
 
-      if (!result.timeout && !result.error && result.data?.user) {
-        clearTimeout(fallbackTimer)
+      if (result.timeout) {
+        throw new Error('Login timed out. Please try again.')
+      }
+
+      if (result.error) {
+        throw result.error
+      }
+
+      if (result.data?.user) {
         const { data: restaurant } = await supabase
           .from('restaurants')
           .select('id')
@@ -89,27 +81,12 @@ export default function LoginPage() {
         return
       }
 
-      // If auth timed out or returned an error, query restaurants by email
-      const { data: rest } = await supabase
-        .from('restaurants')
-        .select('id')
-        .eq('email', cleanEmail)
-        .maybeSingle()
-
-      clearTimeout(fallbackTimer)
-
-      if (rest && rest.id) {
-        proceedToConsole(`/console/${rest.id}`)
-        return
-      }
-
-      // Direct entry by merchant email
-      proceedToConsole(`/console/${cleanEmail}`)
+      throw new Error('Unexpected login error.')
 
     } catch (err) {
-      clearTimeout(fallbackTimer)
-      console.warn('Auth exception, opening console:', err)
-      proceedToConsole(`/console/${cleanEmail}`)
+      console.error('Auth exception:', err)
+      setError(err.message || 'Invalid login credentials.')
+      setIsAuthenticating(false)
     }
   }
 
