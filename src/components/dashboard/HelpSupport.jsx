@@ -510,9 +510,14 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
 
       <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-32 lg:pb-8">
         {/* Hero Search */}
-        <div className="relative rounded-3xl overflow-hidden border border-slate-200/60 bg-slate-50/50">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-          <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-white to-transparent" />
+        <div className="relative rounded-3xl border border-slate-200/60 bg-slate-50/50">
+          {/* Background graphics clipped to corners */}
+          <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+            <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-white to-transparent" />
+          </div>
+          
+          {/* Content (not clipped) */}
           <div className="relative z-10 px-6 py-12 md:py-16 text-center">
             <Badge variant="secondary" className="mb-6 mx-auto bg-white/60 backdrop-blur-sm border-slate-200 text-slate-600 font-semibold px-4 py-1.5 rounded-full shadow-xs">
               <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
