@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCachedSession } from '@/lib/supabase'
 
 export default function AdminProtectedRoute() {
   const [loading, setLoading] = useState(true)
@@ -10,7 +10,7 @@ export default function AdminProtectedRoute() {
   useEffect(() => {
     async function checkAuth() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await getCachedSession()
         const adminSession = sessionStorage.getItem('servora_admin_auth') || sessionStorage.getItem('servora_admin_token')
         
         if (session || adminSession) {

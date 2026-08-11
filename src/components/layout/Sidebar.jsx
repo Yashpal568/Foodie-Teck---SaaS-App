@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import Logo from '@/components/ui/Logo'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCachedSession } from '@/lib/supabase'
 
 export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
@@ -200,7 +200,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   useEffect(() => {
     const checkSub = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await getCachedSession()
         const user = session?.user
         if (user) {
           const { data: rest } = await supabase.from('restaurants').select('id').eq('email', user.email.toLowerCase()).maybeSingle()

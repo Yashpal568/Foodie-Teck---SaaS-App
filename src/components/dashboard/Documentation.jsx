@@ -29,7 +29,6 @@ import Sidebar from '../layout/Sidebar'
 import MobileNavbar from '../layout/MobileNavbar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
-import DocumentationMobileNavbar from './DocumentationMobileNavbar'
 import { docSections, allArticles } from '../../data/docsContent'
 
 export default function Documentation({ activeItem, setActiveItem, navigate }) {
@@ -208,13 +207,6 @@ export default function Documentation({ activeItem, setActiveItem, navigate }) {
 
   return (
     <div className="h-full flex flex-col lg:flex-row bg-white overflow-hidden relative">
-      <DocumentationMobileNavbar 
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        onSearch={() => setDocSidebarOpen(true)}
-        searchTerm={searchTerm}
-      />
-
       <aside className="hidden lg:block w-80 flex-shrink-0 border-r border-slate-100 bg-white z-50">
         <DocSidebar />
       </aside>

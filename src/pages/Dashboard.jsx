@@ -38,7 +38,7 @@ import {
   Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCachedSession } from '@/lib/supabase';
 
 function Dashboard() {
   const { restaurantId: urlId } = useParams();
@@ -64,7 +64,7 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getCachedSession().then(({ data: { user } }) => {
       if (user?.email) setUserEmail(user.email);
     });
   }, []);
@@ -222,7 +222,7 @@ function Dashboard() {
       } else {
         // No subscription record found at all (brand new signup)
         // Show the plan selector so the user can choose and pay
-        setPlan({ name: 'Professional', purchaseDate: new Date().toISOString() });
+        setPlan(null);
         setSubDetails({ pendingApproval: false, utrNumber: '', status: 'NO_SUBSCRIPTION' });
         setIsExpired(true);
       }
@@ -428,12 +428,12 @@ function Dashboard() {
                         <button
                           key={item.action}
                           onClick={() => setActiveItem(item.action)}
-                          className={`flex flex-col items-center gap-2 p-3 bg-white border ${item.border} rounded-xl hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 text-center group`}
+                          className={`flex flex-col items-center gap-1.5 p-2 sm:p-3 bg-white border ${item.border} rounded-xl hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 text-center group`}
                         >
-                          <div className={`p-2 ${item.bg} rounded-lg`}>
-                            <item.icon className={`w-4 h-4 ${item.color}`} />
+                          <div className={`p-1.5 sm:p-2 ${item.bg} rounded-lg`}>
+                            <item.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${item.color}`} />
                           </div>
-                          <span className="text-xs font-semibold text-slate-700 group-hover:text-slate-900 whitespace-nowrap leading-tight">
+                          <span className="text-[9px] sm:text-xs font-semibold text-slate-700 group-hover:text-slate-900 whitespace-nowrap leading-tight">
                             {item.label}
                           </span>
                         </button>

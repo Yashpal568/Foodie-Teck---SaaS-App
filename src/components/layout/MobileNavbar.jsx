@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Home, ShoppingCart, ChefHat, Receipt, Settings } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCachedSession } from '@/lib/supabase'
 
 const navItems = [
   { icon: Home, label: 'Home', id: 'dashboard', route: '/dashboard' },
@@ -18,7 +18,7 @@ export default function MobileNavbar({ activeItem, setActiveItem }) {
     
     // Identity-Safe Mobile Navigation
     if (item.route === '/dashboard') {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await getCachedSession()
       const user = session?.user
       if (user?.email) {
         navigate(`/console/${user.email}`)

@@ -101,7 +101,7 @@ const formatLiveDuration = (sessionStartISO, currentTime) => {
 import UpgradePlanModal from './UpgradePlanModal'
 import { getPlanDetails } from '@/utils/planLimits'
 
-const formatCurrency = (val) => `₹${val || 0}`;
+import { formatCurrencyExact as formatCurrency } from '@/utils/formatters'
 
 const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan }) => {
   const planDetails = getPlanDetails(plan?.name)

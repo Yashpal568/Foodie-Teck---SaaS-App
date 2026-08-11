@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { timeAgo } from '@/utils/formatters'
 import { Bell, X, Check, Clock, ChefHat, DollarSign, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -31,17 +32,6 @@ const NotificationDropdown = ({ restaurantId }) => {
       default:
         return <Clock className="w-4 h-4 text-gray-600" />
     }
-  }
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-
-    if (diffInMinutes < 1) return 'Just now'
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
-    return date.toLocaleDateString()
   }
 
   return (
@@ -148,9 +138,9 @@ const NotificationDropdown = ({ restaurantId }) => {
                               </p>
                               <div className="flex items-center gap-2 mt-2">
                                 <Clock className="w-3 h-3 text-slate-400" />
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                  {formatTime(notification.timestamp)}
-                                </p>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                  {timeAgo(notification.timestamp)}
+                                </span>
                               </div>
                             </div>
                             <div className="flex flex-col items-center gap-2 ml-4">

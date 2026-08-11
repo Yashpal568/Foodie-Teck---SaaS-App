@@ -2,7 +2,7 @@
  * Servora Admin Supabase Client Helper
  * Automatically signs in as the platform admin to bypass RLS restrictions.
  */
-import { supabase } from './supabase'
+import { supabase, getCachedSession } from './supabase'
 
 let _adminAuthPromise = null
 
@@ -15,7 +15,7 @@ export const ensureAdminSession = async () => {
 
   _adminAuthPromise = (async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await getCachedSession()
       if (session?.access_token) {
         return session
       }

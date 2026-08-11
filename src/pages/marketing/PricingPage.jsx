@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCachedSession } from '@/lib/supabase'
 
 const defaultPlans = [
   { id: 'PLN-1', name: "Starter", price: 999, tableLimit: 10, color: "slate", popular: false, desc: "Essential features for smaller venues." },
@@ -78,7 +78,7 @@ export default function PricingPage() {
       setIsProcessing(true)
       setTargetPlan(plan)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await getCachedSession()
 
       if (!session || !session.user) {
         sessionStorage.setItem('intended_plan', JSON.stringify(plan))

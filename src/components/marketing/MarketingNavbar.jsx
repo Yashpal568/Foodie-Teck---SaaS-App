@@ -4,7 +4,7 @@ import { Menu, X, ArrowRight, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Logo from '@/components/ui/Logo'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCachedSession } from '@/lib/supabase'
 
 const navItems = [
   { name: 'Home', href: '/' },
@@ -28,7 +28,7 @@ export default function MarketingNavbar() {
     window.addEventListener('scroll', handleScroll)
     
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await getCachedSession()
       setHasPlan(!!session)
     }
     checkAuth()

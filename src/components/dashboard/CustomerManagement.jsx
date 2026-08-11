@@ -8,7 +8,7 @@ import {
   BadgeDollarSign, Percent, Zap,
 } from 'lucide-react'
 import { useOrderManagement } from '@/hooks/useOrderManagement'
-import { fetchCustomers } from '@/lib/api'
+import { getCustomers } from '@/lib/api'
 
 import PremiumLock from './PremiumLock'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -333,7 +333,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
   useEffect(() => {
     if (!restaurantId || restaurantId === 'default') return
     setCustomersLoading(true)
-    fetchCustomers(restaurantId)
+    getCustomers(restaurantId)
       .then(data => setDbCustomers(data || []))
       .catch(() => setDbCustomers([]))
       .finally(() => setCustomersLoading(false))

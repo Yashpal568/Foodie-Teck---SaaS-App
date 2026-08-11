@@ -2,11 +2,11 @@
  * Nuclear Audit Engine
  * Manages the platform action immutability logs.
  */
-import { supabase } from '@/lib/supabase'
+import { supabase, getCachedSession } from '@/lib/supabase'
 
 export const logAdminAction = async (action, target = 'SYSTEM', severity = 'NOMINAL') => {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { session } } = await getCachedSession()
     const actorEmail = session?.user?.email || 'admin@servora.com'
     
     await supabase.from('audit_logs').insert({

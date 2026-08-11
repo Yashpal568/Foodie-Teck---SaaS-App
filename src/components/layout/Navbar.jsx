@@ -27,6 +27,7 @@ import { Separator } from '@/components/ui/separator'
 import Sidebar, { menuItems, supportItems } from './Sidebar'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { supabase } from '@/lib/api'
+import { getCachedSession } from '@/lib/supabase'
 import { getPlanDetails } from '@/utils/planLimits'
 
 export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId, plan, onUpgradeClick }) {
@@ -45,7 +46,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   // Sync profile with Supabase Session
   useEffect(() => {
     const loadProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await getCachedSession()
       const user = session?.user
 
       if (user && user.email) {

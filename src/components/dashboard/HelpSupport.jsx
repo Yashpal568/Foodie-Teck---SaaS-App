@@ -104,22 +104,8 @@ const statusConfig = {
   'CLOSED':      { label: 'Closed',      color: 'gray',   icon: CheckCircle },
 }
 
-const formatDate = (iso) => {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + 
-    ' at ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-}
-
-const timeAgo = (iso) => {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
+import { getCachedSession } from '@/lib/supabase'
+import { formatDateTime as formatDate, timeAgo } from '@/utils/formatters'
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function HelpSupport({ activeItem, setActiveItem, navigate, restaurantId }) {
@@ -141,7 +127,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
 
   useEffect(() => {
     async function loadUser() {
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      const { data: { user: currentUser } } = await getCachedSession()
       if (currentUser) {
         setContactEmail(currentUser.email || '')
         setContactName(currentUser.user_metadata?.business_name || 'Merchant Admin')

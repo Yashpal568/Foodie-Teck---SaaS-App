@@ -43,15 +43,7 @@ import {
 } from 'recharts'
 
 
-// Format currency for Indian Rupees
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount)
-}
+import { formatCurrencyExact as formatCurrency } from '@/utils/formatters'
 
 // Generate revenue trend data
 const generateRevenueTrend = (orderHistory, timeRange) => {

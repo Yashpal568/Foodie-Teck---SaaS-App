@@ -68,7 +68,7 @@ const formatLiveDuration = (sessionStartISO, currentTime) => {
   return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
 };
 
-const formatCurrency = (val) => `₹${val || 0}`;
+import { formatCurrencyExact as formatCurrency } from '@/utils/formatters'
 
 const TableStatus = ({ restaurantId = 'default' }) => {
   const { tables: rawTables, stats, loading, refreshTables } = useTableSessions(restaurantId)
