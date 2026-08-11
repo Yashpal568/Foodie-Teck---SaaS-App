@@ -529,15 +529,16 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
               <CardContent className="pt-6">
                 <div className="h-[350px] w-full min-h-[350px] relative">
                   {isChartReady ? (
-                    <ResponsiveContainer width="100%" height="100%" minHeight={350} minWidth={0} debounce={50}>
-                      <AreaChart data={revenueTrend}>
-                        <defs>
-                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <div className="absolute inset-0 w-full h-full">
+                      <ResponsiveContainer width="99%" height={350} debounce={50}>
+                        <AreaChart data={revenueTrend}>
+                          <defs>
+                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis 
                           dataKey="name" 
                           axisLine={false}
@@ -572,6 +573,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                         />
                       </AreaChart>
                     </ResponsiveContainer>
+                    </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-50/50 rounded-lg animate-pulse">
                       <TrendingUp className="w-8 h-8 text-gray-200" />

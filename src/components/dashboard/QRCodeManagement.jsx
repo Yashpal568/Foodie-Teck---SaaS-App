@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import Sidebar from '../layout/Sidebar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
-import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes, supabase } from '@/lib/api'
+import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes, supabase, ensureValidRestaurantUUID } from '@/lib/api'
 
 // Convert blob to base64 data URL
 const blobToBase64 = (blob) => {
@@ -54,7 +54,7 @@ const saveQRCodesToStorage = async (restaurantId, qrCodes) => {
 import UpgradePlanModal from './UpgradePlanModal'
 import { getPlanDetails } from '@/utils/planLimits'
 
-// Load QR codes from Supabase with LocalStorage fallback
+// Load QR codes from Supabase
 const loadQRCodesFromStorage = async (restaurantId) => {
   try {
     if (!restaurantId) return []
@@ -68,15 +68,6 @@ const loadQRCodesFromStorage = async (restaurantId) => {
           restaurantId: q.restaurant_id,
           generatedAt: q.created_at
        }))
-    }
-
-    // LocalStorage fallback
-    const cached = localStorage.getItem(`servora_qr_codes_${validId}`) || localStorage.getItem(`servora_qr_codes_${restaurantId}`)
-    if (cached) {
-      const parsed = JSON.parse(cached)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed
-      }
     }
   } catch (error) {
     console.error('Error loading QR codes from Supabase:', error)
@@ -95,25 +86,9 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
   // Synchronously initialize QR codes from cache for instantaneous render
   const getInitialQRs = () => {
-    try {
-      const rid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'test2@gmail.com'
-      const cached = localStorage.getItem(`servora_qr_codes_${rid}`) || 
-                     localStorage.getItem(`servora_qr_codes_test2@gmail.com`) ||
-                     Object.keys(localStorage).filter(k => k.startsWith('servora_qr_codes_')).map(k => localStorage.getItem(k)).find(Boolean)
-      if (cached) {
-        const parsed = JSON.parse(cached)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(qr => ({
-            ...qr,
-            qrImageUrl: qr.qrDataUrl || qr.qrImageUrl || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr.url || '')}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`,
-            qrBlob: null
-          }))
-        }
-      }
-    } catch (e) {}
-    return []
+    return [] // Always wait for Supabase
   }
-
+  
   const initialQRs = getInitialQRs()
   const effectiveLimit = tableLimit || 10
   const [tableCount, setTableCount] = useState(
@@ -600,7 +575,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
                 {qrCodes.map((qrCode) => (
-                  <Card key={qrCode.tableNumber} className="hover:shadow-md transition-shadow">
+                  <Card key={`${qrCode.restaurantId}-${qrCode.tableNumber}`} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="text-center space-y-4">
                         <div className="w-40 h-40 bg-gray-50 rounded-lg mx-auto flex items-center justify-center overflow-hidden border-2 border-gray-200">

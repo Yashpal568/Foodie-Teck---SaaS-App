@@ -77,15 +77,18 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     const fetchActiveCounts = async () => {
       try {
         // 1. Fetch Orders directly and count active non-finished orders
+        const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+        const validId = isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)
+
+        if (!validId) {
+          setCounts({ orders: 0, tables: 0 })
+          return
+        }
+
         let orderQuery = supabase
           .from('orders')
           .select('id, status, restaurant_id')
-
-        if (resolvedId && restaurantId && resolvedId !== restaurantId) {
-          orderQuery = orderQuery.or(`restaurant_id.eq.${resolvedId},restaurant_id.eq.${restaurantId}`)
-        } else {
-          orderQuery = orderQuery.eq('restaurant_id', targetId)
-        }
+          .eq('restaurant_id', validId)
 
         const { data: rawOrders } = await orderQuery
 
@@ -99,12 +102,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
           .from('table_sessions')
           .select('*', { count: 'exact', head: true })
           .in('status', ['occupied', 'billing'])
-
-        if (resolvedId && restaurantId && resolvedId !== restaurantId) {
-          tableQuery = tableQuery.or(`restaurant_id.eq.${resolvedId},restaurant_id.eq.${restaurantId}`)
-        } else {
-          tableQuery = tableQuery.eq('restaurant_id', targetId)
-        }
+          .eq('restaurant_id', validId)
 
         const { count: tableCount } = await tableQuery
 
@@ -113,12 +111,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
           .from('waiter_calls')
           .select('*', { count: 'exact', head: true })
           .eq('is_handled', false)
-
-        if (resolvedId && restaurantId && resolvedId !== restaurantId) {
-          waiterQuery = waiterQuery.or(`restaurant_id.eq.${resolvedId},restaurant_id.eq.${restaurantId}`)
-        } else {
-          waiterQuery = waiterQuery.eq('restaurant_id', targetId)
-        }
+          .eq('restaurant_id', validId)
 
         const { count: waiterCount } = await waiterQuery
 

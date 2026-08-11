@@ -13,6 +13,7 @@ import {
   Save, 
   Lock,
   Smartphone, 
+  Landmark,
   Eye, 
   EyeOff, 
   CheckCircle2,
@@ -42,7 +43,8 @@ import {
   CardContent, 
   CardDescription, 
   CardHeader, 
-  CardTitle 
+  CardTitle,
+  CardFooter
 } from '@/components/ui/card'
 import { 
   Dialog, 
@@ -93,13 +95,12 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   const [securityData, setSecurityData] = useState({
     mfaEnabled: true,
     currentPassword: '',
-    newPassword: ''
+    newPassword: '',
+    confirmPassword: ''
   })
 
   const [billingData, setBillingData] = useState({
-    cards: [
-      { id: 1, type: 'Visa', last4: '8849', expiry: '12/28', logo: 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg' }
-    ],
+    paymentMethods: [],
     plan: 'Starter',
     price: '999'
   })
@@ -125,11 +126,15 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
   const [isAddCardOpen, setIsAddCardOpen] = useState(false)
   const [addCardError, setAddCardError] = useState('')
-  const [newCardData, setNewCardData] = useState({
+  const [newPaymentMethod, setNewPaymentMethod] = useState({
+    type: 'CREDIT_CARD',
     name: '',
     number: '',
     expiry: '',
-    cvv: ''
+    cvv: '',
+    upiId: '',
+    accountNumber: '',
+    ifsc: ''
   })
 
   const loadCloudConfig = async () => {
@@ -145,14 +150,14 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         if (isUUID) {
           const { data } = await supabase
             .from('restaurants')
-            .select('*, subscriptions(plan_name, status, price, start_date, end_date)')
+            .select('*')
             .eq('id', restaurantId)
             .maybeSingle()
           restaurant = data
         } else if (restaurantId.includes('@')) {
           const { data } = await supabase
             .from('restaurants')
-            .select('*, subscriptions(plan_name, status, price, start_date, end_date)')
+            .select('*')
             .eq('email', restaurantId.toLowerCase())
             .maybeSingle()
           restaurant = data
@@ -230,10 +235,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
               if (verif?.plan_name) {
                 planName = verif.plan_name
                 planPrice = planName === 'Professional' ? '2499' : planName === 'Enterprise' ? '4999' : '999'
-              } else if (restaurant.plan_name) {
-                // 2d. Plan stored directly on the restaurant row
-                planName = restaurant.plan_name
-                planPrice = planName === 'Professional' ? '2499' : planName === 'Enterprise' ? '4999' : '999'
               }
             }
           }
@@ -246,6 +247,20 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           plan: planName,
           price: planPrice
         }))
+
+        // Load Payment Methods
+        try {
+          const { data: pms } = await supabase
+            .from('payment_methods')
+            .select('*')
+            .eq('restaurant_id', restaurant.id)
+            .order('created_at', { ascending: true })
+          if (pms) {
+            setBillingData(prev => ({ ...prev, paymentMethods: pms }))
+          }
+        } catch (e) {
+          console.warn('Could not load payment methods:', e)
+        }
 
         const savedNotifs = localStorage.getItem(`servora_notifs_${restaurant.id}`)
         if (savedNotifs) {
@@ -277,11 +292,41 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         const result = reader.result
         if (typeof result !== 'string') return
 
-        setProfileData(prev => ({
-          ...prev,
-          [type]: result
-        }))
-        showToast(`${type === 'avatar' ? 'Logo' : 'Cover'} updated in preview. Click Save to deploy.`, 'success')
+        const img = new Image()
+        img.src = result
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const MAX_WIDTH = 800
+          const MAX_HEIGHT = 800
+          let width = img.width
+          let height = img.height
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width
+              width = MAX_WIDTH
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height
+              height = MAX_HEIGHT
+            }
+          }
+          
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, width, height)
+          
+          // Compress to JPEG with 60% quality to ensure lightning fast DB saves
+          const compressedData = canvas.toDataURL('image/jpeg', 0.6)
+
+          setProfileData(prev => ({
+            ...prev,
+            [type]: compressedData
+          }))
+          showToast(`${type === 'avatar' ? 'Logo' : 'Cover'} updated in preview. Click Save to deploy.`, 'success')
+        }
       }
       reader.readAsDataURL(file)
     }
@@ -317,7 +362,19 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   }
 
   const handlePasswordUpdate = async () => {
-    if (!securityData.newPassword) return;
+    if (!securityData.newPassword || !securityData.confirmPassword) {
+      showToast('Please fill all password fields.', 'error')
+      return;
+    }
+    if (securityData.newPassword !== securityData.confirmPassword) {
+      showToast('New passwords do not match.', 'error')
+      return;
+    }
+    if (securityData.newPassword.length < 8) {
+      showToast('Password must be at least 8 characters.', 'error')
+      return;
+    }
+
     setIsSaving(true)
     
     try {
@@ -326,11 +383,15 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
       })
       if (passError) throw passError
       
-      setSecurityData(prev => ({ ...prev, currentPassword: '', newPassword: '' }))
+      setSecurityData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }))
       showToast('Password updated successfully.', 'success')
     } catch (err) {
       console.error('Password update failed:', err)
-      showToast(`Password update failed: ${err.message}`, 'error')
+      if (err.message && err.message.toLowerCase().includes('different from the old password')) {
+        showToast('Please choose a new password that is different from your current one.', 'error')
+      } else {
+        showToast(`Password update failed: ${err.message}`, 'error')
+      }
     } finally {
       setIsSaving(false)
     }
@@ -343,12 +404,17 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     }
   }
 
-  const handleRemoveCard = (id) => {
-    setBillingData(prev => ({
-      ...prev,
-      cards: prev.cards.filter(card => card.id !== id)
-    }))
-    showToast('Payment method removed.', 'success')
+  const handleRemoveCard = async (id) => {
+    try {
+      await supabase.from('payment_methods').delete().eq('id', id)
+      setBillingData(prev => ({
+        ...prev,
+        paymentMethods: prev.paymentMethods.filter(pm => pm.id !== id)
+      }))
+      showToast('Payment method removed.', 'success')
+    } catch (e) {
+      showToast('Failed to remove payment method.', 'error')
+    }
   }
 
   const handleSignOut = async () => {
@@ -356,38 +422,68 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     if (navigate) navigate('/login')
   }
 
-  const handleAddCard = (e) => {
+  const handleAddCard = async (e) => {
     e.preventDefault()
     setAddCardError('')
     
-    if (!newCardData.number || newCardData.number.length < 16) {
-      setAddCardError('Please enter a valid 16-digit card number.')
-      return
+    let details = {}
+    
+    if (newPaymentMethod.type === 'CREDIT_CARD' || newPaymentMethod.type === 'DEBIT_CARD') {
+      if (!newPaymentMethod.number || newPaymentMethod.number.length < 15) {
+        setAddCardError('Please enter a valid card number.')
+        return
+      }
+      if (!newPaymentMethod.expiry || !newPaymentMethod.expiry.includes('/')) {
+        setAddCardError('Expiry date must be in MM/YY format.')
+        return
+      }
+      details = {
+        name: newPaymentMethod.name,
+        last4: newPaymentMethod.number.slice(-4),
+        expiry: newPaymentMethod.expiry
+      }
+    } else if (newPaymentMethod.type === 'UPI') {
+      if (!newPaymentMethod.upiId || !newPaymentMethod.upiId.includes('@')) {
+        setAddCardError('Please enter a valid UPI handle.')
+        return
+      }
+      details = { upiId: newPaymentMethod.upiId }
+    } else if (newPaymentMethod.type === 'ACCOUNT_TRANSFER') {
+      if (!newPaymentMethod.accountNumber || !newPaymentMethod.ifsc) {
+        setAddCardError('Account number and IFSC are required.')
+        return
+      }
+      details = {
+        accountNumber: newPaymentMethod.accountNumber,
+        ifsc: newPaymentMethod.ifsc
+      }
     }
 
-    if (!newCardData.expiry || !newCardData.expiry.includes('/')) {
-      setAddCardError('Expiry date must be in MM/YY format.')
-      return
+    setIsSaving(true)
+    try {
+      const targetRid = restaurantId || getCachedRestaurantId()
+      const { data, error } = await supabase.from('payment_methods').insert({
+        restaurant_id: targetRid,
+        type: newPaymentMethod.type,
+        details: details
+      }).select().single()
+
+      if (error) throw error
+
+      setBillingData(prev => ({
+        ...prev,
+        paymentMethods: [...(prev.paymentMethods || []), data]
+      }))
+
+      setNewPaymentMethod({ type: 'CREDIT_CARD', name: '', number: '', expiry: '', cvv: '', upiId: '', accountNumber: '', ifsc: '' })
+      setIsAddCardOpen(false)
+      showToast('Payment method successfully added.', 'success')
+    } catch (e) {
+      console.error(e)
+      setAddCardError('Database error. Please make sure you have run the schema update script.')
+    } finally {
+      setIsSaving(false)
     }
-
-    const newCard = {
-      id: Date.now(),
-      type: newCardData.number.startsWith('4') ? 'Visa' : 'Mastercard',
-      last4: newCardData.number.slice(-4),
-      expiry: newCardData.expiry,
-      logo: newCardData.number.startsWith('4') 
-        ? 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg'
-        : 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg'
-    }
-
-    setBillingData(prev => ({
-      ...prev,
-      cards: [...prev.cards, newCard]
-    }))
-
-    setNewCardData({ name: '', number: '', expiry: '', cvv: '' })
-    setIsAddCardOpen(false)
-    showToast(`${newCard.type} card successfully added.`, 'success')
   }
 
   return (
@@ -418,68 +514,71 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         </div>
       </div>
 
-      <div className="hidden lg:flex items-center justify-between px-8 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 h-20 sticky top-0 z-40">
-        <div className="flex items-center gap-8 h-full">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
-              <SettingsIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">Restaurant Settings</h1>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Cloud Synchronization</span>
+      <div className="hidden lg:flex sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 h-16 items-center px-6 shadow-sm">
+        <div className="flex flex-1 items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 border border-primary/20">
+                <SettingsIcon className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-sm font-semibold leading-none tracking-tight text-foreground">Restaurant Settings</h1>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Cloud Synced</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <Separator orientation="vertical" className="h-7 opacity-60" />
+            
+            <Separator orientation="vertical" className="h-6" />
 
-          <Tabs value={activeTab} onValueChange={setActiveTabState} className="h-full">
-            <div className="h-full flex items-center">
-              <TabsList className="bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/50 gap-1 h-14">
+            <Tabs value={activeTab} onValueChange={setActiveTabState} className="w-auto">
+              <TabsList className="h-9 p-1 bg-muted/50 rounded-md border border-border/50">
                 {[
-                  { id: 'profile', label: 'Profile & Details', icon: User },
+                  { id: 'profile', label: 'Profile', icon: User },
                   { id: 'notifications', label: 'Alerts', icon: Bell },
                   { id: 'security', label: 'Security', icon: ShieldCheck },
-                  { id: 'billing', label: 'Subscription & Billing', icon: CreditCard },
-                  { id: 'tax', label: 'GST & Taxes', icon: Percent }
+                  { id: 'billing', label: 'Billing', icon: CreditCard },
+                  { id: 'tax', label: 'Taxes', icon: Percent }
                 ].map(tab => (
                   <TabsTrigger 
                     key={tab.id}
                     value={tab.id}
-                    className="px-4 rounded-xl border-none data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm font-semibold text-xs transition-all duration-300 h-full text-slate-500 hover:text-slate-800"
+                    className="rounded-sm px-3 text-[11px] font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-muted-foreground hover:text-foreground h-7"
                   >
-                    <tab.icon className="w-4 h-4 mr-2" /> {tab.label}
+                    <tab.icon className="h-3.5 w-3.5 mr-1.5" />
+                    {tab.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
-            </div>
-          </Tabs>
-        </div>
+            </Tabs>
+          </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button 
-            variant="outline" 
-            onClick={handleDiscard}
-            className="h-10 px-5 rounded-xl font-bold text-[11px] uppercase tracking-wider text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 border-slate-200 transition-all"
-          >
-            <X className="w-3.5 h-3.5 mr-1.5" />
-            Discard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleDiscard}
+              size="sm"
+              className="h-9 text-xs font-medium hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+            >
+              <X className="h-3.5 w-3.5 mr-1.5" />
+              Discard
+            </Button>
 
-          <Button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-6 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-[11px] uppercase tracking-wider flex items-center gap-2 cursor-pointer"
-          >
-            {isSaving ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-          </Button>
+            <Button 
+              onClick={handleSave}
+              disabled={isSaving}
+              size="sm"
+              className="h-9 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {isSaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -524,146 +623,116 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             <input type="file" ref={coverRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} />
             <input type="file" ref={profileRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
 
-            <Card className="border border-slate-200/60 shadow-sm rounded-3xl overflow-hidden bg-white">
+            <Card className="border border-border/60 shadow-sm bg-white overflow-hidden flex flex-col">
               <div 
-                className="h-44 sm:h-52 bg-gradient-to-r from-indigo-600 via-purple-600 to-slate-800 relative overflow-hidden bg-center bg-cover transition-all"
+                className="h-32 bg-muted relative overflow-hidden bg-center bg-cover transition-all border-b border-border/50"
                 style={{ backgroundImage: profileData.cover ? `url(${profileData.cover})` : 'none' }}
               >
                 <Button 
                   onClick={() => coverRef.current?.click()}
                   variant="secondary" 
                   size="sm"
-                  className="absolute right-4 top-4 bg-white/90 hover:bg-white text-slate-800 font-bold text-[11px] uppercase tracking-wider rounded-xl backdrop-blur-md shadow-sm border border-white/40 cursor-pointer"
+                  className="absolute right-4 top-4 h-8 bg-background/80 hover:bg-background/100 backdrop-blur-sm text-xs font-medium"
                 >
-                  <Camera className="w-3.5 h-3.5 mr-1.5 text-indigo-600" /> 
-                  Change Cover Banner
+                  <Camera className="w-3.5 h-3.5 mr-1.5" /> 
+                  Change Cover
                 </Button>
               </div>
 
-              <CardContent className="px-6 sm:px-8 pb-8 -mt-14 relative z-10">
-                <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 mb-8 text-center sm:text-left">
-                  <div className="relative group rounded-2xl border-4 border-white bg-white shadow-md">
-                    <Avatar className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl">
+              <CardContent className="px-6 pt-0 pb-8 relative z-10 flex-1">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 -mt-12 mb-8">
+                  <div className="relative group rounded-full border-4 border-background bg-background shadow-sm inline-block">
+                    <Avatar className="w-24 h-24">
                       <AvatarImage src={profileData.avatar} className="object-cover" />
-                      <AvatarFallback className="bg-indigo-50 text-indigo-600 text-3xl font-black uppercase">
+                      <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold uppercase">
                         {profileData.name.charAt(0) || 'R'}
                       </AvatarFallback>
                     </Avatar>
                     <button 
                       onClick={() => profileRef.current?.click()}
-                      className="absolute -bottom-1 -right-1 w-9 h-9 bg-indigo-600 text-white rounded-xl shadow-md border-2 border-white flex items-center justify-center hover:bg-indigo-700 transition-all cursor-pointer"
+                      className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-primary-foreground rounded-full shadow-md border-2 border-background flex items-center justify-center hover:bg-primary/90 transition-all cursor-pointer"
                     >
                       <Camera className="w-4 h-4" />
                     </button>
                   </div>
-
-                  <div className="flex-1 pb-1">
-                    <div className="flex flex-col sm:flex-row items-center gap-2 mb-2">
-                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  
+                  <div className="flex-1 pb-1 flex flex-col sm:flex-row justify-between items-start sm:items-center sm:pl-2 gap-2">
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
                         {profileData.name || 'Restaurant Name'}
+                        <Badge variant="secondary" className="text-[10px] uppercase font-semibold h-5 px-1.5">Verified</Badge>
                       </h2>
-                      <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-lg">
-                        Verified Merchant
-                      </Badge>
-                    </div>
-
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-xs text-slate-500 font-semibold">
-                      <span className="flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        {profileData.email || 'No email set'}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        {profileData.address || 'Location not specified'}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1.5 font-medium">
+                        <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 opacity-70" /> {profileData.email || 'No email set'}</span>
+                        <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 opacity-70" /> {profileData.address || 'Location not specified'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <Separator className="mb-8" />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Store className="w-4 h-4 text-indigo-500" /> Business / Restaurant Name
-                    </Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business Name</Label>
                     <Input 
                       value={profileData.name} 
                       onChange={(e) => setProfileData({...profileData, name: e.target.value})}
                       placeholder="e.g. Royal Bistro"
-                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
+                      className="h-9 font-medium" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Smartphone className="w-4 h-4 text-indigo-500" /> Phone Number
-                    </Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone Number</Label>
                     <Input 
                       value={profileData.phone} 
                       onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
                       placeholder="+91 9876543210"
-                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
+                      className="h-9 font-medium" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Mail className="w-4 h-4 text-indigo-500" /> Contact Email Address
-                    </Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact Email</Label>
                     <Input 
                       value={profileData.email} 
                       onChange={(e) => setProfileData({...profileData, email: e.target.value})}
                       placeholder="owner@restaurant.com"
-                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
+                      className="h-9 font-medium" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Info className="w-4 h-4 text-indigo-500" /> Short Description / Tagline
-                    </Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tagline</Label>
                     <Input 
                       value={profileData.description} 
                       onChange={(e) => setProfileData({...profileData, description: e.target.value})}
-                      placeholder="Authentic North Indian & Chinese Fine Dining"
-                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
+                      placeholder="Authentic Fine Dining"
+                      className="h-9 font-medium" 
                     />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4 text-indigo-500" /> Full Physical Address
-                    </Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Physical Address</Label>
                     <Input 
                       value={profileData.address} 
                       onChange={(e) => setProfileData({...profileData, address: e.target.value})}
-                      placeholder="Plot 45, MG Road, Connaught Place, New Delhi"
-                      className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 px-4" 
+                      placeholder="Plot 45, MG Road, New Delhi"
+                      className="h-9 font-medium" 
                     />
                   </div>
                 </div>
-
-                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
+              </CardContent>
+              <CardFooter className="px-6 py-4 bg-muted/30 border-t border-border/50 flex justify-between items-center mt-auto">
                   <Button 
                     onClick={handleSignOut}
                     variant="outline"
-                    className="h-10 px-4 rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 font-bold text-xs cursor-pointer"
+                    size="sm"
+                    className="h-9 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
                   >
                     <LogOut className="w-3.5 h-3.5 mr-1.5" />
-                    Sign Out Account
+                    Sign Out
                   </Button>
-
-                  <Button 
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-md cursor-pointer"
-                  >
-                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
-                    Save Profile
-                  </Button>
-                </div>
-              </CardContent>
+              </CardFooter>
             </Card>
           </TabsContent>
 
@@ -710,19 +779,30 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
           <TabsContent value="security" className="mt-0 outline-none">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
+              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white flex flex-col overflow-hidden">
                 <CardHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center shadow-inner">
+                    <div className="w-10 h-10 bg-slate-100 text-slate-700 rounded-xl flex items-center justify-center shadow-inner">
                       <Lock className="w-5 h-5" />
                     </div>
                     <div>
                       <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">Password Security</CardTitle>
-                      <CardDescription className="text-sm text-slate-500 font-medium">Update your account login password.</CardDescription>
+                      <CardDescription className="text-sm text-slate-500 font-medium">Change your account login password.</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-6 space-y-4">
+                <CardContent className="p-6 space-y-5 flex-1">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Current Password</Label>
+                    <Input 
+                      type="password" 
+                      placeholder="Enter current password" 
+                      value={securityData.currentPassword}
+                      onChange={(e) => setSecurityData({...securityData, currentPassword: e.target.value})}
+                      className="h-11 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900" 
+                    />
+                  </div>
+                  
                   <div className="space-y-2">
                     <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">New Password</Label>
                     <div className="relative">
@@ -732,26 +812,40 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                         placeholder="Min. 8 characters" 
                         value={securityData.newPassword}
                         onChange={(e) => setSecurityData({...securityData, newPassword: e.target.value})}
-                        className="h-12 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 pr-10" 
+                        className="h-11 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900 pr-10" 
                       />
                       <button 
                         type="button"
                         onClick={() => setShowPassword(!showPassword)} 
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Confirm Password</Label>
+                    <Input 
+                      type="password" 
+                      autoComplete="new-password"
+                      placeholder="Confirm new password" 
+                      value={securityData.confirmPassword}
+                      onChange={(e) => setSecurityData({...securityData, confirmPassword: e.target.value})}
+                      className="h-11 rounded-xl border-slate-200/60 bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-colors font-semibold text-slate-900" 
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter className="px-6 pb-6 pt-0">
                   <Button 
                     onClick={handlePasswordUpdate}
-                    disabled={isSaving || !securityData.newPassword}
-                    className="w-full h-11 rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
+                    disabled={isSaving || !securityData.newPassword || !securityData.confirmPassword}
+                    className="w-full h-11 rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider"
                   >
-                    {isSaving ? 'Updating Password...' : 'Update Password'}
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                    {isSaving ? 'Updating...' : 'Update Password'}
                   </Button>
-                </CardContent>
+                </CardFooter>
               </Card>
 
               <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
@@ -790,122 +884,234 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
           <TabsContent value="billing" className="mt-0 outline-none">
             <div className="space-y-6">
-              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 text-white overflow-hidden p-6 sm:p-8 relative">
-                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                  <div className="space-y-2">
-                    <Badge className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-lg">
-                      Active Subscription
-                    </Badge>
-                    <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                      {billingData.plan} Plan
-                    </h2>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-white">₹{billingData.price}</span>
-                      <span className="text-xs text-slate-300 font-bold">/month</span>
-                    </div>
+              <Card className="border-0 shadow-lg overflow-hidden text-white rounded-2xl">
+                <div className="p-6 sm:p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-violet-600 relative">
+                  <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                    <Crown className="w-48 h-48 text-white mix-blend-overlay" />
                   </div>
+                  <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                    <div className="space-y-2.5">
+                      <Badge className="bg-white/20 text-white border border-white/30 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-md backdrop-blur-md shadow-sm hover:bg-white/30">
+                        Active Subscription
+                      </Badge>
+                      <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm">
+                        {billingData.plan} Plan
+                      </h2>
+                      <div className="flex items-baseline gap-1 mt-1">
+                        <span className="text-3xl font-black text-white tracking-tight drop-shadow-sm">₹{billingData.price}</span>
+                        <span className="text-xs text-white/80 font-bold uppercase tracking-wider">/month</span>
+                      </div>
+                    </div>
 
-                  <Button 
-                    onClick={() => setShowUpgradeModal(true)}
-                    className="h-12 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-500/30 transition-all cursor-pointer flex items-center gap-2"
-                  >
-                    <Crown className="w-4 h-4 text-amber-300" />
-                    Upgrade Plan
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
+                    <Button 
+                      onClick={() => setShowUpgradeModal(true)}
+                      className="bg-white hover:bg-slate-50 text-indigo-600 font-bold text-xs uppercase tracking-widest shadow-xl shadow-indigo-900/20 border-0 h-11 px-6 rounded-xl transition-all"
+                    >
+                      <Crown className="w-4 h-4 mr-2 text-indigo-500" />
+                      Upgrade Plan
+                      <ArrowRight className="w-4 h-4 ml-2 text-indigo-500/70" />
+                    </Button>
+                  </div>
                 </div>
               </Card>
 
-              <Card className="border border-slate-200/60 shadow-sm rounded-3xl bg-white overflow-hidden">
-                <CardHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">Saved Payment Methods</CardTitle>
-                    <CardDescription className="text-sm text-slate-500 font-medium">Manage corporate cards and UPI handles.</CardDescription>
+              <Card className="border-border shadow-sm overflow-hidden bg-card text-card-foreground">
+                <CardHeader className="border-b border-border/50 flex flex-row items-center justify-between py-5 bg-muted/20">
+                  <div className="space-y-1">
+                    <CardTitle className="text-base font-semibold">Payout & Billing Methods</CardTitle>
+                    <CardDescription>Manage bank accounts for payouts and corporate cards for billing.</CardDescription>
                   </div>
                   <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" className="bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer">
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Card
+                      <Button size="sm" variant="outline">
+                        <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Method
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md rounded-2xl p-6 bg-white border-0 shadow-2xl">
+                    <DialogContent className="sm:max-w-md rounded-xl p-6">
                       <DialogHeader>
-                        <DialogTitle className="text-lg font-black">Add Payment Card</DialogTitle>
-                        <DialogDescription className="text-xs text-slate-500">Save a new credit or debit card for subscription billing.</DialogDescription>
+                        <DialogTitle className="text-lg font-bold">Add Payment Method</DialogTitle>
+                        <DialogDescription>Save a new payment method for subscription billing.</DialogDescription>
                       </DialogHeader>
                       <form onSubmit={handleAddCard} className="space-y-4 mt-4">
                         {addCardError && (
-                          <p className="text-xs font-bold text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-200">{addCardError}</p>
+                          <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md font-medium border border-destructive/20">{addCardError}</div>
                         )}
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-bold">Cardholder Name</Label>
-                          <Input 
-                            placeholder="JOHN DOE"
-                            value={newCardData.name}
-                            onChange={(e) => setNewCardData({...newCardData, name: e.target.value.toUpperCase()})}
-                            className="h-11 rounded-xl"
-                          />
+                          <Label className="text-xs font-semibold">Method Type</Label>
+                          <select
+                            value={newPaymentMethod.type}
+                            onChange={(e) => setNewPaymentMethod({...newPaymentMethod, type: e.target.value})}
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            <option value="CREDIT_CARD">Credit Card</option>
+                            <option value="DEBIT_CARD">Debit Card</option>
+                            <option value="UPI">UPI</option>
+                            <option value="ACCOUNT_TRANSFER">Account Transfer</option>
+                          </select>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold">Card Number</Label>
-                          <Input 
-                            placeholder="4000 0000 0000 0000"
-                            maxLength={16}
-                            value={newCardData.number}
-                            onChange={(e) => setNewCardData({...newCardData, number: e.target.value.replace(/\D/g, '')})}
-                            className="h-11 rounded-xl tracking-widest"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        
+                        {(newPaymentMethod.type === 'CREDIT_CARD' || newPaymentMethod.type === 'DEBIT_CARD') && (
+                          <>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold">Cardholder Name</Label>
+                              <Input 
+                                placeholder="JOHN DOE"
+                                value={newPaymentMethod.name}
+                                onChange={(e) => setNewPaymentMethod({...newPaymentMethod, name: e.target.value.toUpperCase()})}
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold">Card Number</Label>
+                              <Input 
+                                placeholder="4000 0000 0000 0000"
+                                maxLength={16}
+                                value={newPaymentMethod.number}
+                                onChange={(e) => setNewPaymentMethod({...newPaymentMethod, number: e.target.value.replace(/\D/g, '')})}
+                                className="h-9 tracking-widest"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Expiry (MM/YY)</Label>
+                                <Input 
+                                  placeholder="12/28"
+                                  maxLength={5}
+                                  value={newPaymentMethod.expiry}
+                                  onChange={(e) => setNewPaymentMethod({...newPaymentMethod, expiry: e.target.value})}
+                                  className="h-9"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">CVV</Label>
+                                <Input 
+                                  placeholder="123"
+                                  maxLength={3}
+                                  value={newPaymentMethod.cvv}
+                                  onChange={(e) => setNewPaymentMethod({...newPaymentMethod, cvv: e.target.value.replace(/\D/g, '')})}
+                                  className="h-9"
+                                />
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {newPaymentMethod.type === 'UPI' && (
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-bold">Expiry (MM/YY)</Label>
+                            <Label className="text-xs font-semibold">UPI Handle</Label>
                             <Input 
-                              placeholder="12/28"
-                              maxLength={5}
-                              value={newCardData.expiry}
-                              onChange={(e) => setNewCardData({...newCardData, expiry: e.target.value})}
-                              className="h-11 rounded-xl"
+                              placeholder="username@upi"
+                              value={newPaymentMethod.upiId}
+                              onChange={(e) => setNewPaymentMethod({...newPaymentMethod, upiId: e.target.value})}
+                              className="h-9"
                             />
                           </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-bold">CVV</Label>
-                            <Input 
-                              placeholder="123"
-                              maxLength={3}
-                              value={newCardData.cvv}
-                              onChange={(e) => setNewCardData({...newCardData, cvv: e.target.value.replace(/\D/g, '')})}
-                              className="h-11 rounded-xl"
-                            />
-                          </div>
-                        </div>
-                        <Button type="submit" className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl mt-2 cursor-pointer">
-                          Save Card
+                        )}
+
+                        {newPaymentMethod.type === 'ACCOUNT_TRANSFER' && (
+                          <>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold">Account Number</Label>
+                              <Input 
+                                placeholder="1234567890"
+                                value={newPaymentMethod.accountNumber}
+                                onChange={(e) => setNewPaymentMethod({...newPaymentMethod, accountNumber: e.target.value.replace(/\D/g, '')})}
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold">IFSC Code</Label>
+                              <Input 
+                                placeholder="SBIN0001234"
+                                value={newPaymentMethod.ifsc}
+                                onChange={(e) => setNewPaymentMethod({...newPaymentMethod, ifsc: e.target.value.toUpperCase()})}
+                                className="h-9"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        <Button type="submit" disabled={isSaving} className="w-full h-9 mt-2">
+                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Method'}
                         </Button>
                       </form>
                     </DialogContent>
                   </Dialog>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {billingData.cards.map(card => (
-                      <div key={card.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-8 bg-white rounded-lg border border-slate-200 flex items-center justify-center p-1">
-                            <img src={card.logo} className="h-4 object-contain" alt={card.type} />
+                <CardContent className="p-6 space-y-8">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-slate-800">Payout Accounts (Receiving Earnings)</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {billingData.paymentMethods?.filter(m => m.type === 'UPI' || m.type === 'ACCOUNT_TRANSFER').length > 0 ? (
+                        billingData.paymentMethods.filter(m => m.type === 'UPI' || m.type === 'ACCOUNT_TRANSFER').map(method => (
+                          <div key={method.id} className="p-4 bg-background rounded-lg border flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-8 bg-muted rounded border border-border flex items-center justify-center">
+                                {method.type === 'UPI' && <Smartphone className="w-5 h-5 text-muted-foreground" />}
+                                {method.type === 'ACCOUNT_TRANSFER' && <Landmark className="w-5 h-5 text-muted-foreground" />}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm">
+                                  {method.type === 'UPI' ? method.details.upiId : `Acct ending in ${method.details.accountNumber?.slice(-4)}`}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {method.type === 'UPI' ? 'Verified UPI' : `IFSC: ${method.details.ifsc}`}
+                                </p>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleRemoveCard(method.id)} 
+                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-900 text-sm">{card.type} ending in {card.last4}</p>
-                            <p className="text-[11px] text-slate-500 font-semibold">Expires {card.expiry}</p>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full p-4 text-center bg-muted/20 border border-dashed rounded-lg">
+                          <p className="text-sm text-muted-foreground">No payout accounts configured.</p>
                         </div>
-                        <button 
-                          onClick={() => handleRemoveCard(card.id)}
-                          className="text-slate-400 hover:text-rose-600 p-2 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-slate-800">Billing Methods (Paying Subscriptions)</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {billingData.paymentMethods?.filter(m => m.type === 'CREDIT_CARD' || m.type === 'DEBIT_CARD').length > 0 ? (
+                        billingData.paymentMethods.filter(m => m.type === 'CREDIT_CARD' || m.type === 'DEBIT_CARD').map(method => (
+                          <div key={method.id} className="p-4 bg-background rounded-lg border flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-8 bg-muted rounded border border-border flex items-center justify-center">
+                                <CreditCard className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm">
+                                  {method.type.replace('_', ' ')} ending in {method.details.last4}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Expires {method.details.expiry}
+                                </p>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleRemoveCard(method.id)} 
+                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full p-4 text-center bg-muted/20 border border-dashed rounded-lg">
+                          <p className="text-sm text-muted-foreground">No billing cards saved.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

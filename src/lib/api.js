@@ -16,7 +16,7 @@ export const getMyRestaurant = async () => {
 
   const { data } = await supabase
     .from('restaurants')
-    .select('*, subscriptions(plan_name, status, price, start_date, end_date)')
+    .select('*')
     .eq('owner_id', user.id)
     .maybeSingle()
 
@@ -30,6 +30,9 @@ export const getMyRestaurant = async () => {
 /** Update restaurant profile */
 export const updateRestaurantProfile = async (restaurantId, profileData) => {
   await ensureAdminSession()
+  const uuid = await ensureValidRestaurantUUID(restaurantId)
+  if (!uuid) throw new Error("Could not resolve a valid UUID for this restaurant.")
+
   const { data, error } = await supabase
     .from('restaurants')
     .update({
@@ -41,7 +44,7 @@ export const updateRestaurantProfile = async (restaurantId, profileData) => {
       cover_url: profileData.cover_url || profileData.cover,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', restaurantId)
+    .eq('id', uuid)
     .select()
     .maybeSingle()
 
@@ -844,7 +847,7 @@ export const updateTicketStatus = async (ticketId, status) => {
 export const fetchAllRestaurants = async () => {
   const { data, error } = await supabase
     .from('restaurants')
-    .select('*, subscriptions(plan_name, status, price)')
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -1046,29 +1049,29 @@ export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
   const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
   if (!validId) return
 
-  // Cache in LocalStorage immediately for instant offline & UI restore
   try {
-    localStorage.setItem(`servora_qr_codes_${validId}`, JSON.stringify(qrCodes))
-    if (restaurantId && restaurantId !== validId) {
-      localStorage.setItem(`servora_qr_codes_${restaurantId}`, JSON.stringify(qrCodes))
-    }
-  } catch (e) {}
+    const validQrCodes = qrCodes.filter(qr => qr.tableNumber !== undefined && qr.tableNumber !== null && !isNaN(Number(qr.tableNumber)));
 
-  try {
+    if (validQrCodes.length === 0) return true;
+
     // 1. Sync QR Codes table in Supabase
-    const qrPayloads = qrCodes.map(qr => ({
+    const qrPayloads = validQrCodes.map(qr => ({
       restaurant_id: validId,
-      table_number: parseInt(qr.tableNumber),
+      table_number: Number(qr.tableNumber),
       url: qr.url || `${window.location.origin}/menu?restaurant=${validId}&table=${qr.tableNumber}`,
       created_at: qr.generatedAt || new Date().toISOString()
     }))
 
+    const validTableNumbers = validQrCodes.map(q => Number(q.tableNumber)).join(',');
+
     // Delete any old extra records if count changed
-    await supabase
-      .from('qr_codes')
-      .delete()
-      .eq('restaurant_id', validId)
-      .not('table_number', 'in', `(${qrCodes.map(q => parseInt(q.tableNumber)).join(',')})`)
+    if (validTableNumbers) {
+      await supabase
+        .from('qr_codes')
+        .delete()
+        .eq('restaurant_id', validId)
+        .not('table_number', 'in', `(${validTableNumbers})`)
+    }
 
     const { error: qrError } = await supabase
       .from('qr_codes')
@@ -1077,20 +1080,22 @@ export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
     if (qrError) console.warn('QR code cloud upsert warning:', qrError)
 
     // 2. Initialize / Upsert Table Sessions (Ensures Dashboard/Floor plan visibility)
-    const sessionPayloads = qrCodes.map(qr => ({
+    const sessionPayloads = validQrCodes.map(qr => ({
       restaurant_id: validId,
-      table_number: parseInt(qr.tableNumber),
+      table_number: Number(qr.tableNumber),
       status: 'available',
       customers: 0,
       last_activity: new Date().toISOString()
     }))
 
     // Delete any excess table sessions
-    await supabase
-      .from('table_sessions')
-      .delete()
-      .eq('restaurant_id', validId)
-      .not('table_number', 'in', `(${qrCodes.map(q => parseInt(q.tableNumber)).join(',')})`)
+    if (validTableNumbers) {
+      await supabase
+        .from('table_sessions')
+        .delete()
+        .eq('restaurant_id', validId)
+        .not('table_number', 'in', `(${validTableNumbers})`)
+    }
 
     const { error: sessionError } = await supabase
       .from('table_sessions')

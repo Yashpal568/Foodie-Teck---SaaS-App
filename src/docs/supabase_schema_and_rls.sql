@@ -55,6 +55,17 @@ CREATE TABLE IF NOT EXISTS public.payment_verifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 4b. Payment Methods Table
+CREATE TABLE IF NOT EXISTS public.payment_methods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID REFERENCES public.restaurants(id) ON DELETE CASCADE,
+    type TEXT NOT NULL, -- e.g., 'CREDIT_CARD', 'DEBIT_CARD', 'UPI', 'ACCOUNT_TRANSFER'
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Menu Categories
 CREATE TABLE IF NOT EXISTS public.menu_categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -230,6 +241,7 @@ ALTER TABLE public.ticket_replies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.waiter_calls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_methods ENABLE ROW LEVEL SECURITY;
 
 -- ------------------------------------------------------------------------------
 -- 1. RESTAURANTS POLICIES
@@ -329,11 +341,13 @@ DROP POLICY IF EXISTS "Public subscriptions all" ON public.subscriptions;
 DROP POLICY IF EXISTS "Public restaurants view" ON public.restaurants;
 DROP POLICY IF EXISTS "Public restaurants all" ON public.restaurants;
 DROP POLICY IF EXISTS "Public payment_verifications all" ON public.payment_verifications;
+DROP POLICY IF EXISTS "Public payment_methods all" ON public.payment_methods;
 DROP POLICY IF EXISTS "Public audit_logs all" ON public.audit_logs;
 
 CREATE POLICY "Public restaurants all" ON public.restaurants FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public subscriptions all" ON public.subscriptions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public payment_verifications all" ON public.payment_verifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public payment_methods all" ON public.payment_methods FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public audit_logs all" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
 
 -- ------------------------------------------------------------------------------

@@ -121,13 +121,13 @@ function Dashboard() {
         if (isEmail) {
           q = supabase
             .from("restaurants")
-            .select("id, status, plan_name, subscriptions(id, plan_name, status, price, start_date, end_date, utr_number, created_at)")
+            .select("id, status")
             .eq("email", activeRestaurantId.toLowerCase())
             .maybeSingle();
         } else if (isUUID) {
           q = supabase
             .from("restaurants")
-            .select("id, status, plan_name, subscriptions(id, plan_name, status, price, start_date, end_date, utr_number, created_at)")
+            .select("id, status")
             .eq("id", activeRestaurantId)
             .maybeSingle();
         }
@@ -139,6 +139,23 @@ function Dashboard() {
             setIsSuspended(true);
             setIsLoading(false);
             return;
+          }
+          
+          // Try fetching subscriptions separately to prevent 400 Bad Request on join failure
+          if (rest?.id) {
+            try {
+              const { data: subData } = await supabase
+                .from("subscriptions")
+                .select("id, plan_name, status, price, start_date, end_date, utr_number, created_at")
+                .eq("restaurant_id", rest.id)
+              
+              if (subData) {
+                rest.subscriptions = subData;
+              }
+            } catch (e) {
+              // Silently ignore if subscriptions table doesn't exist
+              rest.subscriptions = [];
+            }
           }
         }
       }
@@ -210,10 +227,20 @@ function Dashboard() {
         // No active subscription record in subscriptions table - check payment_verifications
         let pendingVerif = null;
         try {
-          const { data: verif } = await supabase
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeRestaurantId);
+          let verifQuery = supabase
             .from("payment_verifications")
             .select("*")
-            .or(targetQuery)
+            
+          if (isUUID) {
+            verifQuery = verifQuery.eq('restaurant_id', activeRestaurantId)
+          } else if (resolvedId) {
+            verifQuery = verifQuery.eq('restaurant_id', resolvedId)
+          } else {
+            verifQuery = verifQuery.eq('restaurant_id', activeRestaurantId) // Will likely fail if not uuid, but best effort
+          }
+
+          const { data: verif } = await verifQuery
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -238,22 +265,19 @@ function Dashboard() {
             purchaseDate: pendingVerif.created_at,
           });
           setIsExpired(true);
-        } else {
           // No subscription or payment record found.
           // Check if the restaurant actually exists and is active in the DB.
-          // Also read the plan_name from the restaurant row itself.
           // Reuse the restaurant data already fetched above — no extra DB call needed
           const restaurantExists = rest && rest.status !== "Suspended";
-          const restaurantPlanName = rest?.plan_name || "Starter";
 
           if (restaurantExists) {
             // Restaurant exists — grant access with its actual plan name
             setSubDetails({ pendingApproval: false, utrNumber: "", status: "Active" });
-            setPlan({ name: restaurantPlanName, purchaseDate: new Date().toISOString() });
+            setPlan({ name: "Starter", purchaseDate: new Date().toISOString() });
             setIsExpired(false);
           } else {
             setSubDetails({ pendingApproval: false, utrNumber: "", status: "NO_SUBSCRIPTION" });
-            setPlan({ name: "Professional", purchaseDate: new Date() });
+            setPlan({ name: "Starter", purchaseDate: new Date() });
             setIsExpired(true);
           }
         }

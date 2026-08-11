@@ -92,9 +92,18 @@ export const useNotifications = (restaurantId) => {
   }, [resolvedId])
 
   // Local helper to sync a new notification to cloud & state
-  const pushNotification = useCallback(async (payload) => {
+  const pushNotification = useCallback(async (payload, category = 'orders') => {
     if (!resolvedId) return
     
+    // Check user preferences
+    let prefs = { orders: true, revenue: true, inventory: false, customers: true }
+    try {
+      const saved = localStorage.getItem(`servora_notifs_${resolvedId}`)
+      if (saved) prefs = { ...prefs, ...JSON.parse(saved) }
+    } catch (e) {}
+    
+    if (prefs[category] === false) return
+
     // Optimistic UI Update with temp ID
     const tempId = `temp-${Date.now()}`
     const tempNotif = {
@@ -129,7 +138,7 @@ export const useNotifications = (restaurantId) => {
         message: `Order #${order.id.slice(-6)} Table ${order.table_number || order.tableNumber || '?'} (${order.customer_name || order.customerName || 'Guest'})`,
         orderId: order.id,
         tableNumber: order.table_number || order.tableNumber,
-      })
+      }, 'orders')
     }
 
     const windowListener = (e) => {
@@ -187,10 +196,37 @@ export const useNotifications = (restaurantId) => {
                     message: `Order #${order.id.slice(-6)} Table ${order.table_number || order.tableNumber} is now ${order.status}`,
                     orderId: order.id,
                     tableNumber: order.table_number || order.tableNumber,
-                  })
+                  }, 'orders')
                 }
              }
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'waiter_calls', filter: `restaurant_id=eq.${resolvedId}` },
+        (payload) => {
+           console.log('🔔 Notification Triggered (Waiter):', payload)
+           pushNotification({
+             type: 'waiter_call',
+             title: '👋 Waiter Called',
+             message: `Table ${payload.new.table_number || '?'} needs assistance.`,
+             tableNumber: String(payload.new.table_number || '?')
+           }, 'customers')
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'menu_items', filter: `restaurant_id=eq.${resolvedId}` },
+        (payload) => {
+           if (payload.old.is_in_stock === true && payload.new.is_in_stock === false) {
+             console.log('🔔 Notification Triggered (Inventory):', payload)
+             pushNotification({
+               type: 'inventory_alert',
+               title: '⚠️ Item Out of Stock',
+               message: `${payload.new.name} has been marked out of stock.`,
+             }, 'inventory')
+           }
         }
       )
       .subscribe()
