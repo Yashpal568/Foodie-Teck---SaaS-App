@@ -121,13 +121,13 @@ function Dashboard() {
         if (isEmail) {
           q = supabase
             .from("restaurants")
-            .select("id, status")
+            .select("id")
             .eq("email", activeRestaurantId.toLowerCase())
             .maybeSingle();
         } else if (isUUID) {
           q = supabase
             .from("restaurants")
-            .select("id, status")
+            .select("id")
             .eq("id", activeRestaurantId)
             .maybeSingle();
         }
@@ -135,11 +135,7 @@ function Dashboard() {
         if (q) {
           const { data } = await q;
           rest = data;
-          if (rest?.status === "Suspended") {
-            setIsSuspended(true);
-            setIsLoading(false);
-            return;
-          }
+          
           
           // Try fetching subscriptions separately to prevent 400 Bad Request on join failure
           if (rest?.id) {
@@ -268,7 +264,7 @@ function Dashboard() {
           // No subscription or payment record found.
           // Check if the restaurant actually exists and is active in the DB.
           // Reuse the restaurant data already fetched above — no extra DB call needed
-          const restaurantExists = rest && rest.status !== "Suspended";
+          const restaurantExists = rest && rest.id;
 
           if (restaurantExists) {
             // Restaurant exists — grant access with its actual plan name
