@@ -48,34 +48,14 @@ export default function MenuMobileNavbar({
   }
 
   return (
-    <div className="lg:hidden sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100 px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm">
-      {/* Mobile Menu Trigger */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-600 bg-gray-50/50 rounded-xl hover:bg-white ring-1 ring-inset ring-gray-100 transition-all">
-            <Menu className="w-5 h-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[280px] p-0 bg-white border-r">
-          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-          <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
-          <Sidebar 
-            activeItem={activeItem} 
-            setActiveItem={setActiveItem} 
-            isCollapsed={false}
-            setIsCollapsed={() => {}}
-            isMobile={true}
-          />
-        </SheetContent>
-      </Sheet>
-
-      {/* Center Section: Page Title */}
-      <div className="flex-1 flex flex-col justify-center min-w-0 -mt-0.5">
-        <div className="flex items-center gap-1.5">
-          <ChefHat className="w-2.5 h-2.5 text-orange-500" />
-          <span className="text-[8px] font-black text-orange-600 uppercase tracking-[0.15em] leading-none">Inventory</span>
+    <div className="lg:hidden sticky top-0 z-40 bg-slate-50/90 backdrop-blur-xl border-b border-slate-200 px-5 py-3 flex items-center justify-between gap-4 shadow-sm">
+      {/* Left Section: Page Title */}
+      <div className="flex flex-col min-w-0">
+        <div className="flex items-center gap-1.5 mb-1">
+          <ChefHat className="w-3.5 h-3.5 text-orange-500" />
+          <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest leading-none">Inventory</span>
         </div>
-        <h2 className="text-xs font-black text-gray-900 truncate tracking-tight uppercase leading-tight">Menu Store</h2>
+        <h2 className="text-sm font-black text-slate-900 truncate tracking-tight uppercase leading-none">Menu Store</h2>
       </div>
 
       {/* Right Actions */}

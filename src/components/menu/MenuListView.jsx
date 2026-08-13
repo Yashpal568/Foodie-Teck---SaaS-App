@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatPrice } from '@/components/ui/currency-selector'
 import { Separator } from '@/components/ui/separator'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 
 export default function MenuListView({ 
   items, 
@@ -318,77 +319,87 @@ export default function MenuListView({
                   </Table>
                 </div>
 
-                {/* Mobile Card List View */}
-                <div className="md:hidden space-y-4 px-4 pb-4">
+                {/* Mobile Card List View (Premium Shadcn Redesign) */}
+                <div className="md:hidden space-y-3 px-4 pb-4">
                   {items.map((item) => {
                     const config = getTypeConfig(item.type)
                     
                     return (
-                      <div key={item._id} className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-gray-100 flex flex-col gap-4 active:scale-[0.98] transition-all">
-                        <div className="flex gap-4">
-                          <div className="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden shrink-0 ring-1 ring-gray-100">
+                      <Card key={item._id} className="overflow-hidden border-slate-200/60 shadow-sm transition-all hover:shadow-md bg-white">
+                        <div className="flex items-stretch h-[110px]">
+                          {/* Left: Image (Full height) */}
+                          <div className="relative w-28 h-full shrink-0 bg-slate-50 border-r border-slate-100">
                             {item.photo ? (
-                              <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                              <img src={item.photo} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <ImageIcon className="w-8 h-8 text-gray-200" />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 text-slate-200" />
+                              </div>
+                            )}
+                            {!item.isInStock && (
+                              <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                                <Badge variant="destructive" className="text-[9px] uppercase font-black px-1.5 py-0">Out</Badge>
                               </div>
                             )}
                           </div>
                           
-                          <div className="flex-1 min-w-0 py-1 flex flex-col justify-between">
-                            <div className="flex items-start justify-between gap-2">
-                              <h4 className="font-bold text-gray-900 leading-tight truncate">{item.name}</h4>
-                              <p className="font-bold text-orange-600 whitespace-nowrap">{formatPrice(item.price, currency)}</p>
+                          {/* Right: Content */}
+                          <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                            <div>
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <h4 className="font-bold text-slate-900 text-sm leading-tight truncate">{item.name}</h4>
+                                <span className="font-black text-slate-900 text-sm shrink-0">{formatPrice(item.price, currency)}</span>
+                              </div>
+                              
+                              <p className="text-[11px] text-slate-500 line-clamp-1 mb-2 font-medium">{item.description}</p>
+                              
+                              <div className="flex flex-wrap gap-1.5">
+                                <Badge className={`${config.color} text-[9px] font-bold uppercase border-none shadow-none px-1.5 py-0 h-4`}>
+                                   <div className={`w-1 h-1 rounded-full ${config.dotColor} mr-1`}></div>
+                                   {config.label}
+                                </Badge>
+                                <Badge variant="secondary" className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 border-none px-1.5 py-0 h-4 hover:bg-slate-200">
+                                   {item.category}
+                                </Badge>
+                              </div>
                             </div>
                             
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              <Badge className={`${config.color} text-[10px] font-bold border-none shadow-none px-2 py-0 h-5`}>
-                                <div className={`w-1 h-1 rounded-full ${config.dotColor} mr-1`}></div>
-                                {config.label}
+                            {/* Actions */}
+                            <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-2">
+                              <Badge variant={item.isInStock ? "default" : "secondary"} className={item.isInStock ? "bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-bold uppercase h-5 px-2 shadow-sm" : "text-[9px] font-bold uppercase h-5 px-2 text-slate-400"}>
+                                {item.isInStock ? 'Live' : 'Hidden'}
                               </Badge>
-                              <Badge variant="outline" className="text-[10px] font-bold uppercase text-gray-400 border-gray-100 bg-gray-50/50 px-2 py-0 h-5">
-                                {item.category}
-                              </Badge>
+                              
+                              <div className="flex items-center gap-0.5">
+                                <Button size="icon" variant="ghost" onClick={() => handleItemClick(item)} className="h-6 w-6 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50">
+                                   <Eye className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => onEdit(item)} className="h-6 w-6 rounded-md text-slate-400 hover:text-orange-600 hover:bg-orange-50">
+                                   <Edit2 className="w-3.5 h-3.5" />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6 rounded-md text-slate-400 hover:bg-slate-100">
+                                      <MoreHorizontal className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44 rounded-xl shadow-xl">
+                                    <DropdownMenuItem onClick={() => onToggleStock(item._id, !item.isInStock)} className="py-2.5 cursor-pointer">
+                                      {item.isInStock ? <ToggleRight className="w-4 h-4 mr-2 text-emerald-500" /> : <ToggleLeft className="w-4 h-4 mr-2 text-slate-400" />}
+                                      <span className="text-xs font-semibold">{item.isInStock ? 'Mark Out of Stock' : 'Mark In Stock'}</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => onDelete(item._id)} className="py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      <span className="text-xs font-semibold">Delete Item</span>
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             </div>
-                            
-                            <p className="text-xs text-gray-500 line-clamp-1 mt-1 font-medium">{item.description}</p>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                          <div className="flex items-center gap-1">
-                            <Badge 
-                              variant={item.isInStock ? "default" : "destructive"}
-                              className={item.isInStock ? "bg-green-100 text-green-700 border-none text-[10px] font-bold h-7" : "text-[10px] font-bold border-none h-7"}
-                            >
-                              {item.isInStock ? 'LIVE' : 'OUT'}
-                            </Badge>
-                          </div>
-                          
-                          <div className="flex items-center gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => handleItemClick(item)} className="h-9 w-9 rounded-xl hover:bg-blue-50 hover:text-blue-600">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => onEdit(item)} className="h-9 w-9 rounded-xl hover:bg-orange-50 hover:text-orange-600">
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => onToggleStock(item._id, !item.isInStock)}
-                              className={`h-9 w-9 rounded-xl ${
-                                item.isInStock ? 'text-yellow-600 hover:bg-yellow-50' : 'text-green-600 hover:bg-green-50'
-                              }`}
-                            >
-                              {item.isInStock ? <ToggleLeft className="w-5 h-5" /> : <ToggleRight className="w-5 h-5" />}
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => onDelete(item._id)} className="h-9 w-9 rounded-xl text-red-600 hover:bg-red-50">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                      </Card>
                     )
                   })}
                 </div>
