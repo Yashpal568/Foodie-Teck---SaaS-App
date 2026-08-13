@@ -212,7 +212,7 @@ export default function MenuListView({
                             <TableCell className="">
                               <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden ring-1 ring-gray-100">
                                 {item.photo ? (
-                                  <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                                  <img src={item.photo} alt={item.name} crossOrigin="anonymous" className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">
                                     <ImageIcon className="w-6 h-6 text-gray-300" />
@@ -330,7 +330,7 @@ export default function MenuListView({
                           {/* Left: Image (Full height) */}
                           <div className="relative w-28 h-full shrink-0 bg-slate-50 border-r border-slate-100">
                             {item.photo ? (
-                              <img src={item.photo} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+                              <img src={item.photo} alt={item.name} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" />
                             ) : (
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <ImageIcon className="w-8 h-8 text-slate-200" />

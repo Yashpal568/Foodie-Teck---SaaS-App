@@ -29,6 +29,7 @@ export default function MenuItemCard({ item, onEdit, onDelete, onToggleStock, cu
             <img
               src={item.photo}
               alt={item.name}
+              crossOrigin="anonymous"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
             />
           ) : (

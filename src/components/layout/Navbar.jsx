@@ -117,7 +117,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
   }
 
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-3 lg:px-8 py-3 lg:py-4 sticky top-0 z-40 overflow-hidden">
+    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-3 lg:px-8 py-3 lg:py-4 sticky top-0 z-40">
       <div className="flex items-center justify-between gap-2 lg:gap-8 min-w-0">
         
         {/* Mobile Menu & Logo */}

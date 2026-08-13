@@ -136,6 +136,10 @@ const TableStatus = ({ restaurantId = 'default' }) => {
 
   const handleStatusChange = async (tableNumber, newStatus) => {
     if (!resolvedId) return
+    
+    // Optimistic UI update so the modal refreshes instantly
+    setSelectedTable(prev => prev ? { ...prev, status: newStatus } : null)
+
     try {
       await updateTableAPI(resolvedId, tableNumber, {
         status: newStatus,
@@ -144,6 +148,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
       refreshTables()
     } catch (e) {
       console.error('Error changing table status:', e)
+      refreshTables() // Revert on error
     }
   }
 
