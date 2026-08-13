@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import { 
@@ -93,6 +94,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row overflow-hidden font-sans">
+      <Helmet>
+        <title>Login | Servora</title>
+        <meta name="description" content="Sign in to your Servora dashboard to manage your restaurant, QR menus, and kitchen displays." />
+      </Helmet>
+
+      {/* Decorative Background Elements */}
       {/* ─── Left Column: Visuals ─────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 bg-slate-950 relative p-20 flex-col justify-between overflow-hidden">
          <div className="absolute top-0 right-0 w-full h-full">
@@ -109,7 +116,7 @@ export default function LoginPage() {
          <div className="relative z-10 space-y-12 mb-20">
             <div className="space-y-6">
                <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-4 py-1.5 font-black uppercase tracking-widest text-[10px]">Merchant Auth</Badge>
-               <h1 className="text-7xl font-black text-white tracking-tightest leading-[1.1]">
+               <h1 className="text-5xl font-black text-white tracking-tightest leading-[1.1]">
                   Welcome <br/> back, <span className="text-blue-500">Partner.</span>
                </h1>
                <p className="text-xl text-slate-400 font-medium max-w-md leading-relaxed tracking-tighter">

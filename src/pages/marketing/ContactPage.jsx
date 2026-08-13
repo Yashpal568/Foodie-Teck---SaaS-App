@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { 
   Mail, 
@@ -51,11 +52,17 @@ const contactMethods = [
 export default function ContactPage() {
   return (
     <div className="pt-32 pb-24 bg-white overflow-hidden font-sans">
+      <Helmet>
+        <title>Contact Sales & Support | Servora</title>
+        <meta name="description" content="Get in touch with Servora's architecture team for enterprise deployments, custom API integration, and 24/7 technical support." />
+        <meta name="keywords" content="contact servora, restaurant tech support, pos sales, enterprise restaurant software" />
+      </Helmet>
+
       {/* ─── Hero Section ─────────────────────────────────────────── */}
       <section className="relative px-6 text-center space-y-8 mb-40">
          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-indigo-50/50 to-transparent -z-10 blur-3xl opacity-50" />
          <Badge variant="outline" className="px-6 py-2 rounded-full border-blue-500 text-blue-600 font-bold uppercase tracking-[0.2em] text-[10px]">Open Protocols</Badge>
-         <h1 className="text-6xl lg:text-[8.5rem] font-black text-slate-950 tracking-tightest leading-none">
+         <h1 className="text-5xl lg:text-6xl font-black text-slate-950 tracking-tightest leading-none">
             Let's <span className="text-blue-600">Connect.</span>
          </h1>
          <p className="text-xl lg:text-3xl text-slate-500 font-medium leading-relaxed max-w-4xl mx-auto tracking-tighter">

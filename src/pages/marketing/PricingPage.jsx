@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, ArrowRight, Zap, ShieldCheck, BarChart3, Users, QrCode, Smartphone, MessageCircle } from 'lucide-react'
@@ -124,12 +125,18 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="pt-32 pb-24 bg-white overflow-hidden">
-      {/* ─── Header Section ─────────────────────────────────────────── */}
-      <section className="relative px-6 text-center space-y-8 mb-24">
+    <div className="overflow-hidden">
+      <Helmet>
+        <title>Pricing & Plans | Servora</title>
+        <meta name="description" content="Transparent, scalable pricing for restaurants of all sizes. Find the perfect plan to deploy your digital menu, POS, and kitchen display system." />
+        <meta name="keywords" content="restaurant software pricing, pos system cost, qr menu price, servora pricing, digital menu subscription" />
+      </Helmet>
+      
+      {/* ─── Header Section ─────────────────────────────────────────────── */}
+      <section className="relative px-6 text-center space-y-8 mb-24 mt-32">
          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-150 bg-linear-to-b from-blue-50/50 to-transparent -z-10 blur-3xl opacity-50" />
          <Badge variant="outline" className="px-6 py-2 rounded-full border-blue-500 text-blue-600 font-bold uppercase tracking-[0.2em] text-[10px]">Investment Options</Badge>
-         <h1 className="text-6xl lg:text-[7.5rem] font-black text-slate-950 tracking-tightest leading-none">
+         <h1 className="text-5xl lg:text-6xl font-black text-slate-950 tracking-tightest leading-none">
             Scale with <span className="text-blue-600">Precision.</span>
          </h1>
          <p className="text-xl lg:text-3xl text-slate-500 font-medium leading-relaxed max-w-4xl mx-auto tracking-tighter">
@@ -148,10 +155,10 @@ export default function PricingPage() {
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1, duration: 0.6 }}
               className={cn(
-                "p-12 md:p-16 rounded-[4rem] border transition-all duration-700 flex flex-col relative group overflow-hidden",
+                "p-8 md:p-10 rounded-3xl border transition-all duration-700 flex flex-col relative group overflow-hidden",
                 p.popular 
-                  ? "bg-slate-950 text-white border-blue-900 shadow-2xl shadow-blue-950/20 scale-105 z-10" 
-                  : "bg-white text-slate-900 border-slate-100 hover:border-slate-300 hover:shadow-2xl hover:shadow-slate-100"
+                  ? "bg-slate-950 text-white border-blue-900 shadow-xl shadow-blue-950/20 scale-105 z-10" 
+                  : "bg-white text-slate-900 border-slate-100 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-100"
               )}
             >
               {p.popular && (
@@ -161,30 +168,31 @@ export default function PricingPage() {
                 </div>
               )}
               
-              <div className="mb-12">
+              <div className="mb-8">
                 <h3 className={cn(
-                  "text-xl font-black uppercase tracking-[0.2em] mb-6",
+                  "text-lg font-bold uppercase tracking-wider mb-2",
                   p.popular ? "text-blue-400" : "text-slate-500"
                 )}>{p.name}</h3>
-                <div className="flex items-baseline gap-3 mb-6">
-                  <span className="text-6xl font-black tracking-tightest">₹{p.price}</span>
+                <div className="flex items-baseline gap-1 mb-4">
+                  <span className="text-2xl font-bold opacity-60 text-slate-400">₹</span>
+                  <span className="text-4xl font-black tracking-tight">{String(p.price).replace('₹', '')}</span>
                   <span className={cn(
-                    "text-sm font-bold opacity-60",
+                    "text-xs font-medium opacity-60",
                     p.popular ? "text-slate-400" : "text-slate-500"
                   )}>per month</span>
                 </div>
                 <p className={cn(
-                  "text-lg font-medium leading-relaxed max-w-60",
+                  "text-sm font-medium leading-relaxed max-w-60",
                   p.popular ? "text-slate-400" : "text-slate-500"
                 )}>{p.desc}</p>
               </div>
 
               <Separator className={cn(
-                "mb-12",
+                "my-6",
                 p.popular ? "bg-white/10" : "bg-slate-100"
               )} />
 
-              <div className="space-y-6 mb-16 flex-1">
+              <div className="space-y-4 mb-8 flex-1">
                 {(p.features || [
                   `Up to ${p.tableLimit === 9999 ? 'Unlimited' : p.tableLimit} Tables`,
                   "Digital Menu with QR",
@@ -211,7 +219,7 @@ export default function PricingPage() {
 
               <Button 
                 className={cn(
-                  "w-full h-20 rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl group cursor-pointer",
+                  "w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wide transition-all active:scale-95 shadow-md group cursor-pointer",
                   p.popular 
                     ? "bg-blue-600 text-white hover:bg-white hover:text-blue-600" 
                     : "bg-slate-950 text-white hover:bg-black"
@@ -233,7 +241,7 @@ export default function PricingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
              <div className="lg:col-span-4 space-y-8">
                <Badge className="bg-slate-950 text-white px-5 py-2 font-black uppercase tracking-widest text-[10px]">The FAQ</Badge>
-               <h2 className="text-5xl font-black text-slate-950 tracking-tighter leading-none">
+               <h2 className="text-4xl font-black text-slate-950 tracking-tighter leading-none">
                   Commonly Discussed <br className="hidden lg:block"/> with Our <span className="text-indigo-600">Architects.</span>
                </h2>
                <p className="text-slate-500 font-medium leading-relaxed">

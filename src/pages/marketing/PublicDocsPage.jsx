@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
@@ -167,7 +168,13 @@ export default function PublicDocsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-transparent">
+    <div className="min-h-screen bg-slate-50 font-sans selection:bg-blue-100 selection:text-blue-900">
+      <Helmet>
+        <title>Documentation | Servora</title>
+        <meta name="description" content="Learn how to use Servora restaurant management system. Guides, API references, and tutorials for setup, digital menus, and analytics." />
+        <meta name="keywords" content="servora docs, restaurant pos documentation, qr menu guide, kitchen display system tutorial" />
+      </Helmet>
+      
       {/* 
         SHADCN STUDIO AESTHETIC LAYOUT 
         Ultra-clean, border-driven, full-height architecture. 
@@ -191,7 +198,7 @@ export default function PublicDocsPage() {
 
             {/* Typography Heavy Header */}
             <div className="mb-12 space-y-4">
-               <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-950 tracking-tight scroll-m-20">
+               <h1 className="text-4xl font-extrabold text-slate-950 tracking-tight scroll-m-20">
                   {activeArticle.title}
                </h1>
                <p className="text-lg sm:text-xl text-slate-500 leading-relaxed font-medium">

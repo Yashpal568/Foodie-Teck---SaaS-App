@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -151,6 +152,11 @@ export default function HomePage() {
 
   return (
     <div className="overflow-hidden">
+      <Helmet>
+        <title>Servora | Ultimate Restaurant POS & QR Menu System</title>
+        <meta name="description" content="Streamline your restaurant operations with Servora's intelligent Kitchen Display System (KDS), seamless digital QR menus, and AI-powered analytics." />
+        <meta name="keywords" content="restaurant pos system, digital qr menu, kitchen display system, restaurant analytics, table management software, cafe management, smart menu, hospitality software" />
+      </Helmet>
       {/* ─── Hero Section ───────────────────────────────────────────────── */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-40 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-50/20 via-white to-white">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
@@ -165,7 +171,7 @@ export default function HomePage() {
                <span className="text-[11px] font-black uppercase tracking-widest leading-none">AI-Powered Experience Engine</span>
             </div>
 
-            <h1 className="text-6xl lg:text-8xl font-black text-slate-950 tracking-tightest leading-[0.9] lg:leading-[1.1]">
+            <h1 className="text-5xl lg:text-7xl font-black text-slate-950 tracking-tightest leading-[0.9] lg:leading-[1.1]">
               The <span className="text-blue-600">Future</span> of Modern <br className="hidden lg:block"/> Dining.
             </h1>
 
@@ -264,7 +270,7 @@ export default function HomePage() {
       <section id="features" className="py-32 bg-slate-50/50 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-3xl mx-auto text-center space-y-6 mb-24">
-            <h2 className="text-4xl lg:text-6xl font-black text-slate-950 tracking-tightest leading-none">
+            <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tightest leading-none">
               The Hub of <span className="text-blue-600 underline underline-offset-8">Precision.</span>
             </h2>
             <p className="text-lg text-slate-500 font-medium leading-relaxed">
@@ -302,13 +308,48 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── How It Works ───────────────────────────────────────────────── */}
+      <section className="py-32 bg-white relative">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center space-y-6 mb-24">
+             <Badge className="bg-blue-500 text-white rounded-full px-4 py-1.5 font-bold uppercase tracking-widest text-[10px]">Seamless Workflow</Badge>
+             <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter leading-tight">
+                How Servora <span className="text-blue-600 underline underline-offset-8">Operates.</span>
+             </h2>
+             <p className="text-lg text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto">
+                From menu setup to order fulfillment, every step is optimized for speed and precision.
+             </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 relative">
+             <div className="hidden md:block absolute top-12 left-1/8 right-1/8 h-1 bg-slate-100 -z-10" />
+             {[
+               { step: "01", title: "Setup Menu", desc: "Build your digital catalog in minutes with smart categories.", icon: LayoutDashboard },
+               { step: "02", title: "Deploy QR", desc: "Place generated QR codes on your tables for instant access.", icon: QrCode },
+               { step: "03", title: "Receive Orders", desc: "Orders flow directly to the Kitchen Display System (KDS).", icon: ChefHat },
+               { step: "04", title: "Analyze Data", desc: "Review real-time sales metrics and turnover rates.", icon: BarChart3 }
+             ].map((item, idx) => (
+               <div key={idx} className="relative text-center space-y-6 group">
+                  <div className="w-24 h-24 mx-auto bg-white border-4 border-slate-50 rounded-3xl shadow-xl flex items-center justify-center relative group-hover:-translate-y-2 transition-transform duration-300">
+                     <item.icon className="w-10 h-10 text-blue-600" />
+                     <div className="absolute -top-3 -right-3 w-8 h-8 bg-slate-950 text-white rounded-full font-black text-xs flex items-center justify-center">{item.step}</div>
+                  </div>
+                  <div>
+                     <h3 className="text-xl font-bold text-slate-950 mb-3">{item.title}</h3>
+                     <p className="text-slate-500 font-medium text-sm leading-relaxed">{item.desc}</p>
+                  </div>
+               </div>
+             ))}
+          </div>
+        </div>
+      </section>
+
       {/* ─── Experience Showcase (Images) ─────────────────────────────── */}
       <section className="py-32 bg-white relative">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-32 items-center mb-40">
             <div className="space-y-8">
                <Badge className="bg-slate-900 text-white rounded-full px-4 py-1.5 font-bold uppercase tracking-widest text-[10px]">Command Center</Badge>
-               <h2 className="text-5xl lg:text-7xl font-black text-slate-950 tracking-tighter leading-tight">
+               <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter leading-tight">
                   Your Entire Floor, <br/> in <span className="text-indigo-600">Real-Time.</span>
                </h2>
                <p className="text-lg text-slate-500 font-medium leading-relaxed max-w-lg">
@@ -353,7 +394,7 @@ export default function HomePage() {
 
             <div className="order-1 lg:order-2 space-y-8">
                <Badge className="bg-emerald-500 text-white rounded-full px-4 py-1.5 font-bold uppercase tracking-widest text-[10px]">Contactless Perfection</Badge>
-               <h2 className="text-5xl lg:text-7xl font-black text-slate-950 tracking-tighter leading-tight">
+               <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter leading-tight">
                   Digital Menus that <br/> <span className="text-emerald-500 italic">Sell more.</span>
                </h2>
                <p className="text-lg text-slate-500 font-medium leading-relaxed max-w-lg">
@@ -383,7 +424,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="max-w-3xl mx-auto text-center space-y-6 mb-24">
              <Badge variant="outline" className="border-blue-500/50 text-blue-400 font-bold px-4 py-1 rounded-full uppercase tracking-widest text-[10px]">Transparent Billing</Badge>
-             <h2 className="text-5xl lg:text-7xl font-black text-white tracking-tighter leading-none">
+             <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter leading-none">
                 Elevate your <span className="text-blue-500">Service.</span>
              </h2>
              <p className="text-lg text-slate-400 font-medium leading-relaxed">
@@ -400,9 +441,9 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
                 className={cn(
-                  "p-8 md:p-12 rounded-[3rem] border transition-all duration-500 flex flex-col relative overflow-hidden",
+                  "p-6 md:p-8 rounded-3xl border transition-all duration-500 flex flex-col relative overflow-hidden",
                   p.popular 
-                    ? "bg-blue-600 text-white border-blue-400 shadow-2xl shadow-blue-600/20 scale-105" 
+                    ? "bg-blue-600 text-white border-blue-400 shadow-xl shadow-blue-600/20 scale-105" 
                     : "bg-white/5 text-white border-white/5 hover:bg-white/10 hover:border-white/20"
                 )}
               >
@@ -412,16 +453,17 @@ export default function HomePage() {
                   </div>
                 )}
                 
-                <div className="mb-10">
-                  <h3 className="text-xl font-bold uppercase tracking-widest mb-4 opacity-80">{p.name}</h3>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-5xl font-black tracking-tightest">{p.price}</span>
-                    <span className="text-sm font-bold opacity-60 tracking-tight">{p.billing}</span>
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold uppercase tracking-wider mb-2 opacity-80">{p.name}</h3>
+                  <div className="flex items-baseline gap-1 mb-1">
+                    <span className="text-xl font-bold opacity-60">₹</span>
+                    <span className="text-3xl font-black tracking-tight">{p.price.replace('₹', '')}</span>
+                    <span className="text-xs font-medium opacity-60 tracking-tight">{p.billing}</span>
                   </div>
                   <p className="text-sm font-medium opacity-60 leading-relaxed">{p.desc}</p>
                 </div>
 
-                <div className="space-y-5 mb-12 flex-1">
+                <div className="space-y-4 mb-8 flex-1">
                   {p.features.map(f => (
                     <div key={f} className="flex items-center gap-3">
                       <div className={cn(
@@ -440,10 +482,10 @@ export default function HomePage() {
 
                 <Button 
                   className={cn(
-                    "w-full h-16 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-2xl",
+                    "w-full h-12 rounded-xl font-bold text-xs uppercase tracking-wide transition-all active:scale-95 shadow-lg",
                     p.popular 
-                      ? "bg-white text-blue-600 hover:bg-blue-50 shadow-blue-900/40" 
-                      : "bg-blue-600 text-white hover:bg-blue-500 shadow-slate-950/40"
+                      ? "bg-white text-blue-600 hover:bg-blue-50" 
+                      : "bg-blue-600 text-white hover:bg-blue-500"
                   )}
                   onClick={() => navigate('/register')}
                 >
@@ -451,6 +493,38 @@ export default function HomePage() {
                 </Button>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Testimonials ──────────────────────────────────────────────── */}
+      <section className="py-32 bg-slate-50 relative">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center space-y-6 mb-24">
+             <Badge className="bg-slate-950 text-white rounded-full px-4 py-1.5 font-bold uppercase tracking-widest text-[10px]">Success Stories</Badge>
+             <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter leading-tight">
+                Trusted by <span className="text-indigo-600 italic">Industry Leaders.</span>
+             </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+             {[
+               { quote: "Servora decreased our table turnover time by 20%. The Kitchen Display System alone is worth the investment.", author: "Michael T.", role: "Owner, The Rustic Spoon" },
+               { quote: "We ditched three different software subscriptions. Servora handles our QR menus, CRM, and analytics perfectly.", author: "Sarah W.", role: "Operations Director, Cafe Vibe" },
+               { quote: "The real-time sales telemetry helped us optimize our weekend staffing. We are saving thousands a month.", author: "David L.", role: "Manager, Bistro 99" }
+             ].map((review, idx) => (
+               <div key={idx} className="p-10 bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col justify-between">
+                  <div>
+                     <div className="flex gap-1 mb-6">
+                        {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />)}
+                     </div>
+                     <p className="text-slate-700 font-medium text-lg leading-relaxed mb-8">"{review.quote}"</p>
+                  </div>
+                  <div>
+                     <h4 className="font-black text-slate-950">{review.author}</h4>
+                     <p className="text-sm text-slate-500 font-bold uppercase tracking-wider">{review.role}</p>
+                  </div>
+               </div>
+             ))}
           </div>
         </div>
       </section>
@@ -465,7 +539,7 @@ export default function HomePage() {
 
               <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                  <div className="space-y-8">
-                    <h2 className="text-5xl lg:text-7xl font-black text-slate-950 tracking-tighter leading-[1.1]">
+                    <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter leading-[1.1]">
                        Ready to <span className="relative inline-block px-1">
                           <span className="relative z-10 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent italic">Revolutionize</span>
                           <span className="absolute bottom-2 left-0 w-full h-3 bg-blue-600/10 -rotate-1 rounded-full -z-0" />

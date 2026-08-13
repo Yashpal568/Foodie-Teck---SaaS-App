@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -42,6 +43,12 @@ export default function AboutPage() {
 
   return (
     <div className="pt-32 pb-24 bg-white overflow-hidden">
+      <Helmet>
+        <title>About Servora | Our Mission & Vision</title>
+        <meta name="description" content="Learn about Servora's mission to revolutionize the hospitality industry with next-generation table management, digital menus, and analytics." />
+        <meta name="keywords" content="about servora, restaurant tech startup, hospitality innovation, digital dining experience" />
+      </Helmet>
+
       {/* ─── Story Section ─────────────────────────────────────────── */}
       <section className="px-6 mb-40 relative">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-50/50 rounded-full blur-[150px] -z-10 translate-x-1/2 -translate-y-1/2" />
@@ -54,7 +61,7 @@ export default function AboutPage() {
             className="space-y-10"
           >
             <Badge variant="outline" className="px-6 py-2 rounded-full border-blue-500 text-blue-600 font-black uppercase tracking-[0.2em] text-[10px]">Our Genesis</Badge>
-            <h1 className="text-6xl lg:text-8xl font-black text-slate-950 tracking-tightest leading-none">
+            <h1 className="text-5xl lg:text-6xl font-black text-slate-950 tracking-tightest leading-none">
               Engineering <br/> <span className="text-blue-600">Culinary</span> <br/> Precision.
             </h1>
             <p className="text-xl lg:text-2xl text-slate-500 font-medium leading-relaxed max-w-xl">
@@ -103,7 +110,7 @@ export default function AboutPage() {
          <div className="max-w-7xl mx-auto px-6 relative z-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-20 items-center pb-32 border-b border-white/5">
                <div className="lg:col-span-12 text-center space-y-8">
-                  <h2 className="text-5xl lg:text-7xl font-black text-white tracking-tighter leading-none">
+                  <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter leading-none">
                      Our Mission is <span className="text-blue-500 italic">Seamlessness.</span>
                   </h2>
                   <p className="text-xl lg:text-3xl text-slate-400 font-medium leading-relaxed max-w-4xl mx-auto">
@@ -138,7 +145,7 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-32 items-center">
            <div className="space-y-8">
               <Badge className="bg-emerald-500 text-white px-5 py-2 font-black uppercase tracking-widest text-[10px]">The Benchmark</Badge>
-              <h2 className="text-5xl font-black text-slate-950 tracking-tighter leading-none">
+              <h2 className="text-4xl font-black text-slate-950 tracking-tighter leading-none">
                  Redefining the <br className="hidden lg:block"/> <span className="text-emerald-500 underline underline-offset-8">Gold Standard.</span>
               </h2>
               <p className="text-lg text-slate-500 font-medium leading-relaxed max-w-lg">
@@ -184,7 +191,7 @@ export default function AboutPage() {
       {/* ─── Joint CTA ──────────────────────────────────────────────── */}
       <section className="py-32 bg-slate-50 border-t border-slate-100">
          <div className="max-w-4xl mx-auto px-6 text-center space-y-12">
-            <h2 className="text-5xl lg:text-7xl font-black text-slate-950 tracking-tightest leading-none">
+            <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tightest leading-none">
                Join the <span className="text-blue-600 italic">Revolution.</span>
             </h2>
             <p className="text-xl text-slate-500 font-medium leading-relaxed">
