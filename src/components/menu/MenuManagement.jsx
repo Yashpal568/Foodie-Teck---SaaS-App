@@ -112,14 +112,12 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
         if (oldItem && Number(oldItem.price) !== Number(itemData.price)) {
           recordPriceChange(rid, itemData.name, oldItem.price, itemData.price, editingItem.id || editingItem._id)
         }
-        if (itemData.photo) ImageStorage.saveImage(editingItem.id || editingItem._id, itemData.photo)
         toast.success(`✨ "${itemData.name}" has been updated successfully!`)
       } else {
         // CREATE
         const created = await createMenuItem(rid, itemData)
         setMenuItems(prev => [...prev, created])
         setFilteredItems(prev => [...prev, created])
-        if (itemData.photo) ImageStorage.saveImage(created.id, itemData.photo)
         toast.success(`🎉 "${itemData.name}" has been added successfully!`)
       }
     } catch (err) {

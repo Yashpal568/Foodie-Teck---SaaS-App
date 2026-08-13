@@ -40,13 +40,40 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
     const file = e.target.files[0]
     if (file) {
       setIsUploading(true)
-      // Simulate image upload
       const reader = new FileReader()
       reader.onload = (event) => {
-        const imageUrl = event.target.result
-        setImagePreview(imageUrl)
-        setFormData(prev => ({ ...prev, photo: imageUrl }))
-        setIsUploading(false)
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const MAX_WIDTH = 600
+          const MAX_HEIGHT = 600
+          let width = img.width
+          let height = img.height
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width
+              width = MAX_WIDTH
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height
+              height = MAX_HEIGHT
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, width, height)
+          
+          // Very aggressive compression: jpeg at 60% quality ensures very low KB size
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6)
+          setImagePreview(compressedDataUrl)
+          setFormData(prev => ({ ...prev, photo: compressedDataUrl }))
+          setIsUploading(false)
+        }
+        img.src = event.target.result
       }
       reader.readAsDataURL(file)
     }
@@ -75,12 +102,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
       updatedAt: new Date()
     }
 
-    if (item) {
-      // Save image to storage engine if it exists and is new
-      if (formData.photo && formData.photo !== item.photo) {
-        ImageStorage.saveImage(item._id || item.id, formData.photo)
-      }
-    } else {
+    if (!item) {
       // For new items, we'll save the image after getting the ID from parent
       menuItemData.tempPhoto = formData.photo // Temporary storage
     }

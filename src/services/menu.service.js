@@ -2,6 +2,59 @@ import { supabase } from '../lib/supabase'
 import { ensureAdminSession } from '../lib/adminSupabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
 
+/** Uploads base64 image to Supabase Storage and returns public URL */
+async function uploadPhotoIfBase64(photoVal, itemId, restaurantId) {
+  if (photoVal && typeof photoVal === 'string' && photoVal.startsWith('data:image/')) {
+    try {
+      const res = await fetch(photoVal)
+      const blob = await res.blob()
+      const ext = photoVal.split(';')[0].match(/jpeg|png|gif|webp/)?.[0] || 'jpeg'
+      const filename = `${restaurantId || 'shared'}/${itemId}-${Date.now()}.${ext}`
+      
+      // OPTION 1: CLOUDINARY (If configured in .env)
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+      
+      if (cloudName && uploadPreset) {
+        const formData = new FormData()
+        formData.append('file', blob)
+        formData.append('upload_preset', uploadPreset)
+        
+        try {
+          const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: 'POST',
+            body: formData
+          })
+          if (cloudRes.ok) {
+            const cloudData = await cloudRes.json()
+            return cloudData.secure_url
+          } else {
+            const errData = await cloudRes.json()
+            console.error('Cloudinary rejected upload:', errData)
+          }
+        } catch (cloudErr) {
+          console.error('Cloudinary upload failed, falling back to Supabase:', cloudErr)
+        }
+      }
+
+      // OPTION 2: SUPABASE STORAGE (Default)
+      const { data, error } = await supabase.storage.from('menu-images').upload(filename, blob, {
+        cacheControl: '3600',
+        upsert: false
+      })
+      if (!error) {
+         const { data: { publicUrl } } = supabase.storage.from('menu-images').getPublicUrl(filename)
+         return publicUrl
+      } else {
+         console.error('Storage bucket error (menu-images):', error)
+      }
+    } catch (e) {
+      console.error('Image upload failed, falling back to base64', e)
+    }
+  }
+  return photoVal
+}
+
 export const normalizeMenuItem = (item) => {
   if (!item) return null
   const id = item.id || item._id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
@@ -58,7 +111,8 @@ export const fetchMenuItems = async (restaurantId) => {
 /** Create a new menu item directly in Supabase DB */
 export const createMenuItem = async (restaurantId, itemData) => {
   const newItemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
-  const photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
+  let photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
+  photoVal = await uploadPhotoIfBase64(photoVal, newItemId, restaurantId)
   const normalizedNewItem = normalizeMenuItem({
     id: newItemId,
     name: itemData.name,
@@ -108,7 +162,8 @@ export const createMenuItem = async (restaurantId, itemData) => {
 /** Update an existing menu item in Supabase DB */
 export const updateMenuItem = async (itemId, itemData, restaurantId) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-  const photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
+  let photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
+  photoVal = await uploadPhotoIfBase64(photoVal, itemId, restaurantId)
 
   const updatedItem = normalizeMenuItem({
     id: itemId,
