@@ -241,6 +241,45 @@ export const getMenuItems = async (restaurantId) => {
   return fetchMenuItems(restaurantId)
 }
 
+/** Bulk replace menu items (Import functionality) */
+export const bulkReplaceMenuItems = async (restaurantId, items) => {
+  const uuid = await ensureValidRestaurantUUID(restaurantId)
+  if (!uuid) return []
+
+  // Ensure all items have the required fields and are normalized
+  const formattedItems = items.map(item => {
+    const norm = normalizeMenuItem(item)
+    return {
+      restaurant_id: uuid,
+      name: norm.name,
+      description: norm.description,
+      price: norm.price,
+      category: norm.category,
+      type: norm.type,
+      is_in_stock: norm.isInStock,
+      image_url: norm.photo
+    }
+  })
+
+  // Insert items to Supabase
+  const { data, error } = await supabase
+    .from('menu_items')
+    .insert(formattedItems)
+    .select()
+
+  if (error) {
+    console.error('bulkReplaceMenuItems error:', error)
+    throw error
+  }
+
+  // Clear local cache for this restaurant to ensure fresh data on next load
+  try {
+    localStorage.removeItem(`servora_menu_items_${restaurantId}`)
+  } catch (e) {}
+
+  return (data || []).map(normalizeMenuItem)
+}
+
 export const getCategories = async (restaurantId) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) return []
