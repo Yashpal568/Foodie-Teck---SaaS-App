@@ -27,6 +27,7 @@ import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
 import MenuService from '@/services/menuService'
 import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
+import MenuDealsCarousel from '@/components/menu/MenuDealsCarousel'
 import { 
   fetchMenuItems, 
   fetchGstSettings, 
@@ -726,6 +727,17 @@ export default function CustomerMenu() {
 
       <div className="w-full max-w-350 mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-[72%_minmax(380px,28%)] gap-10 items-start overflow-visible">
         <div className="space-y-8 w-full">
+
+          {/* 🎁 EXCLUSIVE DEALS & CHEF SPECIALS CAROUSEL (DYNAMIC FROM LIVE MENU) 🎁 */}
+          {!searchTerm && menuItems.length > 0 && (
+            <section className="pt-1">
+              <MenuDealsCarousel 
+                items={menuItems} 
+                onSelectCategory={scrollToCategory} 
+                onAddToCart={addToCart} 
+              />
+            </section>
+          )}
           
           {/* 🍕 SWIGGY SIGNATURE "WHAT'S ON YOUR MIND?" CATEGORY CAROUSEL 🍕 */}
           {categories.length > 0 && !searchTerm && (
