@@ -41,7 +41,7 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
           setIsCollapsed={setIsCollapsed}
         />
         {/* pb-16 on mobile for bottom nav bar; pb-0 on md+ */}
-        <main className="flex-1 overflow-auto bg-[#f4f6f9] pb-16 md:pb-0">
+        <main className={`flex-1 overflow-auto bg-[#f4f6f9] pb-16 md:pb-0 group ${isCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
           {children}
         </main>
 

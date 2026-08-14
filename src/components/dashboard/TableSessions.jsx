@@ -527,7 +527,7 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredTables.map(table => {
                 const config = statusConfig[table.status] || statusConfig.available;
                 const liveServeTime = formatLiveDuration(table.sessionStart, currentTime);
@@ -544,7 +544,7 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
                     transition={{ duration: 0.2 }}
                   >
                     <div 
-                      className={`min-h-[200px] w-full rounded-[24px] p-5 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer ${
+                      className={`min-h-[160px] group-[.sidebar-collapsed]:min-h-[200px] w-full rounded-[20px] group-[.sidebar-collapsed]:rounded-[24px] p-4 group-[.sidebar-collapsed]:p-5 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer ${
                         isOccupied 
                           ? 'bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-500/30 shadow-[0_8px_30px_rgb(79,70,229,0.25)] hover:shadow-[0_12px_40px_rgb(79,70,229,0.4)]' 
                           : 'bg-white border border-zinc-200/80 shadow-sm hover:shadow-md hover:border-zinc-300'
@@ -558,14 +558,14 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
                             <span className={`text-[15px] font-black tracking-tight leading-none ${isOccupied ? 'text-white' : 'text-zinc-900'}`}>Table {table.tableNumber}</span>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${isOccupied ? 'text-indigo-200 bg-indigo-500/20 border border-indigo-500/30' : 'text-indigo-500 bg-indigo-50 border border-indigo-100'}`}>T{table.tableNumber}</span>
                           </div>
-                          <p className={`text-xs font-semibold truncate mt-1 ${isOccupied ? 'text-indigo-200' : 'text-zinc-400'}`}>
+                          <p className={`text-[11px] group-[.sidebar-collapsed]:text-xs font-semibold truncate mt-0.5 group-[.sidebar-collapsed]:mt-1 ${isOccupied ? 'text-indigo-200' : 'text-zinc-400'}`}>
                             {isOccupied ? (activeOrder?.customer_name || 'Dine-in Customer') : 'Table Available'}
                           </p>
                         </div>
 
                         {/* Status Badge */}
                         {isOccupied ? (
-                          <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm shrink-0">
+                          <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-white px-2 group-[.sidebar-collapsed]:px-2.5 py-0.5 group-[.sidebar-collapsed]:py-1 rounded-full text-[9px] font-black uppercase shadow-sm shrink-0">
                             <span className="relative flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -573,7 +573,7 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
                             <span>ACTIVE</span>
                           </div>
                         ) : (
-                          <Badge className={`${config.color} bg-white shadow-sm border border-emerald-100 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0`}>
+                          <Badge className={`${config.color} bg-white shadow-sm border border-emerald-100 px-2 group-[.sidebar-collapsed]:px-2.5 py-0.5 group-[.sidebar-collapsed]:py-1 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0`}>
                             {config.label}
                           </Badge>
                         )}
@@ -586,50 +586,50 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
 
                       {/* Section 2: Metrics Strip or Idle Box */}
                       {isOccupied ? (
-                        <div className="space-y-2 mt-4 relative z-10">
+                        <div className="space-y-1.5 group-[.sidebar-collapsed]:space-y-2 mt-2.5 group-[.sidebar-collapsed]:mt-4 relative z-10 flex-1 flex flex-col justify-center">
                           {/* Time & Guests Row */}
                           <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-white/10 backdrop-blur-md text-white font-mono text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 min-w-0 truncate shadow-sm">
+                            <div className="bg-white/10 backdrop-blur-md text-white font-mono text-[11px] font-bold px-2 group-[.sidebar-collapsed]:px-2.5 py-1 group-[.sidebar-collapsed]:py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 min-w-0 truncate shadow-sm">
                               <Clock className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
                               <span className="truncate pt-0.5">{liveServeTime || '0m'}</span>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 justify-center shrink-0 shadow-sm">
+                            <div className="bg-white/10 backdrop-blur-md text-white text-[11px] font-bold px-2 group-[.sidebar-collapsed]:px-2.5 py-1 group-[.sidebar-collapsed]:py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 justify-center shrink-0 shadow-sm">
                               <Users className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
                               <span className="pt-0.5">{table.customers || 1} Guest</span>
                             </div>
                           </div>
 
                           {/* Order Item & Total Summary Box */}
-                          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[16px] p-3 space-y-1.5 shadow-sm">
-                            <div className="flex justify-between items-center text-[11px] font-semibold truncate">
+                          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[12px] group-[.sidebar-collapsed]:rounded-[16px] p-2.5 group-[.sidebar-collapsed]:p-3 space-y-1 group-[.sidebar-collapsed]:space-y-1.5 shadow-sm">
+                            <div className="flex justify-between items-center text-[10px] group-[.sidebar-collapsed]:text-[11px] font-semibold truncate">
                               <span className="truncate text-white">{activeOrder?.order_items?.[0] ? `${activeOrder.order_items[0].quantity}x ${activeOrder.order_items[0].name}` : 'Dine-in Order'}</span>
-                              {activeOrder?.order_items?.length > 1 && <span className="text-[10px] text-indigo-100 bg-indigo-500/40 px-1.5 rounded-md">+{activeOrder.order_items.length - 1}</span>}
+                              {activeOrder?.order_items?.length > 1 && <span className="text-[9px] group-[.sidebar-collapsed]:text-[10px] text-indigo-100 bg-indigo-500/40 px-1 group-[.sidebar-collapsed]:px-1.5 rounded-md">+{activeOrder.order_items.length - 1}</span>}
                             </div>
-                            <div className="flex justify-between items-center font-black text-[13px] pt-1.5 border-t border-dashed border-white/20">
+                            <div className="flex justify-between items-center font-black text-[12px] group-[.sidebar-collapsed]:text-[13px] pt-1 group-[.sidebar-collapsed]:pt-1.5 border-t border-dashed border-white/20">
                               <span className="text-indigo-300 text-[9px] uppercase tracking-widest">Bill Total</span>
                               <span className="text-white font-sans tracking-tight">₹{activeOrder?.total || 0}</span>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="py-6 mt-4 text-center bg-zinc-50/80 rounded-[16px] border border-dashed border-zinc-200 flex flex-col items-center justify-center">
-                          <div className="w-8 h-8 bg-white rounded-full shadow-sm flex items-center justify-center mb-2">
-                            <Utensils className="w-4 h-4 text-zinc-300" />
+                        <div className="py-4 group-[.sidebar-collapsed]:py-6 mt-2.5 group-[.sidebar-collapsed]:mt-4 flex-1 flex flex-col items-center justify-center text-center bg-zinc-50/80 rounded-[12px] group-[.sidebar-collapsed]:rounded-[16px] border border-dashed border-zinc-200">
+                          <div className="w-7 h-7 group-[.sidebar-collapsed]:w-8 group-[.sidebar-collapsed]:h-8 bg-white rounded-full shadow-sm flex items-center justify-center mb-1.5 group-[.sidebar-collapsed]:mb-2">
+                            <Utensils className="w-3.5 h-3.5 group-[.sidebar-collapsed]:w-4 group-[.sidebar-collapsed]:h-4 text-zinc-300" />
                           </div>
-                          <p className="text-[13px] font-bold text-zinc-600">Ready for Seating</p>
-                          <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">Scan QR code to order</p>
+                          <p className="text-[11px] group-[.sidebar-collapsed]:text-[13px] font-bold text-zinc-600">Ready for Seating</p>
+                          <p className="text-[9px] group-[.sidebar-collapsed]:text-[10px] text-zinc-400 font-semibold mt-0.5">Scan QR code to order</p>
                         </div>
                       )}
 
                       {/* Section 3: Footer Controls */}
-                      <div className="flex items-center gap-2 pt-4 mt-2 relative z-10">
+                      <div className="flex items-center gap-2 pt-2.5 group-[.sidebar-collapsed]:pt-4 mt-1 group-[.sidebar-collapsed]:mt-2 relative z-10">
                         <Button 
                           size="sm" 
                           className={`flex-1 ${
                             isOccupied 
                               ? 'bg-white hover:bg-indigo-50 text-indigo-950 font-black shadow-[0_4px_14px_0_rgb(255,255,255,0.25)]' 
                               : 'bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 font-bold shadow-sm'
-                          } h-9 rounded-xl text-xs transition-all duration-200 hover:-translate-y-0.5`} 
+                          } h-8 group-[.sidebar-collapsed]:h-9 rounded-xl text-xs transition-all duration-200 hover:-translate-y-0.5`} 
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedTable(table);
@@ -641,18 +641,18 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
                         {isOccupied && (
                           <Button 
                             size="sm" 
-                            className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-bold h-9 w-9 p-0 rounded-xl shadow-sm shrink-0 flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
+                            className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-bold h-8 group-[.sidebar-collapsed]:h-9 w-8 group-[.sidebar-collapsed]:w-9 p-0 rounded-xl shadow-sm shrink-0 flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTable(table);
                             }}
                           >
-                            <CreditCard className="w-4 h-4" />
+                            <CreditCard className="w-3.5 h-3.5 group-[.sidebar-collapsed]:w-4 group-[.sidebar-collapsed]:h-4" />
                           </Button>
                         )}
 
                         {table.status === 'needs-cleaning' && (
-                          <Button size="sm" className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-9 rounded-xl text-[10px] font-bold text-white px-3 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5" onClick={(e) => {
+                          <Button size="sm" className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-8 group-[.sidebar-collapsed]:h-9 rounded-xl text-[9px] group-[.sidebar-collapsed]:text-[10px] font-bold text-white px-2 group-[.sidebar-collapsed]:px-3 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5" onClick={(e) => {
                             e.stopPropagation();
                             handleMarkTableAvailable(table);
                           }}>MARK READY</Button>
