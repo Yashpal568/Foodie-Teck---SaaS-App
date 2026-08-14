@@ -73,7 +73,7 @@ const formatLiveDuration = (sessionStartISO, currentTime) => {
 import { formatCurrencyExact as formatCurrency } from '@/utils/formatters'
 
 const TableStatus = ({ restaurantId = 'default' }) => {
-  const { tables: rawTables, stats, loading, refreshTables } = useTableSessions(restaurantId)
+  const { tables: rawTables, stats, refreshTables } = useTableSessions(restaurantId)
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [selectedTable, setSelectedTable] = useState(null)
   const [tableOrder, setTableOrder] = useState(null)
