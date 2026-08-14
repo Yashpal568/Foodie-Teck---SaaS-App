@@ -57,6 +57,16 @@ export const getRestaurantByEmail = async (email) => {
   return data
 }
 
+/** Get public restaurant profile for customer menu */
+export const getRestaurantProfile = async (restaurantId) => {
+  const { data } = await supabase
+    .from('restaurants')
+    .select('id, business_name, description, logo_url, cover_url, address, phone')
+    .eq('id', restaurantId)
+    .maybeSingle()
+  return data
+}
+
 /** Active Session Restaurant ID Resolver (DB-First Auth) */
 export const getCachedRestaurantId = () => {
   return sessionStorage.getItem('servora_restaurant_id') || null

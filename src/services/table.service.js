@@ -57,6 +57,28 @@ export const requestWaiter = async (restaurantId, tableNumber, customerName = 'G
     .single()
 
   if (error) throw error
+
+  // Broadcast the waiter call directly so the dashboard receives it immediately
+  // bypassing the need for postgres_changes replication on the waiter_calls table
+  const channel = supabase.channel(`waiter-toasts:rid=${validId}`)
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      channel.send({
+        type: 'broadcast',
+        event: 'waiter_call',
+        payload: {
+          id: data?.id || Date.now(),
+          table_number: String(tableNumber),
+          customer_name: customerName,
+          restaurant_id: validId
+        }
+      })
+      setTimeout(() => {
+        supabase.removeChannel(channel)
+      }, 1000)
+    }
+  })
+
   return data
 }
 

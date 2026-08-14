@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { 
   Navbar, 
@@ -30,18 +31,11 @@ import {
   fetchMenuItems, 
   fetchGstSettings, 
   getRestaurantByEmail,
+  getRestaurantProfile,
   getTableSessions,
   updateTableStatus as updateTableAPI,
   requestWaiter
 } from '@/lib/api'
-
-const restaurantData = {
-  name: "Servora",
-  rating: 4.8,
-  deliveryTime: "15-20 min",
-  cuisine: "Multi-Cuisine",
-  specialties: ["Fast Food", "Traditional", "Desserts"]
-}
 
 export default function CustomerMenu() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -71,6 +65,12 @@ export default function CustomerMenu() {
   const [customerName, setCustomerName] = useState('')
   const [activeTab, setActiveTab] = useState('menu')
   const [activeCategory, setActiveCategory] = useState(null)
+  const [showWaiterPopup, setShowWaiterPopup] = useState(false)
+  const [restaurantData, setRestaurantData] = useState({
+    name: "Servora",
+    rating: 4.8,
+    cuisine: "Multi-Cuisine"
+  })
   const searchInputRef = useRef(null)
   const categoryRefs = useRef({})
 
@@ -108,7 +108,21 @@ export default function CustomerMenu() {
         }
         setRestaurantId(resId)
 
-        // 1. Load menu items from Supabase
+        // 1. Fetch Restaurant Profile for Dynamic UI
+        if (resId && resId !== 'default') {
+          const profile = await getRestaurantProfile(resId)
+          if (profile) {
+             setRestaurantData(prev => ({
+               ...prev,
+               name: profile.business_name || 'Servora',
+               logo: profile.logo_url,
+               photo: profile.cover_url,
+               description: profile.description
+             }))
+          }
+        }
+
+        // 2. Load menu items from Supabase
         console.log(`📡 Fetching live menu for node: ${resId}`)
         let items = await fetchMenuItems(resId)
         let effectiveId = resId
@@ -121,6 +135,19 @@ export default function CustomerMenu() {
               effectiveId = profile.id
               setRestaurantId(effectiveId)
               items = await fetchMenuItems(effectiveId)
+              
+              // Also fetch actual profile using the rescued UUID
+              const actualProfile = await getRestaurantProfile(effectiveId)
+              if (actualProfile) {
+                setRestaurantData(prev => ({
+                  ...prev,
+                  name: actualProfile.business_name || 'Servora',
+                  logo: actualProfile.logo_url,
+                  photo: actualProfile.cover_url,
+                  description: actualProfile.description
+                }))
+              }
+              
               console.log(`✅ Rescued! Using UUID: ${effectiveId}`)
            }
         }
@@ -349,7 +376,7 @@ export default function CustomerMenu() {
     setIsSaving(true)
     try {
       await requestWaiter(restaurantId, tableNumber, customerName || 'Guest Table ' + tableNumber)
-      alert('🛎️ Service requested. A waiter will be with you shortly.')
+      setShowWaiterPopup(true)
     } catch (err) {
       console.error('Waiter call failed:', err)
       alert('Service request failed. Please try again.')
@@ -362,7 +389,20 @@ export default function CustomerMenu() {
     return menuItems.filter(item => item.isInStock).slice(0, 6)
   }, [menuItems])
 
-  if (loading) return <div className="flex h-screen items-center justify-center">Loading Menu...</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex flex-col p-6 space-y-6">
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <div className="space-y-4">
+          <Skeleton className="h-40 w-full rounded-3xl" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-48 w-full rounded-3xl" />
+            <Skeleton className="h-48 w-full rounded-3xl" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (showOrderTracking && currentOrder) {
     return <OrderTracking orderId={currentOrder.id} restaurantId={restaurantId} onClose={() => setShowOrderTracking(false)} />
@@ -370,7 +410,8 @@ export default function CustomerMenu() {
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col pb-32 lg:pb-0 overflow-x-hidden">
-      <Navbar className="bg-white/95 backdrop-blur-3xl sticky top-0 z-50 border-b border-slate-100/40 h-24">
+      {/* 💻 DESKTOP NAVBAR */}
+      <Navbar className="hidden lg:flex bg-white/95 backdrop-blur-3xl sticky top-0 z-50 border-b border-slate-100/40 h-24">
         <NavbarContent className="max-w-375 mx-auto px-10 w-full flex items-center justify-between gap-12">
           <NavbarBrand className="flex items-center gap-3 cursor-pointer">
             <Logo showText={true} iconSize={32} />
@@ -407,28 +448,68 @@ export default function CustomerMenu() {
              </Button>
           </div>
         </NavbarContent>
-        <NavbarMenu isOpen={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <NavbarMenuItem onClick={() => setMobileMenuOpen(false)}>
-            <div className="flex items-center gap-3"><Utensils className="h-5 w-5 text-zinc-600" /><div><div className="font-medium">{restaurantData.name}</div><div className="text-sm text-zinc-500">Table {tableNumber}</div></div></div>
-          </NavbarMenuItem>
-          {activeOrderId && <NavbarMenuItem onClick={() => { setShowOrderTracking(true); setMobileMenuOpen(false); }}><div className="flex items-center gap-3"><Timer className="h-5 w-5 text-blue-600" /><div className="font-medium text-blue-600">Track Current Order</div></div></NavbarMenuItem>}
-        </NavbarMenu>
       </Navbar>
 
-      <div className="w-full bg-white border-b border-zinc-100/50 lg:hidden px-6 py-4 flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-100"><Utensils className="h-7 w-7" /></div>
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100/60 shadow-sm shadow-amber-50">
-                <Star className="w-3 h-3 text-amber-500 fill-current" /><span className="text-[11px] font-black text-amber-700 leading-none">{restaurantData.rating}</span>
+      {/* 📱 MOBILE NAVBAR & HERO (Matches Premium Shadcn Layout) */}
+      <div className="lg:hidden px-4 pt-4 pb-2">
+        {/* White Top Navbar */}
+        <div className="bg-white px-5 py-4 flex items-center justify-between rounded-t-[2rem] shadow-sm relative z-10">
+          <Logo showText={true} iconSize={24} />
+          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-indigo-600 rounded-full h-10 w-10">
+            <User className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Dark Hero Section */}
+        <div className="w-full relative overflow-hidden bg-slate-900 rounded-b-[2rem] shadow-xl -mt-1">
+          {/* Background Image */}
+          <div className="absolute inset-0">
+            <img 
+              src={restaurantData.photo || restaurantData.coverImage || "https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop"} 
+              alt="Restaurant Atmosphere" 
+              className="w-full h-full object-cover opacity-20" 
+              crossOrigin="anonymous"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/80 to-[#0f172a]/60" />
+          </div>
+          
+          <div className="relative z-10 px-6 pt-8 pb-10 flex flex-col gap-8">
+            <div className="flex items-center gap-5">
+              <div className="h-[4.5rem] w-[4.5rem] rounded-[1.25rem] bg-white/5 backdrop-blur-md flex items-center justify-center text-white border border-white/10 shadow-lg overflow-hidden">
+                {restaurantData.logo || restaurantData.photo || restaurantData.image ? (
+                  <img src={restaurantData.logo || restaurantData.photo || restaurantData.image} alt={restaurantData.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                ) : (
+                  <Utensils className="h-8 w-8 text-white/90" />
+                )}
               </div>
-              <span className="text-[11px] font-black text-slate-400 uppercase tracking-tight">/ {restaurantData.cuisine}</span>
+              <div className="space-y-1.5 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-amber-500/20 px-2.5 py-1 rounded-xl border border-amber-500/30">
+                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                    <span className="text-[12px] font-black text-amber-50 leading-none">{restaurantData.rating}</span>
+                  </div>
+                  <div className="bg-white/10 text-slate-200 px-2.5 py-1 rounded-xl border border-white/5 backdrop-blur-sm text-[10px] font-black uppercase tracking-widest leading-none flex items-center">
+                    {restaurantData.cuisine}
+                  </div>
+                </div>
+                <h2 className="text-white text-[22px] font-bold tracking-tight flex items-center gap-2.5 mt-1">
+                  Table {tableNumber} <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                </h2>
+              </div>
+            </div>
+            
+            <div className="flex flex-col">
+              <h1 className="text-[32px] font-black text-white uppercase tracking-tighter italic leading-none mb-3">
+                Welcome to<br/><span className="text-indigo-400">{restaurantData.name}</span>
+              </h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Enjoy exquisite flavors, exclusively at your table
+              </p>
             </div>
           </div>
         </div>
-        <div className="flex flex-col"><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tighter italic leading-none mb-1">Deliciously Crafted</h1><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Exquisite flavors, exclusively for your table</p></div>
       </div>
+
 
       <div className="w-full max-w-350 mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[72%_minmax(380px,28%)] gap-10 items-start overflow-visible">
         <div className="space-y-12 w-full">
@@ -575,29 +656,31 @@ export default function CustomerMenu() {
             </section>
           )}
 
-          <div className="sticky top-20 z-40 px-0 pt-8 pb-8 bg-white lg:hidden transition-all duration-500">
-             <div className="px-8 mb-8">
+          <div className="sticky top-20 z-40 px-0 pt-6 pb-6 bg-white/80 backdrop-blur-xl border-b border-white/20 lg:hidden transition-all duration-500 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.05)]">
+             <div className="px-6 mb-6">
                 <div className="relative group">
-                  <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 z-10"><Search className="h-5 w-5" /></div>
+                  <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 z-10">
+                    <Search className="h-5 w-5 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
                   <Input 
                     ref={searchInputRef} 
                     type="text" 
-                    className="pl-16 h-16 bg-[#f8fafc] border-transparent rounded-[2rem] text-[13px] font-black uppercase tracking-[0.2em] placeholder:text-slate-300 focus-visible:bg-white focus-visible:border-slate-100 focus-visible:ring-0 transition-all" 
-                    placeholder="SEARCH DISHES..." 
+                    className="pl-14 h-14 bg-white/60 backdrop-blur-md border border-slate-200/60 rounded-[1.5rem] text-[13px] font-bold tracking-wide placeholder:text-slate-400 focus-visible:bg-white focus-visible:border-indigo-200 focus-visible:ring-4 focus-visible:ring-indigo-500/10 transition-all shadow-sm" 
+                    placeholder="Search dishes..." 
                     value={searchTerm} 
                     onChange={(e) => setSearchTerm(e.target.value)} 
                   />
                 </div>
              </div>
-            <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar px-8 scroll-smooth items-center">
+            <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar px-6 scroll-smooth items-center">
               {categories.map((category) => (
                 <button 
                   key={category} 
                   onClick={() => scrollToCategory(category)} 
-                  className={`shrink-0 px-10 py-4.5 rounded-full text-[12px] font-black uppercase tracking-[0.15em] transition-all duration-300 relative ${
+                  className={`shrink-0 px-6 py-3 rounded-2xl text-[13px] font-bold tracking-wide transition-all duration-300 relative border ${
                     activeCategory === category 
-                    ? 'bg-[#0f172a] text-white shadow-[0_20px_50px_-12px_rgba(15,23,42,0.45)] scale-105 z-10' 
-                    : 'bg-white text-[#94a3b8] border border-slate-100/60 hover:text-slate-800'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-105 z-10' 
+                    : 'bg-white/60 text-slate-500 border-slate-200/60 hover:text-slate-900 hover:bg-white'
                   }`}
                 >
                   <span className="relative z-10">{category}</span>
@@ -621,7 +704,7 @@ export default function CustomerMenu() {
                     <Card key={item._id} className="border border-zinc-100/50 shadow-[0_15px_60px_-15px_rgba(0,0,0,0.06)] rounded-[2.5rem] overflow-hidden group hover:shadow-2xl hover:shadow-slate-200 hover:-translate-y-1 transition-all duration-500 bg-white">
                       <CardContent className="p-0 lg:hidden">
                         <div className="flex flex-col">
-                          <div className="relative h-56 w-full bg-zinc-100 overflow-hidden">{itemImg ? <img src={itemImg} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-5xl opacity-40">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
+                          <div className="relative h-56 w-full bg-zinc-100 overflow-hidden">{itemImg ? <img src={itemImg} alt={item.name} className="w-full h-full object-cover" crossOrigin="anonymous" /> : <div className="w-full h-full flex items-center justify-center text-5xl opacity-40">{item.type === 'VEG' ? '🥗' : '🍖'}</div>}</div>
                           <div className="p-6 relative">
                             <div className="absolute -top-6 right-6">
                               {getQuantity(item._id) > 0 ? (
@@ -723,23 +806,76 @@ export default function CustomerMenu() {
 
       <MenuBottomNavbar activeTab={activeTab} setActiveTab={setActiveTab} cartCount={getTotalItems()} hasActiveOrder={!!activeOrderId} onCartClick={() => cart.length > 0 && setShowConfirmModal(true)} onSearchClick={handleSearchFocus} onTrackClick={() => setShowOrderTracking(true)} orderStatus={currentOrder?.status} />
 
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-60 flex items-center justify-center p-4">
-          <Card className="max-w-xl w-full border-zinc-200 shadow-2xl overflow-hidden rounded-2xl bg-white">
-            <CardHeader className="bg-zinc-50 border-b pb-4"><div className="flex items-center justify-between"><CardTitle className="text-xl font-bold text-black flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-zinc-900" />Confirm Order</CardTitle><Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setShowConfirmModal(false)}><X className="w-4 h-4" /></Button></div></CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-2"><label className="text-sm font-semibold text-zinc-700 block">Your Name</label><Input placeholder="Enter your name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-11 border-zinc-200" /></div>
-              <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">{cart.map(item => (<div key={item._id} className="flex justify-between items-center"><div className="flex flex-col"><span className="font-semibold text-zinc-900">{item.name}</span><span className="text-xs text-zinc-500">Qty: {item.quantity}</span></div><span className="font-bold text-black">{formatPrice(item.price * item.quantity)}</span></div>))}</div>
-              <div className="pt-4 border-t border-zinc-100 space-y-3">
-                <div className="flex justify-between items-center text-sm text-zinc-600"><span>Subtotal</span><span className="font-medium">{formatPrice(getTotalPrice())}</span></div>
-                {gstRate > 0 && (<div className="flex justify-between items-center text-sm text-emerald-700"><span>{gstLabel} ({gstRate}%)</span><span className="font-bold">{formatPrice(getTotalPrice() * gstRate / 100)}</span></div>)}
-                <div className="flex justify-between items-center pt-2"><span className="text-lg font-bold text-black">Total Amount</span><span className="text-2xl font-black text-black">{formatPrice(getTotalPrice() + getTotalPrice() * gstRate / 100)}</span></div>
+      <Sheet open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <SheetContent side="bottom" className="h-[90vh] sm:h-[85vh] rounded-t-[2.5rem] bg-white p-0 border-0 flex flex-col">
+          <SheetHeader className="px-6 py-5 border-b border-zinc-100 bg-white/80 backdrop-blur-xl sticky top-0 z-10 flex flex-row items-center justify-between text-left">
+            <SheetTitle className="text-xl font-bold text-slate-900 flex items-center gap-2 m-0">
+              <ShoppingBag className="w-5 h-5 text-slate-900" /> Confirm Order
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-zinc-50/50">
+            <div className="space-y-3">
+              <label className="text-[11px] font-black uppercase tracking-widest text-slate-500 block ml-1">Dining As</label>
+              <Input 
+                placeholder="Enter your name (Optional)" 
+                value={customerName} 
+                onChange={(e) => setCustomerName(e.target.value)} 
+                className="h-14 border-slate-200/80 bg-white rounded-2xl text-base shadow-sm focus-visible:ring-indigo-500/20 px-4" 
+              />
+            </div>
+            <div className="space-y-4">
+              <label className="text-[11px] font-black uppercase tracking-widest text-slate-500 block ml-1">Your Portfolio</label>
+              <div className="bg-white rounded-3xl p-2 border border-slate-100 shadow-sm space-y-2">
+                {cart.map(item => (
+                  <div key={item._id} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-2xl transition-colors">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900 text-sm">{item.name}</span>
+                      <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Qty: {item.quantity}</span>
+                    </div>
+                    <span className="font-black text-slate-900">{formatPrice(item.price * item.quantity)}</span>
+                  </div>
+                ))}
               </div>
-              <div className="flex gap-4 pt-4"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setShowConfirmModal(false)}>Cancel</Button><Button className="flex-1 h-12 rounded-xl bg-black text-white font-bold" onClick={placeOrder} disabled={isSaving}>{isSaving ? 'Processing...' : 'Place Order'}</Button></div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+            
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-4">
+              <div className="flex justify-between items-center text-sm font-bold text-slate-500">
+                <span>Subtotal</span>
+                <span className="text-slate-900">{formatPrice(getTotalPrice())}</span>
+              </div>
+              {gstRate > 0 && (
+                <div className="flex justify-between items-center text-sm font-bold text-slate-500">
+                  <span>{gstLabel} ({gstRate}%)</span>
+                  <span className="text-slate-900">{formatPrice(getTotalPrice() * gstRate / 100)}</span>
+                </div>
+              )}
+              <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                <span className="text-lg font-black text-slate-900 uppercase tracking-tight">Total</span>
+                <span className="text-3xl font-black text-indigo-600 tracking-tighter">
+                  {formatPrice(getTotalPrice() + getTotalPrice() * gstRate / 100)}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-6 bg-white border-t border-slate-100 sticky bottom-0 z-10 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] flex flex-col gap-3">
+            <Button 
+              className="w-full h-16 rounded-[1.5rem] bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-[13px] shadow-xl transition-all" 
+              onClick={placeOrder} 
+              disabled={isSaving}
+            >
+              {isSaving ? 'Processing...' : 'Place Order'} <Plus className="ml-2 w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost"
+              className="w-full h-12 rounded-[1.5rem] text-slate-500 hover:text-slate-900 hover:bg-slate-50 font-bold uppercase tracking-widest text-[11px] transition-all" 
+              onClick={() => setShowConfirmModal(false)}
+            >
+              Back to Menu
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <footer className="bg-white border-t border-zinc-100 pt-16 pb-32 mt-20">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 flex flex-col items-center gap-8">
@@ -747,6 +883,44 @@ export default function CustomerMenu() {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">&copy; 2024 Servora Executive. All Rights Reserved.</p>
         </div>
       </footer>
+
+      {/* Waiter Call Popup */}
+      <AnimatePresence>
+        {showWaiterPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden"
+            >
+              {/* Decorative background circle */}
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-50 rounded-full opacity-50 pointer-events-none" />
+              
+              <div className="w-20 h-20 bg-emerald-100/50 rounded-full flex items-center justify-center mb-6 relative z-10 border border-emerald-100">
+                <BellRing className="w-8 h-8 text-emerald-600 animate-[bounce_2s_infinite]" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-3 relative z-10">
+                Waiter Called
+              </h3>
+              <p className="text-sm font-semibold text-slate-500 mb-8 leading-relaxed relative z-10">
+                We've notified the concierge. Someone will be right at your table!
+              </p>
+              <Button 
+                onClick={() => setShowWaiterPopup(false)}
+                className="w-full h-14 rounded-[1.25rem] bg-slate-900 hover:bg-black text-white font-black uppercase tracking-[0.2em] text-[11px] transition-all shadow-xl hover:shadow-2xl relative z-10"
+              >
+                Okay, Thanks!
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

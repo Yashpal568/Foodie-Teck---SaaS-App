@@ -82,7 +82,7 @@ function AnimatedNumber({ value, prefix = '', suffix = '', className = '' }) {
 const CARD_CONFIGS = [
   {
     key: 'revenue',
-    title: 'Total Revenue',
+    title: "Today's Revenue",
     subtitle: 'Today vs Yesterday',
     icon: DollarSign,
     gradient: 'from-violet-500 to-purple-600',
@@ -168,10 +168,10 @@ export default function OverviewCards({ restaurantId = 'default' }) {
 
     return {
       revenue: {
-        value: `₹${totalRevenue.toLocaleString('en-IN')}`,
-        rawValue: totalRevenue,
+        value: `₹${todayRevenue.toLocaleString('en-IN')}`,
+        rawValue: todayRevenue,
         change: revenueDiff,
-        detail: yesterdayRevenue > 0 ? `₹${yesterdayRevenue.toLocaleString('en-IN')} yesterday` : 'First day of tracking',
+        detail: yesterdayRevenue > 0 ? `₹${yesterdayRevenue.toLocaleString('en-IN')} yesterday` : 'No revenue yesterday',
         sparkData: [yesterdayRevenue * 0.6, yesterdayRevenue * 0.8, yesterdayRevenue, todayRevenue * 0.7, todayRevenue * 0.9, todayRevenue],
       },
       tables: {

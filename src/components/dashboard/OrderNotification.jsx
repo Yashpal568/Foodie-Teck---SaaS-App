@@ -91,21 +91,17 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       )
       .subscribe()
 
-    // ── 2. Waiter Call Subscription ──
+    // ── 2. Waiter Call Subscription (Broadcast) ──
     const waiterChannel = supabase
       .channel(`waiter-toasts:rid=${resolvedId}`)
       .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'waiter_calls',
-          filter: `restaurant_id=eq.${resolvedId}`
-        },
+        'broadcast',
+        { event: 'waiter_call' },
         (payload) => {
-          console.log('🔔 Live Waiter Call:', payload)
-          const call = payload.new
+          console.log('🔔 Live Waiter Call (Broadcast):', payload)
+          const call = payload.payload
           
+          playChime() // Play sound alert for waiter calls
           setToast({
             id: call.id,
             type: 'waiter',
@@ -114,7 +110,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           })
 
-          setTimeout(() => setToast(current => current?.id === call.id ? null : current), 8000)
+          // No auto-dismiss for waiter calls - they must be manually acknowledged
         }
       )
       .subscribe()

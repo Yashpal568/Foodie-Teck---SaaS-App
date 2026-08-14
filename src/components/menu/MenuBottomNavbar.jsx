@@ -20,7 +20,7 @@ export default function MenuBottomNavbar({
   ]
 
   return (
-    <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[92vw] max-w-md pointer-events-none">
+    <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92vw] max-w-md pointer-events-none">
       <motion.div 
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}

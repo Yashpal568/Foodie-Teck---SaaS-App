@@ -202,19 +202,27 @@ export const useNotifications = (restaurantId) => {
           }
         }
       )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'waiter_calls', filter: `restaurant_id=eq.${resolvedId}` },
-        (payload) => {
-           console.log('🔔 Notification Triggered (Waiter):', payload)
-           pushNotification({
+      .subscribe()
+      
+    const waiterChannel = supabase
+        .channel(`waiter-toasts:rid=${resolvedId}`)
+        .on('broadcast', { event: 'waiter_call' }, (payload) => {
+           console.log('🔔 Notification Triggered (Waiter Broadcast):', payload)
+           const call = payload.payload
+           setNotifications(prev => [{
+             id: call.id || Date.now(),
              type: 'waiter_call',
              title: '👋 Waiter Called',
-             message: `Table ${payload.new.table_number || '?'} needs assistance.`,
-             tableNumber: String(payload.new.table_number || '?')
-           }, 'customers')
-        }
-      )
+             message: `Table ${call.table_number} (${call.customer_name}) is requesting a waiter.`,
+             read: false,
+             created_at: new Date().toISOString()
+           }, ...prev])
+           setUnreadCount(prev => prev + 1)
+        })
+        .subscribe()
+
+    const inventoryChannel = supabase
+      .channel(`inventory:rid=${resolvedId}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'menu_items', filter: `restaurant_id=eq.${resolvedId}` },
