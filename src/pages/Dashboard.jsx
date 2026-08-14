@@ -23,6 +23,7 @@ import SubscriptionLockOverlay from "../components/dashboard/SubscriptionLockOve
 import SuspensionOverlay from "../components/dashboard/SuspensionOverlay";
 import UpgradePlanModal from "../components/dashboard/UpgradePlanModal";
 import { getPlanDetails } from "@/utils/planLimits";
+import { generateTableSignature } from "@/utils/tableSecurity";
 import {
   ChefHat,
   QrCode,
@@ -358,12 +359,13 @@ function Dashboard() {
                       <span className="hidden sm:inline">Refresh</span>
                     </button>
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        const sig = generateTableSignature(restaurantId, 1)
                         window.open(
-                          `/menu?restaurant=${restaurantId}&table=1`,
+                          `/menu?restaurant=${restaurantId}&table=1&sig=${sig}`,
                           "_blank",
                         )
-                      }
+                      }}
                       className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl transition-all whitespace-nowrap"
                     >
                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shrink-0" />

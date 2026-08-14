@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
+import { generateTableSignature } from '@/utils/tableSecurity'
 
 /** Get floor plan (tables) */
 export const getTableSessions = async (restaurantId) => {
@@ -154,12 +155,15 @@ export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
     const validQrCodes = qrCodes.filter(qr => qr.tableNumber !== undefined && qr.tableNumber !== null && !isNaN(Number(qr.tableNumber)));
     if (validQrCodes.length === 0) return true;
 
-    const qrPayloads = validQrCodes.map(qr => ({
-      restaurant_id: validId,
-      table_number: Number(qr.tableNumber),
-      url: qr.url || `${window.location.origin}/menu?restaurant=${validId}&table=${qr.tableNumber}`,
-      created_at: qr.generatedAt || new Date().toISOString()
-    }))
+    const qrPayloads = validQrCodes.map(qr => {
+      const sig = generateTableSignature(validId, qr.tableNumber)
+      return {
+        restaurant_id: validId,
+        table_number: Number(qr.tableNumber),
+        url: `${window.location.origin}/menu?restaurant=${validId}&table=${qr.tableNumber}&sig=${sig}`,
+        created_at: qr.generatedAt || new Date().toISOString()
+      }
+    })
 
     const validTableNumbers = validQrCodes.map(q => Number(q.tableNumber)).join(',');
 

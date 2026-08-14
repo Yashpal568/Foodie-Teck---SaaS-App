@@ -14,6 +14,7 @@ import Sidebar from '../layout/Sidebar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes, supabase, ensureValidRestaurantUUID } from '@/lib/api'
+import { generateTableSignature } from '@/utils/tableSecurity'
 
 // Convert blob to base64 data URL
 const blobToBase64 = (blob) => {
@@ -25,13 +26,15 @@ const blobToBase64 = (blob) => {
   })
 }
 
-// Fast, instant QR Code generator using standard QRServer API URL
+// Fast, instant QR Code generator using standard QRServer API URL with cryptographic signature
 const generateQRCode = (restaurantId, tableNumber) => {
-  const url = `${window.location.origin}/menu?restaurant=${restaurantId}&table=${tableNumber}`
+  const sig = generateTableSignature(restaurantId, tableNumber)
+  const url = `${window.location.origin}/menu?restaurant=${restaurantId}&table=${tableNumber}&sig=${sig}`
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
   
   return {
     url,
+    signature: sig,
     qrImageUrl,
     qrDataUrl: qrImageUrl,
     tableNumber: Number(tableNumber),
@@ -54,20 +57,28 @@ const saveQRCodesToStorage = async (restaurantId, qrCodes) => {
 import UpgradePlanModal from './UpgradePlanModal'
 import { getPlanDetails } from '@/utils/planLimits'
 
-// Load QR codes from Supabase
+// Load QR codes from Supabase with dynamic URL generation matching current restaurant
 const loadQRCodesFromStorage = async (restaurantId) => {
   try {
     if (!restaurantId) return []
     const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
     const { data } = await supabase.from('qr_codes').select('*').eq('restaurant_id', validId).order('table_number', { ascending: true })
     if (data && data.length > 0) {
-       return data.map(q => ({
-          url: q.url || `${window.location.origin}/menu?restaurant=${validId}&table=${q.table_number}`,
-          qrDataUrl: q.qr_data_url || q.image_url || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(q.url || `${window.location.origin}/menu?restaurant=${validId}&table=${q.table_number}`)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`,
-          tableNumber: q.table_number,
-          restaurantId: q.restaurant_id,
-          generatedAt: q.created_at
-       }))
+       return data.map(q => {
+          const sig = generateTableSignature(validId, q.table_number)
+          const liveUrl = `${window.location.origin}/menu?restaurant=${validId}&table=${q.table_number}&sig=${sig}`
+          const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(liveUrl)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
+          return {
+            id: q.id,
+            url: liveUrl,
+            signature: sig,
+            qrImageUrl,
+            qrDataUrl: qrImageUrl,
+            tableNumber: q.table_number,
+            restaurantId: validId,
+            generatedAt: q.created_at
+          }
+       })
     }
   } catch (error) {
     console.error('Error loading QR codes from Supabase:', error)

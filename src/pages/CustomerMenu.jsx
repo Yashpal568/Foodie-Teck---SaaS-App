@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, Clock, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu, BellRing, Flame, ArrowRight, ChevronRight, Check, Trash2, Receipt, ShieldCheck } from 'lucide-react'
+import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, Clock, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu, BellRing, Flame, ArrowRight, ChevronRight, Check, Trash2, Receipt, ShieldCheck, ShieldAlert, QrCode, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -28,6 +28,12 @@ import OrderTracking from '@/components/order/OrderTracking'
 import MenuService from '@/services/menuService'
 import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import MenuDealsCarousel from '@/components/menu/MenuDealsCarousel'
+import { 
+  verifyTableSignature, 
+  generateTableSignature, 
+  getLockedTableSession, 
+  setLockedTableSession 
+} from '@/utils/tableSecurity'
 import { 
   fetchMenuItems, 
   fetchGstSettings, 
@@ -221,13 +227,6 @@ export default function CustomerMenu() {
         const params = new URLSearchParams(window.location.search)
         let resId = params.get('restaurant') || 'default'
         
-        // Defensive: If table param is mangled with "Restaurant: UUID", strip it
-        let rawTable = params.get('table') || 'N/A'
-        if (rawTable.includes(' Restaurant:')) {
-          rawTable = rawTable.split(' Restaurant:')[0].trim()
-        }
-        setTableNumber(rawTable)
-
         // 0. Identity Resolution: If resId is an email, resolve to UUID for cloud-native storage
         if (resId.includes('@')) {
           console.log(`🔗 Resolving legacy email ID: ${resId}`)
@@ -238,6 +237,42 @@ export default function CustomerMenu() {
           }
         }
         setRestaurantId(resId)
+
+        // 🔒 TABLE SECURITY & SESSION LOCK (Prevents URL Manipulation)
+        let rawTable = params.get('table') || ''
+        if (rawTable.includes(' Restaurant:')) rawTable = rawTable.split(' Restaurant:')[0].trim()
+        if (rawTable.includes('Restaurant:')) rawTable = rawTable.split('Restaurant:')[0].trim()
+        if (rawTable.includes('&')) rawTable = rawTable.split('&')[0].trim()
+        if (rawTable.includes(' ')) rawTable = rawTable.split(' ')[0].trim()
+        rawTable = rawTable.replace(/[^0-9a-zA-Z_-]/g, '').trim()
+
+        const sessionKey = `servora_active_table_${resId}`
+        let storedTable = ''
+        try {
+          storedTable = sessionStorage.getItem(sessionKey) || ''
+        } catch (e) {}
+
+        let effectiveTable = '1'
+        if (rawTable) {
+          if (storedTable && storedTable !== rawTable) {
+            // URL manipulation attempt: lock to verified session table
+            console.log(`🔒 [URL Security Lock] Retaining verified table: ${storedTable}`)
+            effectiveTable = storedTable
+            try {
+              window.history.replaceState(null, '', `/menu?restaurant=${resId}&table=${storedTable}`)
+            } catch (e) {}
+          } else {
+            // Genuine scan / clean session
+            effectiveTable = rawTable
+            try {
+              sessionStorage.setItem(sessionKey, rawTable)
+            } catch (e) {}
+          }
+        } else if (storedTable) {
+          effectiveTable = storedTable
+        }
+
+        setTableNumber(effectiveTable)
 
         // 1. Fetch Restaurant Profile for Dynamic UI
         if (resId && resId !== 'default') {
