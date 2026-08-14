@@ -44,8 +44,11 @@ export default function MenuBottomNavbar({
               whileTap={{ scale: 0.92 }}
               onMouseEnter={() => setHoveredTab(tab.id)}
               onClick={() => {
-                if (tab.action) tab.action()
-                else setActiveTab(tab.id)
+                if (tab.action) {
+                  tab.action()
+                } else if (typeof setActiveTab === 'function') {
+                  setActiveTab(tab.id)
+                }
               }}
               className={cn(
                 "relative flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-[1.6rem] transition-all duration-300 outline-none select-none cursor-pointer group",

@@ -595,7 +595,28 @@ export default function CustomerMenu() {
   }
 
   if (showOrderTracking && (currentOrder || activeOrderId)) {
-    return <OrderTracking orderId={currentOrder?.id || activeOrderId} restaurantId={restaurantId} onClose={() => setShowOrderTracking(false)} />
+    return (
+      <OrderTracking 
+        orderId={currentOrder?.id || activeOrderId} 
+        restaurantId={restaurantId} 
+        onClose={() => {
+          setShowOrderTracking(false)
+          setActiveTab('menu')
+        }} 
+        onOpenCart={() => {
+          setShowOrderTracking(false)
+          setActiveTab('cart')
+          setShowConfirmModal(true)
+        }}
+        onOpenSearch={() => {
+          setShowOrderTracking(false)
+          setActiveTab('search')
+          setTimeout(() => {
+            searchInputRef.current?.focus()
+          }, 150)
+        }}
+      />
+    )
   }
 
   return (
@@ -1672,9 +1693,22 @@ export default function CustomerMenu() {
               <span className="text-emerald-600">Contactless QR</span>
             </div>
           </div>
-
         </div>
       </footer>
+
+      {/* 📱 MOBILE FLOATING DOCK NAVBAR */}
+      <MenuBottomNavbar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        cartCount={cart.reduce((total, item) => total + (item.quantity || 1), 0)}
+        hasActiveOrder={Boolean(currentOrder || activeOrderId)}
+        onCartClick={() => setShowConfirmModal(true)}
+        onSearchClick={() => {
+          window.scrollTo({ top: 380, behavior: 'smooth' })
+          setTimeout(() => searchInputRef.current?.focus(), 300)
+        }}
+        onTrackClick={handleTrackOrders}
+      />
 
       {/* Waiter Call Popup */}
       <AnimatePresence>

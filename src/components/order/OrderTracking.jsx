@@ -1,43 +1,46 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { 
   ChefHat, 
-  CheckCircle, 
+  CheckCircle2, 
   Receipt, 
   ArrowLeft, 
-  Phone, 
-  Utensils,
-  Timer,
-  Clock,
-  Calendar,
-  CreditCard,
-  MapPin
+  BellRing, 
+  Utensils, 
+  Timer, 
+  Clock, 
+  Flame, 
+  Sparkles, 
+  ShoppingBag, 
+  Check, 
+  Copy, 
+  Plus, 
+  ShieldCheck, 
+  PartyPopper,
+  ExternalLink,
+  Info
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import Logo from '@/components/ui/Logo'
 import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { cn } from '@/lib/utils'
 
-const OrderTracking = ({ orderId, restaurantId, onClose }) => {
+export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCart, onOpenSearch }) {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [cart, setCart] = useState([])
   const [isCallingWaiter, setIsCallingWaiter] = useState(false)
-  const [showThankYou, setShowThankYou] = useState(false)
-  
+  const [waiterCalledSuccess, setWaiterCalledSuccess] = useState(false)
+  const [copiedOrderId, setCopiedOrderId] = useState(false)
+
   const { orders, orderHistory, refreshOrders, updateStatus: apiUpdateStatus, loading: hookLoading } = useOrderManagement(restaurantId)
-  
   const { profile } = useRestaurantProfile(restaurantId)
 
-  const [journey, setJourney] = useState([]);
-
-  // Load order details with table session auto-refresh logic
-  // Direct single-order fetch and real-time listener for instant tracking updates
+  // 📡 Real-time Supabase Order Polling & Subscription
   useEffect(() => {
     if (!orderId) return
 
@@ -56,74 +59,49 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
             tableNumber: data.table_number,
             customerName: data.customer_name,
             items: data.order_items || [],
+            subtotal: data.subtotal || data.total,
+            tax: data.tax || 0,
             total: data.total || 0,
             status: data.status || 'PENDING',
             createdAt: data.created_at
           }
           setOrder(formatted)
-
-          const storedJourney = JSON.parse(sessionStorage.getItem(`order_journey_${orderId}`) || '[]');
-          if (storedJourney.length === 0) {
-            const initialStep = { 
-              status: formatted.status || 'PENDING', 
-              timestamp: formatted.createdAt || new Date().toISOString(),
-              note: 'Order Received'
-            };
-            setJourney([initialStep]);
-            sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify([initialStep]));
-          } else {
-            const lastStep = storedJourney[storedJourney.length - 1];
-            if (lastStep.status !== formatted.status) {
-              const updated = [...storedJourney, {
-                status: formatted.status,
-                timestamp: new Date().toISOString(),
-                note: `Order status updated to ${formatted.status.toLowerCase()}`
-              }];
-              setJourney(updated);
-              sessionStorage.setItem(`order_journey_${orderId}`, JSON.stringify(updated));
-            } else {
-              setJourney(storedJourney);
-            }
-          }
           setLoading(false)
         }
       } catch (e) {
-        console.error('Error fetching single tracking order:', e)
+        console.error('Error fetching tracking order:', e)
       }
     }
 
     fetchSingleOrder()
 
     const orderChannel = supabase
-      .channel(`tracking-order-${orderId}`)
+      .channel(`live-tracking-${orderId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'orders',
         filter: `id=eq.${orderId}`
       }, (payload) => {
-        console.log('⚡ Instant Tracking Order Update:', payload)
+        console.log('⚡ Live Order Status Event:', payload)
         fetchSingleOrder()
       })
       .subscribe()
 
-    const safetyPoll = setInterval(() => {
-      fetchSingleOrder()
-    }, 5000)
+    const safetyInterval = setInterval(fetchSingleOrder, 4000)
 
     return () => {
-      clearInterval(safetyPoll)
+      clearInterval(safetyInterval)
       supabase.removeChannel(orderChannel)
     }
   }, [orderId])
 
+  // Fallback if hook loads faster
   useEffect(() => {
-    // If hook finished loading, fallback check
-    if (!hookLoading) {
+    if (!hookLoading && !order) {
       const allOrders = [...orders, ...orderHistory]
       const foundOrder = allOrders.find(o => String(o.id) === String(orderId))
-      
-      if (foundOrder && !order) {
+      if (foundOrder) {
         setOrder(foundOrder)
         setLoading(false)
       }
@@ -131,678 +109,466 @@ const OrderTracking = ({ orderId, restaurantId, onClose }) => {
   }, [orders, orderHistory, orderId, hookLoading, order])
 
   const handleCallConcierge = async () => {
-    if (isCallingWaiter || !profile?.id) return;
-    
-    setIsCallingWaiter(true);
-    
+    if (isCallingWaiter) return
+    setIsCallingWaiter(true)
+
     try {
+      const targetRid = profile?.id || restaurantId
+      const targetTable = order?.tableNumber || order?.table_number || '1'
+      
       const { error } = await supabase
         .from('waiter_calls')
         .insert([{
-          restaurant_id: profile.id,
-          table_number: order?.tableNumber || order?.table_number || '?',
-          customer_name: order?.customerName || order?.customer_name || 'Guest'
-        }]);
+          restaurant_id: targetRid,
+          table_number: String(targetTable),
+          customer_name: order?.customerName || order?.customer_name || 'Guest Customer'
+        }])
 
-      if (error) throw error;
-      
-      // Also keep local event for immediate local UI feedback if any
-      window.dispatchEvent(new Event('waiterCalled'));
-      
+      if (!error) {
+        setWaiterCalledSuccess(true)
+        setTimeout(() => setWaiterCalledSuccess(false), 4000)
+      }
     } catch (err) {
-      console.error('Waiter call failed:', err);
-      setIsCallingWaiter(false);
-    }
-    
-    // Cooldown
-    setTimeout(() => {
-      setIsCallingWaiter(false);
-    }, 30000); // 30 second cooldown
-  };
-
-  // Update order status via Cloud
-  const updateOrderStatus = async (newStatus) => {
-    try {
-      if (!order?.id) return
-      await apiUpdateStatus(order.id, newStatus)
-      // The hook's real-time subscription will update the 'order' state automatically
-    } catch (error) {
-      console.error('Error updating order status:', error)
+      console.warn('Waiter call notification notice:', err)
+    } finally {
+      setIsCallingWaiter(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent animate-spin rounded-full mx-auto mb-6 shadow-2xl shadow-slate-200"></div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Authenticating Session...</h2>
-          <p className="text-sm text-slate-400 mt-2 font-medium">Retrieving your culinary journey details</p>
-        </div>
-      </div>
-    )
+  const handleCopyOrderId = () => {
+    if (!order?.id) return
+    navigator.clipboard.writeText(order.id)
+    setCopiedOrderId(true)
+    setTimeout(() => setCopiedOrderId(false), 2000)
   }
 
-  if (!order) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center space-y-8">
-            <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-slate-100">
-               <Receipt className="w-10 h-10 text-slate-300" />
-            </div>
-            <div className="space-y-2">
-               <h2 className="text-3xl font-bold text-slate-900 tracking-tighter">Session Unavailable</h2>
-               <p className="text-slate-500 font-medium">We were unable to locate your active order session in our system.</p>
-            </div>
-            <Button
-              onClick={onClose}
-              className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-2xl shadow-slate-900/10 transition-all uppercase tracking-widest text-xs"
-            >
-              Return to Catalog
-            </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Finalized Session Logic (Triggers after 60s of SERVED or when FINISHED, but only once)
-  if (order?.status === ORDER_STATUS.FINISHED || showThankYou) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-6 selection:bg-slate-900 selection:text-white">
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="max-w-md w-full text-center space-y-10"
-        >
-          <div className="relative inline-block">
-             <div className="absolute inset-0 bg-emerald-500/20 blur-[60px] rounded-full animate-pulse" />
-             <div className="relative w-32 h-32 bg-emerald-50 rounded-[3rem] border border-emerald-100 flex items-center justify-center mx-auto shadow-inner group">
-                <CheckCircle className="w-16 h-16 text-emerald-500 group-hover:scale-110 transition-transform duration-700" />
-             </div>
-          </div>
-          
-          <div className="space-y-4">
-            <h2 className="text-4xl font-bold text-slate-900 tracking-tighter text-balance">Thank You for Dining with Us!</h2>
-            <div className="space-y-2">
-               <p className="text-slate-500 font-medium">It was our pleasure hosting you at <span className="text-slate-900 font-bold">Servora</span> today.</p>
-               <p className="text-emerald-600 font-bold uppercase tracking-[0.2em] text-[10px]">Your session has been successfully concluded.</p>
-            </div>
-          </div>
-
-          <div className="pt-6">
-            <Button
-              onClick={() => {
-                onClose()
-              }}
-              className="w-full h-16 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-2xl shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest text-[11px]"
-            >
-              Finish Session
-            </Button>
-            <p className="mt-6 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Servora Experience Engine v1.0</p>
-          </div>
-        </motion.div>
-      </div>
-    )
-  }
-
-  const currentStatusConfig = ORDER_STATUS_CONFIG[order?.status] || {
-    icon: '⏳',
-    label: order?.status || 'Processing',
-    description: 'We are updating your order status'
-  }
-  const isServed = order?.status === ORDER_STATUS.SERVED
-
-  // Calculate progress percentage
-  const statusProgress = {
-    [ORDER_STATUS.ORDERED]: 20,
-    [ORDER_STATUS.PREPARING]: 40,
-    [ORDER_STATUS.READY]: 60,
-    [ORDER_STATUS.SERVED]: 80,
-    [ORDER_STATUS.BILL_REQUESTED]: 90,
-    [ORDER_STATUS.FINISHED]: 100
-  }
-
-  const formatPrice = (price) => {
+  const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 2
-    }).format(price)
+    }).format(val || 0)
   }
 
-  const currentProgress = statusProgress[order?.status] || 0
+  const formatTime = (isoString) => {
+    if (!isoString) return ''
+    try {
+      const d = new Date(isoString)
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+    } catch {
+      return ''
+    }
+  }
+
+  // 🧭 Order Progress Stages Definition
+  const STAGES = [
+    {
+      key: ORDER_STATUS.PENDING || 'PENDING',
+      title: 'Order Confirmed',
+      desc: 'Order received & verified by kitchen staff',
+      icon: Clock,
+      progress: 25
+    },
+    {
+      key: ORDER_STATUS.PREPARING || 'PREPARING',
+      title: 'Chef Preparing',
+      desc: 'Master chefs are crafting your dishes fresh',
+      icon: Flame,
+      progress: 60
+    },
+    {
+      key: ORDER_STATUS.READY || 'READY',
+      title: 'Plated & Ready',
+      desc: 'Quality checked, garnished & on the hot pass',
+      icon: ChefHat,
+      progress: 85
+    },
+    {
+      key: ORDER_STATUS.SERVED || 'SERVED',
+      title: 'Served at Table',
+      desc: 'Hot gourmet meal delivered directly to your table',
+      icon: CheckCircle2,
+      progress: 100
+    }
+  ]
+
+  const normalizedStatus = (order?.status || 'PENDING').toUpperCase()
+  
+  const currentStageIndex = useMemo(() => {
+    if (normalizedStatus === 'PENDING' || normalizedStatus === 'ORDERED') return 0
+    if (normalizedStatus === 'PREPARING' || normalizedStatus === 'COOKING') return 1
+    if (normalizedStatus === 'READY') return 2
+    if (normalizedStatus === 'SERVED' || normalizedStatus === 'FINISHED' || normalizedStatus === 'DELIVERED') return 3
+    return 0
+  }, [normalizedStatus])
+
+  const currentStage = STAGES[currentStageIndex] || STAGES[0]
+  const currentProgressPercent = currentStage.progress
+
+  // Loading Screen
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-white text-center">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full border-3 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+          <Sparkles className="w-6 h-6 text-emerald-400 absolute inset-0 m-auto animate-pulse" />
+        </div>
+        <h2 className="text-xl font-black text-white mt-6 tracking-tight">Syncing Live Kitchen Journey</h2>
+        <p className="text-xs text-zinc-400 mt-1 font-medium">Connecting to your table's digital pass...</p>
+      </div>
+    )
+  }
+
+  // Not Found State
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center text-zinc-400 mb-5 border border-zinc-200/80">
+          <Receipt className="w-9 h-9" />
+        </div>
+        <h2 className="text-2xl font-black text-zinc-900 tracking-tight">No Active Session Found</h2>
+        <p className="text-xs text-zinc-500 max-w-sm mt-2 mb-6">
+          We couldn't retrieve an active order for this session. Explore the live menu to place fresh dishes.
+        </p>
+        <Button 
+          onClick={onClose}
+          className="h-12 px-8 rounded-2xl bg-zinc-950 hover:bg-zinc-800 text-white font-black text-xs uppercase tracking-wider shadow-lg"
+        >
+          Explore Menu
+        </Button>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-slate-900 pb-20 overflow-x-hidden relative transition-colors duration-700">
+    <div className="min-h-screen bg-slate-50 text-zinc-900 font-sans pb-36 overflow-x-hidden selection:bg-zinc-900 selection:text-white">
       
-      {/* Premium Navbar - Logo Left */}
-      <motion.nav 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="fixed top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/50 z-50 px-6"
-      >
-
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Logo showText={true} iconSize={26} className="scale-100" />
-            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
-            <span className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Order Experience</span>
+      {/* 🧭 1. TOP HEADER & NAVIGATION */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-zinc-200/80 transition-all">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Logo showText={true} iconSize={26} className="scale-95" />
+            <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>LIVE SYNC</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-             <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Table</span>
-                <span className="text-[10px] font-bold text-slate-900">{order.tableNumber}</span>
-             </div>
-             <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="h-9 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-all hover:bg-slate-50"
-             >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-             </Button>
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-100 rounded-full border border-zinc-200 text-zinc-800 font-black text-xs">
+              <span className="text-[10px] text-zinc-400 font-bold uppercase">TABLE</span>
+              <span>{order.tableNumber || order.table_number || '1'}</span>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="h-9 px-3.5 rounded-xl bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>MENU</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-5 space-y-6">
+
+        {/* 🌟 2. ULTRA-LUXURY LIVE STATUS HERO CARD */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative rounded-[2.2rem] overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-slate-950 text-white p-6 sm:p-8 shadow-[0_16px_40px_rgba(0,0,0,0.18)] border border-zinc-800"
+        >
+          {/* Ambient Colored Glow Spheres */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/15 blur-[90px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
+
+          <div className="relative z-10 space-y-6">
+            
+            {/* Top Pill & Order Reference */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>KITCHEN EXPERIENCE</span>
+                </span>
+              </div>
+
+              <button 
+                onClick={handleCopyOrderId}
+                className="flex items-center gap-1 bg-white/10 hover:bg-white/15 px-2.5 py-1 rounded-full text-[10px] font-bold text-zinc-300 border border-white/10 transition-all cursor-pointer"
+                title="Copy Order ID"
+              >
+                <span>#{String(order.id).slice(-6).toUpperCase()}</span>
+                {copiedOrderId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-zinc-400" />}
+              </button>
+            </div>
+
+            {/* Main Dynamic Status Title */}
+            <div className="space-y-1.5">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
+                <span>{currentStage.title}</span>
+                {normalizedStatus === 'SERVED' ? (
+                  <PartyPopper className="w-7 h-7 text-amber-400 shrink-0" />
+                ) : (
+                  <Flame className="w-6 h-6 text-amber-400 shrink-0 animate-pulse" />
+                )}
+              </h1>
+              <p className="text-xs sm:text-sm text-zinc-300 font-medium leading-relaxed max-w-lg">
+                {currentStage.desc}
+              </p>
+            </div>
+
+            {/* Smooth Journey Progress Bar */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                <span>STAGE {currentStageIndex + 1} OF 4</span>
+                <span className="text-emerald-400">{currentProgressPercent}% COMPLETE</span>
+              </div>
+              <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-white/10">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${currentProgressPercent}%` }}
+                  transition={{ type: "spring", stiffness: 45, damping: 15 }}
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.6)]"
+                />
+              </div>
+            </div>
+
+            {/* Stat Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
+              <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-3">
+                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">PREP ESTIMATE</span>
+                <span className="text-sm font-black text-white block mt-0.5">15–20 Mins</span>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-3">
+                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">ORDER TIME</span>
+                <span className="text-sm font-black text-white block mt-0.5">{formatTime(order.createdAt) || 'Just now'}</span>
+              </div>
+
+              <div className="col-span-2 sm:col-span-1 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-3 flex sm:flex-col items-center sm:items-start justify-between">
+                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">TOTAL ITEMS</span>
+                <span className="text-sm font-black text-emerald-400 block mt-0.5">
+                  {(order.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0)} Dishes
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </motion.div>
+
+        {/* 📋 3. STEP-BY-STEP CULINARY JOURNEY (SHADCN TIMELINE) */}
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-zinc-200/80 space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center shadow-sm">
+                <Timer className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-zinc-900 tracking-tight">Active Dining Sequence</h3>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Kitchen milestones</p>
+              </div>
+            </div>
+
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-black uppercase tracking-wider">
+              {normalizedStatus}
+            </Badge>
+          </div>
+
+          <Separator className="bg-zinc-100" />
+
+          {/* Timeline Milestones */}
+          <div className="space-y-4 pt-1">
+            {STAGES.map((stg, idx) => {
+              const isPast = idx < currentStageIndex
+              const isCurrent = idx === currentStageIndex
+              const isFuture = idx > currentStageIndex
+              const StageIcon = stg.icon
+
+              return (
+                <div key={stg.key} className="flex items-start gap-4 relative">
+                  
+                  {/* Left Connector Line */}
+                  {idx < STAGES.length - 1 && (
+                    <div 
+                      className={`absolute left-4 top-8 bottom-0 w-0.5 -ml-px ${
+                        isPast ? 'bg-emerald-500' : 'bg-zinc-200'
+                      }`} 
+                    />
+                  )}
+
+                  {/* Stage Icon Node */}
+                  <div className={`relative z-10 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                    isPast 
+                      ? 'bg-emerald-500 text-white shadow-xs' 
+                      : isCurrent 
+                      ? 'bg-zinc-950 text-amber-400 ring-4 ring-emerald-500/20 shadow-md scale-105' 
+                      : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
+                  }`}>
+                    {isPast ? (
+                      <Check className="w-4 h-4 stroke-[3]" />
+                    ) : (
+                      <StageIcon className="w-4 h-4" />
+                    )}
+                  </div>
+
+                  {/* Stage Details */}
+                  <div className="flex-1 pb-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className={`text-xs font-black tracking-tight ${
+                        isCurrent ? 'text-zinc-950 font-black' : isPast ? 'text-zinc-700' : 'text-zinc-400'
+                      }`}>
+                        {stg.title}
+                      </h4>
+                      {isCurrent && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wider">
+                          CURRENT
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-[11px] mt-0.5 ${
+                      isCurrent ? 'text-zinc-600 font-medium' : isPast ? 'text-zinc-500' : 'text-zinc-400'
+                    }`}>
+                      {stg.desc}
+                    </p>
+                  </div>
+
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 🧾 4. ITEMIZED DIGITAL BILL RECEIPT */}
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-zinc-200/80 space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center shadow-sm">
+                <Receipt className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-zinc-900 tracking-tight">Order Receipt</h3>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Verified Table Order</p>
+              </div>
+            </div>
+
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200">
+              TABLE {order.tableNumber || '1'}
+            </span>
+          </div>
+
+          <Separator className="bg-zinc-100" />
+
+          {/* Items List */}
+          <div className="space-y-3">
+            {(order.items || []).map((item, i) => (
+              <div key={item.id || i} className="flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-6 h-6 rounded-lg bg-zinc-950 text-white font-black text-[10px] flex items-center justify-center shrink-0">
+                    {item.quantity || 1}x
+                  </span>
+                  <span className="font-bold text-zinc-900 truncate">
+                    {item.item_name || item.name || item.itemName || 'Signature Dish'}
+                  </span>
+                </div>
+                <span className="font-black text-zinc-900 shrink-0">
+                  {formatCurrency((item.price || item.unit_price || 0) * (item.quantity || 1))}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <Separator className="bg-zinc-100" />
+
+          {/* Pricing Breakdown */}
+          <div className="space-y-1.5 text-xs text-zinc-500 font-medium">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span className="font-bold text-zinc-800">{formatCurrency(order.subtotal || order.total)}</span>
+            </div>
+            {order.tax > 0 && (
+              <div className="flex justify-between">
+                <span>GST / Taxes</span>
+                <span className="font-bold text-zinc-800">{formatCurrency(order.tax)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm font-black text-zinc-950 pt-2 border-t border-zinc-100">
+              <span>Total Amount</span>
+              <span className="text-base text-emerald-600 font-black">{formatCurrency(order.total)}</span>
+            </div>
+          </div>
+
+          {/* Actions: Contact Waiter & Add More Items */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <Button
+              onClick={handleCallConcierge}
+              disabled={isCallingWaiter || waiterCalledSuccess}
+              variant="outline"
+              className="h-12 rounded-xl bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-900 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <BellRing className={`w-4 h-4 text-amber-500 ${isCallingWaiter ? 'animate-spin' : ''}`} />
+              <span>{waiterCalledSuccess ? 'Waiter Notified!' : 'Call Waiter'}</span>
+            </Button>
+
+            <Button
+              onClick={onClose}
+              className="h-12 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>Order More Dishes</span>
+            </Button>
           </div>
 
         </div>
-      </motion.nav>
 
-      <main className="max-w-6xl mx-auto pt-28 px-6 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Main Visual Journey Column */}
-          <div className="lg:col-span-12 xl:col-span-8 space-y-8">
-            
-            {/* Live Tracking Hero Card */}
-            <motion.div 
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               transition={{ duration: 0.2 }}
-               className="relative rounded-[2.5rem] p-1 shadow-2xl shadow-slate-200 group overflow-hidden"
-            >
-               <div className="absolute inset-0 bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 opacity-100 z-0" />
-               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] -mr-32 -mt-32 rounded-full" />
-               <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 blur-[80px] -ml-24 -mb-24 rounded-full" />
-               
-               <div className="relative z-10 bg-slate-950/20 backdrop-blur-3xl rounded-[2.4rem] p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-10">
-                  <div className="space-y-6 text-center md:text-left flex-1">
-                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
-                        <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Live Experience Hub</span>
-                     </div>
-                     
-                     <div className="space-y-4">
-                        <div className="space-y-1">
-                           <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
-                             {currentStatusConfig.label}
-                           </h2>
-                           <p className="text-slate-400 text-sm md:text-base font-medium max-w-sm">
-                             {currentStatusConfig.description}
-                           </p>
-
-
-
-                        </div>
-                        
-                        {/* Dynamic Progress Indicator */}
-                        <div className="pt-2 max-w-xs transition-all">
-                           <div className="flex justify-between items-center mb-2">
-                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Journey Progress</span>
-                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{currentProgress}%</span>
-                           </div>
-                           <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/10">
-                              <motion.div 
-                                 initial={{ width: 0 }}
-                                 animate={{ width: `${currentProgress}%` }}
-                                 transition={{ type: "spring", stiffness: 50, damping: 20 }}
-                                 className="h-full bg-linear-to-r from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]" 
-                              />
-                           </div>
-                        </div>
-                     </div>
-
-                     <div className="flex flex-wrap gap-4 pt-4 justify-center md:justify-start">
-                        <div className="flex items-center gap-3 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/5 backdrop-blur-sm">
-                           <div className="text-left">
-                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Prep Time</p>
-                              <p className="text-base font-bold text-white leading-none mt-1">15-20 Mins</p>
-                           </div>
-                        </div>
-                        <div className="flex items-center gap-3 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/5 backdrop-blur-sm">
-                           <div className="text-left">
-                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Order Reference</p>
-                              <p className="text-base font-bold text-white leading-none mt-1">#{order.id.slice(-6).toUpperCase()}</p>
-                           </div>
-                        </div>
-                     </div>
-
-
-
-                  </div>
-
-                  <div className="relative flex flex-col items-center">
-                     <div className="w-40 h-40 md:w-56 md:h-56 rounded-full border border-white/10 flex items-center justify-center relative">
-                        {/* Animated Pulses */}
-                        <div className="absolute inset-0 rounded-full border border-emerald-400/20 animate-ping opacity-50" />
-                        <div className="absolute inset-8 rounded-full border border-emerald-400/40 animate-[ping_4s_infinite] opacity-30" />
-                        
-                        <div className="w-32 h-32 md:w-44 md:h-44 bg-linear-to-br from-slate-800 to-slate-900 rounded-full flex items-center justify-center text-5xl md:text-7xl shadow-2xl border border-white/10">
-                           {currentStatusConfig.icon}
-                        </div>
-                     </div>
-                     <span className="mt-8 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Pulse Status Active</span>
-
-
-                  </div>
-               </div>
-            </motion.div>
-
-            {/* Tracking Sequence & Relatable Content */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-               {/* Detail Roadmap - Premium Redesign */}
-               <motion.div 
-                 initial={{ opacity: 0 }}
-                 animate={{ opacity: 1 }}
-                 transition={{ duration: 0.2, delay: 0.1 }}
-                 className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-xl shadow-slate-100/40 overflow-hidden"
-               >
-
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-8">
-                     <div className="h-10 w-10 bg-linear-to-br from-slate-800 to-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
-                        <Timer className="w-4.5 h-4.5" />
-                     </div>
-                     <div>
-                        <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Sequence</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Journey</p>
-                     </div>
-
-                     <div className="ml-auto flex items-center gap-1.5">
-                        <span className="relative flex h-2.5 w-2.5">
-                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Live</span>
-                     </div>
-                  </div>
-
-                  {/* Timeline */}
-                  <div className="relative space-y-1 px-1">
-                     {(journey || []).slice().reverse().map((history, index) => {
-                       const statusConfig = ORDER_STATUS_CONFIG[history.status] || {
-                         icon: '🕒',
-                         label: history.status,
-                         description: 'Status update recorded'
-                       }
-                       const isCurrent = history.status === order?.status
-                       const isPast = !isCurrent
-                       const historyArray = journey || []
-                       const isLast = index === historyArray.length - 1
-
-                       return (
-                         <motion.div
-                           key={index}
-                           initial={{ opacity: 0 }}
-                           animate={{ opacity: 1 }}
-                           transition={{ duration: 0.15, delay: index * 0.04 }}
-                           className="flex gap-4 relative"
-                         >
-                           {/* Connector Line */}
-                           {!isLast && (
-                             <div className="absolute left-4.5 top-12 bottom-0 w-0.5">
-                               <div className={cn(
-                                 "h-full w-full rounded-full",
-                                 isCurrent ? "bg-linear-to-b from-emerald-400 to-slate-100" : "bg-slate-100"
-                               )} />
-                             </div>
-                           )}
-
-                           {/* Step Icon */}
-                           <div className="relative shrink-0 flex flex-col items-center">
-                             <motion.div
-                               animate={isCurrent ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-                               transition={isCurrent ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" } : {}}
-                               className={cn(
-                                 "h-9 w-9 rounded-2xl flex items-center justify-center text-lg border-2 z-10 shadow-sm",
-                                 isCurrent
-                                   ? "bg-emerald-50 border-emerald-300 shadow-emerald-200/80 shadow-lg"
-                                   : "bg-slate-50 border-slate-100"
-                               )}
-                             >
-                               {statusConfig.icon}
-                             </motion.div>
-                             {isCurrent && (
-                               <div className="absolute -inset-1.5 rounded-[18px] bg-emerald-400/20 blur-sm animate-pulse" />
-                             )}
-                           </div>
-
-                           {/* Content */}
-                           <div className="flex-1 pb-7 transition-all duration-300">
-                             <div className={cn(
-                               "rounded-2xl p-4 border transition-all",
-                               isCurrent
-                                 ? "bg-linear-to-br from-emerald-50/80 to-slate-50 border-emerald-100 shadow-sm"
-                                 : "bg-slate-50/70 border-slate-100"
-                             )}>
-                               <div className="flex items-center justify-between mb-1">
-                                 <h4 className={cn(
-                                    "text-sm font-bold tracking-tight",
-                                    isCurrent ? "text-slate-900" : "text-slate-600"
-                                 )}>
-                                   {statusConfig.label}
-                                 </h4>
-
-                                 <span className={cn(
-                                   "text-[10px] font-bold font-mono",
-                                   isCurrent ? "text-emerald-600" : "text-slate-400"
-                                 )}>
-                                   {new Date(history.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                 </span>
-                               </div>
-                               <p className={cn(
-                                 "text-[11px] leading-relaxed",
-                                 isCurrent ? "text-slate-500 font-medium" : "text-slate-400"
-                               )}>
-                                 {history.note || 'Order state updated'}
-                               </p>
-                               {isCurrent && (
-                                 <div className="mt-3 flex items-center gap-1.5">
-                                   <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
-                                   <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Current Status</span>
-                                 </div>
-                               )}
-                             </div>
-                           </div>
-                         </motion.div>
-                       )
-                     })}
-                  </div>
-               </motion.div>
-
-               {/* Relatable Context Card - Dynamic per status */}
-               {(() => {
-                 const contextByStatus = {
-                   [ORDER_STATUS.ORDERED]: {
-                     accent: 'bg-blue-500',
-                     glow: 'bg-blue-500/10',
-                     title: 'Order Received!',
-                     description: 'Your order is in the queue. Our kitchen team has been notified and will begin preparation shortly. Thank you for your patience.',
-                     metricLabel: 'Queue Status',
-                     metricValue: 'Confirmed',
-                     metricColor: 'text-blue-400',
-                     barColor: 'bg-blue-500',
-                     barGlow: 'shadow-[0_0_10px_rgba(59,130,246,0.5)]',
-                     barWidth: '20%',
-                     quote: '"Your culinary journey is about to begin."'
-                   },
-                   [ORDER_STATUS.PREPARING]: {
-                     accent: 'bg-orange-500',
-                     glow: 'bg-orange-500/10',
-                     title: 'Crafting Perfection',
-                     description: 'Our master chefs are handling your order with extreme precision. Each dish is made with the freshest ingredients and expert technique.',
-                     metricLabel: 'Kitchen Activity',
-                     metricValue: 'In Progress',
-                     metricColor: 'text-orange-400',
-                     barColor: 'bg-orange-500',
-                     barGlow: 'shadow-[0_0_10px_rgba(249,115,22,0.5)]',
-                     barWidth: '55%',
-                     quote: '"Savor the anticipation, the journey has just begun."'
-                   },
-                   [ORDER_STATUS.READY]: {
-                     accent: 'bg-emerald-500',
-                     glow: 'bg-emerald-500/10',
-                     title: 'Almost There!',
-                     description: 'Your dishes are fresh off the kitchen and ready to be served. A member of our team is on their way to your table right now.',
-                     metricLabel: 'Delivery Status',
-                     metricValue: 'Dispatched',
-                     metricColor: 'text-emerald-400',
-                     barColor: 'bg-emerald-500',
-                     barGlow: 'shadow-[0_0_10px_rgba(52,211,153,0.5)]',
-                     barWidth: '80%',
-                     quote: '"Your feast is moments away — enjoy every bite."'
-                   },
-                   [ORDER_STATUS.SERVED]: {
-                     accent: 'bg-purple-500',
-                     glow: 'bg-purple-500/10',
-                     title: 'Enjoy Your Meal!',
-                     description: 'Your meal has been served. Sit back, relax and enjoy. Our team is nearby if you need anything — just raise your hand!',
-                     metricLabel: 'Dining Status',
-                     metricValue: 'Enjoy Meal',
-                     metricColor: 'text-purple-400',
-                     barColor: 'bg-purple-500',
-                     barGlow: 'shadow-[0_0_10px_rgba(168,85,247,0.5)]',
-                     barWidth: '100%',
-                     quote: '"A meal shared is a memory made. Enjoy!"'
-                   },
-                   [ORDER_STATUS.BILL_REQUESTED]: {
-                     accent: 'bg-yellow-500',
-                     glow: 'bg-yellow-500/10',
-                     title: 'Bill On Its Way',
-                     description: 'Your bill has been requested. Our team is preparing your receipt. We hope you had a wonderful dining experience with us today.',
-                     metricLabel: 'Payment Status',
-                     metricValue: 'Pending',
-                     metricColor: 'text-yellow-400',
-                     barColor: 'bg-yellow-500',
-                     barGlow: 'shadow-[0_0_10px_rgba(234,179,8,0.5)]',
-                     barWidth: '95%',
-                     quote: '"Thank you for choosing Servora today."'
-                   },
-                   [ORDER_STATUS.FINISHED]: {
-                     accent: 'bg-slate-50',
-                     glow: 'bg-slate-500/10',
-                     title: 'Session Complete',
-                     description: 'Your dining session has been successfully concluded. We hope everything was to your satisfaction. Visit us again soon!',
-                     metricLabel: 'Session',
-                     metricValue: 'Closed',
-                     metricColor: 'text-slate-400',
-                     barColor: 'bg-slate-500',
-                     barGlow: '',
-                     barWidth: '100%',
-                     quote: '"See you next time at Servora!"'
-                   }
-                 }
-                 const ctx = contextByStatus[order.status] || contextByStatus[ORDER_STATUS.PREPARING]
-                 return (
-                   <motion.div 
-                     initial={{ opacity: 0 }}
-                     animate={{ opacity: 1 }}
-                     transition={{ duration: 0.2, delay: 0.15 }}
-                     className="space-y-8"
-                   >
-                      <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-slate-900/10 h-full flex flex-col justify-center relative overflow-hidden group">
-                         <div className={`absolute top-0 right-0 w-48 h-48 ${ctx.glow} blur-[80px] -mr-24 -mt-24 rounded-full transition-transform group-hover:scale-125 duration-1000`} />
-                         <AnimatePresence mode="wait">
-                           <motion.div
-                             key={order.status}
-                             initial={{ opacity: 0, y: 8 }}
-                             animate={{ opacity: 1, y: 0 }}
-                             exit={{ opacity: 0, y: -8 }}
-                             transition={{ duration: 0.3 }}
-                             className="relative z-10 space-y-6"
-                           >
-                              <div className={`w-16 h-1 ${ctx.accent} rounded-full`} />
-                              <h3 className="text-3xl font-bold tracking-tight leading-tight">{ctx.title}</h3>
-                              <p className="text-slate-400 text-sm leading-relaxed font-medium">{ctx.description}</p>
-                              <div className="py-6 space-y-4 border-y border-white/5">
-                                 <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ctx.metricLabel}</span>
-                                    <span className={`text-[10px] font-bold uppercase tracking-widest ${ctx.metricColor}`}>{ctx.metricValue}</span>
-                                 </div>
-                                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <motion.div 
-                                       initial={{ width: 0 }}
-                                       animate={{ width: ctx.barWidth }}
-                                       transition={{ duration: 1, ease: 'easeOut' }}
-                                       className={`h-full ${ctx.barColor} ${ctx.barGlow}`} 
-                                    />
-                                 </div>
-                              </div>
-                              <p className="text-slate-500 text-[11px] font-bold italic">{ctx.quote}</p>
-
-                           </motion.div>
-                         </AnimatePresence>
-                      </div>
-
-                   </motion.div>
-                 )
-               })()}
-            </div>
+        {/* 👨‍🍳 5. GOURMET KITCHEN PROMISE CARD */}
+        <div className="bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 text-white rounded-[2rem] p-5 text-center space-y-2 border border-zinc-800 shadow-md">
+          <div className="flex items-center justify-center gap-1.5 text-amber-400 text-[10px] font-black uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>CULINARY EXCELLENCE</span>
           </div>
+          <p className="text-xs text-zinc-300 font-medium max-w-md mx-auto leading-relaxed">
+            "Every meal is prepared fresh with hand-picked spices and artisanal care. Savor the anticipation."
+          </p>
+        </div>
 
-          {/* Precision Sidebar */}
-          <div className="lg:col-span-12 xl:col-span-4 space-y-8">
-             {/* Dynamic Action Center */}
-             {isServed && (
-               <motion.div 
-                 initial={{ opacity: 0 }}
-                 animate={{ opacity: 1 }}
-                 transition={{ duration: 0.2 }}
-                 className="bg-white rounded-[2.5rem] p-10 border border-slate-200/60 shadow-xl shadow-slate-100/50 space-y-8"
-               >
-                  <div className="space-y-2">
-                     <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Your Session is Live</h3>
-                     <p className="text-slate-500 text-xs font-medium">Everything you ordered has been served. How can we enhance your experience further?</p>
-                  </div>
+        {/* Footer Brand Credit */}
+        <div className="text-center pt-2 pb-6 text-zinc-400 space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em]">POWERED BY SERVORA HOSPITALITY SUITE</p>
+        </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                     <Button 
-                       onClick={() => window.location.href = `/menu?restaurant=${restaurantId}&table=${order?.tableNumber || ''}`}
-                       className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
-                     >
-                        <Utensils className="w-5 h-5" />
-                        <span className="text-xs uppercase tracking-widest">Order More</span>
-                     </Button>
-                     <Button 
-                       variant="outline"
-                       onClick={() => updateOrderStatus(ORDER_STATUS.BILL_REQUESTED)}
-                       className="w-full h-14 bg-white hover:bg-slate-50 border-slate-200 text-slate-900 font-bold rounded-2xl transition-all flex items-center justify-center gap-3"
-                     >
-                        <Receipt className="w-5 h-5" />
-                        <span className="text-xs uppercase tracking-widest">Request Bill</span>
-                     </Button>
-                  </div>
-               </motion.div>
-             )}             {/* Order Receipt - Full Redesign */}
-             <motion.div 
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               transition={{ delay: 0.2 }}
-               className="rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 border border-slate-100 bg-white"
-             >
+      </main>
 
-               {/* Receipt Header */}
-               <div className="bg-linear-to-br from-slate-900 to-slate-800 p-6">
-                 <div className="flex items-start justify-between mb-4">
-                   <div>
-                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Order Receipt</p>
-                     <p className="text-white font-mono font-bold text-lg tracking-widest">#{order.id.slice(-6).toUpperCase()}</p>
-                   </div>
-                   <div className="flex flex-col items-end gap-1.5">
-                     <span className="text-[9px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-full uppercase tracking-widest">
-                       ● Verified
-                     </span>
-                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                       Table {order.tableNumber}
-                     </span>
-                   </div>
-                 </div>
-                 <div className="h-px bg-white/5" />
-               </div>
-
-               {/* Items List */}
-               <div className="bg-white p-6 space-y-3">
-                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-4">Your Items</p>
-                  {(order.items || []).map((item, index) => (
-                   <motion.div
-                     key={index}
-                     initial={{ opacity: 0, x: -8 }}
-                     animate={{ opacity: 1, x: 0 }}
-                     transition={{ delay: 0.1 + index * 0.05 }}
-                     className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-colors group cursor-default"
-                   >
-                     <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xs group-hover:scale-110 transition-transform duration-300">
-                         {item.quantity}×
-                       </div>
-                       <div>
-                         <p className="text-sm font-bold text-slate-900 leading-tight">{item.name}</p>
-                         <p className="text-[10px] font-bold text-slate-400">{formatPrice(item.price)} each</p>
-                       </div>
-                     </div>
-                     <span className="text-sm font-black text-slate-900">{formatPrice(item.price * item.quantity)}</span>
-                   </motion.div>
-                 ))}
-               </div>
-
-
-                {/* Total & CTA */}
-                <div className="bg-slate-50 border-t border-slate-100 p-6 space-y-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p>
-                      <p className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(order?.total || 0)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Items</p>
-                      <p className="text-xl font-black text-slate-900">{(order.items || []).reduce((t, i) => t + (i.quantity || 1), 0)}</p>
-                    </div>
-                  </div>
-
-                  <motion.div whileHover={!isCallingWaiter ? { scale: 1.02 } : {}} whileTap={!isCallingWaiter ? { scale: 0.98 } : {}}>
-                    <Button 
-                      onClick={handleCallConcierge}
-                      disabled={isCallingWaiter}
-                      className={cn(
-                        "w-full h-14 border border-white/5 rounded-[1.2rem] font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 group",
-                        isCallingWaiter ? "bg-emerald-600 border-emerald-500 text-white" : "bg-slate-900 hover:bg-black text-white"
-                      )}
-                    >
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center border border-white/10 transition-all duration-500",
-                        isCallingWaiter ? "bg-white/20" : "bg-white/10 group-hover:bg-white"
-                      )}>
-                        {isCallingWaiter ? (
-                          <CheckCircle className="w-3.5 h-3.5 text-white" />
-                        ) : (
-                          <Phone className="w-3.5 h-3.5 text-white/70 group-hover:text-slate-900 transition-colors" />
-                        )}
-                      </div>
-                      {isCallingWaiter ? "Concierge Notified" : "Contact Concierge"}
-                    </Button>
-                  </motion.div>
-                </div>
-              </motion.div>
-
-              {/* Branding Footer */}
-              <div className="text-center pt-6 pb-16 space-y-3">
-                 <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-px flex-1 bg-slate-100" />
-                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Powered by</span>
-                    <div className="h-px flex-1 bg-slate-100" />
-                 </div>
-                 <div className="flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity duration-500">
-                    <Logo showText={true} iconSize={18} className="scale-90" />
-                 </div>
-                 <p className="text-[9px] font-bold text-slate-200 uppercase tracking-widest">Secure Session Protocol</p>
-              </div>
-            </div>
-          </div>
-        </main>
-
-      {/* Persistent Menu Navigation */}
+      {/* 📱 6. FLOATING BOTTOM NAVIGATION DOCK */}
       <MenuBottomNavbar 
-        activeTab="orders"
-        setActiveTab={() => {}}
-        cartCount={cart.reduce((total, item) => total + item.quantity, 0)}
-        hasActiveOrder={true}
-        onCartClick={onClose}
-        onSearchClick={onClose}
+        activeTab="orders" 
+        setActiveTab={(tab) => {
+          if (tab === 'cart') {
+            if (onOpenCart) onOpenCart()
+            else onClose()
+          } else if (tab === 'search') {
+            if (onOpenSearch) onOpenSearch()
+            else onClose()
+          } else if (tab !== 'orders') {
+            onClose()
+          }
+        }}
+        onCartClick={() => {
+          if (onOpenCart) onOpenCart()
+          else onClose()
+        }}
+        onSearchClick={() => {
+          if (onOpenSearch) onOpenSearch()
+          else onClose()
+        }}
         onTrackClick={() => {}}
-        orderStatus={order?.status}
+        hasActiveOrder={true}
+        orderStatus={order?.status?.toLowerCase() || 'preparing'}
+        cartCount={0}
       />
+
     </div>
   )
 }
-
-export default OrderTracking
