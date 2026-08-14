@@ -33,6 +33,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import { 
   getTableSessions, 
@@ -327,6 +328,10 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
       if (target) syncTableToCloud(target);
       return [...updated];
     });
+
+    if (selectedTable && String(selectedTable.tableNumber) === String(tableNumber)) {
+      setSelectedTable(prev => ({ ...prev, status: newStatus }));
+    }
   };
 
   const syncTableToCloud = async (table) => {
@@ -627,7 +632,7 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
                             setSelectedTable(table);
                           }}
                         >
-                          <Receipt className="w-3.5 h-3.5 mr-1 text-rose-400" /> {isOccupied ? 'POS CHECK' : 'VIEW POS'}
+                          <Receipt className="w-3.5 h-3.5 mr-1 text-rose-400" /> VIEW TABLE
                         </Button>
                         
                         {isOccupied && (
@@ -714,138 +719,159 @@ const TableSessions = ({ activeItem, setActiveItem, navigate, restaurantId, plan
         </Tabs>
       </div>
 
-      {/* 🧾 EXECUTIVE VIEW TABLE & POS CHECK MODAL */}
-      {selectedTable && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <Card className="max-w-lg w-full border-0 shadow-2xl rounded-3xl overflow-hidden animate-in fade-in zoom-in duration-200 bg-white">
-            {/* Header */}
-            <div className={`p-6 ${statusConfig[selectedTable.status].bgColor} border-b border-slate-100 flex items-center justify-between`}>
-               <div className="flex items-center gap-4">
-                 <div className="w-14 h-14 bg-white rounded-2xl shadow-md flex items-center justify-center text-xl font-black text-slate-900 border border-slate-100">
-                    T-{selectedTable.tableNumber}
-                 </div>
-                 <div>
-                   <h3 className="text-lg font-black text-slate-900">Table {selectedTable.tableNumber}</h3>
-                   <div className="flex items-center gap-2 mt-1">
-                     <Badge className={`${statusConfig[selectedTable.status].color} rounded-lg text-[10px]`}>
-                       {selectedTable.status.toUpperCase()}
-                     </Badge>
-                     {selectedTable.customers > 0 && (
-                       <span className="text-xs font-bold text-slate-600">• {selectedTable.customers} Guests</span>
-                     )}
+      {/* 🧾 PREMIUM VIEW TABLE & POS CHECK MODAL */}
+      <Dialog open={!!selectedTable} onOpenChange={(open) => !open && setSelectedTable(null)}>
+        <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border border-zinc-200/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-[32px] bg-white/60 backdrop-blur-3xl">
+          <DialogDescription className="sr-only">
+            Manage table session, view active orders, and perform checkout actions.
+          </DialogDescription>
+          {selectedTable && (
+            <div className="flex flex-col h-full w-full bg-white/70">
+              {/* Header */}
+              <div className="p-7 pb-5 flex items-center justify-between border-b border-zinc-100/80 bg-gradient-to-b from-white to-zinc-50/30">
+                 <div className="flex items-center gap-4">
+                   <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl shadow-[0_8px_16px_-6px_rgba(99,102,241,0.5)] flex items-center justify-center text-lg font-black text-white border border-indigo-400/30">
+                      T-{selectedTable.tableNumber}
+                   </div>
+                   <div>
+                     <DialogTitle className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
+                       Table {selectedTable.tableNumber}
+                     </DialogTitle>
+                     <div className="flex items-center gap-2 mt-1.5">
+                       <Badge variant="secondary" className={`${statusConfig[selectedTable.status].color} bg-white border shadow-sm px-2.5 py-0.5 text-[10px] uppercase tracking-widest font-bold`}>
+                         {selectedTable.status}
+                       </Badge>
+                       {selectedTable.customers > 0 && (
+                         <span className="text-xs font-semibold text-zinc-500 flex items-center gap-1.5 bg-zinc-100/80 px-2 py-0.5 rounded-md">
+                           <Users className="w-3.5 h-3.5" /> {selectedTable.customers} Guests
+                         </span>
+                       )}
+                     </div>
                    </div>
                  </div>
-               </div>
-               <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 text-slate-400 hover:bg-white" onClick={() => setSelectedTable(null)}>
-                 <X className="w-5 h-5" />
-               </Button>
-            </div>
+              </div>
 
-            <CardContent className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
-               {/* Live Customer Minutes Count Widget */}
-               <div className="p-4 bg-slate-900 text-white rounded-2xl shadow-md flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-blue-400">
-                       <Clock className="w-5 h-5 animate-pulse" />
-                     </div>
-                     <div>
-                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Customer Served Duration</p>
-                       <p className="text-xl font-mono font-black tracking-tight text-emerald-400">
-                         {formatLiveDuration(selectedTable.sessionStart, currentTime) || 'No Active Session'}
-                       </p>
-                     </div>
-                  </div>
-                  {selectedTable.sessionStart && (
-                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px] font-mono">
-                      Started: {new Date(selectedTable.sessionStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Badge>
-                  )}
-               </div>
+              <div className="p-7 space-y-8 max-h-[72vh] overflow-y-auto">
+                 {/* Live Customer Minutes Count Widget */}
+                 <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-indigo-50 via-white to-blue-50/50 p-6 border border-indigo-100/50 shadow-sm">
+                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                      <Clock className="w-24 h-24" />
+                    </div>
+                    <div className="relative flex items-center justify-between">
+                       <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-indigo-100 flex items-center justify-center text-indigo-500">
+                            <Clock className="w-5 h-5 animate-[spin_10s_linear_infinite]" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-0.5">Session Duration</p>
+                            <p className="text-3xl font-black tracking-tighter text-indigo-950">
+                              {formatLiveDuration(selectedTable.sessionStart, currentTime) || '0m 0s'}
+                            </p>
+                          </div>
+                       </div>
+                       {selectedTable.sessionStart && (
+                         <div className="flex flex-col items-center relative z-10">
+                           <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-1">Seated At</p>
+                           <p className="text-sm font-bold text-indigo-900 bg-white/80 px-3 py-1 rounded-xl backdrop-blur-md shadow-sm border border-white">
+                             {new Date(selectedTable.sessionStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                           </p>
+                         </div>
+                       )}
+                    </div>
+                 </div>
 
-               {/* Active Order Items Breakdown */}
-               <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                      <Utensils className="w-3.5 h-3.5 text-blue-600" /> Active POS Order Check
-                    </h4>
-                    {tableOrder && (
-                      <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px]">
-                        Order #{tableOrder.id.slice(-6)}
-                      </Badge>
+                 {/* Active Order Items Breakdown */}
+                 <div className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <h4 className="text-[13px] font-bold uppercase tracking-wider text-zinc-800 flex items-center gap-2">
+                        <Utensils className="w-4 h-4 text-zinc-400" /> Active Order Check
+                      </h4>
+                      {tableOrder && (
+                        <Badge className="bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-0 text-[10px] tracking-wider px-2.5 py-0.5 font-bold shadow-none">
+                          ORDER #{tableOrder.id.slice(-6)}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {loadingOrder ? (
+                      <div className="py-12 bg-zinc-50/50 rounded-[24px] border border-dashed border-zinc-200 flex flex-col items-center justify-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+                          <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin" />
+                        </div>
+                        <span className="text-xs font-semibold tracking-wide text-zinc-400">Syncing live orders...</span>
+                      </div>
+                    ) : tableOrder && tableOrder.order_items?.length > 0 ? (
+                      <div className="bg-white rounded-[24px] border border-zinc-200/60 p-6 shadow-sm relative overflow-hidden">
+                         <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 rounded-l-[24px]"></div>
+                         <div className="space-y-4 max-h-52 overflow-y-auto pr-2 custom-scrollbar">
+                            {tableOrder.order_items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-start text-sm group">
+                                 <div className="flex gap-3">
+                                   <span className="font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">{item.quantity}x</span>
+                                   <span className="font-semibold text-zinc-800 pt-0.5">{item.name}</span>
+                                 </div>
+                                 <span className="font-bold text-zinc-900 pt-0.5">{formatCurrency(item.price * item.quantity)}</span>
+                              </div>
+                            ))}
+                         </div>
+                         
+                         <div className="pt-5 mt-3 border-t border-dashed border-zinc-200 space-y-2.5 text-[13px]">
+                            <div className="flex justify-between text-zinc-500 font-medium">
+                               <span>Subtotal</span>
+                               <span className="text-zinc-700">{formatCurrency(tableOrder.subtotal)}</span>
+                            </div>
+                            {tableOrder.tax > 0 && (
+                              <div className="flex justify-between text-zinc-500 font-medium">
+                                 <span>Tax & Fees</span>
+                                 <span className="text-zinc-700">{formatCurrency(tableOrder.tax)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-xl font-black tracking-tight text-zinc-900 pt-3 mt-1 border-t border-zinc-100">
+                               <span>Total</span>
+                               <span className="text-indigo-600">{formatCurrency(tableOrder.total)}</span>
+                            </div>
+                         </div>
+                      </div>
+                    ) : (
+                      <div className="py-12 bg-gradient-to-b from-zinc-50/50 to-zinc-100/50 rounded-[24px] border border-dashed border-zinc-200 text-center flex flex-col items-center justify-center relative overflow-hidden">
+                         <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
+                           <Receipt className="w-6 h-6 text-zinc-300" />
+                         </div>
+                         <p className="text-sm text-zinc-500 font-bold tracking-tight">No active orders placed yet.</p>
+                         <p className="text-xs text-zinc-400 mt-1">Guests can scan the QR code to order.</p>
+                      </div>
                     )}
-                  </div>
+                 </div>
 
-                  {loadingOrder ? (
-                    <div className="py-8 text-center text-xs font-bold text-slate-400 animate-pulse">Loading active order details...</div>
-                  ) : tableOrder && tableOrder.order_items?.length > 0 ? (
-                    <div className="border border-slate-100 rounded-2xl p-4 space-y-3 bg-slate-50/50">
-                       <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                          {tableOrder.order_items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                               <div className="font-semibold text-slate-800">
-                                 {item.quantity}x {item.name}
-                               </div>
-                               <span className="font-bold text-slate-900">{formatCurrency(item.price * item.quantity)}</span>
-                            </div>
-                          ))}
-                       </div>
-                       
-                       <div className="pt-3 border-t border-slate-200 space-y-1.5 text-xs">
-                          <div className="flex justify-between text-slate-500">
-                             <span>Subtotal</span>
-                             <span className="font-semibold">{formatCurrency(tableOrder.subtotal)}</span>
-                          </div>
-                          {tableOrder.tax > 0 && (
-                            <div className="flex justify-between text-slate-500">
-                               <span>GST Tax</span>
-                               <span className="font-semibold">{formatCurrency(tableOrder.tax)}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between text-base font-black text-slate-900 pt-1 border-t border-slate-200">
-                             <span>Total Bill</span>
-                             <span className="text-blue-600">{formatCurrency(tableOrder.total)}</span>
-                          </div>
-                       </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                       <p className="text-xs text-slate-500 font-medium">No pending order active for this table session.</p>
-                    </div>
-                  )}
-               </div>
+                 {/* Quick POS Actions */}
+                 <div className="space-y-3 pt-6">
+                    {selectedTable.status === 'occupied' && (
+                      <Button className="w-full bg-gradient-to-r from-zinc-900 to-zinc-800 hover:from-black hover:to-zinc-900 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-zinc-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={() => handleStatusChange(selectedTable.tableNumber, 'billing')}>
+                        <CreditCard className="w-4 h-4 mr-2" /> GENERATE CHECK & BILL
+                      </Button>
+                    )}
 
-               {/* Quick POS Actions */}
-               <div className="space-y-2 pt-2 border-t border-slate-100">
-                  {selectedTable.status === 'occupied' && (
-                    <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white h-12 rounded-2xl font-bold text-xs tracking-wider" onClick={() => handleStatusChange(selectedTable.tableNumber, 'billing')}>
-                      <CreditCard className="w-4 h-4 mr-2" /> GENERATE CHECK / MARK BILLING
-                    </Button>
-                  )}
+                    {selectedTable.status === 'billing' && (
+                      <Button className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={handleSettleAndClearPOS}>
+                        <Check className="w-4 h-4 mr-2" /> SETTLE BILL & FREE TABLE
+                      </Button>
+                    )}
 
-                  {selectedTable.status === 'billing' && (
-                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 rounded-2xl font-bold text-xs tracking-wider shadow-lg shadow-emerald-500/20" onClick={handleSettleAndClearPOS}>
-                      <Check className="w-4 h-4 mr-2" /> SETTLE BILL & FREE TABLE
-                    </Button>
-                  )}
-
-                  {selectedTable.status === 'needs-cleaning' ? (
-                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 rounded-2xl font-bold text-xs tracking-wider" onClick={() => handleMarkTableAvailable(selectedTable)}>
-                      <Sparkles className="w-4 h-4 mr-2" /> MARK TABLE READY
-                    </Button>
-                  ) : (
-                    <Button variant="outline" className="w-full h-11 rounded-2xl font-bold text-xs border-slate-200 text-slate-700" onClick={() => handleStatusChange(selectedTable.tableNumber, 'needs-cleaning')}>
-                      <Sparkles className="w-4 h-4 mr-2 text-orange-500" /> REQUEST TABLE CLEANING
-                    </Button>
-                  )}
-
-                  <Button variant="ghost" className="w-full h-10 rounded-2xl font-bold text-xs text-slate-400" onClick={() => setSelectedTable(null)}>
-                     CLOSE PANEL
-                  </Button>
-               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                    {selectedTable.status === 'needs-cleaning' ? (
+                      <Button className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={() => handleMarkTableAvailable(selectedTable)}>
+                        <Sparkles className="w-4 h-4 mr-2" /> MARK TABLE READY
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="w-full bg-white/60 h-14 rounded-[16px] font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group" onClick={() => handleStatusChange(selectedTable.tableNumber, 'needs-cleaning')}>
+                        <Sparkles className="w-4 h-4 mr-2 text-zinc-400 group-hover:text-indigo-500 transition-colors duration-300" /> REQUEST CLEANING
+                      </Button>
+                    )}
+                 </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Upgrade Plan Modal */}
       <UpgradePlanModal 

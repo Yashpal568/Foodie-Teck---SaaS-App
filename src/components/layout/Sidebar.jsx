@@ -107,17 +107,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
 
         const { count: tableCount } = await tableQuery
 
-        // 3. Fetch Active Waiter Calls count
-        let waiterQuery = supabase
-          .from('waiter_calls')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_handled', false)
-          .eq('restaurant_id', validId)
-
-        const { count: waiterCount } = await waiterQuery
-
         setCounts({
-          orders: (activeOrderCount || 0) + (waiterCount || 0),
+          orders: activeOrderCount || 0,
           tables: tableCount || 0
         })
       } catch (err) {

@@ -450,10 +450,10 @@ export default function CustomerMenu() {
         </NavbarContent>
       </Navbar>
 
-      {/* 📱 MOBILE NAVBAR & HERO (Matches Premium Shadcn Layout) */}
-      <div className="lg:hidden px-4 pt-4 pb-2">
-        {/* White Top Navbar */}
-        <div className="bg-white px-5 py-4 flex items-center justify-between rounded-t-[2rem] shadow-sm relative z-10">
+      {/* 📱 MOBILE NAVBAR & HERO */}
+      <div className="lg:hidden">
+        {/* White Top Navbar (Sticky) */}
+        <div className="bg-white/95 backdrop-blur-md px-6 py-4 flex items-center justify-between shadow-sm relative z-50 sticky top-0 border-b border-zinc-100">
           <Logo showText={true} iconSize={24} />
           <Button variant="ghost" size="icon" className="text-slate-400 hover:text-indigo-600 rounded-full h-10 w-10">
             <User className="h-5 w-5" />
@@ -461,7 +461,8 @@ export default function CustomerMenu() {
         </div>
 
         {/* Dark Hero Section */}
-        <div className="w-full relative overflow-hidden bg-slate-900 rounded-b-[2rem] shadow-xl -mt-1">
+        <div className="px-4 pt-6 pb-2">
+          <div className="w-full relative overflow-hidden bg-slate-900 rounded-[2rem] shadow-xl">
           {/* Background Image */}
           <div className="absolute inset-0">
             <img 
@@ -509,7 +510,7 @@ export default function CustomerMenu() {
           </div>
         </div>
       </div>
-
+      </div>
 
       <div className="w-full max-w-350 mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[72%_minmax(380px,28%)] gap-10 items-start overflow-visible">
         <div className="space-y-12 w-full">

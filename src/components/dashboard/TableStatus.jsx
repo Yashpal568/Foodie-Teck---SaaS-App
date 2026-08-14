@@ -289,7 +289,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                           setSelectedTable(table);
                         }}
                       >
-                        <Receipt className="w-3.5 h-3.5 mr-1.5 text-rose-400" /> {isOccupied ? 'POS CHECK' : 'VIEW POS'}
+                        <Receipt className="w-3.5 h-3.5 mr-1.5 text-rose-400" /> VIEW TABLE
                       </Button>
                       
                       {isOccupied && (
