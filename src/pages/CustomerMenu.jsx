@@ -642,7 +642,7 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className={`min-h-screen flex flex-col pb-32 lg:pb-0 overflow-x-hidden transition-colors duration-500 relative selection:bg-amber-500 selection:text-black ${
+    <div className={`min-h-screen flex flex-col pb-32 lg:pb-0 transition-colors duration-500 relative selection:bg-amber-500 selection:text-black ${
       theme === 'dark' ? 'bg-[#090a0f] text-white' : 'bg-[#faf8f5] text-zinc-900'
     }`}>
       {/* 🌟 LUXURY AMBIENT GLOW LIGHTING MESH 🌟 */}
@@ -658,9 +658,11 @@ export default function CustomerMenu() {
         }`} />
       </div>
 
-      {/* 💻 DESKTOP NAVBAR */}
-      <Navbar className={`hidden lg:flex backdrop-blur-3xl sticky top-0 z-50 border-b h-24 transition-colors duration-500 ${
-        theme === 'dark' ? 'bg-zinc-950/85 border-zinc-800/80 text-white' : 'bg-white/90 border-amber-100/60 text-zinc-900'
+      {/* 💻 STICKY DESKTOP NAVBAR */}
+      <Navbar className={`hidden lg:flex backdrop-blur-2xl sticky top-0 z-50 border-b h-20 transition-colors duration-500 ${
+        theme === 'dark' 
+          ? 'bg-zinc-950/90 border-zinc-800/80 text-white shadow-[0_4px_25px_rgba(0,0,0,0.5)]' 
+          : 'bg-white/92 border-amber-100/70 text-zinc-900 shadow-xs'
       }`}>
         <NavbarContent className="max-w-375 mx-auto px-10 w-full flex items-center justify-between gap-12">
           <NavbarBrand className="flex items-center gap-3 cursor-pointer">
@@ -675,7 +677,7 @@ export default function CustomerMenu() {
               ref={searchInputRef} 
               type="text" 
               placeholder="Search for dishes, cuisines or favorites..." 
-              className={`w-full h-16 pl-16 pr-16 border rounded-full focus-visible:ring-2 focus-visible:ring-amber-500/20 transition-all text-[13px] font-bold tracking-tight shadow-sm ${
+              className={`w-full h-14 pl-16 pr-16 border rounded-full focus-visible:ring-2 focus-visible:ring-amber-500/20 transition-all text-[13px] font-bold tracking-tight shadow-sm ${
                 theme === 'dark' 
                   ? 'bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:border-amber-500/50' 
                   : 'bg-[#f8fafc] border-transparent text-slate-900 placeholder:text-slate-400 focus-visible:bg-white focus-visible:border-amber-200'
@@ -727,7 +729,7 @@ export default function CustomerMenu() {
                 </div>
              </div>
 
-             <Button variant="ghost" size="icon" className={`h-12 w-12 rounded-2xl transition-all ${
+             <Button variant="ghost" size="icon" className={`h-11 w-11 rounded-2xl transition-all ${
                theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-900' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
              }`}>
                 <User className="h-5 w-5" />
@@ -736,64 +738,67 @@ export default function CustomerMenu() {
         </NavbarContent>
       </Navbar>
 
-      {/* 📱 MOBILE NAVBAR & HERO */}
-      <div className="lg:hidden relative z-10">
-        {/* Premium Mobile Navbar (Sticky) */}
-        <div className={`px-5 py-3.5 flex items-center justify-between shadow-sm sticky top-0 z-50 border-b backdrop-blur-xl transition-colors duration-500 ${
-          theme === 'dark' ? 'bg-zinc-950/85 border-zinc-800/80 text-white' : 'bg-white/85 border-amber-100/60 text-zinc-900'
-        }`}>
-          <div className="flex items-center gap-3">
-            <Logo showText={true} iconSize={22} />
-            {tableNumber && tableNumber !== 'N/A' && (
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ml-1 border ${
-                theme === 'dark'
-                  ? 'bg-zinc-900 border-zinc-700 text-amber-300'
-                  : 'bg-amber-50/80 border-amber-200/60 text-amber-900'
-              }`}>
-                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                 <span className="text-[10px] font-black uppercase tracking-widest pt-[1px]">Table {tableNumber}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* ☀️ / 🌙 Mobile Day & Night Switcher Pill */}
-            <button
-              onClick={toggleTheme}
-              className={`h-9 px-3 rounded-full border flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer ${
-                theme === 'dark'
-                  ? 'bg-zinc-900 border-zinc-700 text-amber-300 hover:bg-zinc-800'
-                  : 'bg-white border-amber-200/80 text-amber-800 hover:bg-amber-50'
-              }`}
-              title={`Switch to ${theme === 'dark' ? 'Day Light' : 'Night Velvet'} Mode`}
-            >
-              {theme === 'dark' ? (
-                <>
-                  <Moon className="w-3.5 h-3.5 fill-amber-300 text-amber-300 animate-pulse" />
-                  <span className="text-[10px] uppercase tracking-wider font-black">NIGHT</span>
-                </>
-              ) : (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                  <span className="text-[10px] uppercase tracking-wider font-black text-amber-900">DAY</span>
-                </>
-              )}
-            </button>
-
-            <Button variant="ghost" size="icon" className={`rounded-full h-9 w-9 transition-all shadow-sm ${
+      {/* 📱 STICKY MOBILE TOP NAVBAR (FIXED ON SCROLL) */}
+      <header className={`lg:hidden sticky top-0 z-50 px-5 py-3 flex items-center justify-between shadow-sm border-b backdrop-blur-2xl transition-colors duration-500 ${
+        theme === 'dark' 
+          ? 'bg-zinc-950/90 border-zinc-800/80 text-white shadow-[0_4px_20px_rgba(0,0,0,0.5)]' 
+          : 'bg-white/92 border-amber-100/70 text-zinc-900 shadow-xs'
+      }`}>
+        <div className="flex items-center gap-3">
+          <Logo showText={true} iconSize={22} />
+          {tableNumber && tableNumber !== 'N/A' && (
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ml-1 border ${
               theme === 'dark'
-                ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
-                : 'bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50'
+                ? 'bg-zinc-900 border-zinc-700 text-amber-300'
+                : 'bg-amber-50/80 border-amber-200/60 text-amber-900'
             }`}>
-              <User className="h-4 w-4" />
-            </Button>
-          </div>
+               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+               <span className="text-[10px] font-black uppercase tracking-widest pt-[1px]">Table {tableNumber}</span>
+            </div>
+          )}
         </div>
+
+        <div className="flex items-center gap-2">
+          {/* ☀️ / 🌙 Mobile Day & Night Switcher Pill */}
+          <button
+            onClick={toggleTheme}
+            className={`h-9 px-3 rounded-full border flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer ${
+              theme === 'dark'
+                ? 'bg-zinc-900 border-zinc-700 text-amber-300 hover:bg-zinc-800'
+                : 'bg-white border-amber-200/80 text-amber-800 hover:bg-amber-50'
+            }`}
+            title={`Switch to ${theme === 'dark' ? 'Day Light' : 'Night Velvet'} Mode`}
+          >
+            {theme === 'dark' ? (
+              <>
+                <Moon className="w-3.5 h-3.5 fill-amber-300 text-amber-300 animate-pulse" />
+                <span className="text-[10px] uppercase tracking-wider font-black">NIGHT</span>
+              </>
+            ) : (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                <span className="text-[10px] uppercase tracking-wider font-black text-amber-900">DAY</span>
+              </>
+            )}
+          </button>
+
+          <Button variant="ghost" size="icon" className={`rounded-full h-9 w-9 transition-all shadow-sm ${
+            theme === 'dark'
+              ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
+              : 'bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50'
+          }`}>
+            <User className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      {/* 📱 MOBILE RESTAURANT HERO BANNER */}
+      <div className="lg:hidden relative z-10">
 
         {/* ⭐ PREMIUM RESTAURANT HERO BANNER & IDENTITY CARD (MATCHING DASHBOARD LAYOUT) ⭐ */}
         <div className="px-4 pt-3 pb-2">
-          <div className={`w-full rounded-[2rem] sm:rounded-[2.5rem] border shadow-[0_10px_35px_rgba(0,0,0,0.06)] overflow-hidden transition-colors duration-500 ${
-            theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800/80 text-white' : 'bg-white/95 border-zinc-200/80 text-zinc-900'
+          <div className={`group w-full rounded-[2rem] sm:rounded-[2.5rem] border shadow-[0_10px_35px_rgba(0,0,0,0.06)] overflow-hidden transition-all duration-500 hover:shadow-2xl ${
+            theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800/80 text-white hover:border-zinc-700' : 'bg-white/95 border-zinc-200/80 text-zinc-900 hover:border-amber-200'
           }`}>
             
             {/* 1. Full Vibrant Cover Banner Image */}
@@ -801,21 +806,21 @@ export default function CustomerMenu() {
               <img 
                 src={restaurantData.photo || restaurantData.cover_url || restaurantData.coverImage || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80"} 
                 alt={restaurantData.name || "Restaurant Cover"} 
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                 crossOrigin="anonymous"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
 
               {/* Live Table Badge on top of Banner */}
               {tableNumber && tableNumber !== 'N/A' && (
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white border border-white/20 px-3 py-1.5 rounded-full text-xs font-black flex items-center gap-2 shadow-lg">
+                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white border border-white/20 px-3 py-1.5 rounded-full text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-transform">
                   <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                   <span>Table {tableNumber}</span>
                 </div>
               )}
 
               {/* Rating on top of Banner */}
-              <div className="absolute top-3 right-3 bg-emerald-600 text-white px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-lg font-black text-xs">
+              <div className="absolute top-3 right-3 bg-emerald-600 text-white px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-lg font-black text-xs hover:scale-105 transition-transform">
                 <Star className="w-3.5 h-3.5 fill-white text-white" />
                 <span>{restaurantData.rating || '4.8'}</span>
               </div>
@@ -825,12 +830,12 @@ export default function CustomerMenu() {
             <div className="p-4 sm:p-6 pt-0 relative">
               {/* Overlapping Restaurant Logo Avatar */}
               <div className="flex items-end justify-between -mt-10 sm:-mt-12 mb-3">
-                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-xl border-2 border-white overflow-hidden shrink-0 bg-zinc-100">
+                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-xl border-2 border-white overflow-hidden shrink-0 bg-zinc-100 group-hover:scale-105 group-hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all duration-300">
                   {restaurantData.logo || restaurantData.photo ? (
                     <img 
                       src={restaurantData.logo || restaurantData.photo} 
                       alt={restaurantData.name} 
-                      className="w-full h-full object-cover rounded-full" 
+                      className="w-full h-full object-cover rounded-full group-hover:rotate-2 transition-transform duration-500" 
                       crossOrigin="anonymous" 
                     />
                   ) : (
@@ -840,7 +845,7 @@ export default function CustomerMenu() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200/60 shadow-xs">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200/60 shadow-xs hover:scale-105 transition-transform">
                   <Timer className="w-3.5 h-3.5 text-amber-600" />
                   <span>Avg 15-20 mins prep</span>
                 </div>
@@ -849,10 +854,12 @@ export default function CustomerMenu() {
               {/* Restaurant Name, Cuisine & Address */}
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight leading-tight">
+                  <h1 className={`text-xl sm:text-2xl font-black tracking-tight leading-tight transition-colors ${
+                    theme === 'dark' ? 'text-white group-hover:text-amber-300' : 'text-zinc-900'
+                  }`}>
                     {restaurantData.name}
                   </h1>
-                  <span className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1">
+                  <span className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 hover:scale-105 transition-transform">
                     Verified
                   </span>
                 </div>
@@ -864,21 +871,21 @@ export default function CustomerMenu() {
               {/* Context Highlights Pill Strip */}
               <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-zinc-100 text-xs">
                 {tableNumber && tableNumber !== 'N/A' && (
-                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-3 py-1.5 rounded-xl font-bold">
+                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-3 py-1.5 rounded-xl font-bold hover:scale-105 transition-transform">
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Dine-In Mode</span>
                   </div>
                 )}
-                <div className="flex items-center gap-1.5 bg-zinc-50 text-zinc-600 border border-zinc-200/60 px-3 py-1.5 rounded-xl font-semibold">
+                <div className="flex items-center gap-1.5 bg-zinc-50 text-zinc-600 border border-zinc-200/60 px-3 py-1.5 rounded-xl font-semibold hover:scale-105 transition-transform">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                   <span>Instant Table Ordering</span>
                 </div>
               </div>
 
               {/* Signature Promo Strip */}
-              <div className="mt-3 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/70 rounded-2xl p-2.5 px-3.5 flex items-center justify-between text-orange-900 shadow-xs">
+              <div className="mt-3 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/70 rounded-2xl p-2.5 px-3.5 flex items-center justify-between text-orange-900 shadow-xs hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
+                  <Flame className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0 animate-pulse" />
                   <span className="text-xs font-bold text-orange-950">
                     Freshly Crafted Gourmet Meals • Exclusively At Your Table
                   </span>
@@ -927,32 +934,32 @@ export default function CustomerMenu() {
                     <button
                       key={cat}
                       onClick={() => scrollToCategory(cat)}
-                      className="group shrink-0 flex flex-col items-center gap-2 outline-none transition-transform active:scale-95 cursor-pointer"
+                      className="group shrink-0 flex flex-col items-center gap-2 outline-none transition-all duration-300 active:scale-95 cursor-pointer"
                     >
                       {/* Real Food Image Circular Plate with 3D shadow */}
                       <div className={`w-20 h-20 sm:w-22 sm:h-22 rounded-full overflow-hidden border-2 ${
                         isActive 
-                          ? 'border-amber-500 ring-4 ring-amber-500/25 scale-105 shadow-[0_12px_24px_rgba(245,158,11,0.3)]' 
+                          ? 'border-amber-500 ring-4 ring-amber-500/30 scale-105 shadow-[0_14px_28px_rgba(245,158,11,0.4)]' 
                           : theme === 'dark'
-                          ? 'border-zinc-700/80 shadow-md group-hover:border-zinc-500 group-hover:-translate-y-1'
-                          : 'border-zinc-200/80 shadow-[0_6px_16px_rgba(0,0,0,0.08)] group-hover:border-zinc-300 group-hover:shadow-[0_10px_22px_rgba(0,0,0,0.12)] group-hover:-translate-y-1'
+                          ? 'border-zinc-700/80 shadow-md group-hover:border-amber-400/70 group-hover:ring-4 group-hover:ring-amber-400/30 group-hover:shadow-[0_16px_32px_rgba(245,158,11,0.35)] group-hover:-translate-y-2 group-hover:scale-105'
+                          : 'border-zinc-200/80 shadow-[0_6px_16px_rgba(0,0,0,0.08)] group-hover:border-amber-300 group-hover:ring-4 group-hover:ring-amber-400/20 group-hover:shadow-[0_14px_26px_rgba(245,158,11,0.25)] group-hover:-translate-y-2 group-hover:scale-105'
                       } transition-all duration-300 relative ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
                         <img 
                           src={plateInfo.image} 
                           alt={cat} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                          className="w-full h-full object-cover group-hover:scale-115 transition-transform duration-500" 
                           crossOrigin="anonymous"
                           loading="lazy"
                         />
                         {/* Shimmer light reflection overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/20 pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-white/20 pointer-events-none group-hover:opacity-80 transition-opacity" />
                       </div>
                       
                       {/* Category Label */}
-                      <span className={`text-[12px] font-bold tracking-tight max-w-[84px] text-center truncate ${
+                      <span className={`text-[12px] font-bold tracking-tight max-w-[88px] text-center truncate transition-all duration-200 ${
                         isActive 
-                          ? 'text-amber-500 font-black' 
-                          : theme === 'dark' ? 'text-zinc-300 group-hover:text-white' : 'text-zinc-700 group-hover:text-zinc-900'
+                          ? 'text-amber-500 font-black scale-105' 
+                          : theme === 'dark' ? 'text-zinc-300 group-hover:text-amber-400 group-hover:font-black group-hover:scale-105' : 'text-zinc-700 group-hover:text-amber-600 group-hover:font-black group-hover:scale-105'
                       }`}>
                         {cat}
                       </span>
@@ -969,7 +976,7 @@ export default function CustomerMenu() {
               <div className="flex items-center justify-between px-1">
                 <div>
                   <div className="flex items-center gap-1.5 text-amber-500 mb-0.5">
-                    <Flame className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                    <Flame className="h-3.5 w-3.5 fill-amber-500 text-amber-500 animate-bounce" />
                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">Chef's Special Picks</span>
                   </div>
                   <h2 className={`text-lg sm:text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-zinc-900'}`}>Popular Selections</h2>
@@ -984,11 +991,10 @@ export default function CustomerMenu() {
                   return (
                     <motion.div 
                       key={item._id} 
-                      whileHover={{ y: -3 }}
-                      className={`shrink-0 w-[240px] sm:w-[260px] snap-start rounded-3xl p-3 border transition-all duration-300 flex flex-col justify-between group ${
+                      className={`shrink-0 w-[240px] sm:w-[260px] snap-start rounded-3xl p-3 border transition-all duration-300 flex flex-col justify-between group cursor-pointer ${
                         theme === 'dark'
-                          ? 'bg-zinc-900/85 border-zinc-800/90 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-zinc-700'
-                          : 'bg-white/95 border-zinc-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl hover:border-zinc-300'
+                          ? 'bg-zinc-900/85 border-zinc-800/90 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:-translate-y-2 hover:border-amber-500/50 hover:shadow-[0_22px_45px_rgba(0,0,0,0.7),0_0_20px_rgba(245,158,11,0.15)]'
+                          : 'bg-white/95 border-zinc-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:-translate-y-2 hover:border-amber-300 hover:shadow-[0_16px_36px_rgba(0,0,0,0.12)]'
                       }`}
                     >
                       {/* Food Image Container */}
@@ -997,14 +1003,14 @@ export default function CustomerMenu() {
                           <img 
                             src={itemImg} 
                             alt={item.name} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                             crossOrigin="anonymous"
                           />
                         ) : (
                           <img 
                             src={getCategoryPlateInfo(item.category, []).image} 
                             alt={item.name} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                             crossOrigin="anonymous"
                           />
                         )}
@@ -1013,7 +1019,7 @@ export default function CustomerMenu() {
                         <div className="absolute top-2.5 left-2.5 z-10">
                           <FoodTypeBadge type={item.type} />
                         </div>
-                        <div className="absolute top-2.5 right-2.5 z-10 bg-black/60 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-sm">
+                        <div className="absolute top-2.5 right-2.5 z-10 bg-black/60 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-sm group-hover:scale-105 transition-transform">
                           <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                           <span>4.8</span>
                         </div>
@@ -1027,8 +1033,8 @@ export default function CustomerMenu() {
                       {/* Details & Action Row */}
                       <div className="pt-3 flex flex-col justify-between flex-1">
                         <div>
-                          <h4 className={`text-[14px] font-bold line-clamp-1 tracking-tight group-hover:text-amber-400 transition-colors ${
-                            theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                          <h4 className={`text-[14px] font-bold line-clamp-1 tracking-tight transition-colors duration-200 ${
+                            theme === 'dark' ? 'text-white group-hover:text-amber-400' : 'text-zinc-900 group-hover:text-amber-600'
                           }`}>
                             {item.name}
                           </h4>
@@ -1042,7 +1048,7 @@ export default function CustomerMenu() {
                         <div className={`flex items-center justify-between pt-2 border-t ${
                           theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
                         }`}>
-                          <span className={`text-base font-black tracking-tight ${
+                          <span className={`text-base font-black tracking-tight group-hover:scale-105 transition-transform duration-200 inline-block ${
                             theme === 'dark' ? 'text-white' : 'text-zinc-900'
                           }`}>
                             {formatPrice(item.price)}
@@ -1051,7 +1057,7 @@ export default function CustomerMenu() {
                           {getQuantity(item._id) > 0 ? (
                             <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-md gap-2 border border-white/20">
                               <button 
-                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer"
+                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
                                 onClick={(e) => { e.stopPropagation(); removeFromCart(item._id); }}
                               >
                                 <Minus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
@@ -1060,7 +1066,7 @@ export default function CustomerMenu() {
                                 {getQuantity(item._id)}
                               </span>
                               <button 
-                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer"
+                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
                                 onClick={(e) => { e.stopPropagation(); addToCart(item); }}
                               >
                                 <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
@@ -1069,9 +1075,9 @@ export default function CustomerMenu() {
                           ) : (
                             <button 
                               onClick={(e) => { e.stopPropagation(); addToCart(item); }}
-                              className={`px-4 py-1.5 border-2 active:scale-95 shadow-sm rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                              className={`px-4 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-sm hover:shadow-md rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
                                 theme === 'dark'
-                                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-black'
+                                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-black hover:border-amber-400'
                                   : 'bg-white text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500'
                               }`}
                             >
@@ -1089,7 +1095,7 @@ export default function CustomerMenu() {
           )}
 
           {/* 🔍 SWIGGY/ZOMATO STICKY SEARCH & QUICK FILTER BAR 🔍 */}
-          <div className={`sticky top-[68px] z-30 px-0 py-3 backdrop-blur-xl transition-all duration-300 space-y-3 ${
+          <div className={`sticky top-[52px] lg:top-[80px] z-30 px-0 py-3 backdrop-blur-xl transition-all duration-300 space-y-3 ${
             theme === 'dark' ? 'bg-[#090a0f]/90' : 'bg-[#faf8f5]/90'
           }`}>
              {/* Search Input Box */}
@@ -1120,15 +1126,15 @@ export default function CustomerMenu() {
              </div>
 
              {/* Swiggy/Zomato Filter Row: Veg Toggle + Category Scroll Pills */}
-             <div className="flex overflow-x-auto gap-2.5 pb-1 no-scrollbar scroll-smooth items-center">
+              <div className="flex overflow-x-auto gap-2.5 pb-1 no-scrollbar scroll-smooth items-center">
                 {/* 🥦 Pure Veg Toggle Button */}
                 <button
                   onClick={() => setVegOnlyFilter(!vegOnlyFilter)}
-                  className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all flex items-center gap-1.5 border shadow-xs cursor-pointer ${
+                  className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 flex items-center gap-1.5 border shadow-xs hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
                     vegOnlyFilter 
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/25' 
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/25 hover:bg-emerald-700' 
                       : theme === 'dark'
-                      ? 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800'
+                      ? 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 hover:text-white'
                       : 'bg-white text-zinc-700 border-zinc-200/80 hover:bg-zinc-50 hover:border-zinc-300'
                   }`}
                 >
@@ -1143,12 +1149,12 @@ export default function CustomerMenu() {
                   <button 
                     key={category} 
                     onClick={() => scrollToCategory(category)} 
-                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border shadow-xs cursor-pointer ${
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border shadow-xs hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
                       activeCategory === category 
                       ? theme === 'dark' ? 'bg-amber-500 text-slate-950 border-amber-500 font-black shadow-md' : 'bg-zinc-900 text-white border-zinc-900 shadow-zinc-900/20' 
                       : theme === 'dark'
-                      ? 'bg-zinc-900/90 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-800'
-                      : 'bg-white text-zinc-600 border-zinc-200/80 hover:text-zinc-900 hover:bg-zinc-50'
+                      ? 'bg-zinc-900/90 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-800 hover:border-amber-500/40'
+                      : 'bg-white text-zinc-600 border-zinc-200/80 hover:text-zinc-900 hover:bg-zinc-50 hover:border-amber-300'
                     }`}
                   >
                     <span>{category}</span>
@@ -1157,8 +1163,8 @@ export default function CustomerMenu() {
                     </span>
                   </button>
                 ))}
-             </div>
-          </div>
+              </div>
+           </div>
 
           {/* 🍽️ SWIGGY/ZOMATO SIGNATURE MENU ITEM LISTINGS 🍽️ */}
           <AnimatePresence mode="popLayout">
@@ -1198,10 +1204,10 @@ export default function CustomerMenu() {
                     return (
                       <Card 
                         key={item._id} 
-                        className={`rounded-3xl overflow-visible transition-all duration-300 border ${
+                        className={`group rounded-3xl overflow-visible transition-all duration-300 border cursor-pointer ${
                           theme === 'dark'
-                            ? 'bg-zinc-900/85 border-zinc-800/80 text-white shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:border-zinc-700'
-                            : 'bg-white/95 border-zinc-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-zinc-300'
+                            ? 'bg-zinc-900/85 border-zinc-800/80 text-white shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:-translate-y-1.5 hover:border-amber-500/50 hover:shadow-[0_20px_45px_rgba(0,0,0,0.75),0_0_20px_rgba(245,158,11,0.15)]'
+                            : 'bg-white/95 border-zinc-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:-translate-y-1.5 hover:border-amber-400/60 hover:shadow-[0_16px_36px_rgba(0,0,0,0.10)]'
                         }`}
                       >
                         <CardContent className="p-4 sm:p-5 flex justify-between items-start gap-4">
@@ -1222,15 +1228,15 @@ export default function CustomerMenu() {
                             </div>
 
                             {/* Dish Title */}
-                            <h3 className={`text-[15px] sm:text-base font-bold tracking-tight leading-snug transition-colors ${
-                              theme === 'dark' ? 'text-white group-hover:text-amber-400' : 'text-zinc-900 group-hover:text-indigo-600'
+                            <h3 className={`text-[15px] sm:text-base font-bold tracking-tight leading-snug transition-colors duration-200 ${
+                              theme === 'dark' ? 'text-white group-hover:text-amber-400' : 'text-zinc-900 group-hover:text-amber-600'
                             }`}>
                               {item.name}
                             </h3>
 
                             {/* Price */}
                             <div className="flex items-center gap-2 mt-1">
-                              <span className={`text-base sm:text-lg font-black tracking-tight ${
+                              <span className={`text-base sm:text-lg font-black tracking-tight group-hover:scale-105 transition-transform duration-200 inline-block ${
                                 theme === 'dark' ? 'text-white' : 'text-zinc-900'
                               }`}>
                                 {formatPrice(item.price)}
@@ -1260,14 +1266,14 @@ export default function CustomerMenu() {
                                 <img 
                                   src={itemImg} 
                                   alt={item.name} 
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                                   crossOrigin="anonymous" 
                                 />
                               ) : (
                                 <img 
                                   src={getCategoryPlateInfo(item.category, []).image} 
                                   alt={item.name} 
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                                   crossOrigin="anonymous" 
                                 />
                               )}
@@ -1278,7 +1284,7 @@ export default function CustomerMenu() {
                               {getQuantity(item._id) > 0 ? (
                                 <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-lg gap-2 border border-white/20 whitespace-nowrap">
                                   <button 
-                                    className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform" 
+                                    className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
                                     onClick={(e) => { e.stopPropagation(); removeFromCart(item._id); }}
                                   >
                                     <Minus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
@@ -1287,7 +1293,7 @@ export default function CustomerMenu() {
                                     {getQuantity(item._id)}
                                   </span>
                                   <button 
-                                    className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform" 
+                                    className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
                                     onClick={(e) => { e.stopPropagation(); addToCart(item); }}
                                   >
                                     <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
@@ -1296,7 +1302,11 @@ export default function CustomerMenu() {
                               ) : (
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); addToCart(item); }} 
-                                  className="px-5 py-1.5 bg-white text-emerald-600 border-2 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500 active:scale-95 shadow-md rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1 transition-all whitespace-nowrap"
+                                  className={`px-5 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-md rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1 transition-all whitespace-nowrap cursor-pointer ${
+                                    theme === 'dark'
+                                      ? 'bg-zinc-900 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 hover:shadow-[0_4px_15px_rgba(245,158,11,0.35)]'
+                                      : 'bg-white text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500'
+                                  }`}
                                 >
                                   <span>ADD</span>
                                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -1339,9 +1349,9 @@ export default function CustomerMenu() {
             if (isDragging) return;
             handleCallWaiter();
           }}
-          className="h-14 w-14 rounded-full bg-slate-900 text-white shadow-[0_15px_30px_-5px_rgba(0,0,0,0.35)] hover:bg-black active:scale-95 transition-all flex items-center justify-center p-0 border-2 border-white/20 cursor-pointer"
+          className="h-14 w-14 rounded-full bg-slate-900 text-white shadow-[0_15px_30px_-5px_rgba(0,0,0,0.35)] hover:bg-black hover:scale-115 hover:rotate-12 hover:shadow-[0_0_35px_rgba(245,158,11,0.6)] active:scale-95 transition-all flex items-center justify-center p-0 border-2 border-white/20 cursor-pointer"
         >
-          <BellRing className="w-6 h-6 text-amber-400" />
+          <BellRing className="w-6 h-6 text-amber-400 animate-pulse" />
         </Button>
       </motion.div>
 
@@ -1896,74 +1906,127 @@ export default function CustomerMenu() {
         </SheetContent>
       </Sheet>
 
-      {/* 🌟 SWIGGY & ZOMATO COMPACT LUXURY FOOTER 🌟 */}
-      <footer className="bg-gradient-to-b from-zinc-50 to-zinc-100/80 border-t border-zinc-200/70 pt-8 pb-24 lg:pb-12 mt-8 relative overflow-hidden">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-5 relative z-10 text-center">
+      {/* 🌟 SWIGGY & ZOMATO COMPACT LUXURY FOOTER (DAY & NIGHT THEME AWARE) 🌟 */}
+      <footer className={`border-t pt-10 pb-28 lg:pb-14 mt-12 relative overflow-hidden transition-colors duration-500 ${
+        theme === 'dark' 
+          ? 'bg-gradient-to-b from-zinc-950 via-[#07080c] to-[#030406] border-zinc-800/90 text-white' 
+          : 'bg-gradient-to-b from-amber-50/30 via-white to-amber-50/50 border-amber-100/70 text-zinc-900'
+      }`}>
+        {/* Ambient Footer Glow */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className={`absolute -bottom-20 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full blur-[140px] pointer-events-none ${
+            theme === 'dark' ? 'bg-amber-500/10' : 'bg-amber-400/15'
+          }`} />
+        </div>
+
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-6 relative z-10 text-center">
           
           {/* 1. Compact FSSAI & Hygiene Bar */}
-          <div className="w-full bg-white rounded-2xl p-3.5 px-4.5 border border-zinc-200/70 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className={`w-full rounded-2xl p-3.5 px-4.5 border transition-all duration-300 flex flex-wrap items-center justify-between gap-3 ${
+            theme === 'dark' 
+              ? 'bg-zinc-900/90 border-zinc-800 shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:border-zinc-700' 
+              : 'bg-white/95 border-zinc-200/70 shadow-[0_6px_20px_rgba(0,0,0,0.04)] hover:border-amber-200 hover:shadow-md'
+          }`}>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-sm shrink-0">
+              <div className={`w-9 h-9 rounded-xl border flex items-center justify-center text-sm shrink-0 shadow-xs ${
+                theme === 'dark' 
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' 
+                  : 'bg-amber-50 border-amber-200 text-amber-600'
+              }`}>
                 🛡️
               </div>
               <div className="text-left">
                 <div className="flex items-center gap-1.5 leading-none">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-zinc-900">FSSAI Certified Kitchen</span>
-                  <span className="bg-emerald-100 text-emerald-800 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">Verified</span>
+                  <span className={`text-[11px] font-black uppercase tracking-wider ${
+                    theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                  }`}>FSSAI Certified Kitchen</span>
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase border ${
+                    theme === 'dark' 
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                      : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  }`}>Verified</span>
                 </div>
-                <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Lic. No. 10021022000451 • Quality & Hygiene Assured</p>
+                <p className={`text-[10px] font-medium mt-0.5 ${
+                  theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
+                }`}>Lic. No. 10021022000451 • Quality & Hygiene Assured</p>
               </div>
             </div>
 
             <button 
               onClick={handleCallWaiter}
               disabled={isSaving}
-              className="px-3.5 py-1.5 bg-zinc-900 hover:bg-black text-white active:scale-95 transition-all text-[11px] font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
+              className={`px-4 py-2 text-[11px] font-black rounded-xl flex items-center gap-1.5 shadow-md transition-all active:scale-95 hover:scale-105 cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20'
+                  : 'bg-zinc-950 hover:bg-zinc-800 text-white shadow-zinc-900/20'
+              }`}
             >
-              <BellRing className="w-3 h-3 text-amber-400" />
+              <BellRing className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-950' : 'text-amber-400 animate-pulse'}`} />
               <span>Call Waiter</span>
             </button>
           </div>
 
           {/* 2. Restaurant Brand & Table Pill */}
           <div className="flex flex-col items-center gap-2">
-            <Logo showText={true} iconSize={24} />
-            <p className="text-[11px] text-zinc-500 max-w-md leading-snug">
+            <Logo showText={true} iconSize={26} />
+            <p className={`text-[11px] max-w-md leading-snug ${
+              theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
+            }`}>
               Freshly prepared with authentic ingredients for a memorable dining experience.
             </p>
             {tableNumber && tableNumber !== 'N/A' && (
-              <div className="inline-flex items-center gap-1.5 bg-white text-zinc-700 px-3 py-1 rounded-full text-[11px] font-bold border border-zinc-200 shadow-xs">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Serving Table #{tableNumber} • Dine-In</span>
+              <div className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-bold border shadow-xs ${
+                theme === 'dark' 
+                  ? 'bg-zinc-900/90 border-zinc-700 text-amber-300' 
+                  : 'bg-white text-zinc-700 border-zinc-200'
+              }`}>
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Serving Table #{tableNumber} • Dine-In Mode</span>
               </div>
             )}
           </div>
 
           {/* 3. Compact Operational Info Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-bold text-zinc-500">
-            <span className="bg-white px-2.5 py-1 rounded-lg border border-zinc-200/60 shadow-xs">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-bold">
+            <span className={`px-3 py-1 rounded-xl border shadow-xs transition-colors ${
+              theme === 'dark' 
+                ? 'bg-zinc-900/90 border-zinc-800 text-zinc-300 hover:border-zinc-700' 
+                : 'bg-white/90 border-zinc-200/70 text-zinc-600 hover:border-zinc-300'
+            }`}>
               🕒 11:00 AM - 11:30 PM
             </span>
-            <span className="bg-white px-2.5 py-1 rounded-lg border border-zinc-200/60 shadow-xs">
+            <span className={`px-3 py-1 rounded-xl border shadow-xs transition-colors ${
+              theme === 'dark' 
+                ? 'bg-zinc-900/90 border-zinc-800 text-zinc-300 hover:border-zinc-700' 
+                : 'bg-white/90 border-zinc-200/70 text-zinc-600 hover:border-zinc-300'
+            }`}>
               ⚡ Instant Dine-In POS
             </span>
-            <span className="bg-white px-2.5 py-1 rounded-lg border border-zinc-200/60 shadow-xs text-emerald-600 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" /> Staff Available
+            <span className={`px-3 py-1 rounded-xl border shadow-xs flex items-center gap-1.5 transition-colors ${
+              theme === 'dark' 
+                ? 'bg-zinc-900/90 border-zinc-800 text-emerald-400 hover:border-zinc-700' 
+                : 'bg-white/90 border-zinc-200/70 text-emerald-600 hover:border-zinc-300'
+            }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" /> Staff Active
             </span>
           </div>
 
-          <Separator className="bg-zinc-200/60 max-w-md" />
+          <Separator className={theme === 'dark' ? 'bg-zinc-800/80 max-w-md' : 'bg-zinc-200/70 max-w-md'} />
 
           {/* 4. Bottom Copyright & Powered By */}
-          <div className="space-y-1">
-            <p className="text-[10px] font-medium text-zinc-400">
+          <div className="space-y-1.5">
+            <p className={`text-[10px] font-medium ${
+              theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'
+            }`}>
               &copy; {new Date().getFullYear()} {restaurantData.name || 'Servora'}. All rights reserved.
             </p>
-            <div className="flex items-center justify-center gap-1 text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+            <div className={`flex items-center justify-center gap-1 text-[9px] font-bold uppercase tracking-widest ${
+              theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'
+            }`}>
               <span>Powered by</span>
-              <span className="text-indigo-600 font-black">Servora Cloud POS</span>
+              <span className={`font-black ${theme === 'dark' ? 'text-amber-400' : 'text-indigo-600'}`}>Servora Cloud POS</span>
               <span>•</span>
-              <span className="text-emerald-600">Contactless QR</span>
+              <span className={theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}>Contactless QR</span>
             </div>
           </div>
         </div>
