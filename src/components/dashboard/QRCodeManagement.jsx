@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { QrCode, Download, Plus, Table, Smartphone, Scan, CheckCircle, AlertCircle, RefreshCw, Menu, Cloud } from 'lucide-react'
+import { QrCode, Download, Plus, Table, Smartphone, Scan, CheckCircle, AlertCircle, RefreshCw, Menu, Cloud, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -55,6 +55,7 @@ const saveQRCodesToStorage = async (restaurantId, qrCodes) => {
 }
 
 import UpgradePlanModal from './UpgradePlanModal'
+import QRTemplateStudioModal from './QRTemplateStudioModal'
 import { getPlanDetails } from '@/utils/planLimits'
 
 // Load QR codes from Supabase with dynamic URL generation matching current restaurant
@@ -94,6 +95,9 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState('idle')
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [restaurantProfile, setRestaurantProfile] = useState({})
+  const [isStudioOpen, setIsStudioOpen] = useState(false)
+  const [selectedStudioQR, setSelectedStudioQR] = useState(null)
 
   // Synchronously initialize QR codes from cache for instantaneous render
   const getInitialQRs = () => {
@@ -110,7 +114,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
   const [activeTab, setActiveTab] = useState(initialQRs.length > 0 ? 'manage' : 'generate')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Initial ID Fixer: Fetch valid UUID
+  // Initial ID Fixer: Fetch valid UUID & restaurant profile
   useEffect(() => {
     const repairSession = async () => {
       const target = propRestaurantId || restaurantId || getCachedRestaurantId()
@@ -118,6 +122,15 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         const uuid = await ensureValidRestaurantUUID(target)
         if (uuid) {
           setRestaurantId(uuid)
+        }
+
+        try {
+          const res = await getMyRestaurant()
+          if (res) {
+            setRestaurantProfile(res)
+          }
+        } catch (e) {
+          console.warn('Could not fetch restaurant profile for QR templates:', e)
         }
       }
     }
@@ -362,6 +375,13 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               {qrCodes.length > 0 && (
                 <>
                   <Button 
+                    onClick={() => { setSelectedStudioQR(null); setIsStudioOpen(true); }}
+                    className="h-9 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Print Standee Studio</span>
+                  </Button>
+                  <Button 
                     onClick={() => handleSyncToCloud()} 
                     variant="outline" 
                     size="sm" 
@@ -371,9 +391,9 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                     <Cloud className="w-3.5 h-3.5 mr-2" />
                     Force Sync
                   </Button>
-                  <Button onClick={downloadAllQRCodes} variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download All
+                  <Button onClick={() => { setSelectedStudioQR(null); setIsStudioOpen(true); }} variant="outline" size="sm" className="h-9 px-3 rounded-xl bg-gray-50/50 hover:bg-white ring-1 ring-inset ring-gray-100 transition-all">
+                    <Download className="w-4 h-4 mr-2 text-indigo-600" />
+                    Download All (PDF)
                   </Button>
                   <Button onClick={clearQRCodes} size="sm" className="h-9 px-3 rounded-xl bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 transition-all font-semibold">
                     Clear All
@@ -451,55 +471,51 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="restaurantId" className="text-sm font-medium">Restaurant ID</Label>
+                  <Label htmlFor="tables">Number of Tables</Label>
                   <Input
-                    id="restaurantId"
-                    value={restaurantId}
-                    readOnly
-                    placeholder="Enter your restaurant ID"
-                    disabled={isGenerating}
-                    className="h-11 bg-slate-50 text-slate-500 font-bold border-dashed cursor-not-allowed uppercase tracking-widest text-[10px]"
-                  />
-                  <p className="text-xs text-gray-500">This ID will be used in the QR code URLs</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="tableCount" className="text-sm font-medium">Number of Tables</Label>
-                  <Input
-                    id="tableCount"
+                    id="tables"
                     type="number"
                     min="1"
                     max={effectiveLimit}
                     value={tableCount}
                     onChange={handleTableCountInputChange}
-                    disabled={isGenerating}
-                    className="h-11 font-bold"
+                    placeholder="Enter number of tables"
                   />
-                  <p className="text-xs text-gray-500">Your current plan ({planDetails.name}) supports up to {effectiveLimit >= 9999 ? 'unlimited' : effectiveLimit} tables.</p>
+                  <p className="text-sm text-gray-500">
+                    Generating for {Math.min(tableCount, effectiveLimit)} tables (Plan Limit: {effectiveLimit >= 9999 ? 'Unlimited' : effectiveLimit})
+                  </p>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="restaurantId">Active Restaurant</Label>
+                  <Input
+                    id="restaurantId"
+                    value={restaurantId}
+                    disabled
+                    className="bg-gray-50 font-mono text-xs"
+                  />
+                </div>
+
+                <Button 
+                  onClick={generateAllQRCodes} 
+                  disabled={isGenerating || tableCount < 1}
+                  className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Generating & Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <QrCode className="w-4 h-4 mr-2" />
+                      Generate {Math.min(tableCount, effectiveLimit)} QR Codes
+                    </>
+                  )}
+                </Button>
               </div>
-              
-              <Separator className="my-2" />
-              
-              <Button 
-                onClick={generateAllQRCodes} 
-                className="w-full h-12 bg-slate-900 hover:bg-black text-white font-bold"
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full mr-2"></div>
-                    Generating QR Codes...
-                  </>
-                ) : (
-                  <>
-                    <QrCode className="w-4 h-4 mr-2" />
-                    Generate QR Codes for {Math.min(tableCount, effectiveLimit)} Tables
-                  </>
-                )}
-              </Button>
             </CardContent>
           </Card>
 
@@ -563,33 +579,38 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
         <TabsContent value="manage" className="space-y-6">
           {/* Generated QR Codes */}
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
+          <Card className="border border-slate-200 shadow-sm rounded-3xl overflow-hidden">
+            <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <CardTitle className="flex items-center gap-2 text-base font-black text-slate-900">
+                  <CheckCircle className="w-5 h-5 text-emerald-600" />
                   Generated QR Codes ({qrCodes.length})
                 </CardTitle>
-                <Button onClick={downloadAllQRCodes} variant="outline">
-                  <Download className="w-4 h-4 mr-2" />
-                  Download All
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={() => { setSelectedStudioQR(null); setIsStudioOpen(true); }}
+                    className="h-10 px-4 rounded-xl bg-slate-900 hover:bg-black text-amber-400 font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Standee Print Studio</span>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <Alert className="bg-blue-50/50 border-blue-100" variant="default">
-                <AlertDescription className="flex items-center gap-2">
-                  <Scan className="w-4 h-4" />
-                  Each QR code will open your menu with the correct table number when scanned by customers.
+            <CardContent className="p-6">
+              <Alert className="bg-indigo-50/60 border-indigo-100 text-indigo-900 rounded-2xl mb-6" variant="default">
+                <AlertDescription className="flex items-center gap-2 text-xs font-semibold">
+                  <Scan className="w-4 h-4 text-indigo-600 shrink-0" />
+                  Each QR code opens your digital menu with live cryptographic table verification. Use the Standee Studio below to export print-ready acrylic stands!
                 </AlertDescription>
               </Alert>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {qrCodes.map((qrCode, index) => (
-                  <Card key={qrCode.id || `${qrCode.restaurantId}-${qrCode.tableNumber}-${index}`} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
+                  <Card key={qrCode.id || `${qrCode.restaurantId}-${qrCode.tableNumber}-${index}`} className="border border-slate-200/80 hover:border-indigo-400 hover:shadow-lg transition-all rounded-2xl overflow-hidden bg-white">
+                    <CardContent className="p-5">
                       <div className="text-center space-y-4">
-                        <div className="w-40 h-40 bg-gray-50 rounded-lg mx-auto flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                        <div className="w-40 h-40 bg-slate-50 rounded-2xl mx-auto flex items-center justify-center overflow-hidden border-2 border-slate-200 p-2 shadow-inner">
                           {qrCode.qrImageUrl ? (
                             <img 
                               src={qrCode.qrImageUrl} 
@@ -598,35 +619,45 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                             />
                           ) : (
                             <div className="text-center">
-                              <QrCode className="w-16 h-16 text-gray-300 mx-auto mb-2" />
-                              <p className="text-xs text-gray-500">QR Code</p>
+                              <QrCode className="w-16 h-16 text-slate-300 mx-auto mb-2" />
+                              <p className="text-xs text-slate-500">QR Code</p>
                             </div>
                           )}
                         </div>
                         
                         <div className="space-y-2">
                           <div className="flex items-center justify-center gap-2">
-                            <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                              Table {qrCode.tableNumber}
+                            <Badge className="bg-slate-900 text-amber-400 border border-slate-800 font-black text-xs px-3 py-1 rounded-lg">
+                              Table #{qrCode.tableNumber}
                             </Badge>
                           </div>
                           
-                          <div className="text-xs text-gray-500 space-y-1">
-                            <p className="truncate">{qrCode.url}</p>
-                            <p>Restaurant: {qrCode.restaurantId}</p>
+                          <div className="text-[11px] text-slate-500 space-y-0.5">
+                            <p className="truncate font-mono">{qrCode.url}</p>
                           </div>
                         </div>
                         
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => downloadQRCode(qrCode)}
-                          className="w-full"
-                          disabled={!qrCode.qrDataUrl && !qrCode.qrBlob}
-                        >
-                          <Download className="w-3 h-3 mr-1" />
-                          Download JPEG
-                        </Button>
+                        <div className="space-y-2 pt-1">
+                          <Button 
+                            size="sm" 
+                            onClick={() => { setSelectedStudioQR(qrCode); setIsStudioOpen(true); }}
+                            className="w-full bg-slate-900 hover:bg-black text-amber-400 font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer h-10"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Customize Standee</span>
+                          </Button>
+
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => downloadQRCode(qrCode)}
+                            className="w-full text-xs font-semibold rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 h-9"
+                            disabled={!qrCode.qrDataUrl && !qrCode.qrBlob}
+                          >
+                            <Download className="w-3 h-3 mr-1" />
+                            Raw QR Image
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -650,6 +681,15 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         onUpgradeSuccess={() => {
           setShowUpgradeModal(false)
         }}
+      />
+
+      {/* 🌟 PRINT-READY QR STANDEE TEMPLATE STUDIO MODAL 🌟 */}
+      <QRTemplateStudioModal
+        open={isStudioOpen}
+        onOpenChange={setIsStudioOpen}
+        qrCodes={qrCodes}
+        restaurantProfile={restaurantProfile}
+        selectedSingleQR={selectedStudioQR}
       />
       </div>
     </div>

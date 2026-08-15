@@ -29,7 +29,9 @@ import {
   ArrowRight,
   Trash2,
   Plus,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { 
@@ -46,14 +48,6 @@ import {
   CardTitle,
   CardFooter
 } from '@/components/ui/card'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger,
-  DialogDescription
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -146,8 +140,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     try {
       setLoading(true)
 
-      // ── Step 1: Resolve restaurant record ──────────────────────────────
-      // Prefer the restaurantId prop (UUID from the URL) — fall back to getMyRestaurant()
       let restaurant = null
 
       if (restaurantId) {
@@ -169,7 +161,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         }
       }
 
-      // Final fallback to session-based lookup
       if (!restaurant) {
         restaurant = await getMyRestaurant()
       }
@@ -194,11 +185,9 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           })
         }
 
-        // ── Step 2: Resolve subscription plan ─────────────────────────────
         let planName = 'Starter'
         let planPrice = '999'
         try {
-          // 2a. Try joined subscriptions (freshest — any non-cancelled status)
           const joinedSubs = restaurant.subscriptions
           const activeSub = Array.isArray(joinedSubs)
             ? joinedSubs
@@ -212,7 +201,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
               ? activeSub.price.toString()
               : (activeSub.plan_name === 'Professional' ? '2499' : activeSub.plan_name === 'Enterprise' ? '4999' : '999')
           } else {
-            // 2b. Direct query — broaden filter to all non-cancelled statuses
             const { data: sub } = await supabase
               .from('subscriptions')
               .select('plan_name, price, status')
@@ -228,7 +216,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
                 ? sub.price.toString()
                 : (sub.plan_name === 'Professional' ? '2499' : sub.plan_name === 'Enterprise' ? '4999' : '999')
             } else {
-              // 2c. Check payment_verifications as last resort
               const { data: verif } = await supabase
                 .from('payment_verifications')
                 .select('plan_name, status')
@@ -253,7 +240,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           price: planPrice
         }))
 
-        // Load Payment Methods
         try {
           const { data: pms } = await supabase
             .from('payment_methods')
@@ -282,7 +268,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
   const lastLoadedId = React.useRef(null)
   useEffect(() => {
-    // Only reload if restaurantId has actually changed to a real value
     if (!restaurantId) return
     if (lastLoadedId.current === restaurantId) return
     lastLoadedId.current = restaurantId
@@ -323,7 +308,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           const ctx = canvas.getContext('2d')
           ctx.drawImage(img, 0, 0, width, height)
           
-          // Compress to JPEG with 60% quality to ensure lightning fast DB saves
           const compressedData = canvas.toDataURL('image/jpeg', 0.6)
 
           setProfileData(prev => ({
@@ -356,7 +340,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
         localStorage.setItem(`servora_notifs_${targetRid}`, JSON.stringify(notifications))
 
-        showToast('Settings saved & synchronized successfully.', 'success')
+        showToast('Settings successfully synchronized to cloud.', 'success')
       }
     } catch (err) {
       console.error('Save failed:', err)
@@ -403,7 +387,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   }
 
   const handleDiscard = () => {
-    if (window.confirm('Discard all unsaved changes and reload?')) {
+    if (window.confirm('Discard all unsaved changes and reload settings?')) {
       loadCloudConfig()
       showToast('Changes discarded.', 'success')
     }
@@ -491,135 +475,167 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     }
   }
 
+  const tabs = [
+    { id: 'profile', label: 'Profile & Brand', icon: Store },
+    { id: 'notifications', label: 'Alerts & Chimes', icon: Bell },
+    { id: 'security', label: 'Security & Access', icon: ShieldCheck },
+    { id: 'billing', label: 'Billing & Plan', icon: CreditCard },
+    { id: 'tax', label: 'GST & Taxes', icon: Percent }
+  ]
+
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-slate-50/50 relative">
+    <div className="flex-1 flex flex-col min-h-screen bg-[#f8fafc] relative selection:bg-indigo-500 selection:text-white">
+      {/* 🌟 AMBIENT GLOW MESH IN BACKGROUND 🌟 */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[140px]" />
+        <div className="absolute top-1/2 right-1/4 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[140px]" />
+      </div>
+
+      {/* 🔔 FLOATING LUXURY NOTIFICATION TOAST 🔔 */}
       <div className={cn(
-        "fixed top-24 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 pointer-events-none transform",
+        "fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 pointer-events-none transform",
         toast.show ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-6 scale-95"
       )}>
         <div className={cn(
-          "px-6 py-4 rounded-2xl shadow-xl backdrop-blur-xl border flex items-center gap-4 min-w-[300px]",
+          "px-6 py-3.5 rounded-2xl shadow-2xl backdrop-blur-2xl border flex items-center gap-3.5 min-w-[320px]",
           toast.type === 'success' 
-            ? "bg-slate-900/95 text-white border-slate-800" 
-            : "bg-rose-600 text-white border-rose-500"
+            ? "bg-slate-950/95 text-white border-slate-800 shadow-slate-950/30" 
+            : "bg-rose-950/95 text-white border-rose-800 shadow-rose-950/30"
         )}>
           {toast.type === 'success' ? (
-            <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">
+            <div className="w-8 h-8 bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/40 shrink-0">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
           ) : (
-            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center border border-white/30">
-              <AlertCircle className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-rose-500/20 rounded-xl flex items-center justify-center border border-rose-500/40 shrink-0">
+              <AlertCircle className="w-4 h-4 text-rose-400" />
             </div>
           )}
           <div className="flex flex-col">
-            <p className="text-[9px] font-black uppercase tracking-widest opacity-60">System Notice</p>
-            <p className="text-[12px] font-bold tracking-tight">{toast.message}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Servora Cloud Sync</p>
+            <p className="text-xs font-bold tracking-tight text-white">{toast.message}</p>
           </div>
         </div>
       </div>
 
-      <div className="hidden lg:flex sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 h-16 items-center px-6 shadow-sm">
-        <div className="flex flex-1 items-center justify-between">
+      {/* 💻 STICKY DESKTOP COMMAND HUB HEADER (H-20) 💻 */}
+      <div className="hidden lg:flex sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-2xl h-20 items-center px-8 shadow-xs transition-all">
+        <div className="flex flex-1 items-center justify-between gap-6 max-w-7xl mx-auto w-full">
+          
+          {/* Brand & Sync Indicator */}
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 border border-primary/20">
-                <SettingsIcon className="h-4 w-4 text-primary" />
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20">
+                <SettingsIcon className="h-5 w-5" />
               </div>
               <div className="flex flex-col">
-                <h1 className="text-sm font-semibold leading-none tracking-tight text-foreground">Restaurant Settings</h1>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Cloud Synced</span>
+                <h1 className="text-base font-black leading-none tracking-tight text-slate-900">
+                  Restaurant Settings
+                </h1>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    Real-time Cloud Synced
+                  </span>
                 </div>
               </div>
             </div>
             
-            <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-8 bg-slate-200" />
 
+            {/* Segmented Desktop Glass Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTabState} className="w-auto">
-              <TabsList className="h-9 p-1 bg-muted/50 rounded-md border border-border/50">
-                {[
-                  { id: 'profile', label: 'Profile', icon: User },
-                  { id: 'notifications', label: 'Alerts', icon: Bell },
-                  { id: 'security', label: 'Security', icon: ShieldCheck },
-                  { id: 'billing', label: 'Billing', icon: CreditCard },
-                  { id: 'tax', label: 'Taxes', icon: Percent }
-                ].map(tab => (
+              <TabsList className="h-12 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-inner flex gap-1">
+                {tabs.map(tab => (
                   <TabsTrigger 
                     key={tab.id}
                     value={tab.id}
-                    className="rounded-sm px-3 text-[11px] font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-muted-foreground hover:text-foreground h-7"
+                    className="rounded-xl px-4 text-xs font-bold transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm text-slate-600 hover:text-slate-900 h-9 flex items-center gap-2 cursor-pointer"
                   >
-                    <tab.icon className="h-3.5 w-3.5 mr-1.5" />
-                    {tab.label}
+                    <tab.icon className="h-4 w-4" />
+                    <span>{tab.label}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
             <Button 
               variant="outline" 
               onClick={handleDiscard}
-              size="sm"
-              className="h-9 text-xs font-medium hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+              className="h-11 px-4 text-xs font-bold rounded-xl border-slate-200 text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all cursor-pointer"
             >
-              <X className="h-3.5 w-3.5 mr-1.5" />
+              <X className="h-4 w-4 mr-1.5" />
               Discard
             </Button>
 
             <Button 
               onClick={handleSave}
               disabled={isSaving}
-              size="sm"
-              className="h-9 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+              className="h-11 px-6 text-xs font-black uppercase tracking-wider rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
             >
               {isSaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Save className="h-3.5 w-3.5 mr-1.5" />
+                <Save className="h-4 w-4 text-amber-300" />
               )}
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              <span>{isSaving ? 'Deploying Changes...' : 'Save Changes'}</span>
             </Button>
           </div>
         </div>
       </div>
 
-
-
-      <div className="flex-1 p-4 lg:p-8 max-w-5xl mx-auto w-full space-y-6">
-        <div className="lg:hidden sticky top-0 -mx-4 px-4 sm:-mx-8 sm:px-8 z-40 bg-[#f8fafc] pb-2 pt-1 border-b border-slate-200 overflow-x-auto no-scrollbar">
-          <div className="flex gap-2 min-w-max">
-            {[
-              { id: 'profile', label: 'Profile', icon: User },
-              { id: 'notifications', label: 'Alerts', icon: Bell },
-              { id: 'security', label: 'Security', icon: ShieldCheck },
-              { id: 'billing', label: 'Billing', icon: CreditCard },
-              { id: 'tax', label: 'GST Tax', icon: Percent }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTabState(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all",
-                  activeTab === tab.id 
-                    ? "bg-indigo-600 text-white shadow-sm" 
-                    : "bg-slate-100 text-slate-500 hover:text-slate-800"
-                )}
-              >
-                <tab.icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </button>
-            ))}
+      {/* 📱 MOBILE STICKY TAB SCROLLER 📱 */}
+      <div className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 py-3 shadow-xs">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+              <SettingsIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 leading-tight">Settings</h2>
+              <p className="text-[10px] text-emerald-600 font-black uppercase tracking-wider">Cloud Connected</p>
+            </div>
           </div>
+
+          <Button 
+            onClick={handleSave}
+            disabled={isSaving}
+            size="sm"
+            className="h-9 px-3.5 text-[11px] font-black uppercase tracking-wider rounded-xl bg-indigo-600 text-white shadow-sm"
+          >
+            {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1 text-amber-300" />}
+            Save
+          </Button>
         </div>
 
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTabState(tab.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 border",
+                activeTab === tab.id 
+                  ? "bg-slate-900 text-white border-slate-900 shadow-sm" 
+                  : "bg-slate-100/80 text-slate-600 border-slate-200/80 hover:bg-slate-200"
+              )}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 📂 MAIN SETTINGS CONTENT AREA 📂 */}
+      <div className="flex-1 p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto w-full space-y-6 relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTabState} className="w-full">
           <TabsList className="hidden"><></></TabsList>
 
-          <TabsContent value="profile" className="mt-0 space-y-6 outline-none">
+          <TabsContent value="profile" className="mt-0 outline-none">
             <ProfileSettings 
               profileData={profileData} 
               setProfileData={setProfileData} 
@@ -674,6 +690,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         </Tabs>
       </div>
 
+      {/* 🚀 UPGRADE SUBSCRIPTION MODAL 🚀 */}
       <UpgradePlanModal
         open={showUpgradeModal}
         onOpenChange={setShowUpgradeModal}
