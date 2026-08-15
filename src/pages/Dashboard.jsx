@@ -552,7 +552,7 @@ function Dashboard() {
             activeItem={activeItem}
             setActiveItem={setActiveItem}
             navigate={navigate}
-            restaurantId={profile?.id}
+            restaurantId={restaurantId || resolvedId || profile?.id}
             plan={plan}
           />
         )

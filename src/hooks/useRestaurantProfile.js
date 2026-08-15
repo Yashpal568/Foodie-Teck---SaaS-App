@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getMyRestaurant, updateRestaurantProfile } from '@/lib/api'
+import { getMyRestaurant, updateRestaurantProfile, supabase } from '@/lib/api'
 
 /**
  * Hook to manage restaurant profile information via Supabase
@@ -7,8 +7,8 @@ import { getMyRestaurant, updateRestaurantProfile } from '@/lib/api'
 export const useRestaurantProfile = (restaurantId) => {
     const [profile, setProfile] = useState({
         id: null,
-        name: 'Servora',
-        business_name: 'Servora',
+        name: 'Tiger Bistro',
+        business_name: 'Tiger Bistro',
         address: 'Main Square Mall, Floor 2',
         phone: '+91 98765 43210',
         description: 'Premium Dining Experience',
@@ -19,11 +19,21 @@ export const useRestaurantProfile = (restaurantId) => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const data = await getMyRestaurant()
+                let data = await getMyRestaurant()
+                if (!data && restaurantId && restaurantId !== 'guest') {
+                    let q = supabase.from('restaurants').select('*')
+                    if (restaurantId.includes('@')) {
+                        q = q.eq('email', restaurantId.toLowerCase()).maybeSingle()
+                    } else {
+                        q = q.eq('id', restaurantId).maybeSingle()
+                    }
+                    const { data: directData } = await q
+                    if (directData) data = directData
+                }
                 if (data) {
                     setProfile({
                         ...data,
-                        name: data.business_name || data.name || 'Servora'
+                        name: data.business_name || data.name || 'Tiger Bistro'
                     })
                 }
             } catch (error) {

@@ -109,8 +109,9 @@ const generateRevenueTrend = (orderHistory, timeRange) => {
   return trend
 }
 
-export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate, restaurantId }) {
-  const { orders, orderHistory, loading, stats } = useOrderManagement(restaurantId)
+export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate, restaurantId: propRestaurantId }) {
+  const targetRestaurantId = propRestaurantId || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'tigerbistro99@gmail.com'
+  const { orders, orderHistory, loading, stats } = useOrderManagement(targetRestaurantId)
   
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('7days')
@@ -197,10 +198,10 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
   useEffect(() => {
     // Load menu items from Supabase
     const loadMenu = async () => {
-      if (!restaurantId) return
+      if (!targetRestaurantId) return
       try {
         const { fetchMenuItems } = await import('@/lib/api')
-        const items = await fetchMenuItems(restaurantId)
+        const items = await fetchMenuItems(targetRestaurantId)
         setMenuItems(items || [])
       } catch (err) {
         console.error('Failed to load menu items for analytics:', err)
@@ -212,7 +213,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     // Small delay to ensure parent dimensions are calculated for Recharts
     const timer = setTimeout(() => setIsChartReady(true), 100)
     return () => clearTimeout(timer)
-  }, [restaurantId])
+  }, [targetRestaurantId])
 
   // Memoized calculations for performance
   const revenueTrend = useMemo(() => {

@@ -94,7 +94,7 @@ export const useOrderManagement = (restaurantId) => {
             .from('restaurants')
             .select('id')
             .eq('email', restaurantId.toLowerCase())
-            .single()
+            .maybeSingle()
           
           if (isMounted) {
             if (data?.id) {
