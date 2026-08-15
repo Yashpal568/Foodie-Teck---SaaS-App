@@ -118,8 +118,8 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
 
     fetchActiveCounts()
 
-    // Safety Poll every 4 seconds for instant real-time sync
-    const pollInterval = setInterval(fetchActiveCounts, 4000)
+    // Low-frequency safety poll (Real-time events already handle live updates)
+    const pollInterval = setInterval(fetchActiveCounts, 30000)
 
     // 🏆 Subscribe to Real-time Changes & Window Events
     const handleNewOrderEvent = () => fetchActiveCounts()
@@ -186,23 +186,31 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     await supabase.auth.signOut()
     navigate('/login')
   }
-  const [subData, setSubData] = useState({ daysLeft: 30, planName: 'Starter' })
+  const [subData, setSubData] = useState({ daysLeft: 30, planName: 'Professional' })
 
   useEffect(() => {
     const checkSub = async () => {
       try {
         const { data: { session } } = await getCachedSession()
-        const user = session?.user
-        if (user) {
-          const { data: rest } = await supabase.from('restaurants').select('id').eq('email', user.email.toLowerCase()).maybeSingle()
-          if (rest) {
-            const { data: sub } = await supabase.from('subscriptions').select('*').eq('restaurant_id', rest.id).maybeSingle()
+        const userEmail = session?.user?.email
+        const target = restaurantId || userEmail
+
+        if (target) {
+          let restId = target
+          if (target.includes('@')) {
+            const { data: rest } = await supabase.from('restaurants').select('id').eq('email', target.toLowerCase()).maybeSingle()
+            if (rest?.id) restId = rest.id
+          }
+
+          if (restId) {
+            const { data: sub } = await supabase.from('subscriptions').select('*').eq('restaurant_id', restId).maybeSingle()
             if (sub) {
               const startDate = new Date(sub.start_date || sub.created_at)
               const expiryDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000))
               const now = new Date()
               const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-              setSubData({ daysLeft: Math.max(0, daysLeft), planName: sub.plan_name || 'Starter' })
+              setSubData({ daysLeft: Math.max(0, daysLeft), planName: sub.plan_name || 'Professional' })
+              return
             }
           }
         }
@@ -211,7 +219,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       }
     }
     checkSub()
-  }, [])
+  }, [restaurantId])
 
   return (
     <div className={`bg-white ${isMobile ? '' : 'border-r border-gray-200'} transition-all duration-300 ${isCollapsed ? 'w-20' : (isMobile ? 'w-full' : 'w-64')} h-screen flex flex-col shrink-0 ${isMobile ? 'flex' : 'hidden md:flex'}`}>

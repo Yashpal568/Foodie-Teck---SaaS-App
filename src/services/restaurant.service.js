@@ -3,7 +3,7 @@ import { ensureAdminSession } from '../lib/adminSupabase'
 
 /** Get the current logged-in user's restaurant ID from Supabase session */
 export const getMyRestaurant = async () => {
-  await ensureAdminSession()
+
   const { data: { session } } = await getCachedSession()
   const user = session?.user
   if (!user) return null
@@ -23,7 +23,7 @@ export const getMyRestaurant = async () => {
 
 /** Update restaurant profile */
 export const updateRestaurantProfile = async (restaurantId, profileData) => {
-  await ensureAdminSession()
+
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) throw new Error("Could not resolve a valid UUID for this restaurant.")
 
@@ -74,7 +74,7 @@ export const getCachedRestaurantId = () => {
 
 /** Resolves a valid PostgreSQL UUID for a restaurant (handles email & legacy IDs) */
 export const ensureValidRestaurantUUID = async (restaurantId) => {
-  await ensureAdminSession()
+
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
 
   if (isUUID(restaurantId)) return restaurantId

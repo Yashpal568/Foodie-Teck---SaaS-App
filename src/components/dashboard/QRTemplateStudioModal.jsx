@@ -32,6 +32,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
+import { supabase } from '@/lib/supabase'
+import { getCachedRestaurantId } from '@/lib/api'
 
 // 🎨 8 High-End Restaurant Design Themes
 export const TEMPLATE_THEMES = [
@@ -299,7 +301,7 @@ export const FORM_FACTORS = [
   }
 ]
 
-// 🛠️ Dynamic Canvas Standee Generator (300 DPI)
+// 🛠️ Dynamic Canvas Standee Generator (300 DPI) with Smart Layout Balancing
 async function generateStandeeCanvas({
   themeId,
   canvasWidth,
@@ -324,35 +326,186 @@ async function generateStandeeCanvas({
   const activeThemeObj = TEMPLATE_THEMES.find(t => t.id === themeId) || TEMPLATE_THEMES[0]
   const colors = activeThemeObj.hex
 
-  const isSquare = height / width < 1.15
-  const scale = Math.min(width / 1200, height / 1800)
+  const aspectRatio = height / width
+  const isSquare = aspectRatio < 1.15
+  const isTall = aspectRatio > 1.8
+  const isLandscape = aspectRatio < 0.85
+
+  // Master scale factor based on minimum dimension
+  const scale = Math.max(0.45, Math.min(width / 1200, height / 1800, width / 700))
 
   // 1. Fill Background
   ctx.fillStyle = colors.bg
   ctx.beginPath()
-  ctx.roundRect(0, 0, width, height, Math.max(30, 60 * scale))
+  ctx.roundRect(0, 0, width, height, Math.max(24, 50 * scale))
   ctx.fill()
 
   // 2. Luxury Outer Frame & Corner Accents
-  const margin = Math.max(24, 40 * scale)
+  const margin = Math.max(18, Math.round(30 * scale))
   ctx.strokeStyle = colors.cardBorder
-  ctx.lineWidth = Math.max(4, 8 * scale)
+  ctx.lineWidth = Math.max(3, Math.round(6 * scale))
   ctx.beginPath()
-  ctx.roundRect(margin, margin, width - margin * 2, height - margin * 2, Math.max(20, 50 * scale))
+  ctx.roundRect(margin, margin, width - margin * 2, height - margin * 2, Math.max(16, 36 * scale))
   ctx.stroke()
 
   // Decorative Corner Angles
-  const cornerLength = Math.max(40, 80 * scale)
-  ctx.lineWidth = Math.max(6, 14 * scale)
+  const cornerLength = Math.max(25, Math.round(45 * scale))
+  ctx.lineWidth = Math.max(3, Math.round(8 * scale))
   ctx.strokeStyle = colors.accent
   ctx.beginPath(); ctx.moveTo(margin, margin + cornerLength); ctx.lineTo(margin, margin); ctx.lineTo(margin + cornerLength, margin); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(width - margin - cornerLength, margin); ctx.lineTo(width - margin, margin); ctx.lineTo(width - margin, margin + cornerLength); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(margin, height - margin - cornerLength); ctx.lineTo(margin, height - margin); ctx.lineTo(margin + cornerLength, height - margin); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(width - margin - cornerLength, height - margin); ctx.lineTo(width - margin, height - margin); ctx.lineTo(width - margin, height - margin - cornerLength); ctx.stroke();
 
+  if (isSquare) {
+    // 🔲 DEDICATED COMPACT 3" × 3" SQUARE BLOCK / STICKER LAYOUT
+    let yPos = margin + Math.round(24 * scale)
+    const logoSize = Math.max(48, Math.round(72 * scale))
+
+    if (restaurantLogo) {
+      try {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.src = restaurantLogo
+        await new Promise((resolve) => {
+          img.onload = () => {
+            const logoX = (width - logoSize) / 2
+            ctx.save()
+            ctx.beginPath()
+            ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
+            ctx.closePath()
+            ctx.clip()
+            ctx.drawImage(img, logoX, yPos, logoSize, logoSize)
+            ctx.restore()
+            
+            ctx.strokeStyle = '#ffffff'
+            ctx.lineWidth = Math.max(2, Math.round(4 * scale))
+            ctx.beginPath()
+            ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
+            ctx.stroke()
+            resolve()
+          }
+          img.onerror = () => {
+            drawMonogram()
+            resolve()
+          }
+        })
+      } catch (e) {
+        drawMonogram()
+      }
+    } else {
+      drawMonogram()
+    }
+
+    function drawMonogram() {
+      const logoX = (width - logoSize) / 2
+      ctx.fillStyle = colors.accent
+      ctx.beginPath()
+      ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = colors.bg
+      ctx.font = `bold ${Math.round(logoSize * 0.5)}px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(restaurantName.charAt(0).toUpperCase(), width / 2, yPos + logoSize / 2)
+    }
+
+    yPos += logoSize + Math.round(18 * scale)
+
+    // Restaurant Name
+    ctx.fillStyle = colors.text
+    const nameFontSize = Math.max(18, Math.min(Math.round(32 * scale), (width * 0.7) / (restaurantName.length * 0.6)))
+    ctx.font = `900 ${Math.round(nameFontSize)}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(restaurantName.toUpperCase(), width / 2, yPos)
+    yPos += Math.round(24 * scale)
+
+    // Table Pill
+    const tableText = `TABLE #${tableNumber}`
+    ctx.font = `bold ${Math.max(13, Math.round(20 * scale))}px sans-serif`
+    const textWidth = ctx.measureText(tableText).width
+    const pillWidth = Math.max(textWidth + 34 * scale, 150 * scale)
+    const pillHeight = Math.max(26, Math.round(36 * scale))
+    const pillX = (width - pillWidth) / 2
+
+    ctx.fillStyle = colors.pillBg
+    ctx.beginPath()
+    ctx.roundRect(pillX, yPos, pillWidth, pillHeight, pillHeight / 2)
+    ctx.fill()
+    ctx.strokeStyle = colors.pillBorder
+    ctx.lineWidth = Math.max(1.5, Math.round(2.5 * scale))
+    ctx.stroke()
+
+    ctx.fillStyle = colors.pillText
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(tableText, width / 2, yPos + pillHeight / 2)
+    yPos += pillHeight + Math.round(16 * scale)
+
+    // Center QR Code
+    const qrDataUrl = await QRCode.toDataURL(qrUrl, {
+      errorCorrectionLevel: 'H',
+      margin: 1,
+      scale: 12,
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+
+    const qrImg = new Image()
+    qrImg.src = qrDataUrl
+    await new Promise((resolve) => {
+      qrImg.onload = () => {
+        const qrBoxSize = Math.max(200, Math.round(width * 0.44))
+        const qrBoxX = (width - qrBoxSize) / 2
+        
+        ctx.fillStyle = '#ffffff'
+        ctx.beginPath()
+        ctx.roundRect(qrBoxX, yPos, qrBoxSize, qrBoxSize, Math.max(12, Math.round(22 * scale)))
+        ctx.fill()
+
+        ctx.strokeStyle = '#e2e8f0'
+        ctx.lineWidth = Math.max(2, Math.round(3.5 * scale))
+        ctx.stroke()
+
+        const qrPadding = Math.max(8, Math.round(14 * scale))
+        ctx.drawImage(qrImg, qrBoxX + qrPadding, yPos + qrPadding, qrBoxSize - qrPadding * 2, qrBoxSize - qrPadding * 2)
+        
+        yPos += qrBoxSize + Math.round(16 * scale)
+        resolve()
+      }
+    })
+
+    // Scan Camera Pill
+    const actionText = '📸 SCAN CAMERA TO ORDER'
+    ctx.font = `900 ${Math.max(10, Math.round(15 * scale))}px sans-serif`
+    const actionWidth = Math.min(width * 0.72, ctx.measureText(actionText).width + 28 * scale)
+    const actionHeight = Math.max(22, Math.round(32 * scale))
+    const actionX = (width - actionWidth) / 2
+
+    ctx.fillStyle = colors.badgeBg
+    ctx.beginPath()
+    ctx.roundRect(actionX, yPos, actionWidth, actionHeight, actionHeight / 2)
+    ctx.fill()
+
+    ctx.fillStyle = colors.badgeText
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(actionText, width / 2, yPos + actionHeight / 2)
+
+    // Clean Compact Footer
+    ctx.fillStyle = colors.subText
+    ctx.font = `bold ${Math.max(8, Math.round(12 * scale))}px sans-serif`
+    ctx.fillText('POWERED BY SERVORA CLOUD POS', width / 2, height - Math.max(16, Math.round(24 * scale)))
+
+    return canvas
+  }
+
+  // Dynamic vertical spacing multiplier based on aspect ratio
+  const vGap = isTall ? Math.max(1.3, aspectRatio * 0.7) : (isLandscape ? 0.5 : 1.0)
+
   // 3. Draw Brand Logo or Circular Monogram Seal
-  let yPos = isSquare ? margin + 40 * scale : margin + 70 * scale
-  const logoSize = Math.max(70, (isSquare ? 100 : 130) * scale)
+  let yPos = margin + Math.round((isTall ? 70 : 50) * scale * vGap)
+  const logoSize = Math.max(54, Math.min(Math.round(110 * scale), width * 0.22, height * 0.14))
 
   if (restaurantLogo) {
     try {
@@ -371,12 +524,12 @@ async function generateStandeeCanvas({
           ctx.restore()
           
           ctx.strokeStyle = '#ffffff'
-          ctx.lineWidth = Math.max(3, 6 * scale)
+          ctx.lineWidth = Math.max(2, Math.round(5 * scale))
           ctx.beginPath()
           ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
           ctx.stroke()
           
-          yPos += logoSize + (isSquare ? 20 : 35) * scale
+          yPos += logoSize + Math.round(28 * scale * vGap)
           resolve()
         }
         img.onerror = () => {
@@ -398,33 +551,33 @@ async function generateStandeeCanvas({
     ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
     ctx.fill()
     ctx.fillStyle = colors.bg
-    ctx.font = `bold ${Math.round(54 * scale)}px sans-serif`
+    ctx.font = `bold ${Math.round(logoSize * 0.5)}px sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(restaurantName.charAt(0).toUpperCase(), width / 2, yPos + logoSize / 2)
-    yPos += logoSize + (isSquare ? 20 : 35) * scale
+    yPos += logoSize + Math.round(28 * scale * vGap)
   }
 
   // 4. Draw Restaurant Name & Subtitle
   ctx.fillStyle = colors.text
-  const nameFontSize = Math.max(26, Math.min(48 * scale, (width * 0.75) / (restaurantName.length * 0.6)))
+  const nameFontSize = Math.max(22, Math.min(Math.round(42 * scale), (width * 0.75) / (restaurantName.length * 0.6)))
   ctx.font = `900 ${Math.round(nameFontSize)}px sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(restaurantName.toUpperCase(), width / 2, yPos)
-  yPos += (isSquare ? 30 : 40) * scale
+  yPos += Math.round(32 * scale * vGap)
 
   ctx.fillStyle = colors.subText
-  ctx.font = `bold ${Math.max(14, Math.round(22 * scale))}px sans-serif`
+  ctx.font = `bold ${Math.max(12, Math.round(18 * scale))}px sans-serif`
   ctx.fillText('• CONTACTLESS DINING •', width / 2, yPos)
-  yPos += (isSquare ? 35 : 55) * scale
+  yPos += Math.round((isTall ? 55 : 42) * scale * vGap)
 
   // 5. Draw Table Number Pill
   const tableText = `TABLE #${tableNumber}`
-  ctx.font = `bold ${Math.max(20, Math.round(34 * scale))}px sans-serif`
+  ctx.font = `bold ${Math.max(16, Math.round(28 * scale))}px sans-serif`
   const textWidth = ctx.measureText(tableText).width
-  const pillWidth = Math.max(textWidth + 60 * scale, 240 * scale)
-  const pillHeight = Math.max(42, 60 * scale)
+  const pillWidth = Math.max(textWidth + 50 * scale, Math.min(width * 0.6, 220 * scale))
+  const pillHeight = Math.max(34, Math.round(50 * scale))
   const pillX = (width - pillWidth) / 2
 
   ctx.fillStyle = colors.pillBg
@@ -432,14 +585,14 @@ async function generateStandeeCanvas({
   ctx.roundRect(pillX, yPos, pillWidth, pillHeight, pillHeight / 2)
   ctx.fill()
   ctx.strokeStyle = colors.pillBorder
-  ctx.lineWidth = Math.max(2, 4 * scale)
+  ctx.lineWidth = Math.max(2, Math.round(3.5 * scale))
   ctx.stroke()
 
   ctx.fillStyle = colors.pillText
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(tableText, width / 2, yPos + pillHeight / 2)
-  yPos += pillHeight + (isSquare ? 25 : 40) * scale
+  yPos += pillHeight + Math.round((isTall ? 50 : 34) * scale * vGap)
 
   // 6. Generate Vector QR Code
   const qrDataUrl = await QRCode.toDataURL(qrUrl, {
@@ -456,32 +609,32 @@ async function generateStandeeCanvas({
   qrImg.src = qrDataUrl
   await new Promise((resolve) => {
     qrImg.onload = () => {
-      const qrBoxSize = Math.max(240, (isSquare ? 420 : 500) * scale)
+      const qrBoxSize = Math.max(180, Math.min(width * 0.72, height * (isTall ? 0.32 : 0.38), Math.round(440 * scale)))
       const qrBoxX = (width - qrBoxSize) / 2
       
       // White plate
       ctx.fillStyle = '#ffffff'
       ctx.beginPath()
-      ctx.roundRect(qrBoxX, yPos, qrBoxSize, qrBoxSize, Math.max(20, 36 * scale))
+      ctx.roundRect(qrBoxX, yPos, qrBoxSize, qrBoxSize, Math.max(16, Math.round(30 * scale)))
       ctx.fill()
 
       ctx.strokeStyle = '#e2e8f0'
-      ctx.lineWidth = Math.max(3, 5 * scale)
+      ctx.lineWidth = Math.max(2, Math.round(4 * scale))
       ctx.stroke()
 
-      const qrPadding = Math.max(16, 26 * scale)
+      const qrPadding = Math.max(12, Math.round(20 * scale))
       ctx.drawImage(qrImg, qrBoxX + qrPadding, yPos + qrPadding, qrBoxSize - qrPadding * 2, qrBoxSize - qrPadding * 2)
       
-      yPos += qrBoxSize + (isSquare ? 20 : 35) * scale
+      yPos += qrBoxSize + Math.round((isTall ? 40 : 28) * scale * vGap)
       resolve()
     }
   })
 
   // 7. Draw "Scan Camera to Order" Badge
   const actionText = '📸 SCAN CAMERA TO ORDER'
-  ctx.font = `900 ${Math.max(14, Math.round(22 * scale))}px sans-serif`
-  const actionWidth = ctx.measureText(actionText).width + 40 * scale
-  const actionHeight = Math.max(32, 46 * scale)
+  ctx.font = `900 ${Math.max(12, Math.round(19 * scale))}px sans-serif`
+  const actionWidth = Math.min(width * 0.8, ctx.measureText(actionText).width + 36 * scale)
+  const actionHeight = Math.max(28, Math.round(40 * scale))
   const actionX = (width - actionWidth) / 2
 
   ctx.fillStyle = colors.badgeBg
@@ -493,24 +646,24 @@ async function generateStandeeCanvas({
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(actionText, width / 2, yPos + actionHeight / 2)
-  yPos += actionHeight + (isSquare ? 20 : 35) * scale
+  yPos += actionHeight + Math.round((isTall ? 35 : 24) * scale * vGap)
 
   // 8. Custom Tagline
   ctx.fillStyle = colors.subText
-  ctx.font = `500 ${Math.max(14, Math.round(22 * scale))}px sans-serif`
+  ctx.font = `500 ${Math.max(12, Math.round(18 * scale))}px sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(tagline, width / 2, yPos)
-  yPos += (isSquare ? 30 : 40) * scale
+  yPos += Math.round(32 * scale * vGap)
 
   // 9. Wi-Fi (if enabled)
   if (showWifi && (wifiNetwork || wifiPassword)) {
     const wifiText = `📶 Wi-Fi: ${wifiNetwork || 'Guest'} ${wifiPassword ? `• Pass: ${wifiPassword}` : ''}`
-    ctx.font = `bold ${Math.max(13, Math.round(20 * scale))}px sans-serif`
+    ctx.font = `bold ${Math.max(11, Math.round(17 * scale))}px sans-serif`
     
     const wifiMetrics = ctx.measureText(wifiText)
-    const wifiPillW = Math.max(wifiMetrics.width + 40 * scale, 240 * scale)
-    const wifiPillH = Math.max(30, 42 * scale)
+    const wifiPillW = Math.min(width * 0.85, Math.max(wifiMetrics.width + 34 * scale, 200 * scale))
+    const wifiPillH = Math.max(26, Math.round(36 * scale))
     const wifiPillX = (width - wifiPillW) / 2
 
     ctx.fillStyle = colors.pillBg
@@ -518,20 +671,20 @@ async function generateStandeeCanvas({
     ctx.roundRect(wifiPillX, yPos, wifiPillW, wifiPillH, wifiPillH / 2)
     ctx.fill()
     ctx.strokeStyle = colors.pillBorder
-    ctx.lineWidth = Math.max(2, 3 * scale)
+    ctx.lineWidth = Math.max(1.5, Math.round(2.5 * scale))
     ctx.stroke()
 
     ctx.fillStyle = colors.pillText
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(wifiText, width / 2, yPos + wifiPillH / 2)
-    yPos += wifiPillH + 20 * scale
+    yPos += wifiPillH + 16 * scale
   }
 
   // 10. Footer: Powered by Servora Cloud POS
   ctx.fillStyle = colors.subText
-  ctx.font = `bold ${Math.max(11, Math.round(16 * scale))}px sans-serif`
-  ctx.fillText('POWERED BY SERVORA CLOUD POS', width / 2, height - Math.max(30, 50 * scale))
+  ctx.font = `bold ${Math.max(10, Math.round(14 * scale))}px sans-serif`
+  ctx.fillText('POWERED BY SERVORA CLOUD POS', width / 2, height - Math.max(22, Math.round(38 * scale)))
 
   return canvas
 }
@@ -557,8 +710,41 @@ export default function QRTemplateStudioModal({
   const [previewTableIndex, setPreviewTableIndex] = useState(0)
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false)
   const [tableSearch, setTableSearch] = useState('')
+  const [profile, setProfile] = useState(restaurantProfile || {})
   const dropdownRef = useRef(null)
   const tableButtonRefs = useRef([])
+
+  // Keep profile in sync and fetch logo if missing
+  useEffect(() => {
+    if (restaurantProfile && (restaurantProfile.logo_url || restaurantProfile.avatar || restaurantProfile.name)) {
+      setProfile(restaurantProfile)
+    }
+  }, [restaurantProfile])
+
+  useEffect(() => {
+    if (open && (!profile.logo_url && !profile.avatar)) {
+      const loadProfile = async () => {
+        try {
+          const rid = restaurantProfile?.id || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'tigerbistro99@gmail.com'
+          if (rid) {
+            let q = supabase.from('restaurants').select('*')
+            if (rid.includes('@')) {
+              q = q.eq('email', rid.toLowerCase()).maybeSingle()
+            } else {
+              q = q.eq('id', rid).maybeSingle()
+            }
+            const { data } = await q
+            if (data) {
+              setProfile(prev => ({ ...data, ...prev, logo_url: data.logo_url || prev.logo_url }))
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load restaurant profile in studio modal:', e)
+        }
+      }
+      loadProfile()
+    }
+  }, [restaurantProfile, open, profile.logo_url])
 
   // Auto-scroll the active table button smoothly into the center of the track
   useEffect(() => {
@@ -591,16 +777,43 @@ export default function QRTemplateStudioModal({
     qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://servora.app'
   }
 
-  const restaurantName = restaurantProfile.name || restaurantProfile.business_name || 'Tiger Bistro'
-  const restaurantLogo = restaurantProfile.avatar || restaurantProfile.logo_url || ''
+  const restaurantName = profile.name || profile.business_name || restaurantProfile.name || restaurantProfile.business_name || 'Tiger Bistro'
+  const restaurantLogo = profile.logo_url || profile.avatar || profile.logo || restaurantProfile.logo_url || restaurantProfile.avatar || restaurantProfile.logo || ''
 
-  // Compute Active Dimensions
+  // Compute Active Dimensions (Inches to 300 DPI Canvas Pixels)
+  const wInches = selectedFormat === 'custom'
+    ? Math.max(1.5, Math.min(18, parseFloat(customWidthInches) || 4))
+    : currentFormat.widthInches
+  const hInches = selectedFormat === 'custom'
+    ? Math.max(1.5, Math.min(24, parseFloat(customHeightInches) || 6))
+    : currentFormat.heightInches
+
   const activeWidth = selectedFormat === 'custom'
-    ? Math.max(600, Math.min(3600, Math.round(parseFloat(customWidthInches || 4) * 300)))
+    ? Math.round(wInches * 300)
     : currentFormat.canvasW
   const activeHeight = selectedFormat === 'custom'
-    ? Math.max(600, Math.min(5400, Math.round(parseFloat(customHeightInches || 6) * 300)))
+    ? Math.round(hInches * 300)
     : currentFormat.canvasH
+
+  // Aspect ratio calculation for the preview container
+  const previewRatio = activeHeight / (activeWidth || 1)
+  const maxPreviewH = 500
+  const maxPreviewW = 360
+
+  let computedPreviewW = 320
+  let computedPreviewH = Math.round(computedPreviewW * previewRatio)
+
+  if (computedPreviewH > maxPreviewH) {
+    computedPreviewH = maxPreviewH
+    computedPreviewW = Math.max(160, Math.round(computedPreviewH / previewRatio))
+  } else if (computedPreviewW > maxPreviewW) {
+    computedPreviewW = maxPreviewW
+    computedPreviewH = Math.round(computedPreviewW * previewRatio)
+  }
+
+  // Micro scale factor for typography & QR sizing inside preview
+  const isNarrowCard = computedPreviewW < 240
+  const isSquareCard = previewRatio < 1.15
 
   // Filtered themes
   const filteredThemes = themeFilter === 'all' 
@@ -655,11 +868,20 @@ export default function QRTemplateStudioModal({
     setExportProgress('Preparing multi-page PDF...')
 
     try {
+      const isLandscape = activeWidth > activeHeight
       const pdf = new jsPDF({
-        orientation: activeWidth > activeHeight ? 'landscape' : 'portrait',
+        orientation: isLandscape ? 'landscape' : 'portrait',
         unit: 'mm',
         format: 'a4'
       })
+
+      const imgWidthMM = (wInches * 25.4)
+      const imgHeightMM = (hInches * 25.4)
+      const fitScale = Math.min(180 / imgWidthMM, 260 / imgHeightMM, 1.0)
+      const printW = imgWidthMM * fitScale
+      const printH = imgHeightMM * fitScale
+      const xOffset = (210 - printW) / 2
+      const yOffset = (297 - printH) / 2
 
       for (let i = 0; i < targetQRs.length; i++) {
         setExportProgress(`Rendering Table #${targetQRs[i].tableNumber} (${i + 1}/${targetQRs.length})...`)
@@ -681,12 +903,7 @@ export default function QRTemplateStudioModal({
         const imgData = canvas.toDataURL('image/jpeg', 0.95)
         if (i > 0) pdf.addPage()
 
-        const imgWidth = 140
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-        const xOffset = (210 - imgWidth) / 2
-        const yOffset = (297 - imgHeight) / 2
-
-        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, imgWidth, imgHeight)
+        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, printW, printH)
       }
 
       setExportProgress('Saving PDF document...')
@@ -748,109 +965,99 @@ export default function QRTemplateStudioModal({
                   </Label>
 
                   {/* Category Filter Pills */}
-                  <div className="flex items-center gap-1 bg-slate-200/70 p-0.5 rounded-lg text-[9px] font-black">
-                    <button
-                      type="button"
-                      onClick={() => setThemeFilter('all')}
-                      className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${themeFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'}`}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setThemeFilter('luxury')}
-                      className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${themeFilter === 'luxury' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'}`}
-                    >
-                      Luxury
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setThemeFilter('nature')}
-                      className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${themeFilter === 'nature' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'}`}
-                    >
-                      Bistro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setThemeFilter('minimal')}
-                      className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${themeFilter === 'minimal' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'}`}
-                    >
-                      Clean
-                    </button>
+                  <div className="flex items-center gap-1 bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
+                    {['all', 'luxury', 'nature', 'vibrant', 'minimal'].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setThemeFilter(cat)}
+                        className={`px-2 py-0.5 rounded-md capitalize transition-all cursor-pointer ${
+                          themeFilter === cat 
+                            ? 'bg-white text-slate-900 shadow-xs font-black' 
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 max-h-56 overflow-y-auto no-scrollbar pr-0.5" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {filteredThemes.map(theme => (
-                    <button
-                      key={theme.id}
-                      onClick={() => setSelectedTheme(theme.id)}
-                      className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                        selectedTheme === theme.id 
-                          ? 'border-indigo-600 bg-white ring-2 ring-indigo-500/20 shadow-sm' 
-                          : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-slate-900 truncate">{theme.name}</span>
-                        {/* 🌟 Soft Subtle Blinking Live Beacon Dot 🌟 */}
-                        <div className="relative flex h-3 w-3 items-center justify-center shrink-0">
-                          {selectedTheme === theme.id && (
+                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1 no-scrollbar">
+                  {filteredThemes.map((theme) => {
+                    const isSelected = selectedTheme === theme.id
+                    return (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        onClick={() => setSelectedTheme(theme.id)}
+                        className={`p-3 rounded-2xl text-left border transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
+                          isSelected
+                            ? 'border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/40 shadow-sm scale-[1.02]'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
                             <span 
-                              className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-30"
+                              className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs" 
                               style={{ backgroundColor: theme.hex.accent }}
                             />
-                          )}
-                          <span 
-                            className={`relative inline-flex rounded-full transition-all duration-300 ${
-                              selectedTheme === theme.id ? 'h-2 w-2 opacity-75 ring-1 ring-white/80' : 'h-1.5 w-1.5 opacity-40'
-                            }`}
-                            style={{ 
-                              backgroundColor: theme.hex.accent,
-                              boxShadow: selectedTheme === theme.id ? `0 0 6px ${theme.hex.accent}80` : 'none'
-                            }}
-                          />
+                            <span className="font-bold text-xs text-slate-900">{theme.name}</span>
+                          </div>
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
                         </div>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-semibold truncate">{theme.badge}</span>
-                    </button>
-                  ))}
+                        <span className="text-[10px] text-slate-500 mt-1 font-medium truncate">
+                          {theme.badge}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* 2. Standee Form Factor & Custom Sizing */}
-              <div className="space-y-2.5">
+              {/* 2. Standee Form Factor & Dimensions */}
+              <div className="space-y-3">
                 <Label className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-indigo-600" />
                   2. Form Factor & Dimensions
                 </Label>
-                
+
                 <div className="grid grid-cols-2 gap-2">
-                  {FORM_FACTORS.map(format => (
-                    <button
-                      key={format.id}
-                      onClick={() => setSelectedFormat(format.id)}
-                      className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                        selectedFormat === format.id
-                          ? 'border-indigo-600 bg-white ring-2 ring-indigo-500/20 shadow-sm'
-                          : 'border-slate-200 bg-white/70 hover:bg-white'
-                      }`}
-                    >
-                      <p className="text-xs font-black text-slate-900 truncate">{format.name}</p>
-                      <p className="text-[10px] text-slate-400 font-medium truncate">{format.sub}</p>
-                    </button>
-                  ))}
+                  {FORM_FACTORS.map((format) => {
+                    const isSelected = selectedFormat === format.id
+                    return (
+                      <button
+                        key={format.id}
+                        type="button"
+                        onClick={() => setSelectedFormat(format.id)}
+                        className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/40 shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        } ${format.id === 'custom' ? 'col-span-2' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-900">{format.name}</span>
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                          {format.sub}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
 
-                {/* Custom Sizing Inputs (if custom chosen) */}
+                {/* Custom Dimensions Editor */}
                 {selectedFormat === 'custom' && (
-                  <div className="p-3.5 bg-indigo-50/50 border border-indigo-200/80 rounded-2xl space-y-2 animate-in fade-in-50 duration-200">
-                    <div className="flex items-center justify-between text-[11px] font-black text-indigo-900">
-                      <span className="flex items-center gap-1.5">
+                  <div className="p-4 bg-indigo-50/50 border border-indigo-200/80 rounded-2xl space-y-3 animate-in fade-in-50 duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
                         <Sliders className="w-3.5 h-3.5 text-indigo-600" />
                         Custom Canvas Dimensions (Inches)
                       </span>
-                      <span className="text-[10px] font-bold text-indigo-600">
+                      <span className="text-[10px] font-black text-indigo-600 bg-white px-2 py-0.5 rounded-full border border-indigo-200">
                         {activeWidth} × {activeHeight} px (300 DPI)
                       </span>
                     </div>
@@ -861,11 +1068,11 @@ export default function QRTemplateStudioModal({
                         <Input 
                           type="number"
                           step="0.1"
-                          min="2"
-                          max="12"
+                          min="1.5"
+                          max="18"
                           value={customWidthInches}
                           onChange={(e) => setCustomWidthInches(e.target.value)}
-                          className="h-9 text-xs rounded-xl bg-white border-slate-200 font-bold"
+                          className="h-9 text-xs rounded-xl bg-white border-slate-200 font-bold text-slate-900"
                           placeholder="4.0"
                         />
                       </div>
@@ -874,11 +1081,11 @@ export default function QRTemplateStudioModal({
                         <Input 
                           type="number"
                           step="0.1"
-                          min="2"
-                          max="18"
+                          min="1.5"
+                          max="24"
                           value={customHeightInches}
                           onChange={(e) => setCustomHeightInches(e.target.value)}
-                          className="h-9 text-xs rounded-xl bg-white border-slate-200 font-bold"
+                          className="h-9 text-xs rounded-xl bg-white border-slate-200 font-bold text-slate-900"
                           placeholder="6.0"
                         />
                       </div>
@@ -1093,88 +1300,195 @@ export default function QRTemplateStudioModal({
             <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-200/60 rounded-3xl p-6 sm:p-10 border border-slate-300/80 min-h-[580px]">
               <div className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-5 flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5" />
-                <span>Live 1:1 Print Preview ({Math.round(activeWidth / 300 * 10) / 10}" × {Math.round(activeHeight / 300 * 10) / 10}")</span>
+                <span>Live 1:1 Print Preview ({wInches}" × {hInches}" • {activeWidth} × {activeHeight} px)</span>
               </div>
 
-              {/* 🌟 LIVE VISUAL STANDEE PREVIEW CARD 🌟 */}
+              {/* 🌟 DYNAMIC ADAPTIVE LIVE VISUAL STANDEE PREVIEW CARD 🌟 */}
               <div 
-                className={`relative overflow-hidden transition-all duration-300 flex flex-col items-center text-center justify-between border-2 ${activeTheme.bgColor} ${activeTheme.cardBorder} p-7 rounded-[2.5rem]`}
+                className={`relative overflow-hidden transition-all duration-300 flex flex-col items-center text-center justify-between border-2 ${activeTheme.bgColor} ${activeTheme.cardBorder} rounded-[2.2rem] shadow-2xl`}
                 style={{ 
                   boxSizing: 'border-box',
-                  width: selectedFormat === 'compact_square_3x3' ? '310px' : '330px',
-                  minHeight: selectedFormat === 'compact_square_3x3' ? '310px' : '480px'
+                  width: `${computedPreviewW}px`,
+                  height: `${computedPreviewH}px`,
+                  padding: isSquareCard ? '16px 14px' : (isNarrowCard ? '16px 12px' : '22px 18px'),
                 }}
               >
                 {/* Corner Accents */}
-                <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-amber-400/40 pointer-events-none" />
-                <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-amber-400/40 pointer-events-none" />
-                <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-amber-400/40 pointer-events-none" />
-                <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-amber-400/40 pointer-events-none" />
+                <div className="absolute top-3 left-3 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-400/40 pointer-events-none" />
+                <div className="absolute top-3 right-3 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-400/40 pointer-events-none" />
+                <div className="absolute bottom-3 left-3 w-3.5 h-3.5 border-b-2 border-l-2 border-amber-400/40 pointer-events-none" />
+                <div className="absolute bottom-3 right-3 w-3.5 h-3.5 border-b-2 border-r-2 border-amber-400/40 pointer-events-none" />
 
-                {/* 1. Header: Brand Logo & Restaurant Name */}
-                <div className="space-y-2 w-full pt-1">
-                  {restaurantLogo ? (
-                    <div className="w-14 h-14 mx-auto rounded-2xl overflow-hidden border-2 border-white/20 shadow-md">
-                      <img src={restaurantLogo} alt="Logo" className="w-full h-full object-cover" />
+                {isSquareCard ? (
+                  /* 🔲 DEDICATED COMPACT 3" × 3" SQUARE BLOCK / STICKER LAYOUT */
+                  <>
+                    {/* 1. Top Compact Header: Brand Logo, Name & Table Pill */}
+                    <div className="flex items-center justify-between w-full px-1 pt-0.5">
+                      <div className="flex items-center gap-2 text-left min-w-0">
+                        {restaurantLogo ? (
+                          <div className="w-8 h-8 rounded-xl overflow-hidden border border-white/20 shadow-xs shrink-0">
+                            <img src={restaurantLogo} alt="Logo" className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black text-sm shadow-xs shrink-0">
+                            {restaurantName.charAt(0)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h3 className={`font-black uppercase tracking-tight text-xs leading-tight truncate ${activeTheme.textColor}`}>
+                            {restaurantName}
+                          </h3>
+                          <span className={`text-[7.5px] font-bold uppercase tracking-wider block ${activeTheme.subTextColor}`}>
+                            Table Standee
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className={`px-2.5 py-1 rounded-full border shadow-xs font-black text-[10px] uppercase tracking-wider shrink-0 ${activeTheme.pillBorder}`}>
+                        <span>Table #{currentPreviewQR.tableNumber}</span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black text-xl shadow-md">
-                      {restaurantName.charAt(0)}
+
+                    {/* 2. Centerpiece: High-Res QR Code Plate */}
+                    <div className="my-auto py-1 flex flex-col items-center">
+                      <div className={`p-2.5 rounded-2xl ${activeTheme.qrBg} shadow-xl flex items-center justify-center w-36 h-36`}>
+                        <img 
+                          src={currentPreviewQR.qrImageUrl} 
+                          alt={`QR Code for Table ${currentPreviewQR.tableNumber}`} 
+                          className="w-full h-full object-contain"
+                          crossOrigin="anonymous"
+                        />
+                      </div>
                     </div>
-                  )}
-                  
-                  <div>
-                    <h3 className={`text-lg sm:text-xl font-black uppercase tracking-tight leading-tight ${activeTheme.textColor}`}>
-                      {restaurantName}
-                    </h3>
-                    <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${activeTheme.subTextColor}`}>
-                        Contactless Dining
-                      </span>
+
+                    {/* 3. Bottom Action Pill & Footer */}
+                    <div className="w-full space-y-1.5 pb-0.5">
+                      <div className={`px-3.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider mx-auto inline-block ${activeTheme.accentBg} shadow-xs`}>
+                        <span>📸 Scan Camera to Order</span>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-1 text-[7px] font-black uppercase tracking-widest opacity-60 text-slate-400">
+                        <span>Powered by</span>
+                        <span className="text-indigo-400 font-bold">Servora Cloud POS</span>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* 2. Centerpiece: Table Pill & High-Res QR Code */}
-                <div className="my-3.5 space-y-3 flex flex-col items-center">
-                  <div className={`px-5 py-1.5 rounded-full border shadow-md font-black text-sm uppercase tracking-wider ${activeTheme.pillBorder}`}>
-                    <span>Table #{currentPreviewQR.tableNumber}</span>
-                  </div>
-
-                  <div className={`p-3.5 rounded-3xl ${activeTheme.qrBg} shadow-2xl flex items-center justify-center`}>
-                    <img 
-                      src={currentPreviewQR.qrImageUrl} 
-                      alt={`QR Code for Table ${currentPreviewQR.tableNumber}`} 
-                      className="w-36 h-36 sm:w-40 sm:h-40 object-contain"
-                      crossOrigin="anonymous"
-                    />
-                  </div>
-
-                  <div className={`px-4 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${activeTheme.accentBg} shadow-sm`}>
-                    <span>📸 Scan Camera to Order</span>
-                  </div>
-                </div>
-
-                {/* 3. Instructions & Wi-Fi Footer */}
-                <div className="w-full space-y-2.5 pb-1">
-                  <p className={`text-[11px] font-medium leading-tight max-w-[280px] mx-auto ${activeTheme.subTextColor}`}>
-                    {customTagline}
-                  </p>
-
-                  {showWifi && (wifiNetwork || wifiPassword) && (
-                    <div className={`px-3.5 py-1.5 rounded-xl border text-[10px] font-bold inline-flex items-center gap-2 ${activeTheme.pillBorder}`}>
-                      <Wifi className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Wi-Fi: <strong className={activeTheme.textColor}>{wifiNetwork || 'Guest'}</strong></span>
-                      {wifiPassword && <span>• Pass: <strong className={activeTheme.textColor}>{wifiPassword}</strong></span>}
+                  </>
+                ) : (
+                  /* 📱 STANDARD & TALL STANDEE LAYOUT */
+                  <>
+                    {/* 1. Header: Brand Logo & Restaurant Name */}
+                    <div className="space-y-1.5 w-full pt-0.5">
+                      {restaurantLogo ? (
+                        <div 
+                          className="mx-auto rounded-2xl overflow-hidden border-2 border-white/20 shadow-md shrink-0"
+                          style={{ 
+                            width: isNarrowCard ? '36px' : '48px', 
+                            height: isNarrowCard ? '36px' : '48px' 
+                          }}
+                        >
+                          <img src={restaurantLogo} alt="Logo" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div 
+                          className="mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0"
+                          style={{ 
+                            width: isNarrowCard ? '36px' : '48px', 
+                            height: isNarrowCard ? '36px' : '48px',
+                            fontSize: isNarrowCard ? '14px' : '18px'
+                          }}
+                        >
+                          {restaurantName.charAt(0)}
+                        </div>
+                      )}
+                      
+                      <div>
+                        <h3 
+                          className={`font-black uppercase tracking-tight leading-tight ${activeTheme.textColor}`}
+                          style={{ fontSize: isNarrowCard ? '13px' : '16px' }}
+                        >
+                          {restaurantName}
+                        </h3>
+                        <div className="flex items-center justify-center gap-1 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span 
+                            className={`font-black uppercase tracking-widest ${activeTheme.subTextColor}`}
+                            style={{ fontSize: isNarrowCard ? '7px' : '8px' }}
+                          >
+                            Contactless Dining
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  )}
 
-                  <div className="pt-1 flex items-center justify-center gap-1.5 text-[8px] font-black uppercase tracking-widest opacity-60 text-slate-400">
-                    <span>Powered by</span>
-                    <span className="text-indigo-400 font-bold">Servora Cloud POS</span>
-                  </div>
-                </div>
+                    {/* 2. Centerpiece: Table Pill & High-Res QR Code */}
+                    <div className="my-auto space-y-2 flex flex-col items-center">
+                      <div 
+                        className={`rounded-full border shadow-md font-black uppercase tracking-wider ${activeTheme.pillBorder}`}
+                        style={{ 
+                          padding: isNarrowCard ? '3px 12px' : '5px 18px',
+                          fontSize: isNarrowCard ? '11px' : '13px'
+                        }}
+                      >
+                        <span>Table #{currentPreviewQR.tableNumber}</span>
+                      </div>
+
+                      <div 
+                        className={`rounded-2xl ${activeTheme.qrBg} shadow-xl flex items-center justify-center`}
+                        style={{
+                          padding: isNarrowCard ? '6px' : '10px',
+                          width: isNarrowCard ? `${Math.min(computedPreviewW * 0.75, 130)}px` : `${Math.min(computedPreviewW * 0.65, 155)}px`,
+                          height: isNarrowCard ? `${Math.min(computedPreviewW * 0.75, 130)}px` : `${Math.min(computedPreviewW * 0.65, 155)}px`,
+                        }}
+                      >
+                        <img 
+                          src={currentPreviewQR.qrImageUrl} 
+                          alt={`QR Code for Table ${currentPreviewQR.tableNumber}`} 
+                          className="w-full h-full object-contain"
+                          crossOrigin="anonymous"
+                        />
+                      </div>
+
+                      <div 
+                        className={`rounded-xl font-black uppercase tracking-wider ${activeTheme.accentBg} shadow-sm`}
+                        style={{ 
+                          padding: isNarrowCard ? '3px 10px' : '4px 14px',
+                          fontSize: isNarrowCard ? '8px' : '10px'
+                        }}
+                      >
+                        <span>📸 Scan to Order</span>
+                      </div>
+                    </div>
+
+                    {/* 3. Instructions & Wi-Fi Footer */}
+                    <div className="w-full space-y-1.5 pb-0.5">
+                      <p 
+                        className={`font-medium leading-tight mx-auto px-2 ${activeTheme.subTextColor}`}
+                        style={{ fontSize: isNarrowCard ? '9px' : '11px' }}
+                      >
+                        {customTagline}
+                      </p>
+
+                      {showWifi && (wifiNetwork || wifiPassword) && (
+                        <div 
+                          className={`rounded-xl border font-bold inline-flex items-center gap-1.5 ${activeTheme.pillBorder}`}
+                          style={{ 
+                            padding: isNarrowCard ? '2px 8px' : '4px 12px',
+                            fontSize: isNarrowCard ? '8px' : '10px'
+                          }}
+                        >
+                          <Wifi className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span>Wi-Fi: <strong className={activeTheme.textColor}>{wifiNetwork || 'Guest'}</strong></span>
+                          {wifiPassword && <span>• Pass: <strong className={activeTheme.textColor}>{wifiPassword}</strong></span>}
+                        </div>
+                      )}
+
+                      <div className="pt-0.5 flex items-center justify-center gap-1 text-[7.5px] font-black uppercase tracking-widest opacity-60 text-slate-400">
+                        <span>Powered by</span>
+                        <span className="text-indigo-400 font-bold">Servora Cloud POS</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <p className="text-[10px] text-slate-500 font-semibold mt-4 text-center">

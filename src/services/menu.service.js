@@ -187,7 +187,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
   }
 
   if (isUUID(itemId)) {
-    await ensureAdminSession()
+
     try {
       const payload = {
         name: itemData.name,
@@ -245,7 +245,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
 export const toggleMenuItemStock = async (itemId, isInStock, restaurantId) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
   if (isUUID(itemId)) {
-    await ensureAdminSession()
+
     try {
       const { data, error } = await supabase
         .from('menu_items')
@@ -278,7 +278,7 @@ export const deleteMenuItem = async (itemId, restaurantId) => {
   } catch (e) {}
 
   if (isUUID(itemId)) {
-    await ensureAdminSession()
+
     let retries = 3
     while (retries > 0) {
       try {

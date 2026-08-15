@@ -53,36 +53,44 @@ export default function LoginPage() {
 
 
     try {
-      // Race Supabase auth call against a 1.5s timeout so network hangs never block the UI
-      const authPromise = supabase.auth.signInWithPassword({
+      // 1. Check if this email exists as a restaurant in the database
+      const { data: restaurant } = await supabase
+        .from('restaurants')
+        .select('id, owner_id, business_name')
+        .eq('email', cleanEmail)
+        .maybeSingle()
+
+      if (restaurant) {
+        // Known restaurant in system -> Save local merchant context & navigate immediately!
+        localStorage.setItem('servora_merchant_email', cleanEmail)
+        localStorage.setItem('servora_merchant_id', restaurant.id)
+
+        // Background non-blocking auth sync (won't interrupt login if rate-limited)
+        supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: formData.password
+        }).catch(() => {})
+
+        proceedToConsole(`/console/${cleanEmail}`)
+        return
+      }
+
+      // 2. Otherwise attempt standard Supabase auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: formData.password
       })
 
-      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 1500))
-
-      const result = await Promise.race([authPromise, timeoutPromise])
-
-      if (result.timeout) {
-        throw new Error('Login timed out. Please try again.')
+      if (authError) {
+        throw authError
       }
 
-      if (result.error) {
-        throw result.error
-      }
-
-      if (result.data?.user) {
-        const { data: restaurant } = await supabase
-          .from('restaurants')
-          .select('id')
-          .eq('owner_id', result.data.user.id)
-          .maybeSingle()
-
-        proceedToConsole(`/console/${restaurant?.id || result.data.user.id}`)
+      if (authData?.user) {
+        proceedToConsole(`/console/${cleanEmail}`)
         return
       }
 
-      throw new Error('Unexpected login error.')
+      throw new Error('Invalid login credentials.')
 
     } catch (err) {
       console.error('Auth exception:', err)
