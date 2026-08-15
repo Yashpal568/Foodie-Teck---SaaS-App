@@ -16,17 +16,17 @@ export default function MobileNavbar({ activeItem, setActiveItem }) {
   const handleNavigation = async (item) => {
     setActiveItem(item.id)
     
-    // Identity-Safe Mobile Navigation
-    if (item.route === '/dashboard') {
-      const { data: { session } } = await getCachedSession()
-      const user = session?.user
-      if (user?.email) {
-        navigate(`/console/${user.email}`)
-        return
-      }
+    // If we're already inside the console, just switch tabs without navigating
+    if (window.location.pathname.startsWith('/console')) {
+      return
     }
-    
-    navigate(item.route)
+
+    const { data: { session } } = await getCachedSession()
+    const user = session?.user
+    if (user?.email) {
+      navigate(`/console/${user.email}`)
+      return
+    }
   }
 
   return (

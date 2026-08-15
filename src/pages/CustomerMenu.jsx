@@ -234,11 +234,6 @@ export default function CustomerMenu() {
 
   const { createOrder, updateStatus, getOrdersByTable } = useOrderManagement(restaurantId)
 
-  // Track menu visit on mount
-  useEffect(() => {
-    trackMenuVisit()
-  }, [])
-
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -294,6 +289,11 @@ export default function CustomerMenu() {
         }
 
         setTableNumber(effectiveTable)
+
+        // 🌟 Live Analytics: Track real menu visit / QR scan in Supabase & local cache
+        if (resId && resId !== 'default') {
+          trackMenuVisit(resId, effectiveTable)
+        }
 
         // 1. Fetch Restaurant Profile for Dynamic UI
         if (resId && resId !== 'default') {

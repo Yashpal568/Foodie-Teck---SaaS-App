@@ -7,10 +7,68 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { supabase } from '@/lib/supabase'
 
-// Fallback exports to prevent breaking imports across the app
-export const trackMenuVisit = () => {}
-export const trackItemView = (itemId) => {}
-export const trackItemOrder = (itemId) => {}
+// Real-time Visit & View Tracker with Deduplication Guard
+const recentVisits = new Set()
+
+export const trackMenuVisit = async (restaurantId, tableNumber) => {
+  if (!restaurantId || restaurantId === 'default') return
+  
+  // Deduplicate rapid / StrictMode double-triggers within 5 seconds for the same tab
+  const dedupeKey = `${restaurantId}_${tableNumber || 1}`
+  if (recentVisits.has(dedupeKey)) {
+    return
+  }
+  recentVisits.add(dedupeKey)
+  setTimeout(() => recentVisits.delete(dedupeKey), 5000)
+
+  try {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
+    let uuid = isUUID ? restaurantId : null
+    
+    if (!uuid && restaurantId.includes('@')) {
+      const { data } = await supabase.from('restaurants').select('id').eq('email', restaurantId.toLowerCase()).maybeSingle()
+      if (data?.id) uuid = data.id
+    }
+
+    if (uuid && tableNumber) {
+      await supabase
+        .from('table_sessions')
+        .upsert({
+          restaurant_id: uuid,
+          table_number: parseInt(tableNumber) || 1,
+          last_activity: new Date().toISOString()
+        }, { onConflict: 'restaurant_id, table_number' })
+    }
+
+    const key = `servora_real_views_${uuid || restaurantId}`
+    const cur = Number(localStorage.getItem(key) || 0) + 1
+    localStorage.setItem(key, String(cur))
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('servora_menu_visit', { detail: { restaurantId: uuid || restaurantId, tableNumber } }))
+    }
+  } catch (e) {
+    console.warn('trackMenuVisit notice:', e)
+  }
+}
+
+export const trackItemView = (itemId) => {
+  if (!itemId) return
+  try {
+    const key = `servora_item_view_${itemId}`
+    const cur = Number(localStorage.getItem(key) || 0) + 1
+    localStorage.setItem(key, String(cur))
+  } catch (e) {}
+}
+
+export const trackItemOrder = (itemId) => {
+  if (!itemId) return
+  try {
+    const key = `servora_item_order_${itemId}`
+    const cur = Number(localStorage.getItem(key) || 0) + 1
+    localStorage.setItem(key, String(cur))
+  } catch (e) {}
+}
 
 export default function MenuAnalytics({ menuItems, restaurantId }) {
   const [isOpen, setIsOpen] = useState(false)
