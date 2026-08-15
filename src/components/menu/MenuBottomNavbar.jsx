@@ -8,13 +8,15 @@ export default function MenuBottomNavbar({
   setActiveTab, 
   cartCount = 0, 
   hasActiveOrder, 
-  onCartClick,
-  onSearchClick,
-  onTrackClick,
-  orderStatus = 'preparing',
-  className
+  onCartClick, 
+  onSearchClick, 
+  onTrackClick, 
+  orderStatus = 'preparing', 
+  theme = 'light',
+  className 
 }) {
   const [hoveredTab, setHoveredTab] = useState(null)
+  const isDark = theme === 'dark'
 
   const tabs = [
     { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
@@ -30,7 +32,12 @@ export default function MenuBottomNavbar({
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
         onMouseLeave={() => setHoveredTab(null)}
-        className="bg-white/90 backdrop-blur-3xl rounded-[2.2rem] border border-white/60 shadow-[0_20px_50px_rgba(0,0,0,0.12)] p-1.5 flex items-center justify-between pointer-events-auto relative overflow-hidden ring-1 ring-black/[0.04]"
+        className={cn(
+          "backdrop-blur-3xl rounded-[2.2rem] p-1.5 flex items-center justify-between pointer-events-auto relative overflow-hidden transition-all duration-500",
+          isDark 
+            ? "bg-zinc-950/90 border border-zinc-800/90 shadow-[0_25px_60px_rgba(0,0,0,0.75)] ring-1 ring-white/[0.08]" 
+            : "bg-white/92 border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.10)] ring-1 ring-black/[0.04]"
+        )}
       >
         {tabs.map((tab) => {
           const Icon = tab.icon
@@ -53,17 +60,22 @@ export default function MenuBottomNavbar({
               className={cn(
                 "relative flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-[1.6rem] transition-all duration-300 outline-none select-none cursor-pointer group",
                 isActive 
-                  ? "text-white" 
+                  ? (isDark ? "text-slate-950 font-black" : "text-white font-black") 
                   : isHovered 
-                    ? "text-zinc-900" 
-                    : "text-zinc-500 hover:text-zinc-800"
+                    ? (isDark ? "text-white font-bold" : "text-zinc-900 font-bold") 
+                    : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-zinc-500 hover:text-zinc-800")
               )}
             >
-              {/* 🌟 LUXURY ACTIVE PILL (HIGH CONTRAST SHADCN SLATE) */}
+              {/* 🌟 LUXURY ACTIVE PILL (GOLD IN NIGHT MODE / SLATE IN DAY MODE) */}
               {isActive && (
                 <motion.div
                   layoutId="shadcn-active-pill"
-                  className="absolute inset-0 bg-slate-900 rounded-[1.6rem] -z-10 shadow-[0_8px_20px_rgba(15,23,42,0.25)] border border-slate-800"
+                  className={cn(
+                    "absolute inset-0 rounded-[1.6rem] -z-10 transition-all",
+                    isDark 
+                      ? "bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_8px_25px_rgba(245,158,11,0.4)] border border-amber-300/60" 
+                      : "bg-zinc-950 shadow-[0_8px_20px_rgba(15,23,42,0.25)] border border-zinc-800"
+                  )}
                   transition={{ type: "spring", stiffness: 450, damping: 32 }}
                 />
               )}
@@ -72,7 +84,12 @@ export default function MenuBottomNavbar({
               {!isActive && isHovered && (
                 <motion.div
                   layoutId="shadcn-hover-pill"
-                  className="absolute inset-0 bg-zinc-100/90 border border-zinc-200/70 rounded-[1.6rem] -z-10 shadow-xs"
+                  className={cn(
+                    "absolute inset-0 rounded-[1.6rem] -z-10 shadow-xs transition-all",
+                    isDark 
+                      ? "bg-zinc-850/80 border border-zinc-700/70" 
+                      : "bg-zinc-100/90 border border-zinc-200/70"
+                  )}
                   transition={{ type: "spring", stiffness: 500, damping: 35 }}
                 />
               )}
@@ -86,10 +103,10 @@ export default function MenuBottomNavbar({
                 <Icon className={cn(
                   "w-5 h-5 transition-all duration-300",
                   isActive 
-                    ? "stroke-[2.5px] text-white drop-shadow-xs" 
+                    ? (isDark ? "stroke-[2.8px] text-slate-950 drop-shadow-xs" : "stroke-[2.5px] text-white drop-shadow-xs") 
                     : isHovered 
-                      ? "stroke-[2.2px] text-zinc-900" 
-                      : "stroke-[1.8px] text-zinc-500 group-hover:text-zinc-800"
+                      ? (isDark ? "stroke-[2.2px] text-white" : "stroke-[2.2px] text-zinc-900") 
+                      : (isDark ? "stroke-[1.8px] text-zinc-400 group-hover:text-zinc-200" : "stroke-[1.8px] text-zinc-500 group-hover:text-zinc-800")
                 )} />
 
                 {/* Cart Badge with Count */}
@@ -98,8 +115,10 @@ export default function MenuBottomNavbar({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     className={cn(
-                      "absolute -top-1.5 -right-2.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-black text-white shadow-xs transition-colors",
-                      isActive ? "bg-emerald-500 ring-2 ring-slate-900" : "bg-emerald-600 ring-2 ring-white"
+                      "absolute -top-1.5 -right-2.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-black shadow-xs transition-colors",
+                      isActive 
+                        ? (isDark ? "bg-slate-950 text-amber-400 ring-2 ring-amber-400" : "bg-emerald-500 text-white ring-2 ring-slate-900") 
+                        : (isDark ? "bg-amber-400 text-slate-950 ring-2 ring-zinc-950" : "bg-emerald-600 text-white ring-2 ring-white")
                     )}
                   >
                     {tab.badge}
@@ -111,11 +130,11 @@ export default function MenuBottomNavbar({
                   <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                     <span className={cn(
                       "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                      tab.status === 'ready' ? "bg-emerald-400" : "bg-blue-400"
+                      tab.status === 'ready' ? "bg-emerald-400" : "bg-amber-400"
                     )}></span>
                     <span className={cn(
                       "relative inline-flex rounded-full h-2.5 w-2.5",
-                      tab.status === 'ready' ? "bg-emerald-500" : "bg-blue-500"
+                      tab.status === 'ready' ? "bg-emerald-500" : "bg-amber-500"
                     )}></span>
                   </span>
                 )}
@@ -125,10 +144,10 @@ export default function MenuBottomNavbar({
               <span className={cn(
                 "text-[10px] tracking-tight mt-1 transition-all duration-300 leading-none",
                 isActive 
-                  ? "text-white font-black" 
+                  ? (isDark ? "text-slate-950 font-black" : "text-white font-black") 
                   : isHovered 
-                    ? "text-zinc-900 font-bold" 
-                    : "text-zinc-500 font-medium group-hover:text-zinc-800"
+                    ? (isDark ? "text-white font-bold" : "text-zinc-900 font-bold") 
+                    : (isDark ? "text-zinc-400 font-medium group-hover:text-zinc-200" : "text-zinc-500 font-medium group-hover:text-zinc-800")
               )}>
                 {tab.label}
               </span>

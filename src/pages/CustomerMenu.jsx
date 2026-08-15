@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, Clock, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu, BellRing, Flame, ArrowRight, ChevronRight, Check, Trash2, Receipt, ShieldCheck, ShieldAlert, QrCode, Lock } from 'lucide-react'
+import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, Clock, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu, BellRing, Flame, ArrowRight, ChevronRight, Check, Trash2, Receipt, ShieldCheck, ShieldAlert, QrCode, Lock, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -203,6 +203,27 @@ export default function CustomerMenu() {
   const [activeCategory, setActiveCategory] = useState(null)
   const [vegOnlyFilter, setVegOnlyFilter] = useState(false)
   const [showWaiterPopup, setShowWaiterPopup] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('servora_customer_theme')
+      if (saved) return saved
+      const hour = new Date().getHours()
+      return (hour >= 18 || hour < 6) ? 'dark' : 'light'
+    } catch {
+      return 'light'
+    }
+  })
+
+  const toggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      try {
+        localStorage.setItem('servora_customer_theme', next)
+      } catch (e) {}
+      return next
+    })
+  }
+
   const [restaurantData, setRestaurantData] = useState({
     name: "Servora",
     rating: 4.8,
@@ -599,6 +620,7 @@ export default function CustomerMenu() {
       <OrderTracking 
         orderId={currentOrder?.id || activeOrderId} 
         restaurantId={restaurantId} 
+        theme={theme}
         onClose={() => {
           setShowOrderTracking(false)
           setActiveTab('menu')
@@ -620,9 +642,26 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col pb-32 lg:pb-0 overflow-x-hidden">
+    <div className={`min-h-screen flex flex-col pb-32 lg:pb-0 overflow-x-hidden transition-colors duration-500 relative selection:bg-amber-500 selection:text-black ${
+      theme === 'dark' ? 'bg-[#090a0f] text-white' : 'bg-[#faf8f5] text-zinc-900'
+    }`}>
+      {/* 🌟 LUXURY AMBIENT GLOW LIGHTING MESH 🌟 */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className={`absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full blur-[140px] transition-all duration-700 ${
+          theme === 'dark' ? 'bg-amber-500/12' : 'bg-amber-400/20'
+        }`} />
+        <div className={`absolute top-1/3 -right-24 w-[420px] h-[420px] rounded-full blur-[140px] transition-all duration-700 ${
+          theme === 'dark' ? 'bg-indigo-600/12' : 'bg-orange-400/15'
+        }`} />
+        <div className={`absolute bottom-24 -left-20 w-[400px] h-[400px] rounded-full blur-[140px] transition-all duration-700 ${
+          theme === 'dark' ? 'bg-emerald-500/10' : 'bg-rose-400/12'
+        }`} />
+      </div>
+
       {/* 💻 DESKTOP NAVBAR */}
-      <Navbar className="hidden lg:flex bg-white/95 backdrop-blur-3xl sticky top-0 z-50 border-b border-slate-100/40 h-24">
+      <Navbar className={`hidden lg:flex backdrop-blur-3xl sticky top-0 z-50 border-b h-24 transition-colors duration-500 ${
+        theme === 'dark' ? 'bg-zinc-950/85 border-zinc-800/80 text-white' : 'bg-white/90 border-amber-100/60 text-zinc-900'
+      }`}>
         <NavbarContent className="max-w-375 mx-auto px-10 w-full flex items-center justify-between gap-12">
           <NavbarBrand className="flex items-center gap-3 cursor-pointer">
             <Logo showText={true} iconSize={32} />
@@ -630,31 +669,67 @@ export default function CustomerMenu() {
 
           <div className="hidden lg:flex flex-1 max-w-2xl relative group items-center">
             <div className="absolute left-6 text-slate-400">
-               <Search className="h-5 w-5 group-focus-within:text-slate-900 transition-colors" />
+               <Search className="h-5 w-5 group-focus-within:text-amber-500 transition-colors" />
             </div>
             <Input 
               ref={searchInputRef} 
               type="text" 
               placeholder="Search for dishes, cuisines or favorites..." 
-              className="w-full h-16 pl-16 pr-16 bg-[#f8fafc] border-transparent rounded-full focus-visible:ring-0 focus-visible:bg-white focus-visible:border-slate-100 transition-all text-[13px] font-bold tracking-tight text-slate-900 shadow-sm" 
+              className={`w-full h-16 pl-16 pr-16 border rounded-full focus-visible:ring-2 focus-visible:ring-amber-500/20 transition-all text-[13px] font-bold tracking-tight shadow-sm ${
+                theme === 'dark' 
+                  ? 'bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:border-amber-500/50' 
+                  : 'bg-[#f8fafc] border-transparent text-slate-900 placeholder:text-slate-400 focus-visible:bg-white focus-visible:border-amber-200'
+              }`} 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
             />
-            <div className="absolute right-6 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-tighter shadow-sm">ESC</div>
+            <div className={`absolute right-6 px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-tighter shadow-sm ${
+              theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-400' : 'bg-slate-50 border-slate-100 text-slate-400'
+            }`}>ESC</div>
           </div>
 
-          <div className="flex items-center gap-6">
-             <div className="hidden lg:flex items-center gap-4 bg-slate-50/50 px-6 py-2.5 rounded-2xl border border-slate-100/40">
-                <div className="flex flex-col items-center border-r border-slate-200/60 pr-4 leading-none">
+          <div className="flex items-center gap-4">
+             {/* ☀️ / 🌙 Desktop Day & Night Switcher Pill */}
+             <button
+               onClick={toggleTheme}
+               className={`h-11 px-4 rounded-full border flex items-center gap-2 text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer ${
+                 theme === 'dark'
+                   ? 'bg-zinc-900 border-zinc-700 text-amber-300 hover:bg-zinc-800'
+                   : 'bg-white border-amber-200/80 text-amber-800 hover:bg-amber-50'
+               }`}
+               title={`Switch to ${theme === 'dark' ? 'Day Light' : 'Night Velvet'} Mode`}
+             >
+               {theme === 'dark' ? (
+                 <>
+                   <Moon className="w-4 h-4 fill-amber-300 text-amber-300 animate-pulse" />
+                   <span className="text-[11px] uppercase tracking-wider font-black">NIGHT</span>
+                 </>
+               ) : (
+                 <>
+                   <Sun className="w-4 h-4 text-amber-500 fill-amber-400" />
+                   <span className="text-[11px] uppercase tracking-wider font-black text-amber-900">DAY</span>
+                 </>
+               )}
+             </button>
+
+             <div className={`hidden lg:flex items-center gap-4 px-6 py-2.5 rounded-2xl border ${
+               theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800' : 'bg-slate-50/50 border-slate-100/40'
+             }`}>
+                <div className={`flex flex-col items-center border-r pr-4 leading-none ${
+                  theme === 'dark' ? 'border-zinc-700' : 'border-slate-200/60'
+                }`}>
                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">TABLE</span>
-                   <span className="text-sm font-black text-slate-900">{tableNumber}</span>
+                   <span className={`text-sm font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{tableNumber}</span>
                 </div>
                 <div className="flex items-center gap-2">
                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
-                   <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">ACTIVE</span>
+                   <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-emerald-400' : 'text-slate-800'}`}>ACTIVE</span>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="h-12 w-12 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all">
+
+             <Button variant="ghost" size="icon" className={`h-12 w-12 rounded-2xl transition-all ${
+               theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-900' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
+             }`}>
                 <User className="h-5 w-5" />
              </Button>
           </div>
@@ -662,26 +737,64 @@ export default function CustomerMenu() {
       </Navbar>
 
       {/* 📱 MOBILE NAVBAR & HERO */}
-      <div className="lg:hidden">
+      <div className="lg:hidden relative z-10">
         {/* Premium Mobile Navbar (Sticky) */}
-        <div className="bg-white/80 backdrop-blur-xl px-5 py-3.5 flex items-center justify-between shadow-sm sticky top-0 z-50 border-b border-zinc-200/50">
+        <div className={`px-5 py-3.5 flex items-center justify-between shadow-sm sticky top-0 z-50 border-b backdrop-blur-xl transition-colors duration-500 ${
+          theme === 'dark' ? 'bg-zinc-950/85 border-zinc-800/80 text-white' : 'bg-white/85 border-amber-100/60 text-zinc-900'
+        }`}>
           <div className="flex items-center gap-3">
             <Logo showText={true} iconSize={22} />
             {tableNumber && tableNumber !== 'N/A' && (
-              <div className="flex items-center gap-1.5 bg-indigo-50/80 border border-indigo-100/50 px-2.5 py-1 rounded-full ml-1">
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ml-1 border ${
+                theme === 'dark'
+                  ? 'bg-zinc-900 border-zinc-700 text-amber-300'
+                  : 'bg-amber-50/80 border-amber-200/60 text-amber-900'
+              }`}>
                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                 <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest pt-[1px]">Table {tableNumber}</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest pt-[1px]">Table {tableNumber}</span>
               </div>
             )}
           </div>
-          <Button variant="ghost" size="icon" className="bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full h-9 w-9 transition-all shadow-sm">
-            <User className="h-4 w-4" />
-          </Button>
+
+          <div className="flex items-center gap-2">
+            {/* ☀️ / 🌙 Mobile Day & Night Switcher Pill */}
+            <button
+              onClick={toggleTheme}
+              className={`h-9 px-3 rounded-full border flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-zinc-900 border-zinc-700 text-amber-300 hover:bg-zinc-800'
+                  : 'bg-white border-amber-200/80 text-amber-800 hover:bg-amber-50'
+              }`}
+              title={`Switch to ${theme === 'dark' ? 'Day Light' : 'Night Velvet'} Mode`}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Moon className="w-3.5 h-3.5 fill-amber-300 text-amber-300 animate-pulse" />
+                  <span className="text-[10px] uppercase tracking-wider font-black">NIGHT</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                  <span className="text-[10px] uppercase tracking-wider font-black text-amber-900">DAY</span>
+                </>
+              )}
+            </button>
+
+            <Button variant="ghost" size="icon" className={`rounded-full h-9 w-9 transition-all shadow-sm ${
+              theme === 'dark'
+                ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
+                : 'bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50'
+            }`}>
+              <User className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* ⭐ PREMIUM RESTAURANT HERO BANNER & IDENTITY CARD (MATCHING DASHBOARD LAYOUT) ⭐ */}
         <div className="px-4 pt-3 pb-2">
-          <div className="w-full bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-zinc-200/80 shadow-[0_10px_35px_rgba(0,0,0,0.06)] overflow-hidden">
+          <div className={`w-full rounded-[2rem] sm:rounded-[2.5rem] border shadow-[0_10px_35px_rgba(0,0,0,0.06)] overflow-hidden transition-colors duration-500 ${
+            theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800/80 text-white' : 'bg-white/95 border-zinc-200/80 text-zinc-900'
+          }`}>
             
             {/* 1. Full Vibrant Cover Banner Image */}
             <div className="relative h-44 sm:h-56 md:h-64 w-full bg-zinc-900 overflow-hidden">
@@ -800,8 +913,8 @@ export default function CustomerMenu() {
             <section className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-black text-zinc-900 tracking-tight">What's on your mind?</h2>
-                  <p className="text-[11px] font-medium text-zinc-400">Explore by popular dining categories</p>
+                  <h2 className={`text-lg sm:text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-zinc-900'}`}>What's on your mind?</h2>
+                  <p className={`text-[11px] font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>Explore by popular dining categories</p>
                 </div>
               </div>
 
@@ -814,14 +927,16 @@ export default function CustomerMenu() {
                     <button
                       key={cat}
                       onClick={() => scrollToCategory(cat)}
-                      className="group shrink-0 flex flex-col items-center gap-2 outline-none transition-transform active:scale-95"
+                      className="group shrink-0 flex flex-col items-center gap-2 outline-none transition-transform active:scale-95 cursor-pointer"
                     >
                       {/* Real Food Image Circular Plate with 3D shadow */}
                       <div className={`w-20 h-20 sm:w-22 sm:h-22 rounded-full overflow-hidden border-2 ${
                         isActive 
-                          ? 'border-orange-500 ring-4 ring-orange-500/25 scale-105 shadow-[0_12px_24px_rgba(249,115,22,0.3)]' 
+                          ? 'border-amber-500 ring-4 ring-amber-500/25 scale-105 shadow-[0_12px_24px_rgba(245,158,11,0.3)]' 
+                          : theme === 'dark'
+                          ? 'border-zinc-700/80 shadow-md group-hover:border-zinc-500 group-hover:-translate-y-1'
                           : 'border-zinc-200/80 shadow-[0_6px_16px_rgba(0,0,0,0.08)] group-hover:border-zinc-300 group-hover:shadow-[0_10px_22px_rgba(0,0,0,0.12)] group-hover:-translate-y-1'
-                      } transition-all duration-300 relative bg-zinc-100`}>
+                      } transition-all duration-300 relative ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
                         <img 
                           src={plateInfo.image} 
                           alt={cat} 
@@ -835,7 +950,9 @@ export default function CustomerMenu() {
                       
                       {/* Category Label */}
                       <span className={`text-[12px] font-bold tracking-tight max-w-[84px] text-center truncate ${
-                        isActive ? 'text-orange-600 font-black' : 'text-zinc-700 group-hover:text-zinc-900'
+                        isActive 
+                          ? 'text-amber-500 font-black' 
+                          : theme === 'dark' ? 'text-zinc-300 group-hover:text-white' : 'text-zinc-700 group-hover:text-zinc-900'
                       }`}>
                         {cat}
                       </span>
@@ -851,12 +968,12 @@ export default function CustomerMenu() {
             <section className="space-y-3">
               <div className="flex items-center justify-between px-1">
                 <div>
-                  <div className="flex items-center gap-1.5 text-orange-500 mb-0.5">
-                    <Flame className="h-3.5 w-3.5 fill-orange-500 text-orange-500" />
+                  <div className="flex items-center gap-1.5 text-amber-500 mb-0.5">
+                    <Flame className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">Chef's Special Picks</span>
                   </div>
-                  <h2 className="text-lg sm:text-xl font-black text-zinc-900 tracking-tight">Popular Selections</h2>
-                  <p className="text-[11px] font-medium text-zinc-400">Hand-picked guest favorites</p>
+                  <h2 className={`text-lg sm:text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-zinc-900'}`}>Popular Selections</h2>
+                  <p className={`text-[11px] font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>Hand-picked guest favorites</p>
                 </div>
               </div>
 
@@ -866,12 +983,16 @@ export default function CustomerMenu() {
                   const itemImg = item.photo || item.image_url || item.image || item.imageUrl;
                   return (
                     <motion.div 
-                      key={item._id}
+                      key={item._id} 
                       whileHover={{ y: -3 }}
-                      className="shrink-0 w-[240px] sm:w-[260px] snap-start bg-white rounded-3xl p-3 border border-zinc-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl hover:border-zinc-300 transition-all duration-300 flex flex-col justify-between group"
+                      className={`shrink-0 w-[240px] sm:w-[260px] snap-start rounded-3xl p-3 border transition-all duration-300 flex flex-col justify-between group ${
+                        theme === 'dark'
+                          ? 'bg-zinc-900/85 border-zinc-800/90 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-zinc-700'
+                          : 'bg-white/95 border-zinc-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl hover:border-zinc-300'
+                      }`}
                     >
                       {/* Food Image Container */}
-                      <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50/60 border border-zinc-100/80 flex items-center justify-center">
+                      <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-100/10 flex items-center justify-center">
                         {itemImg ? (
                           <img 
                             src={itemImg} 
@@ -906,23 +1027,31 @@ export default function CustomerMenu() {
                       {/* Details & Action Row */}
                       <div className="pt-3 flex flex-col justify-between flex-1">
                         <div>
-                          <h4 className="text-[14px] font-bold text-zinc-900 line-clamp-1 tracking-tight group-hover:text-indigo-600 transition-colors">
+                          <h4 className={`text-[14px] font-bold line-clamp-1 tracking-tight group-hover:text-amber-400 transition-colors ${
+                            theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                          }`}>
                             {item.name}
                           </h4>
-                          <p className="text-[11px] font-medium text-zinc-400 line-clamp-1 mt-0.5 mb-3">
+                          <p className={`text-[11px] font-medium line-clamp-1 mt-0.5 mb-3 ${
+                            theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
+                          }`}>
                             {item.description || item.category}
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
-                          <span className="text-base font-black text-zinc-900 tracking-tight">
+                        <div className={`flex items-center justify-between pt-2 border-t ${
+                          theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
+                        }`}>
+                          <span className={`text-base font-black tracking-tight ${
+                            theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                          }`}>
                             {formatPrice(item.price)}
                           </span>
 
                           {getQuantity(item._id) > 0 ? (
                             <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-md gap-2 border border-white/20">
                               <button 
-                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform"
+                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer"
                                 onClick={(e) => { e.stopPropagation(); removeFromCart(item._id); }}
                               >
                                 <Minus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
@@ -931,7 +1060,7 @@ export default function CustomerMenu() {
                                 {getQuantity(item._id)}
                               </span>
                               <button 
-                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform"
+                                className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer"
                                 onClick={(e) => { e.stopPropagation(); addToCart(item); }}
                               >
                                 <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
@@ -940,7 +1069,11 @@ export default function CustomerMenu() {
                           ) : (
                             <button 
                               onClick={(e) => { e.stopPropagation(); addToCart(item); }}
-                              className="px-4 py-1.5 bg-white text-emerald-600 border-2 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500 active:scale-95 shadow-sm rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 transition-all"
+                              className={`px-4 py-1.5 border-2 active:scale-95 shadow-sm rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                                theme === 'dark'
+                                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-black'
+                                  : 'bg-white text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500'
+                              }`}
                             >
                               <span>ADD</span>
                               <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -956,16 +1089,22 @@ export default function CustomerMenu() {
           )}
 
           {/* 🔍 SWIGGY/ZOMATO STICKY SEARCH & QUICK FILTER BAR 🔍 */}
-          <div className="sticky top-[68px] z-30 px-0 py-3 bg-zinc-50/90 backdrop-blur-xl transition-all duration-300 space-y-3">
+          <div className={`sticky top-[68px] z-30 px-0 py-3 backdrop-blur-xl transition-all duration-300 space-y-3 ${
+            theme === 'dark' ? 'bg-[#090a0f]/90' : 'bg-[#faf8f5]/90'
+          }`}>
              {/* Search Input Box */}
              <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 h-4 w-4 z-10 pointer-events-none">
-                  <Search className="h-4 w-4 group-focus-within:text-indigo-600 transition-colors" />
+                  <Search className="h-4 w-4 group-focus-within:text-amber-500 transition-colors" />
                 </div>
                 <Input 
                   ref={searchInputRef} 
                   type="text" 
-                  className="pl-11 pr-10 h-12 bg-white border border-zinc-200/80 rounded-2xl text-[13px] font-bold tracking-wide placeholder:text-zinc-400 focus-visible:bg-white focus-visible:border-indigo-300 focus-visible:ring-4 focus-visible:ring-indigo-500/10 transition-all shadow-xs" 
+                  className={`pl-11 pr-10 h-12 rounded-2xl text-[13px] font-bold tracking-wide focus-visible:ring-4 transition-all shadow-xs ${
+                    theme === 'dark'
+                      ? 'bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:bg-zinc-900 focus-visible:border-amber-500/50 focus-visible:ring-amber-500/10'
+                      : 'bg-white border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus-visible:bg-white focus-visible:border-amber-300 focus-visible:ring-amber-500/10'
+                  }`} 
                   placeholder="Search dishes, breads, drinks or desserts..." 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
@@ -973,7 +1112,7 @@ export default function CustomerMenu() {
                 {searchTerm && (
                   <button 
                     onClick={() => setSearchTerm('')} 
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 p-1 rounded-full hover:bg-zinc-100 transition-colors"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 p-1 rounded-full hover:bg-zinc-100 transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -985,9 +1124,11 @@ export default function CustomerMenu() {
                 {/* 🥦 Pure Veg Toggle Button */}
                 <button
                   onClick={() => setVegOnlyFilter(!vegOnlyFilter)}
-                  className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all flex items-center gap-1.5 border shadow-xs ${
+                  className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all flex items-center gap-1.5 border shadow-xs cursor-pointer ${
                     vegOnlyFilter 
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/25' 
+                      : theme === 'dark'
+                      ? 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800'
                       : 'bg-white text-zinc-700 border-zinc-200/80 hover:bg-zinc-50 hover:border-zinc-300'
                   }`}
                 >
@@ -1002,14 +1143,16 @@ export default function CustomerMenu() {
                   <button 
                     key={category} 
                     onClick={() => scrollToCategory(category)} 
-                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border shadow-xs ${
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border shadow-xs cursor-pointer ${
                       activeCategory === category 
-                      ? 'bg-zinc-900 text-white border-zinc-900 shadow-zinc-900/20' 
+                      ? theme === 'dark' ? 'bg-amber-500 text-slate-950 border-amber-500 font-black shadow-md' : 'bg-zinc-900 text-white border-zinc-900 shadow-zinc-900/20' 
+                      : theme === 'dark'
+                      ? 'bg-zinc-900/90 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-800'
                       : 'bg-white text-zinc-600 border-zinc-200/80 hover:text-zinc-900 hover:bg-zinc-50'
                     }`}
                   >
                     <span>{category}</span>
-                    <span className={`ml-1.5 text-[10px] font-semibold ${activeCategory === category ? 'text-zinc-400' : 'text-zinc-400'}`}>
+                    <span className={`ml-1.5 text-[10px] font-semibold ${activeCategory === category ? (theme === 'dark' ? 'text-slate-900 font-black' : 'text-zinc-400') : 'text-zinc-500'}`}>
                       {groupedItems[category]?.length || 0}
                     </span>
                   </button>
@@ -1030,12 +1173,20 @@ export default function CustomerMenu() {
                 className="space-y-4 pt-4"
               >
                 {/* Category Header */}
-                <div className="flex items-center justify-between border-b border-zinc-200/70 pb-3">
+                <div className={`flex items-center justify-between border-b pb-3 ${
+                  theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/70'
+                }`}>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-1.5 h-6 bg-zinc-900 rounded-full" />
-                    <h2 className="text-lg sm:text-xl font-black text-zinc-900 tracking-tight uppercase">{category}</h2>
+                    <div className={`w-1.5 h-6 rounded-full ${
+                      theme === 'dark' ? 'bg-amber-400' : 'bg-zinc-900'
+                    }`} />
+                    <h2 className={`text-lg sm:text-xl font-black tracking-tight uppercase ${
+                      theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                    }`}>{category}</h2>
                   </div>
-                  <Badge className="bg-zinc-100 hover:bg-zinc-100 text-zinc-600 font-bold rounded-lg px-2.5 py-0.5 text-[11px] border border-zinc-200/60 shadow-none">
+                  <Badge className={`font-bold rounded-lg px-2.5 py-0.5 text-[11px] border shadow-none ${
+                    theme === 'dark' ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-100 text-zinc-600 border-zinc-200/60'
+                  }`}>
                     {items.length} {items.length === 1 ? 'ITEM' : 'ITEMS'}
                   </Badge>
                 </div>
@@ -1047,7 +1198,11 @@ export default function CustomerMenu() {
                     return (
                       <Card 
                         key={item._id} 
-                        className="border border-zinc-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-zinc-300 rounded-3xl overflow-visible transition-all duration-300 bg-white"
+                        className={`rounded-3xl overflow-visible transition-all duration-300 border ${
+                          theme === 'dark'
+                            ? 'bg-zinc-900/85 border-zinc-800/80 text-white shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:border-zinc-700'
+                            : 'bg-white/95 border-zinc-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-zinc-300'
+                        }`}
                       >
                         <CardContent className="p-4 sm:p-5 flex justify-between items-start gap-4">
                           {/* Left: Info & Price (65%) */}
@@ -1067,24 +1222,32 @@ export default function CustomerMenu() {
                             </div>
 
                             {/* Dish Title */}
-                            <h3 className="text-[15px] sm:text-base font-bold text-zinc-900 tracking-tight leading-snug group-hover:text-indigo-600 transition-colors">
+                            <h3 className={`text-[15px] sm:text-base font-bold tracking-tight leading-snug transition-colors ${
+                              theme === 'dark' ? 'text-white group-hover:text-amber-400' : 'text-zinc-900 group-hover:text-indigo-600'
+                            }`}>
                               {item.name}
                             </h3>
 
                             {/* Price */}
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-base sm:text-lg font-black text-zinc-900 tracking-tight">
+                              <span className={`text-base sm:text-lg font-black tracking-tight ${
+                                theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                              }`}>
                                 {formatPrice(item.price)}
                               </span>
                             </div>
 
                             {/* Description */}
                             {item.description ? (
-                              <p className="text-xs text-zinc-400 font-normal line-clamp-2 mt-1.5 leading-relaxed">
+                              <p className={`text-xs font-normal line-clamp-2 mt-1.5 leading-relaxed ${
+                                theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
+                              }`}>
                                 {item.description}
                               </p>
                             ) : (
-                              <p className="text-xs text-zinc-400 font-normal italic mt-1.5">
+                              <p className={`text-xs font-normal italic mt-1.5 ${
+                                theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'
+                              }`}>
                                 Freshly prepared upon order
                               </p>
                             )}
@@ -1184,21 +1347,29 @@ export default function CustomerMenu() {
 
       {/* 🖥️ DESKTOP LUXURY CART SIDEBAR */}
       <aside className="hidden lg:block sticky top-8 self-start w-full">
-        <Card className="border border-zinc-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.06)] rounded-[2.5rem] overflow-hidden bg-white/90 backdrop-blur-2xl">
-          <CardHeader className="py-6 px-6 border-b border-zinc-100 bg-slate-900 text-white">
+        <Card className={`border shadow-[0_20px_50px_rgba(0,0,0,0.06)] rounded-[2.5rem] overflow-hidden backdrop-blur-2xl transition-colors duration-500 ${
+          theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800/90 text-white shadow-2xl' : 'bg-white/90 border-zinc-200/80 text-zinc-900 shadow-sm'
+        }`}>
+          <CardHeader className={`py-6 px-6 border-b transition-colors duration-500 ${
+            theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-900 text-white'
+          }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
-                  <ShoppingBag className="h-4 w-4 text-white" />
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                  theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-white'
+                }`}>
+                  <ShoppingBag className="h-4 w-4" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-black text-white uppercase tracking-wider">
+                  <CardTitle className="text-sm font-black uppercase tracking-wider">
                     My Order Cart
                   </CardTitle>
-                  <p className="text-[10px] text-zinc-400 font-medium">Table #{tableNumber || '1'} • Dine-In</p>
+                  <p className={`text-[10px] font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-400'}`}>Table #{tableNumber || '1'} • Dine-In</p>
                 </div>
               </div>
-              <Badge className="bg-emerald-500 text-white font-bold px-2.5 py-0.5 text-[11px] rounded-lg">
+              <Badge className={`font-bold px-2.5 py-0.5 text-[11px] rounded-lg ${
+                theme === 'dark' ? 'bg-amber-400 text-slate-950 font-black' : 'bg-emerald-500 text-white'
+              }`}>
                 {getTotalItems()} {getTotalItems() === 1 ? 'Item' : 'Items'}
               </Badge>
             </div>
@@ -1206,46 +1377,58 @@ export default function CustomerMenu() {
           <CardContent className="p-0">
             {cart.length === 0 ? (
               <div className="py-16 px-6 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-3xl bg-zinc-50 flex items-center justify-center mb-3 border border-zinc-100">
-                  <ShoppingBag className="w-7 h-7 text-zinc-300" />
+                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mb-3 border ${
+                  theme === 'dark' ? 'bg-zinc-800/80 border-zinc-700/60 text-zinc-500' : 'bg-zinc-50 border-zinc-100 text-zinc-300'
+                }`}>
+                  <ShoppingBag className="w-7 h-7" />
                 </div>
-                <h3 className="text-sm font-black text-zinc-700 uppercase tracking-wider mb-1">Your cart is empty</h3>
+                <h3 className={`text-sm font-black uppercase tracking-wider mb-1 ${
+                  theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'
+                }`}>Your cart is empty</h3>
                 <p className="text-xs text-zinc-400 max-w-[200px]">Select delicious dishes from the menu to build your feast.</p>
               </div>
             ) : (
               <>
-                <div className="max-h-[36vh] overflow-y-auto px-6 py-4 space-y-3 no-scrollbar divide-y divide-zinc-100">
+                <div className={`max-h-[36vh] overflow-y-auto px-6 py-4 space-y-3 no-scrollbar divide-y ${
+                  theme === 'dark' ? 'divide-zinc-800/80' : 'divide-zinc-100'
+                }`}>
                   {cart.map(item => {
                     const itemImg = item.photo || item.image_url || item.image || item.imageUrl || getCategoryPlateInfo(item.category, []).image;
                     return (
                       <div key={item._id} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="w-11 h-11 rounded-xl overflow-hidden bg-zinc-100 shrink-0 border border-zinc-200/60">
+                          <div className={`w-11 h-11 rounded-xl overflow-hidden shrink-0 border ${
+                            theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-100 border-zinc-200/60'
+                          }`}>
                             <img src={itemImg} alt={item.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-zinc-900 truncate">{item.name}</p>
+                            <p className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-zinc-900'}`}>{item.name}</p>
                             <span className="text-[10px] text-zinc-400 font-semibold">{formatPrice(item.price)}</span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="flex items-center bg-zinc-900 text-white rounded-lg p-0.5 gap-1.5 border border-white/20">
+                          <div className={`flex items-center rounded-lg p-0.5 gap-1.5 border ${
+                            theme === 'dark' ? 'bg-zinc-800 text-white border-zinc-700' : 'bg-zinc-900 text-white border-white/20'
+                          }`}>
                             <button 
-                              className="h-5 w-5 rounded-md flex items-center justify-center hover:bg-white/20 active:scale-90" 
+                              className="h-5 w-5 rounded-md flex items-center justify-center hover:bg-white/20 active:scale-90 cursor-pointer" 
                               onClick={() => removeFromCart(item._id)}
                             >
                               <Minus className="w-2.5 h-2.5 text-white" />
                             </button>
                             <span className="text-[11px] font-black min-w-3 text-center">{item.quantity}</span>
                             <button 
-                              className="h-5 w-5 rounded-md flex items-center justify-center hover:bg-white/20 active:scale-90" 
+                              className="h-5 w-5 rounded-md flex items-center justify-center hover:bg-white/20 active:scale-90 cursor-pointer" 
                               onClick={() => addToCart(item)}
                             >
                               <Plus className="w-2.5 h-2.5 text-white" />
                             </button>
                           </div>
-                          <span className="text-xs font-black text-zinc-900 min-w-14 text-right">
+                          <span className={`text-xs font-black min-w-14 text-right ${
+                            theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                          }`}>
                             {formatPrice(item.price * item.quantity)}
                           </span>
                         </div>
@@ -1254,36 +1437,48 @@ export default function CustomerMenu() {
                   })}
                 </div>
 
-                <div className="px-6 py-5 bg-zinc-50/70 border-t border-zinc-100 space-y-4">
-                  <div className="space-y-1.5 text-xs text-zinc-500 font-medium">
+                <div className={`px-6 py-5 border-t space-y-4 ${
+                  theme === 'dark' ? 'bg-zinc-950/80 border-zinc-800' : 'bg-zinc-50/70 border-zinc-100'
+                }`}>
+                  <div className={`space-y-1.5 text-xs font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
                     <div className="flex justify-between">
                       <span>Subtotal</span>
-                      <span className="font-bold text-zinc-800">{formatPrice(getTotalPrice())}</span>
+                      <span className={`font-bold ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{formatPrice(getTotalPrice())}</span>
                     </div>
                     {gstRate > 0 && (
                       <div className="flex justify-between">
                         <span>{gstLabel} ({gstRate}%)</span>
-                        <span className="font-bold text-zinc-800">{formatPrice(getTotalPrice() * gstRate / 100)}</span>
+                        <span className={`font-bold ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{formatPrice(getTotalPrice() * gstRate / 100)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-emerald-600 font-bold text-[11px]">
+                    <div className="flex justify-between text-emerald-500 font-bold text-[11px]">
                       <span>Dine-In Service</span>
                       <span>Complimentary</span>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-zinc-200/80 flex justify-between items-center">
+                  <div className={`pt-3 border-t flex justify-between items-center ${
+                    theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/80'
+                  }`}>
                     <div>
-                      <span className="text-xs font-black text-zinc-900 uppercase tracking-wider block">Grand Total</span>
+                      <span className={`text-xs font-black uppercase tracking-wider block ${
+                        theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                      }`}>Grand Total</span>
                       <span className="text-[9px] text-zinc-400">Incl. all taxes</span>
                     </div>
-                    <span className="text-2xl font-black text-zinc-900 tracking-tight">
+                    <span className={`text-2xl font-black tracking-tight ${
+                      theme === 'dark' ? 'text-amber-400' : 'text-zinc-900'
+                    }`}>
                       {formatPrice(getTotalPrice() + (getTotalPrice() * gstRate / 100))}
                     </span>
                   </div>
 
                   <Button 
-                    className="w-full h-14 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl transition-all flex items-center justify-center gap-2" 
+                    className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      theme === 'dark'
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
+                        : 'bg-slate-900 hover:bg-black text-white'
+                    }`} 
                     onClick={() => setShowConfirmModal(true)}
                   >
                     <span>Proceed to Order</span>
@@ -1357,22 +1552,30 @@ export default function CustomerMenu() {
 
       {/* 🛍️ REDESIGNED LUXURY SWIGGY/ZOMATO ORDER SUMMARY SHEET */}
       <Sheet open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-        <SheetContent side="bottom" className="h-[92vh] sm:h-[88vh] max-w-2xl mx-auto rounded-t-[2.5rem] bg-zinc-50/95 backdrop-blur-2xl p-0 border-0 flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.2)] overflow-hidden">
+        <SheetContent side="bottom" className={`h-[92vh] sm:h-[88vh] max-w-2xl mx-auto rounded-t-[2.5rem] p-0 border-0 flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.4)] overflow-hidden transition-colors duration-500 ${
+          theme === 'dark' ? 'bg-[#090a0f] text-white border-t border-zinc-800/80' : 'bg-zinc-50/95 text-zinc-900 backdrop-blur-2xl'
+        }`}>
           {/* Header */}
-          <SheetHeader className="px-6 pt-4 pb-4 border-b border-zinc-200/80 bg-white/90 backdrop-blur-xl sticky top-0 z-20">
+          <SheetHeader className={`px-6 pt-4 pb-4 border-b backdrop-blur-xl sticky top-0 z-20 transition-colors duration-500 ${
+            theme === 'dark' ? 'bg-zinc-950/90 border-zinc-800 text-white' : 'bg-white/90 border-zinc-200/80 text-zinc-900'
+          }`}>
             {/* Center drag pill */}
-            <div className="w-12 h-1.5 bg-zinc-300 rounded-full mx-auto mb-3" />
+            <div className={`w-12 h-1.5 rounded-full mx-auto mb-3 ${theme === 'dark' ? 'bg-zinc-700' : 'bg-zinc-300'}`} />
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs ${
+                  theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-900 text-white'
+                }`}>
                   <ShoppingBag className="w-4 h-4" />
                 </div>
                 <div>
-                  <SheetTitle className="text-lg font-black text-zinc-900 tracking-tight leading-none m-0">
+                  <SheetTitle className={`text-lg font-black tracking-tight leading-none m-0 ${
+                    theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                  }`}>
                     Order Summary
                   </SheetTitle>
-                  <p className="text-[11px] font-semibold text-zinc-400 mt-0.5">
+                  <p className={`text-[11px] font-semibold mt-0.5 ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-400'}`}>
                     {getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'} in your cart
                   </p>
                 </div>
@@ -1380,14 +1583,18 @@ export default function CustomerMenu() {
 
               <div className="flex items-center gap-2">
                 {tableNumber && tableNumber !== 'N/A' && (
-                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-3 py-1 rounded-full text-xs font-bold shadow-xs">
+                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shadow-xs border ${
+                    theme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-amber-300' : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                  }`}>
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Table {tableNumber}</span>
                   </div>
                 )}
                 <button 
                   onClick={() => setShowConfirmModal(false)}
-                  className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-600 flex items-center justify-center transition-colors"
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                    theme === 'dark' ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'
+                  }`}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1399,16 +1606,22 @@ export default function CustomerMenu() {
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 no-scrollbar">
             {cart.length === 0 ? (
               <div className="py-20 px-6 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-20 h-20 rounded-3xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-400">
-                  <ShoppingBag className="w-10 h-10 text-zinc-300" />
+                <div className={`w-20 h-20 rounded-3xl border flex items-center justify-center ${
+                  theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-500' : 'bg-zinc-100 border-zinc-200/60 text-zinc-400'
+                }`}>
+                  <ShoppingBag className="w-10 h-10" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-base font-black text-zinc-900 uppercase tracking-tight">Your Cart is Empty</h3>
+                  <h3 className={`text-base font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-zinc-900'}`}>Your Cart is Empty</h3>
                   <p className="text-xs text-zinc-400 max-w-[240px] mx-auto">Select delicious dishes from the menu to start your dine-in order.</p>
                 </div>
                 <Button 
                   onClick={() => setShowConfirmModal(false)}
-                  className="mt-2 rounded-2xl bg-zinc-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider px-6 h-12 shadow-md cursor-pointer"
+                  className={`mt-2 rounded-2xl text-xs font-black uppercase tracking-wider px-6 h-12 shadow-md cursor-pointer ${
+                    theme === 'dark'
+                      ? 'bg-amber-500 hover:bg-amber-600 text-slate-950'
+                      : 'bg-zinc-900 hover:bg-black text-white'
+                  }`}
                 >
                   Explore Menu
                 </Button>
@@ -1416,9 +1629,11 @@ export default function CustomerMenu() {
             ) : (
               <>
             {/* 1. Dining Details Card */}
-            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-zinc-200/80 shadow-xs space-y-3.5">
-              <div className="flex items-center gap-2 text-zinc-900 font-bold text-xs">
-                <User className="w-4 h-4 text-emerald-600" />
+            <div className={`rounded-3xl p-4 sm:p-5 border shadow-xs space-y-3.5 ${
+              theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800/80 text-white' : 'bg-white border-zinc-200/80 text-zinc-900'
+            }`}>
+              <div className="flex items-center gap-2 font-bold text-xs">
+                <User className={`w-4 h-4 ${theme === 'dark' ? 'text-amber-400' : 'text-emerald-600'}`} />
                 <span>Guest Details</span>
               </div>
               
@@ -1431,7 +1646,11 @@ export default function CustomerMenu() {
                     placeholder="e.g. John Doe" 
                     value={customerName} 
                     onChange={(e) => setCustomerName(e.target.value)} 
-                    className="h-11 border-zinc-200 bg-zinc-50/50 rounded-xl text-xs font-semibold focus-visible:bg-white focus-visible:ring-emerald-500/20" 
+                    className={`h-11 rounded-xl text-xs font-semibold ${
+                      theme === 'dark' 
+                        ? 'border-zinc-750 bg-zinc-950/80 text-white placeholder:text-zinc-500 focus-visible:bg-zinc-950 focus-visible:border-amber-400' 
+                        : 'border-zinc-200 bg-zinc-50/50 text-zinc-900 focus-visible:bg-white focus-visible:ring-emerald-500/20'
+                    }`} 
                   />
                 </div>
                 <div>
@@ -1442,42 +1661,54 @@ export default function CustomerMenu() {
                     placeholder="e.g. Less spicy, extra sauce" 
                     value={cookingInstructions} 
                     onChange={(e) => setCookingInstructions(e.target.value)} 
-                    className="h-11 border-zinc-200 bg-zinc-50/50 rounded-xl text-xs font-semibold focus-visible:bg-white focus-visible:ring-emerald-500/20" 
+                    className={`h-11 rounded-xl text-xs font-semibold ${
+                      theme === 'dark' 
+                        ? 'border-zinc-750 bg-zinc-950/80 text-white placeholder:text-zinc-500 focus-visible:bg-zinc-950 focus-visible:border-amber-400' 
+                        : 'border-zinc-200 bg-zinc-50/50 text-zinc-900 focus-visible:bg-white focus-visible:ring-emerald-500/20'
+                    }`} 
                   />
                 </div>
               </div>
             </div>
 
             {/* 2. Cart Items List */}
-            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-zinc-200/80 shadow-xs space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-900">
+            <div className={`rounded-3xl p-4 sm:p-5 border shadow-xs space-y-3 ${
+              theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800/80 text-white' : 'bg-white border-zinc-200/80 text-zinc-900'
+            }`}>
+              <div className={`flex items-center justify-between pb-2 border-b ${
+                theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
+              }`}>
+                <span className={`text-xs font-black uppercase tracking-wider ${
+                  theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                }`}>
                   Cart Dishes ({getTotalItems()})
                 </span>
                 {cart.length > 0 && (
                   <button 
                     onClick={() => setCart([])} 
-                    className="text-[11px] font-bold text-rose-500 hover:text-rose-600 transition-colors"
+                    className="text-[11px] font-bold text-rose-500 hover:text-rose-400 transition-colors cursor-pointer"
                   >
                     Clear Cart
                   </button>
                 )}
               </div>
 
-              <div className="divide-y divide-zinc-100">
+              <div className={`divide-y ${theme === 'dark' ? 'divide-zinc-800/80' : 'divide-zinc-100'}`}>
                 {cart.map(item => {
                   const itemImg = item.photo || item.image_url || item.image || item.imageUrl || getCategoryPlateInfo(item.category, []).image;
                   return (
                     <div key={item._id} className="py-3.5 flex items-center justify-between gap-3">
                       {/* Left: Veg badge + Thumbnail + Details */}
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-100 border border-zinc-200/60 shrink-0">
+                        <div className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 border ${
+                          theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-100 border-zinc-200/60'
+                        }`}>
                           <img src={itemImg} alt={item.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 mb-0.5">
                             <FoodTypeBadge type={item.type} />
-                            <h4 className="text-sm font-bold text-zinc-900 truncate">
+                            <h4 className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-zinc-900'}`}>
                               {item.name}
                             </h4>
                           </div>
@@ -1489,9 +1720,11 @@ export default function CustomerMenu() {
 
                       {/* Right: Quantity Stepper & Subtotal */}
                       <div className="flex items-center gap-3 shrink-0">
-                        <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-xs gap-2 border border-white/20">
+                        <div className={`flex items-center rounded-xl p-1 shadow-xs gap-2 border ${
+                          theme === 'dark' ? 'bg-zinc-800 text-white border-zinc-700' : 'bg-zinc-900 text-white border-white/20'
+                        }`}>
                           <button 
-                            className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform" 
+                            className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
                             onClick={() => removeFromCart(item._id)}
                           >
                             <Minus className="w-3 h-3 text-white stroke-[2.5]" />
@@ -1500,14 +1733,16 @@ export default function CustomerMenu() {
                             {item.quantity}
                           </span>
                           <button 
-                            className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform" 
+                            className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
                             onClick={() => addToCart(item)}
                           >
                             <Plus className="w-3 h-3 text-white stroke-[2.5]" />
                           </button>
                         </div>
 
-                        <span className="text-sm font-black text-zinc-900 min-w-16 text-right">
+                        <span className={`text-sm font-black min-w-16 text-right ${
+                          theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                        }`}>
                           {formatPrice(item.price * item.quantity)}
                         </span>
                       </div>
@@ -1519,7 +1754,11 @@ export default function CustomerMenu() {
               {/* Add more dishes quick button */}
               <button 
                 onClick={() => setShowConfirmModal(false)}
-                className="w-full py-2.5 mt-2 rounded-2xl border-2 border-dashed border-zinc-200 hover:border-zinc-300 text-zinc-600 hover:text-zinc-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                className={`w-full py-2.5 mt-2 rounded-2xl border-2 border-dashed font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  theme === 'dark' 
+                    ? 'border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700' 
+                    : 'border-zinc-200 hover:border-zinc-300 text-zinc-600 hover:text-zinc-900'
+                }`}
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add more dishes from menu</span>
@@ -1527,46 +1766,60 @@ export default function CustomerMenu() {
             </div>
 
             {/* 3. Bill Breakup Summary */}
-            <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-3.5">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5">
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-900 flex items-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5 text-zinc-500" />
+            <div className={`rounded-3xl p-5 border shadow-xs space-y-3.5 ${
+              theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800/80 text-white' : 'bg-white border-zinc-200/80 text-zinc-900'
+            }`}>
+              <div className={`flex items-center justify-between border-b pb-2.5 ${
+                theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
+              }`}>
+                <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                  theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                }`}>
+                  <Receipt className="w-3.5 h-3.5 text-zinc-400" />
                   Bill Summary
                 </span>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  theme === 'dark' ? 'text-amber-400 bg-amber-500/15' : 'text-emerald-600 bg-emerald-50'
+                }`}>
                   Dine-In Order
                 </span>
               </div>
 
-              <div className="space-y-2 text-xs font-medium text-zinc-500">
+              <div className={`space-y-2 text-xs font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
                 <div className="flex justify-between items-center">
                   <span>Item Subtotal</span>
-                  <span className="font-bold text-zinc-800">{formatPrice(getTotalPrice())}</span>
+                  <span className={`font-bold ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{formatPrice(getTotalPrice())}</span>
                 </div>
                 
                 {gstRate > 0 && (
                   <div className="flex justify-between items-center">
                     <span>{gstLabel} ({gstRate}%)</span>
-                    <span className="font-bold text-zinc-800">{formatPrice(getTotalPrice() * gstRate / 100)}</span>
+                    <span className={`font-bold ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{formatPrice(getTotalPrice() * gstRate / 100)}</span>
                   </div>
                 )}
 
                 <div className="flex justify-between items-center">
                   <span>Service & Cutlery</span>
-                  <span className="text-emerald-600 font-bold">Free / Included</span>
+                  <span className="text-emerald-500 font-bold">Free / Included</span>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-zinc-200/80 flex justify-between items-center">
+              <div className={`pt-3 border-t flex justify-between items-center ${
+                theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/80'
+              }`}>
                 <div>
-                  <span className="text-sm font-black text-zinc-900 uppercase tracking-tight block">
+                  <span className={`text-sm font-black uppercase tracking-tight block ${
+                    theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                  }`}>
                     Grand Total
                   </span>
                   <span className="text-[10px] font-medium text-zinc-400">
                     Incl. all taxes and charges
                   </span>
                 </div>
-                <span className="text-2xl font-black text-zinc-900 tracking-tight">
+                <span className={`text-2xl font-black tracking-tight ${
+                  theme === 'dark' ? 'text-amber-400' : 'text-zinc-900'
+                }`}>
                   {formatPrice(getTotalPrice() + (getTotalPrice() * gstRate / 100))}
                 </span>
               </div>
@@ -1577,15 +1830,23 @@ export default function CustomerMenu() {
 
           {/* Footer Action */}
           {cart.length > 0 && (
-            <div className="p-4 sm:p-5 bg-white border-t border-zinc-200/80 sticky bottom-0 z-20 shadow-[0_-10px_25px_rgba(0,0,0,0.05)] flex flex-col gap-2">
+            <div className={`p-4 sm:p-5 border-t sticky bottom-0 z-20 flex flex-col gap-2 ${
+              theme === 'dark' 
+                ? 'bg-zinc-950/95 border-zinc-800 shadow-[0_-10px_35px_rgba(0,0,0,0.7)]' 
+                : 'bg-white border-zinc-200/80 shadow-[0_-10px_25px_rgba(0,0,0,0.05)]'
+            }`}>
               <Button 
-                className="w-full h-14 rounded-2xl bg-zinc-900 hover:bg-black active:scale-[0.99] text-white font-black text-sm uppercase tracking-wider shadow-xl transition-all flex items-center justify-between px-6" 
+                className={`w-full h-14 rounded-2xl active:scale-[0.99] font-black text-sm uppercase tracking-wider shadow-xl transition-all flex items-center justify-between px-6 cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
+                    : 'bg-zinc-900 hover:bg-black text-white'
+                }`} 
                 onClick={placeOrder} 
                 disabled={isSaving || cart.length === 0}
               >
                 <span>{isSaving ? 'Transmitting to Kitchen...' : 'Send Order to Kitchen'}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-emerald-400 font-black text-base">
+                  <span className={`font-black text-base ${theme === 'dark' ? 'text-slate-950' : 'text-emerald-400'}`}>
                     {formatPrice(getTotalPrice() + (getTotalPrice() * gstRate / 100))}
                   </span>
                   <ArrowRight className="w-4 h-4 stroke-[3]" />
@@ -1603,20 +1864,32 @@ export default function CustomerMenu() {
 
       {/* ⏱️ NO ACTIVE ORDERS SHEET MODAL */}
       <Sheet open={showNoOrdersModal} onOpenChange={setShowNoOrdersModal}>
-        <SheetContent side="bottom" className="h-auto max-h-[85vh] max-w-lg mx-auto rounded-t-[2.5rem] bg-white p-6 pb-8 border-0 flex flex-col items-center text-center shadow-[0_-20px_50px_rgba(0,0,0,0.2)]">
-          <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mb-6" />
-          <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-100 flex items-center justify-center mb-4">
-            <Clock className="w-8 h-8 text-amber-500" />
+        <SheetContent side="bottom" className={`h-auto max-h-[85vh] max-w-lg mx-auto rounded-t-[2.5rem] p-6 pb-8 border flex flex-col items-center text-center shadow-[0_-20px_50px_rgba(0,0,0,0.4)] ${
+          theme === 'dark' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-white text-zinc-900 border-zinc-200/80'
+        }`}>
+          <div className={`w-12 h-1.5 rounded-full mx-auto mb-6 ${theme === 'dark' ? 'bg-zinc-700' : 'bg-zinc-200'}`} />
+          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mb-4 border ${
+            theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-amber-400' : 'bg-amber-50 border-amber-100 text-amber-500'
+          }`}>
+            <Clock className="w-8 h-8" />
           </div>
-          <SheetTitle className="text-lg font-black text-zinc-900 tracking-tight mb-1">
+          <SheetTitle className={`text-lg font-black tracking-tight mb-1 ${
+            theme === 'dark' ? 'text-white' : 'text-zinc-900'
+          }`}>
             No Active Orders Yet
           </SheetTitle>
-          <p className="text-xs text-zinc-500 max-w-xs mb-6 leading-relaxed">
-            You haven't placed an order for <span className="font-bold text-zinc-800">Table {tableNumber && tableNumber !== 'N/A' ? tableNumber : '1'}</span> yet. Add dishes to your cart and place an order to track live kitchen preparation!
+          <p className={`text-xs max-w-xs mb-6 leading-relaxed ${
+            theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
+          }`}>
+            You haven't placed an order for <span className={`font-bold ${theme === 'dark' ? 'text-amber-300' : 'text-zinc-800'}`}>Table {tableNumber && tableNumber !== 'N/A' ? tableNumber : '1'}</span> yet. Add dishes to your cart and place an order to track live kitchen preparation!
           </p>
           <Button 
             onClick={() => setShowNoOrdersModal(false)}
-            className="w-full h-13 rounded-2xl bg-zinc-900 hover:bg-black text-white font-black text-xs uppercase tracking-wider shadow-lg"
+            className={`w-full h-13 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg cursor-pointer ${
+              theme === 'dark' 
+                ? 'bg-amber-500 hover:bg-amber-600 text-slate-950' 
+                : 'bg-zinc-900 hover:bg-black text-white'
+            }`}
           >
             Browse Menu & Order
           </Button>
@@ -1708,6 +1981,7 @@ export default function CustomerMenu() {
           setTimeout(() => searchInputRef.current?.focus(), 300)
         }}
         onTrackClick={handleTrackOrders}
+        theme={theme}
       />
 
       {/* Waiter Call Popup */}

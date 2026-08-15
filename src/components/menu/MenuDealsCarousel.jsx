@@ -49,15 +49,21 @@ export default function MenuDealsCarousel({ items = [], onSelectCategory, onAddT
 
     return curated.map((item, idx) => {
       const theme = badgeThemes[idx % badgeThemes.length]
-      const img = item.photo || item.photo_url || item.image_url || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=800&q=80'
+      const fallbackImages = [
+        'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80'
+      ]
+      const img = item.photo || item.photo_url || item.image_url || item.image || item.imageUrl || fallbackImages[idx % fallbackImages.length]
       
       return {
-        id: item._id || item.id || `slide-${idx}`,
+        id: item._id || item.id || `slide-${idx}-${item.name || 'item'}`,
         badge: theme.badge,
         badgeColor: theme.badgeColor,
-        title: item.name,
-        subtitle: item.description || `Freshly crafted ${item.category} prepared with authentic spices and fresh ingredients.`,
-        price: item.price,
+        title: item.name || 'Signature Special',
+        subtitle: item.description || `Freshly crafted ${item.category || 'dish'} prepared with authentic spices and fresh ingredients.`,
+        price: item.price || 240,
         tag: theme.tag,
         categoryTarget: item.category,
         image: img,
@@ -84,7 +90,7 @@ export default function MenuDealsCarousel({ items = [], onSelectCategory, onAddT
 
   // Ensure currentIndex is in bounds
   const safeIndex = currentIndex % slides.length
-  const slide = slides[safeIndex]
+  const slide = slides[safeIndex] || slides[0]
 
   const handleNext = (e) => {
     e?.stopPropagation()
@@ -100,26 +106,22 @@ export default function MenuDealsCarousel({ items = [], onSelectCategory, onAddT
 
   const slideVariants = {
     enter: (dir) => ({
-      x: dir > 0 ? 80 : -80,
-      opacity: 0,
-      scale: 0.98
+      x: dir > 0 ? 50 : -50,
+      opacity: 0
     }),
     center: {
       x: 0,
       opacity: 1,
-      scale: 1,
       transition: {
-        x: { type: "spring", stiffness: 350, damping: 30 },
-        opacity: { duration: 0.3 }
+        x: { type: "spring", stiffness: 300, damping: 28 },
+        opacity: { duration: 0.25 }
       }
     },
     exit: (dir) => ({
-      x: dir > 0 ? -80 : 80,
+      x: dir > 0 ? -50 : 50,
       opacity: 0,
-      scale: 0.98,
       transition: {
-        x: { type: "spring", stiffness: 350, damping: 30 },
-        opacity: { duration: 0.25 }
+        duration: 0.2
       }
     })
   }
@@ -134,16 +136,16 @@ export default function MenuDealsCarousel({ items = [], onSelectCategory, onAddT
     >
       {/* 🎠 CAROUSEL SLIDE CONTAINER */}
       <div 
-        className="relative h-52 sm:h-56 md:h-60 w-full overflow-hidden cursor-pointer"
+        className="relative h-52 sm:h-56 md:h-60 w-full overflow-hidden cursor-pointer bg-zinc-950"
         onClick={() => {
           if (onSelectCategory && slide.categoryTarget) {
             onSelectCategory(slide.categoryTarget)
           }
         }}
       >
-        <AnimatePresence initial={false} custom={direction} mode="wait">
+        <AnimatePresence initial={false} custom={direction}>
           <motion.div
-            key={slide.id}
+            key={slide.id || safeIndex}
             custom={direction}
             variants={slideVariants}
             initial="enter"

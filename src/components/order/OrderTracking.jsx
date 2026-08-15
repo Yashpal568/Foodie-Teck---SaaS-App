@@ -30,13 +30,21 @@ import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/u
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { cn } from '@/lib/utils'
 
-export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCart, onOpenSearch }) {
+export default function OrderTracking({ 
+  orderId, 
+  restaurantId, 
+  onClose, 
+  onOpenCart, 
+  onOpenSearch,
+  theme = 'dark' 
+}) {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isCallingWaiter, setIsCallingWaiter] = useState(false)
   const [waiterCalledSuccess, setWaiterCalledSuccess] = useState(false)
   const [copiedOrderId, setCopiedOrderId] = useState(false)
 
+  const isDark = theme === 'dark'
   const { orders, orderHistory, refreshOrders, updateStatus: apiUpdateStatus, loading: hookLoading } = useOrderManagement(restaurantId)
   const { profile } = useRestaurantProfile(restaurantId)
 
@@ -208,13 +216,15 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
   // Loading Screen
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-white text-center">
+      <div className={`min-h-screen flex flex-col items-center justify-center p-6 text-center ${
+        isDark ? 'bg-zinc-950 text-white' : 'bg-[#faf8f5] text-zinc-900'
+      }`}>
         <div className="relative">
           <div className="w-16 h-16 rounded-full border-3 border-emerald-500/20 border-t-emerald-500 animate-spin" />
           <Sparkles className="w-6 h-6 text-emerald-400 absolute inset-0 m-auto animate-pulse" />
         </div>
-        <h2 className="text-xl font-black text-white mt-6 tracking-tight">Syncing Live Kitchen Journey</h2>
-        <p className="text-xs text-zinc-400 mt-1 font-medium">Connecting to your table's digital pass...</p>
+        <h2 className="text-xl font-black mt-6 tracking-tight">Syncing Live Kitchen Journey</h2>
+        <p className={`text-xs mt-1 font-medium ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Connecting to your table's digital pass...</p>
       </div>
     )
   }
@@ -222,17 +232,21 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
   // Not Found State
   if (!order) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center text-zinc-400 mb-5 border border-zinc-200/80">
+      <div className={`min-h-screen flex flex-col items-center justify-center p-6 text-center ${
+        isDark ? 'bg-zinc-950 text-white' : 'bg-[#faf8f5] text-zinc-900'
+      }`}>
+        <div className={`w-20 h-20 rounded-3xl shadow-xl flex items-center justify-center mb-5 border ${
+          isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-400' : 'bg-white border-zinc-200/80 text-zinc-400'
+        }`}>
           <Receipt className="w-9 h-9" />
         </div>
-        <h2 className="text-2xl font-black text-zinc-900 tracking-tight">No Active Session Found</h2>
-        <p className="text-xs text-zinc-500 max-w-sm mt-2 mb-6">
+        <h2 className="text-2xl font-black tracking-tight">No Active Session Found</h2>
+        <p className={`text-xs max-w-sm mt-2 mb-6 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
           We couldn't retrieve an active order for this session. Explore the live menu to place fresh dishes.
         </p>
         <Button 
           onClick={onClose}
-          className="h-12 px-8 rounded-2xl bg-zinc-950 hover:bg-zinc-800 text-white font-black text-xs uppercase tracking-wider shadow-lg"
+          className="h-12 px-8 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg"
         >
           Explore Menu
         </Button>
@@ -241,29 +255,56 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-zinc-900 font-sans pb-36 overflow-x-hidden selection:bg-zinc-900 selection:text-white">
+    <div className={`min-h-screen font-sans pb-36 overflow-x-hidden transition-colors duration-500 relative ${
+      isDark 
+        ? 'bg-[#090a0f] text-white selection:bg-amber-500 selection:text-black' 
+        : 'bg-[#faf8f5] text-zinc-900 selection:bg-zinc-900 selection:text-white'
+    }`}>
       
+      {/* 🌟 LUXURY AMBIENT GLOW MESH 🌟 */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className={`absolute -top-24 -left-24 w-96 h-96 rounded-full blur-[140px] transition-all duration-700 ${
+          isDark ? 'bg-amber-500/12' : 'bg-amber-400/20'
+        }`} />
+        <div className={`absolute top-1/3 -right-24 w-96 h-96 rounded-full blur-[140px] transition-all duration-700 ${
+          isDark ? 'bg-emerald-500/10' : 'bg-orange-400/15'
+        }`} />
+        <div className={`absolute bottom-24 -left-20 w-96 h-96 rounded-full blur-[140px] transition-all duration-700 ${
+          isDark ? 'bg-indigo-600/10' : 'bg-rose-400/12'
+        }`} />
+      </div>
+
       {/* 🧭 1. TOP HEADER & NAVIGATION */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-zinc-200/80 transition-all">
+      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b transition-colors duration-500 ${
+        isDark ? 'bg-zinc-950/85 border-zinc-800/80 text-white' : 'bg-white/85 border-amber-100/60 text-zinc-900'
+      }`}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Logo showText={true} iconSize={26} className="scale-95" />
-            <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className={`h-4 w-px hidden sm:block ${isDark ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
+            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${
+              isDark ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'
+            }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>LIVE SYNC</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-100 rounded-full border border-zinc-200 text-zinc-800 font-black text-xs">
-              <span className="text-[10px] text-zinc-400 font-bold uppercase">TABLE</span>
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border font-black text-xs ${
+              isDark ? 'bg-zinc-900 border-zinc-700 text-amber-300' : 'bg-amber-50/80 border-amber-200/60 text-amber-900'
+            }`}>
+              <span className="text-[10px] uppercase font-bold opacity-60">TABLE</span>
               <span>{order.tableNumber || order.table_number || '1'}</span>
             </div>
 
             <button
               onClick={onClose}
-              className="h-9 px-3.5 rounded-xl bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+              className={`h-9 px-3.5 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer ${
+                isDark 
+                  ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800' 
+                  : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-100'
+              }`}
             >
               <ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>MENU</span>
@@ -272,25 +313,25 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-5 space-y-6">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-5 space-y-6 relative z-10">
 
         {/* 🌟 2. ULTRA-LUXURY LIVE STATUS HERO CARD */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative rounded-[2.2rem] overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-slate-950 text-white p-6 sm:p-8 shadow-[0_16px_40px_rgba(0,0,0,0.18)] border border-zinc-800"
+          className="relative rounded-[2.2rem] overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-slate-950 text-white p-6 sm:p-8 shadow-[0_16px_40px_rgba(0,0,0,0.35)] border border-zinc-800"
         >
           {/* Ambient Colored Glow Spheres */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/15 blur-[90px] rounded-full pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/15 blur-[90px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[90px] rounded-full pointer-events-none" />
 
           <div className="relative z-10 space-y-6">
             
             {/* Top Pill & Order Reference */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-black uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                   <span>KITCHEN EXPERIENCE</span>
                 </span>
               </div>
@@ -324,14 +365,14 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-zinc-400">
                 <span>STAGE {currentStageIndex + 1} OF 4</span>
-                <span className="text-emerald-400">{currentProgressPercent}% COMPLETE</span>
+                <span className="text-amber-400 font-black">{currentProgressPercent}% COMPLETE</span>
               </div>
               <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-white/10">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${currentProgressPercent}%` }}
                   transition={{ type: "spring", stiffness: 45, damping: 15 }}
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.6)]"
+                  className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.6)]"
                 />
               </div>
             </div>
@@ -350,7 +391,7 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
 
               <div className="col-span-2 sm:col-span-1 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-3 flex sm:flex-col items-center sm:items-start justify-between">
                 <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">TOTAL ITEMS</span>
-                <span className="text-sm font-black text-emerald-400 block mt-0.5">
+                <span className="text-sm font-black text-amber-400 block mt-0.5">
                   {(order.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0)} Dishes
                 </span>
               </div>
@@ -360,24 +401,38 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
         </motion.div>
 
         {/* 📋 3. STEP-BY-STEP CULINARY JOURNEY (SHADCN TIMELINE) */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-zinc-200/80 space-y-5">
+        <div className={`rounded-[2rem] p-6 shadow-sm border space-y-5 transition-colors duration-500 ${
+          isDark 
+            ? 'bg-zinc-900/90 border-zinc-800/80 text-white shadow-xl' 
+            : 'bg-white/95 border-zinc-200/80 text-zinc-900 shadow-sm'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center shadow-sm">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+                isDark ? 'bg-zinc-800 text-amber-400' : 'bg-zinc-950 text-white'
+              }`}>
                 <Timer className="w-4 h-4 text-amber-400" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-zinc-900 tracking-tight">Active Dining Sequence</h3>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Kitchen milestones</p>
+                <h3 className={`text-sm font-black tracking-tight ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                  Active Dining Sequence
+                </h3>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-400'}`}>
+                  Kitchen milestones
+                </p>
               </div>
             </div>
 
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-black uppercase tracking-wider">
+            <Badge variant="outline" className={`text-[10px] font-black uppercase tracking-wider ${
+              isDark 
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}>
               {normalizedStatus}
             </Badge>
           </div>
 
-          <Separator className="bg-zinc-100" />
+          <Separator className={isDark ? 'bg-zinc-800' : 'bg-zinc-100'} />
 
           {/* Timeline Milestones */}
           <div className="space-y-4 pt-1">
@@ -394,7 +449,7 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
                   {idx < STAGES.length - 1 && (
                     <div 
                       className={`absolute left-4 top-8 bottom-0 w-0.5 -ml-px ${
-                        isPast ? 'bg-emerald-500' : 'bg-zinc-200'
+                        isPast ? 'bg-amber-500' : isDark ? 'bg-zinc-800' : 'bg-zinc-200'
                       }`} 
                     />
                   )}
@@ -402,10 +457,10 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
                   {/* Stage Icon Node */}
                   <div className={`relative z-10 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                     isPast 
-                      ? 'bg-emerald-500 text-white shadow-xs' 
+                      ? 'bg-amber-500 text-slate-950 shadow-xs' 
                       : isCurrent 
-                      ? 'bg-zinc-950 text-amber-400 ring-4 ring-emerald-500/20 shadow-md scale-105' 
-                      : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
+                      ? 'bg-zinc-950 text-amber-400 ring-4 ring-amber-500/30 shadow-md scale-105 border border-amber-400/40' 
+                      : isDark ? 'bg-zinc-800 text-zinc-500 border border-zinc-700' : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
                   }`}>
                     {isPast ? (
                       <Check className="w-4 h-4 stroke-[3]" />
@@ -418,18 +473,20 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
                   <div className="flex-1 pb-3">
                     <div className="flex items-center justify-between">
                       <h4 className={`text-xs font-black tracking-tight ${
-                        isCurrent ? 'text-zinc-950 font-black' : isPast ? 'text-zinc-700' : 'text-zinc-400'
+                        isCurrent ? (isDark ? 'text-amber-400 font-black' : 'text-zinc-950 font-black') : isPast ? (isDark ? 'text-zinc-200' : 'text-zinc-700') : (isDark ? 'text-zinc-500' : 'text-zinc-400')
                       }`}>
                         {stg.title}
                       </h4>
                       {isCurrent && (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wider">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${
+                          isDark ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                        }`}>
                           CURRENT
                         </span>
                       )}
                     </div>
                     <p className={`text-[11px] mt-0.5 ${
-                      isCurrent ? 'text-zinc-600 font-medium' : isPast ? 'text-zinc-500' : 'text-zinc-400'
+                      isCurrent ? (isDark ? 'text-zinc-300' : 'text-zinc-600 font-medium') : isPast ? (isDark ? 'text-zinc-400' : 'text-zinc-500') : (isDark ? 'text-zinc-600' : 'text-zinc-400')
                     }`}>
                       {stg.desc}
                     </p>
@@ -442,61 +499,75 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
         </div>
 
         {/* 🧾 4. ITEMIZED DIGITAL BILL RECEIPT */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-zinc-200/80 space-y-5">
+        <div className={`rounded-[2rem] p-6 shadow-sm border space-y-5 transition-colors duration-500 ${
+          isDark 
+            ? 'bg-zinc-900/90 border-zinc-800/80 text-white shadow-xl' 
+            : 'bg-white/95 border-zinc-200/80 text-zinc-900 shadow-sm'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center shadow-sm">
-                <Receipt className="w-4 h-4 text-emerald-400" />
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+                isDark ? 'bg-zinc-800 text-amber-400' : 'bg-zinc-950 text-emerald-400'
+              }`}>
+                <Receipt className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-zinc-900 tracking-tight">Order Receipt</h3>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Verified Table Order</p>
+                <h3 className={`text-sm font-black tracking-tight ${isDark ? 'text-white' : 'text-zinc-900'}`}>Order Receipt</h3>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-400'}`}>Verified Table Order</p>
               </div>
             </div>
 
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200">
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+              isDark ? 'bg-zinc-800 border-zinc-700 text-amber-300' : 'bg-zinc-100 border-zinc-200 text-zinc-500'
+            }`}>
               TABLE {order.tableNumber || '1'}
             </span>
           </div>
 
-          <Separator className="bg-zinc-100" />
+          <Separator className={isDark ? 'bg-zinc-800' : 'bg-zinc-100'} />
 
           {/* Items List */}
           <div className="space-y-3">
             {(order.items || []).map((item, i) => (
               <div key={item.id || i} className="flex items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-zinc-950 text-white font-black text-[10px] flex items-center justify-center shrink-0">
+                  <span className={`w-6 h-6 rounded-lg font-black text-[10px] flex items-center justify-center shrink-0 ${
+                    isDark ? 'bg-zinc-800 text-amber-400 border border-zinc-700' : 'bg-zinc-900 text-white'
+                  }`}>
                     {item.quantity || 1}x
                   </span>
-                  <span className="font-bold text-zinc-900 truncate">
+                  <span className={`font-bold truncate ${isDark ? 'text-zinc-200' : 'text-zinc-900'}`}>
                     {item.item_name || item.name || item.itemName || 'Signature Dish'}
                   </span>
                 </div>
-                <span className="font-black text-zinc-900 shrink-0">
+                <span className={`font-black shrink-0 ${isDark ? 'text-white' : 'text-zinc-900'}`}>
                   {formatCurrency((item.price || item.unit_price || 0) * (item.quantity || 1))}
                 </span>
               </div>
             ))}
           </div>
 
-          <Separator className="bg-zinc-100" />
+          <Separator className={isDark ? 'bg-zinc-800' : 'bg-zinc-100'} />
 
           {/* Pricing Breakdown */}
-          <div className="space-y-1.5 text-xs text-zinc-500 font-medium">
+          <div className={`space-y-1.5 text-xs font-medium ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span className="font-bold text-zinc-800">{formatCurrency(order.subtotal || order.total)}</span>
+              <span className={`font-bold ${isDark ? 'text-zinc-200' : 'text-zinc-800'}`}>{formatCurrency(order.subtotal || order.total)}</span>
             </div>
             {order.tax > 0 && (
               <div className="flex justify-between">
                 <span>GST / Taxes</span>
-                <span className="font-bold text-zinc-800">{formatCurrency(order.tax)}</span>
+                <span className={`font-bold ${isDark ? 'text-zinc-200' : 'text-zinc-800'}`}>{formatCurrency(order.tax)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-black text-zinc-950 pt-2 border-t border-zinc-100">
+            <div className={`flex justify-between text-sm font-black pt-2 border-t ${
+              isDark ? 'border-zinc-800 text-white' : 'border-zinc-100 text-zinc-900'
+            }`}>
               <span>Total Amount</span>
-              <span className="text-base text-emerald-600 font-black">{formatCurrency(order.total)}</span>
+              <span className={`text-base font-black ${isDark ? 'text-amber-400' : 'text-emerald-600'}`}>
+                {formatCurrency(order.total)}
+              </span>
             </div>
           </div>
 
@@ -506,15 +577,23 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
               onClick={handleCallConcierge}
               disabled={isCallingWaiter || waiterCalledSuccess}
               variant="outline"
-              className="h-12 rounded-xl bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-900 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
+              className={`h-12 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer ${
+                isDark 
+                  ? 'bg-zinc-800/90 border-zinc-700 text-amber-300 hover:bg-zinc-800' 
+                  : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-900'
+              }`}
             >
-              <BellRing className={`w-4 h-4 text-amber-500 ${isCallingWaiter ? 'animate-spin' : ''}`} />
+              <BellRing className={`w-4 h-4 text-amber-400 ${isCallingWaiter ? 'animate-spin' : ''}`} />
               <span>{waiterCalledSuccess ? 'Waiter Notified!' : 'Call Waiter'}</span>
             </Button>
 
             <Button
               onClick={onClose}
-              className="h-12 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+              className={`h-12 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
+                isDark
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
+                  : 'bg-zinc-950 hover:bg-zinc-800 text-white'
+              }`}
             >
               <Plus className="w-4 h-4 stroke-[3]" />
               <span>Order More Dishes</span>
@@ -535,7 +614,7 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
         </div>
 
         {/* Footer Brand Credit */}
-        <div className="text-center pt-2 pb-6 text-zinc-400 space-y-1">
+        <div className="text-center pt-2 pb-6 text-zinc-500 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em]">POWERED BY SERVORA HOSPITALITY SUITE</p>
         </div>
 
@@ -566,6 +645,7 @@ export default function OrderTracking({ orderId, restaurantId, onClose, onOpenCa
         onTrackClick={() => {}}
         hasActiveOrder={true}
         orderStatus={order?.status?.toLowerCase() || 'preparing'}
+        theme={theme}
         cartCount={0}
       />
 

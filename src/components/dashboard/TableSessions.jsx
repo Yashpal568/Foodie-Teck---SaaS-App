@@ -432,14 +432,42 @@ const TableSessions = ({
       sessionStart: null,
       needsCleaning: false,
     };
+
+    // 1. Immediately update local UI state
     setTables((current) =>
       current.map((t) =>
         String(t.tableNumber) === String(table.tableNumber) ? updated : t,
       ),
     );
-    await syncTableToCloud(updated);
+
+    // 2. Update the selected table modal view to show 'available'
     if (selectedTable?.tableNumber === table.tableNumber) {
-      setSelectedTable(null);
+      setSelectedTable((prev) => ({ ...prev, status: "available", customers: 0, currentOrder: null, sessionStart: null }));
+    }
+
+    // 3. If there's an active order, mark it as FINISHED so re-fetch doesn't override back to 'occupied'
+    if (tableOrder?.id) {
+      try {
+        await updateOrderStatus(tableOrder.id, "FINISHED");
+        setTableOrder(null);
+      } catch (err) {
+        console.warn("Could not finish order on table reset:", err);
+      }
+    }
+
+    // 4. Sync the cleared table session to cloud
+    if (resolvedId) {
+      try {
+        await updateTableAPI(resolvedId, table.tableNumber, {
+          status: "available",
+          customers: 0,
+          current_order_id: null,
+          session_start: null,
+          last_activity: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("Failed to sync table reset to cloud:", err);
+      }
     }
   };
 
