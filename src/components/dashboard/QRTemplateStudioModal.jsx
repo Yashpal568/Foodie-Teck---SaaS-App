@@ -301,7 +301,7 @@ export const FORM_FACTORS = [
   }
 ]
 
-// 🛠️ Dynamic Canvas Standee Generator (300 DPI) with Smart Layout Balancing
+// 🛠️ Dynamic Canvas Standee Generator (300 DPI) with Proportional 1:1 Preview Matching
 async function generateStandeeCanvas({
   themeId,
   canvasWidth,
@@ -328,366 +328,435 @@ async function generateStandeeCanvas({
 
   const aspectRatio = height / width
   const isSquare = aspectRatio < 1.15
-  const isTall = aspectRatio > 1.8
-  const isLandscape = aspectRatio < 0.85
 
-  // Master scale factor based on minimum dimension
-  const scale = Math.max(0.45, Math.min(width / 1200, height / 1800, width / 700))
+  const W = width
+  const H = height
 
-  // 1. Fill Background
+  // 1. Fill Background & Outer Card Border
+  const cardRadius = Math.round(W * 0.075)
   ctx.fillStyle = colors.bg
   ctx.beginPath()
-  ctx.roundRect(0, 0, width, height, Math.max(24, 50 * scale))
+  ctx.roundRect(0, 0, W, H, cardRadius)
   ctx.fill()
 
-  // 2. Luxury Outer Frame & Corner Accents
-  const margin = Math.max(18, Math.round(30 * scale))
   ctx.strokeStyle = colors.cardBorder
-  ctx.lineWidth = Math.max(3, Math.round(6 * scale))
+  ctx.lineWidth = Math.max(4, Math.round(W * 0.0055))
   ctx.beginPath()
-  ctx.roundRect(margin, margin, width - margin * 2, height - margin * 2, Math.max(16, 36 * scale))
+  ctx.roundRect(0, 0, W, H, cardRadius)
   ctx.stroke()
 
-  // Decorative Corner Angles
-  const cornerLength = Math.max(25, Math.round(45 * scale))
-  ctx.lineWidth = Math.max(3, Math.round(8 * scale))
+  // 2. Corner Bracket Accents (cleanly inset inside the card corners)
+  const margin = Math.round(W * 0.038)
+  const bracketOffset = Math.round(W * 0.045)
+  const bracketLen = Math.round(W * 0.045)
+  ctx.lineWidth = Math.max(2, Math.round(W * 0.004))
   ctx.strokeStyle = colors.accent
-  ctx.beginPath(); ctx.moveTo(margin, margin + cornerLength); ctx.lineTo(margin, margin); ctx.lineTo(margin + cornerLength, margin); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(width - margin - cornerLength, margin); ctx.lineTo(width - margin, margin); ctx.lineTo(width - margin, margin + cornerLength); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(margin, height - margin - cornerLength); ctx.lineTo(margin, height - margin); ctx.lineTo(margin + cornerLength, height - margin); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(width - margin - cornerLength, height - margin); ctx.lineTo(width - margin, height - margin); ctx.lineTo(width - margin, height - margin - cornerLength); ctx.stroke();
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
 
-  if (isSquare) {
-    // 🔲 DEDICATED COMPACT 3" × 3" SQUARE BLOCK / STICKER LAYOUT
-    let yPos = margin + Math.round(24 * scale)
-    const logoSize = Math.max(48, Math.round(72 * scale))
+  // Top-Left
+  ctx.beginPath()
+  ctx.moveTo(bracketOffset, bracketOffset + bracketLen)
+  ctx.lineTo(bracketOffset, bracketOffset)
+  ctx.lineTo(bracketOffset + bracketLen, bracketOffset)
+  ctx.stroke()
 
-    if (restaurantLogo) {
-      try {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.src = restaurantLogo
-        await new Promise((resolve) => {
-          img.onload = () => {
-            const logoX = (width - logoSize) / 2
-            ctx.save()
-            ctx.beginPath()
-            ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
-            ctx.closePath()
-            ctx.clip()
-            ctx.drawImage(img, logoX, yPos, logoSize, logoSize)
-            ctx.restore()
-            
-            ctx.strokeStyle = '#ffffff'
-            ctx.lineWidth = Math.max(2, Math.round(4 * scale))
-            ctx.beginPath()
-            ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
-            ctx.stroke()
-            resolve()
-          }
-          img.onerror = () => {
-            drawMonogram()
-            resolve()
-          }
-        })
-      } catch (e) {
-        drawMonogram()
-      }
-    } else {
-      drawMonogram()
-    }
+  // Top-Right
+  ctx.beginPath()
+  ctx.moveTo(W - bracketOffset - bracketLen, bracketOffset)
+  ctx.lineTo(W - bracketOffset, bracketOffset)
+  ctx.lineTo(W - bracketOffset, bracketOffset + bracketLen)
+  ctx.stroke()
 
-    function drawMonogram() {
-      const logoX = (width - logoSize) / 2
-      ctx.fillStyle = colors.accent
-      ctx.beginPath()
-      ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = colors.bg
-      ctx.font = `bold ${Math.round(logoSize * 0.5)}px sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(restaurantName.charAt(0).toUpperCase(), width / 2, yPos + logoSize / 2)
-    }
+  // Bottom-Left
+  ctx.beginPath()
+  ctx.moveTo(bracketOffset, H - bracketOffset - bracketLen)
+  ctx.lineTo(bracketOffset, H - bracketOffset)
+  ctx.lineTo(bracketOffset + bracketLen, H - bracketOffset)
+  ctx.stroke()
 
-    yPos += logoSize + Math.round(18 * scale)
+  // Bottom-Right
+  ctx.beginPath()
+  ctx.moveTo(W - bracketOffset - bracketLen, H - bracketOffset)
+  ctx.lineTo(W - bracketOffset, H - bracketOffset)
+  ctx.lineTo(W - bracketOffset, H - bracketOffset - bracketLen)
+  ctx.stroke()
 
-    // Restaurant Name
-    ctx.fillStyle = colors.text
-    const nameFontSize = Math.max(18, Math.min(Math.round(32 * scale), (width * 0.7) / (restaurantName.length * 0.6)))
-    ctx.font = `900 ${Math.round(nameFontSize)}px sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(restaurantName.toUpperCase(), width / 2, yPos)
-    yPos += Math.round(24 * scale)
+  // Generate QR Code image upfront
+  const qrDataUrl = await QRCode.toDataURL(qrUrl, {
+    errorCorrectionLevel: 'H',
+    margin: 1,
+    scale: 14,
+    color: { dark: '#000000', light: '#ffffff' }
+  })
+  const qrImg = new Image()
+  qrImg.src = qrDataUrl
+  await new Promise((resolve) => {
+    qrImg.onload = resolve
+    qrImg.onerror = resolve
+  })
 
-    // Table Pill
-    const tableText = `TABLE #${tableNumber}`
-    ctx.font = `bold ${Math.max(13, Math.round(20 * scale))}px sans-serif`
-    const textWidth = ctx.measureText(tableText).width
-    const pillWidth = Math.max(textWidth + 34 * scale, 150 * scale)
-    const pillHeight = Math.max(26, Math.round(36 * scale))
-    const pillX = (width - pillWidth) / 2
-
-    ctx.fillStyle = colors.pillBg
-    ctx.beginPath()
-    ctx.roundRect(pillX, yPos, pillWidth, pillHeight, pillHeight / 2)
-    ctx.fill()
-    ctx.strokeStyle = colors.pillBorder
-    ctx.lineWidth = Math.max(1.5, Math.round(2.5 * scale))
-    ctx.stroke()
-
-    ctx.fillStyle = colors.pillText
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(tableText, width / 2, yPos + pillHeight / 2)
-    yPos += pillHeight + Math.round(16 * scale)
-
-    // Center QR Code
-    const qrDataUrl = await QRCode.toDataURL(qrUrl, {
-      errorCorrectionLevel: 'H',
-      margin: 1,
-      scale: 12,
-      color: { dark: '#000000', light: '#ffffff' }
-    })
-
-    const qrImg = new Image()
-    qrImg.src = qrDataUrl
-    await new Promise((resolve) => {
-      qrImg.onload = () => {
-        const qrBoxSize = Math.max(200, Math.round(width * 0.44))
-        const qrBoxX = (width - qrBoxSize) / 2
-        
-        ctx.fillStyle = '#ffffff'
-        ctx.beginPath()
-        ctx.roundRect(qrBoxX, yPos, qrBoxSize, qrBoxSize, Math.max(12, Math.round(22 * scale)))
-        ctx.fill()
-
-        ctx.strokeStyle = '#e2e8f0'
-        ctx.lineWidth = Math.max(2, Math.round(3.5 * scale))
-        ctx.stroke()
-
-        const qrPadding = Math.max(8, Math.round(14 * scale))
-        ctx.drawImage(qrImg, qrBoxX + qrPadding, yPos + qrPadding, qrBoxSize - qrPadding * 2, qrBoxSize - qrPadding * 2)
-        
-        yPos += qrBoxSize + Math.round(16 * scale)
-        resolve()
-      }
-    })
-
-    // Scan Camera Pill
-    const actionText = '📸 SCAN CAMERA TO ORDER'
-    ctx.font = `900 ${Math.max(10, Math.round(15 * scale))}px sans-serif`
-    const actionWidth = Math.min(width * 0.72, ctx.measureText(actionText).width + 28 * scale)
-    const actionHeight = Math.max(22, Math.round(32 * scale))
-    const actionX = (width - actionWidth) / 2
-
-    ctx.fillStyle = colors.badgeBg
-    ctx.beginPath()
-    ctx.roundRect(actionX, yPos, actionWidth, actionHeight, actionHeight / 2)
-    ctx.fill()
-
-    ctx.fillStyle = colors.badgeText
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(actionText, width / 2, yPos + actionHeight / 2)
-
-    // Clean Compact Footer
-    ctx.fillStyle = colors.subText
-    ctx.font = `bold ${Math.max(8, Math.round(12 * scale))}px sans-serif`
-    ctx.fillText('POWERED BY SERVORA CLOUD POS', width / 2, height - Math.max(16, Math.round(24 * scale)))
-
-    return canvas
-  }
-
-  // Dynamic vertical spacing multiplier based on aspect ratio
-  const vGap = isTall ? Math.max(1.3, aspectRatio * 0.7) : (isLandscape ? 0.5 : 1.0)
-
-  // 3. Draw Brand Logo or Circular Monogram Seal
-  let yPos = margin + Math.round((isTall ? 70 : 50) * scale * vGap)
-  const logoSize = Math.max(54, Math.min(Math.round(110 * scale), width * 0.22, height * 0.14))
-
+  // Pre-load logo image if provided
+  let loadedLogoImg = null
   if (restaurantLogo) {
     try {
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.src = restaurantLogo
       await new Promise((resolve) => {
-        img.onload = () => {
-          const logoX = (width - logoSize) / 2
-          ctx.save()
-          ctx.beginPath()
-          ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
-          ctx.closePath()
-          ctx.clip()
-          ctx.drawImage(img, logoX, yPos, logoSize, logoSize)
-          ctx.restore()
-          
-          ctx.strokeStyle = '#ffffff'
-          ctx.lineWidth = Math.max(2, Math.round(5 * scale))
-          ctx.beginPath()
-          ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
-          ctx.stroke()
-          
-          yPos += logoSize + Math.round(28 * scale * vGap)
-          resolve()
-        }
-        img.onerror = () => {
-          drawMonogram()
-          resolve()
-        }
+        img.onload = () => { loadedLogoImg = img; resolve() }
+        img.onerror = resolve
       })
-    } catch (e) {
-      drawMonogram()
+    } catch {
+      loadedLogoImg = null
     }
-  } else {
-    drawMonogram()
   }
 
-  function drawMonogram() {
-    const logoX = (width - logoSize) / 2
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 🔲 1. DEDICATED SQUARE LAYOUT (3" × 3" / Compact Disc / Sticker)
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (isSquare) {
+    const padTop = Math.round(H * 0.035)
+    const padBottom = Math.round(H * 0.035)
+    const padX = margin + Math.round(W * 0.035)
+
+    // --- Header (Top Bar: Logo + Name left, Table Pill right) ---
+    const headerY = margin + padTop
+    const logoSize = Math.round(W * 0.13)
+
+    if (loadedLogoImg) {
+      const logoX = padX
+      ctx.save()
+      ctx.beginPath()
+      ctx.roundRect(logoX, headerY, logoSize, logoSize, Math.round(logoSize * 0.28))
+      ctx.clip()
+      ctx.drawImage(loadedLogoImg, logoX, headerY, logoSize, logoSize)
+      ctx.restore()
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)'
+      ctx.lineWidth = Math.max(2, Math.round(W * 0.0035))
+      ctx.beginPath()
+      ctx.roundRect(logoX, headerY, logoSize, logoSize, Math.round(logoSize * 0.28))
+      ctx.stroke()
+    } else {
+      const logoX = padX
+      ctx.fillStyle = colors.accent
+      ctx.beginPath()
+      ctx.roundRect(logoX, headerY, logoSize, logoSize, Math.round(logoSize * 0.28))
+      ctx.fill()
+      ctx.fillStyle = colors.bg
+      ctx.font = `bold ${Math.round(logoSize * 0.5)}px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(restaurantName.charAt(0).toUpperCase(), logoX + logoSize / 2, headerY + logoSize / 2)
+    }
+
+    // Name + Standee subtext
+    const textLeftX = padX + logoSize + Math.round(W * 0.02)
+    const nameFontSize = Math.round(W * 0.04)
+    ctx.fillStyle = colors.text
+    ctx.font = `900 ${nameFontSize}px sans-serif`
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillText(restaurantName.toUpperCase(), textLeftX, headerY + Math.round(H * 0.008))
+
+    const subFontSize = Math.round(W * 0.022)
+    ctx.fillStyle = colors.subText
+    ctx.font = `bold ${subFontSize}px sans-serif`
+    ctx.fillText('TABLE STANDEE', textLeftX, headerY + nameFontSize + Math.round(H * 0.015))
+
+    // Table Pill on Right
+    const tableText = `TABLE #${tableNumber}`
+    const pillFontSize = Math.round(W * 0.03)
+    ctx.font = `bold ${pillFontSize}px sans-serif`
+    const pillTextW = ctx.measureText(tableText).width
+    const pillW = pillTextW + Math.round(W * 0.05)
+    const pillH = Math.round(W * 0.065)
+    const pillX = W - padX - pillW
+    const pillY = headerY + (logoSize - pillH) / 2
+
+    ctx.fillStyle = colors.pillBg
+    ctx.beginPath()
+    ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2)
+    ctx.fill()
+    ctx.strokeStyle = colors.pillBorder
+    ctx.lineWidth = Math.max(1.5, Math.round(W * 0.003))
+    ctx.stroke()
+    ctx.fillStyle = colors.pillText
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(tableText, pillX + pillW / 2, pillY + pillH / 2)
+
+    const headerBottom = headerY + logoSize
+
+    // --- Footer (Bottom: Action Pill + Powered by) ---
+    const footerBottom = H - margin - padBottom
+    const servoraFontSize = Math.round(W * 0.02)
+    const servoraY = footerBottom - servoraFontSize
+    ctx.fillStyle = colors.subText
+    ctx.font = `bold ${servoraFontSize}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    ctx.fillText('POWERED BY SERVORA CLOUD POS', W / 2, servoraY)
+
+    const actionText = '📸 SCAN CAMERA TO ORDER'
+    const actionFontSize = Math.round(W * 0.026)
+    ctx.font = `900 ${actionFontSize}px sans-serif`
+    const actionW = ctx.measureText(actionText).width + Math.round(W * 0.07)
+    const actionH = Math.round(W * 0.062)
+    const actionY = servoraY - Math.round(H * 0.02) - actionH
+
+    ctx.fillStyle = colors.badgeBg
+    ctx.beginPath()
+    ctx.roundRect((W - actionW) / 2, actionY, actionW, actionH, Math.round(actionH * 0.32))
+    ctx.fill()
+    ctx.fillStyle = colors.badgeText
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(actionText, W / 2, actionY + actionH / 2)
+
+    const footerTop = actionY
+
+    // --- Centerpiece (QR Plate in middle) ---
+    const availH = footerTop - headerBottom
+    const qrBoxSize = Math.round(Math.min(W * 0.58, availH * 0.85))
+    const qrBoxY = headerBottom + (availH - qrBoxSize) / 2
+    const qrBoxX = (W - qrBoxSize) / 2
+
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, Math.round(qrBoxSize * 0.12))
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)'
+    ctx.lineWidth = Math.max(2, Math.round(W * 0.003))
+    ctx.stroke()
+
+    const qrPad = Math.round(qrBoxSize * 0.07)
+    ctx.drawImage(qrImg, qrBoxX + qrPad, qrBoxY + qrPad, qrBoxSize - qrPad * 2, qrBoxSize - qrPad * 2)
+
+    return canvas
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 📱 2. STANDARD / PORTRAIT & TALL STANDEE LAYOUT (Proportional 1:1 Match)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // --- SECTION 1: HEADER (Top) ---
+  const padTop = Math.round(H * 0.038)
+  let curY = margin + padTop
+
+  // 1. Logo / Circular Monogram
+  const logoSize = Math.round(W * 0.14)
+  const logoX = (W - logoSize) / 2
+
+  if (loadedLogoImg) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.roundRect(logoX, curY, logoSize, logoSize, Math.round(logoSize * 0.28))
+    ctx.clip()
+    ctx.drawImage(loadedLogoImg, logoX, curY, logoSize, logoSize)
+    ctx.restore()
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'
+    ctx.lineWidth = Math.max(2, Math.round(W * 0.004))
+    ctx.beginPath()
+    ctx.roundRect(logoX, curY, logoSize, logoSize, Math.round(logoSize * 0.28))
+    ctx.stroke()
+  } else {
     ctx.fillStyle = colors.accent
     ctx.beginPath()
-    ctx.arc(logoX + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
+    ctx.roundRect(logoX, curY, logoSize, logoSize, Math.round(logoSize * 0.28))
     ctx.fill()
     ctx.fillStyle = colors.bg
     ctx.font = `bold ${Math.round(logoSize * 0.5)}px sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(restaurantName.charAt(0).toUpperCase(), width / 2, yPos + logoSize / 2)
-    yPos += logoSize + Math.round(28 * scale * vGap)
+    ctx.fillText(restaurantName.charAt(0).toUpperCase(), W / 2, curY + logoSize / 2)
   }
+  curY += logoSize + Math.round(H * 0.015)
 
-  // 4. Draw Restaurant Name & Subtitle
+  // 2. Restaurant Name
+  const nameFontSize = Math.min(Math.round(W * 0.048), Math.round((W * 0.78) / (restaurantName.length * 0.58)))
   ctx.fillStyle = colors.text
-  const nameFontSize = Math.max(22, Math.min(Math.round(42 * scale), (width * 0.75) / (restaurantName.length * 0.6)))
-  ctx.font = `900 ${Math.round(nameFontSize)}px sans-serif`
+  ctx.font = `900 ${nameFontSize}px sans-serif`
   ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(restaurantName.toUpperCase(), width / 2, yPos)
-  yPos += Math.round(32 * scale * vGap)
+  ctx.textBaseline = 'top'
+  ctx.fillText(restaurantName.toUpperCase(), W / 2, curY)
+  curY += nameFontSize + Math.round(H * 0.008)
 
-  ctx.fillStyle = colors.subText
-  ctx.font = `bold ${Math.max(12, Math.round(18 * scale))}px sans-serif`
-  ctx.fillText('• CONTACTLESS DINING •', width / 2, yPos)
-  yPos += Math.round((isTall ? 55 : 42) * scale * vGap)
+  // 3. Contactless Dining Subtitle (Green Dot + Text)
+  const subFontSize = Math.round(W * 0.022)
+  const subText = 'CONTACTLESS DINING'
+  ctx.font = `900 ${subFontSize}px sans-serif`
+  const subTextW = ctx.measureText(subText).width
+  const dotR = Math.round(subFontSize * 0.28)
+  const dotGap = Math.round(W * 0.012)
+  const totalSubW = dotR * 2 + dotGap + subTextW
+  const subStartX = (W - totalSubW) / 2
 
-  // 5. Draw Table Number Pill
-  const tableText = `TABLE #${tableNumber}`
-  ctx.font = `bold ${Math.max(16, Math.round(28 * scale))}px sans-serif`
-  const textWidth = ctx.measureText(tableText).width
-  const pillWidth = Math.max(textWidth + 50 * scale, Math.min(width * 0.6, 220 * scale))
-  const pillHeight = Math.max(34, Math.round(50 * scale))
-  const pillX = (width - pillWidth) / 2
-
-  ctx.fillStyle = colors.pillBg
+  // Green Dot
+  ctx.fillStyle = '#10b981'
   ctx.beginPath()
-  ctx.roundRect(pillX, yPos, pillWidth, pillHeight, pillHeight / 2)
-  ctx.fill()
-  ctx.strokeStyle = colors.pillBorder
-  ctx.lineWidth = Math.max(2, Math.round(3.5 * scale))
-  ctx.stroke()
-
-  ctx.fillStyle = colors.pillText
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(tableText, width / 2, yPos + pillHeight / 2)
-  yPos += pillHeight + Math.round((isTall ? 50 : 34) * scale * vGap)
-
-  // 6. Generate Vector QR Code
-  const qrDataUrl = await QRCode.toDataURL(qrUrl, {
-    errorCorrectionLevel: 'H',
-    margin: 1,
-    scale: 12,
-    color: {
-      dark: '#000000',
-      light: '#ffffff'
-    }
-  })
-
-  const qrImg = new Image()
-  qrImg.src = qrDataUrl
-  await new Promise((resolve) => {
-    qrImg.onload = () => {
-      const qrBoxSize = Math.max(180, Math.min(width * 0.72, height * (isTall ? 0.32 : 0.38), Math.round(440 * scale)))
-      const qrBoxX = (width - qrBoxSize) / 2
-      
-      // White plate
-      ctx.fillStyle = '#ffffff'
-      ctx.beginPath()
-      ctx.roundRect(qrBoxX, yPos, qrBoxSize, qrBoxSize, Math.max(16, Math.round(30 * scale)))
-      ctx.fill()
-
-      ctx.strokeStyle = '#e2e8f0'
-      ctx.lineWidth = Math.max(2, Math.round(4 * scale))
-      ctx.stroke()
-
-      const qrPadding = Math.max(12, Math.round(20 * scale))
-      ctx.drawImage(qrImg, qrBoxX + qrPadding, yPos + qrPadding, qrBoxSize - qrPadding * 2, qrBoxSize - qrPadding * 2)
-      
-      yPos += qrBoxSize + Math.round((isTall ? 40 : 28) * scale * vGap)
-      resolve()
-    }
-  })
-
-  // 7. Draw "Scan Camera to Order" Badge
-  const actionText = '📸 SCAN CAMERA TO ORDER'
-  ctx.font = `900 ${Math.max(12, Math.round(19 * scale))}px sans-serif`
-  const actionWidth = Math.min(width * 0.8, ctx.measureText(actionText).width + 36 * scale)
-  const actionHeight = Math.max(28, Math.round(40 * scale))
-  const actionX = (width - actionWidth) / 2
-
-  ctx.fillStyle = colors.badgeBg
-  ctx.beginPath()
-  ctx.roundRect(actionX, yPos, actionWidth, actionHeight, actionHeight / 2)
+  ctx.arc(subStartX + dotR, curY + subFontSize / 2, dotR, 0, Math.PI * 2)
   ctx.fill()
 
-  ctx.fillStyle = colors.badgeText
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(actionText, width / 2, yPos + actionHeight / 2)
-  yPos += actionHeight + Math.round((isTall ? 35 : 24) * scale * vGap)
-
-  // 8. Custom Tagline
+  // Subtitle Text
   ctx.fillStyle = colors.subText
-  ctx.font = `500 ${Math.max(12, Math.round(18 * scale))}px sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(tagline, width / 2, yPos)
-  yPos += Math.round(32 * scale * vGap)
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(subText, subStartX + dotR * 2 + dotGap, curY)
 
-  // 9. Wi-Fi (if enabled)
-  if (showWifi && (wifiNetwork || wifiPassword)) {
+  const headerBottom = curY + subFontSize
+
+  // --- SECTION 3: FOOTER (Bottom) ---
+  const padBottom = Math.round(H * 0.035)
+  const footerBottomEdge = H - margin - padBottom
+
+  // 1. Powered by Servora Cloud POS
+  const servoraFontSize = Math.round(W * 0.018)
+  const servoraY = footerBottomEdge - servoraFontSize
+  const pText = 'POWERED BY '
+  const sText = 'SERVORA CLOUD POS'
+
+  ctx.font = `bold ${servoraFontSize}px sans-serif`
+  const pW = ctx.measureText(pText).width
+  ctx.font = `900 ${servoraFontSize}px sans-serif`
+  const sW = ctx.measureText(sText).width
+  const footStartX = (W - (pW + sW)) / 2
+
+  ctx.font = `bold ${servoraFontSize}px sans-serif`
+  ctx.fillStyle = colors.subText
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(pText, footStartX, servoraY)
+
+  ctx.font = `900 ${servoraFontSize}px sans-serif`
+  ctx.fillStyle = colors.accent || '#818cf8'
+  ctx.fillText(sText, footStartX + pW, servoraY)
+
+  // 2. Optional Wi-Fi Pill
+  const hasWifi = showWifi && (wifiNetwork || wifiPassword)
+  let wifiPillTop = servoraY
+  let wifiPillH = 0
+
+  if (hasWifi) {
+    const gapFootWifi = Math.round(H * 0.014)
+    wifiPillH = Math.round(W * 0.052)
+    wifiPillTop = servoraY - gapFootWifi - wifiPillH
+
     const wifiText = `📶 Wi-Fi: ${wifiNetwork || 'Guest'} ${wifiPassword ? `• Pass: ${wifiPassword}` : ''}`
-    ctx.font = `bold ${Math.max(11, Math.round(17 * scale))}px sans-serif`
-    
+    const wifiFontSize = Math.round(W * 0.022)
+    ctx.font = `bold ${wifiFontSize}px sans-serif`
     const wifiMetrics = ctx.measureText(wifiText)
-    const wifiPillW = Math.min(width * 0.85, Math.max(wifiMetrics.width + 34 * scale, 200 * scale))
-    const wifiPillH = Math.max(26, Math.round(36 * scale))
-    const wifiPillX = (width - wifiPillW) / 2
+    const wifiPillW = Math.min(W * 0.85, Math.max(wifiMetrics.width + Math.round(W * 0.06), Math.round(W * 0.35)))
+    const wifiPillX = (W - wifiPillW) / 2
 
     ctx.fillStyle = colors.pillBg
     ctx.beginPath()
-    ctx.roundRect(wifiPillX, yPos, wifiPillW, wifiPillH, wifiPillH / 2)
+    ctx.roundRect(wifiPillX, wifiPillTop, wifiPillW, wifiPillH, wifiPillH / 2)
     ctx.fill()
     ctx.strokeStyle = colors.pillBorder
-    ctx.lineWidth = Math.max(1.5, Math.round(2.5 * scale))
+    ctx.lineWidth = Math.max(1.5, Math.round(W * 0.003))
     ctx.stroke()
 
     ctx.fillStyle = colors.pillText
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(wifiText, width / 2, yPos + wifiPillH / 2)
-    yPos += wifiPillH + 16 * scale
+    ctx.fillText(wifiText, W / 2, wifiPillTop + wifiPillH / 2)
   }
 
-  // 10. Footer: Powered by Servora Cloud POS
+  // 3. Custom Tagline
+  const gapTagline = Math.round(H * 0.014)
+  const taglineFontSize = Math.round(W * 0.026)
+  const taglineY = (hasWifi ? wifiPillTop : servoraY) - gapTagline - taglineFontSize
+
   ctx.fillStyle = colors.subText
-  ctx.font = `bold ${Math.max(10, Math.round(14 * scale))}px sans-serif`
-  ctx.fillText('POWERED BY SERVORA CLOUD POS', width / 2, height - Math.max(22, Math.round(38 * scale)))
+  ctx.font = `500 ${taglineFontSize}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  ctx.fillText(tagline, W / 2, taglineY)
+
+  const footerTop = taglineY
+
+  // --- SECTION 2: CENTERPIECE (Table Pill + QR Code + Scan Badge in my-auto) ---
+  const availCenterSpace = footerTop - headerBottom
+
+  // Sizing of Centerpiece items
+  const pillFontSize = Math.round(W * 0.035)
+  const tableText = `TABLE #${tableNumber}`
+  ctx.font = `bold ${pillFontSize}px sans-serif`
+  const pillTextWidth = ctx.measureText(tableText).width
+  const pillWidth = Math.max(pillTextWidth + Math.round(W * 0.09), Math.round(W * 0.3))
+  const pillHeight = Math.round(W * 0.068)
+
+  const gapPillQR = Math.round(H * 0.016)
+
+  // QR Plate Box Size: prominent ~60% of card width
+  const qrBoxSize = Math.round(Math.min(W * 0.62, availCenterSpace * 0.55))
+
+  const gapQRBadge = Math.round(H * 0.016)
+
+  const badgeText = '📸 SCAN TO ORDER'
+  const badgeFontSize = Math.round(W * 0.026)
+  ctx.font = `900 ${badgeFontSize}px sans-serif`
+  const badgeWidth = Math.min(W * 0.78, ctx.measureText(badgeText).width + Math.round(W * 0.075))
+  const badgeHeight = Math.round(W * 0.056)
+
+  // Total Centerpiece Height
+  const centerTotalH = pillHeight + gapPillQR + qrBoxSize + gapQRBadge + badgeHeight
+
+  // Start Y position so the entire centerpiece is centered vertically in available space
+  const centerStartY = headerBottom + Math.max(12, (availCenterSpace - centerTotalH) / 2)
+
+  // 1. Draw Table Pill
+  const pillX = (W - pillWidth) / 2
+  ctx.fillStyle = colors.pillBg
+  ctx.beginPath()
+  ctx.roundRect(pillX, centerStartY, pillWidth, pillHeight, pillHeight / 2)
+  ctx.fill()
+  ctx.strokeStyle = colors.pillBorder
+  ctx.lineWidth = Math.max(2, Math.round(W * 0.0035))
+  ctx.stroke()
+
+  ctx.fillStyle = colors.pillText
+  ctx.font = `bold ${pillFontSize}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(tableText, W / 2, centerStartY + pillHeight / 2)
+
+  // 2. Draw QR Code Plate Box
+  const qrBoxY = centerStartY + pillHeight + gapPillQR
+  const qrBoxX = (W - qrBoxSize) / 2
+
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, Math.round(qrBoxSize * 0.12))
+  ctx.fill()
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)'
+  ctx.lineWidth = Math.max(2, Math.round(W * 0.003))
+  ctx.stroke()
+
+  const qrPadding = Math.round(qrBoxSize * 0.08)
+  ctx.drawImage(qrImg, qrBoxX + qrPadding, qrBoxY + qrPadding, qrBoxSize - qrPadding * 2, qrBoxSize - qrPadding * 2)
+
+  // 3. Draw Scan to Order Badge
+  const badgeY = qrBoxY + qrBoxSize + gapQRBadge
+  const badgeX = (W - badgeWidth) / 2
+
+  ctx.fillStyle = colors.badgeBg
+  ctx.beginPath()
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, Math.round(badgeHeight * 0.32))
+  ctx.fill()
+
+  ctx.fillStyle = colors.badgeText
+  ctx.font = `900 ${badgeFontSize}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(badgeText, W / 2, badgeY + badgeHeight / 2)
 
   return canvas
 }
+
 
 export default function QRTemplateStudioModal({
   open,
@@ -918,44 +987,72 @@ export default function QRTemplateStudioModal({
     }
   }
 
+  const [mobileTab, setMobileTab] = useState('configure') // 'configure' | 'preview'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-6xl! w-[96vw]! sm:w-[92vw]! max-h-[92vh] sm:max-h-[90vh] flex flex-col p-0 rounded-2xl sm:rounded-3xl bg-slate-50 border border-slate-200/80 shadow-2xl overflow-hidden"
+        className="max-w-6xl! w-[96vw]! sm:w-[92vw]! max-h-[95dvh] sm:max-h-[90vh] flex flex-col p-0 rounded-2xl sm:rounded-3xl bg-slate-50 border border-slate-200/80 shadow-2xl overflow-hidden"
         showCloseButton={true}
       >
-        {/* 🌟 Top Header Bar 🌟 */}
-        <div className="shrink-0 bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 pr-8 sm:pr-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+        {/* 🌟 Top Header Bar — Compact on Mobile 🌟 */}
+        <div className="shrink-0 bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-3 sm:py-5">
+          <div className="flex items-center justify-between gap-3 pr-8 sm:pr-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                <Sparkles className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight flex items-center gap-1.5 flex-wrap">
+                  <span className="hidden sm:inline">Print-Ready Table Standee Studio</span>
+                  <span className="sm:hidden">Standee Studio</span>
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200/60">
+                    PRO 300 DPI
+                  </span>
+                </DialogTitle>
+                <DialogDescription className="hidden sm:block text-xs text-slate-500 font-medium">
+                  Design luxury acrylic table tents, wooden blocks, and custom-sized restaurant standees.
+                </DialogDescription>
+              </div>
             </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <span>Print-Ready Table Standee Studio</span>
-                <span className="text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200/60">
-                  Pro 300 DPI
-                </span>
-              </DialogTitle>
-              <DialogDescription className="text-[11px] sm:text-xs text-slate-500 font-medium truncate sm:whitespace-normal">
-                Design luxury acrylic table tents, wooden blocks, and custom-sized restaurant standees.
-              </DialogDescription>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-center pr-2 sm:pr-8">
-            <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-[10px] sm:text-xs px-2.5 py-0.5 sm:px-3 sm:py-1">
+            <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-[10px] sm:text-xs px-2.5 py-0.5 sm:px-3 sm:py-1 shrink-0">
               {targetQRs.length} {targetQRs.length === 1 ? 'Table' : 'Tables'} Ready
             </Badge>
           </div>
+
+          {/* 📱 Mobile Tab Switcher — only visible on small screens */}
+          <div className="flex sm:hidden mt-3 bg-slate-100 rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setMobileTab('configure')}
+              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                mobileTab === 'configure'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500'
+              }`}
+            >
+              ⚙️ Configure
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('preview')}
+              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                mobileTab === 'preview'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500'
+              }`}
+            >
+              👁 Preview
+            </button>
+          </div>
         </div>
 
-        {/* 🌟 Scrollable 2-Column Studio Body 🌟 */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8">
+        {/* 🌟 Scrollable Studio Body 🌟 */}
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 pb-24 sm:pb-6 lg:pb-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
             
-            {/* 🎛️ LEFT CONTROLS PANEL (5 Columns) */}
-            <div className="lg:col-span-5 space-y-4 sm:space-y-6 pb-4 sm:pb-6">
+            {/* 🎛️ LEFT CONTROLS PANEL (5 Columns) — hidden on mobile when Preview tab active */}
+            <div className={`lg:col-span-5 space-y-4 sm:space-y-6 pb-2 ${mobileTab === 'preview' ? 'hidden sm:block' : 'block'}`}>
               
               {/* 1. Template Ambiance & Theme */}
               <div className="space-y-2 sm:space-y-2.5">
@@ -1143,28 +1240,29 @@ export default function QRTemplateStudioModal({
 
               {/* 5. Luxury Table Navigation Controller */}
               {targetQRs.length > 1 && (
-                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="p-3.5 sm:p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  {/* Top row: label + jump selector + counter */}
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
                       <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
-                        Selected Table: <strong className="text-slate-900">#{currentPreviewQR.tableNumber}</strong>
+                        Table <strong className="text-slate-900">#{currentPreviewQR.tableNumber}</strong>
                       </span>
                     </div>
 
-                    {/* Custom Luxury Popover Quick Jump Selector */}
+                    {/* Quick Jump + Counter */}
                     <div className="flex items-center gap-2 relative" ref={dropdownRef}>
                       <button
                         type="button"
                         onClick={() => setIsTableDropdownOpen(!isTableDropdownOpen)}
-                        className="h-8 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer"
+                        className="h-7 px-2 rounded-lg bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-800 font-bold text-[11px] flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
                       >
-                        <span>Table #{currentPreviewQR.tableNumber}</span>
-                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isTableDropdownOpen ? 'rotate-180 text-indigo-600' : 'text-slate-500'}`} />
+                        <span>#{currentPreviewQR.tableNumber}</span>
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isTableDropdownOpen ? 'rotate-180 text-indigo-600' : 'text-slate-500'}`} />
                       </button>
 
                       {isTableDropdownOpen && (
-                        <div className="absolute right-0 bottom-full mb-2 z-50 w-72 p-3.5 bg-white/95 backdrop-blur-2xl border border-slate-200 shadow-2xl rounded-2xl animate-in fade-in-50 zoom-in-95 duration-150 space-y-2.5">
+                        <div className="absolute right-0 bottom-full mb-2 z-50 w-64 p-3 bg-white/95 backdrop-blur-2xl border border-slate-200 shadow-2xl rounded-2xl animate-in fade-in-50 zoom-in-95 duration-150 space-y-2">
                           <div className="flex items-center justify-between px-1">
                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Jump to Table</span>
                             <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-full">{targetQRs.length} Tables</span>
@@ -1184,7 +1282,7 @@ export default function QRTemplateStudioModal({
                           )}
 
                           <div 
-                            className="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto no-scrollbar p-1"
+                            className="grid grid-cols-4 gap-1.5 max-h-44 overflow-y-auto no-scrollbar p-1"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                           >
                             {targetQRs
@@ -1215,26 +1313,26 @@ export default function QRTemplateStudioModal({
                         </div>
                       )}
 
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200/60">
+                      <span className="text-[10px] font-bold text-slate-500 tabular-nums">
                         {previewTableIndex + 1}/{targetQRs.length}
                       </span>
                     </div>
                   </div>
 
-                  {/* Stepper Bar with Chevrons and Scrollable Track */}
-                  <div className="flex items-center gap-2.5">
+                  {/* Stepper: Chevrons + scrollable pill track */}
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       disabled={previewTableIndex === 0}
                       onClick={() => setPreviewTableIndex(prev => Math.max(0, prev - 1))}
-                      className="w-10 h-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105 active:scale-95"
+                      className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
                       title="Previous Table"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
 
                     <div 
-                      className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-1 scroll-smooth"
+                      className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 scroll-smooth"
                       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     >
                       {targetQRs.map((qr, idx) => (
@@ -1243,7 +1341,7 @@ export default function QRTemplateStudioModal({
                           ref={(el) => { tableButtonRefs.current[idx] = el }}
                           type="button"
                           onClick={() => setPreviewTableIndex(idx)}
-                          className={`h-10 min-w-10 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer shrink-0 flex items-center justify-center border shadow-2xs ${
+                          className={`h-9 min-w-9 px-2.5 rounded-xl font-black text-[11px] transition-all cursor-pointer shrink-0 flex items-center justify-center border ${
                             previewTableIndex === idx 
                               ? 'bg-slate-900 text-amber-400 border-slate-900 ring-2 ring-amber-400/30 scale-105 shadow-sm' 
                               : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-white hover:border-slate-300'
@@ -1258,7 +1356,7 @@ export default function QRTemplateStudioModal({
                       type="button"
                       disabled={previewTableIndex === targetQRs.length - 1}
                       onClick={() => setPreviewTableIndex(prev => Math.min(targetQRs.length - 1, prev + 1))}
-                      className="w-10 h-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105 active:scale-95"
+                      className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
                       title="Next Table"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -1267,8 +1365,8 @@ export default function QRTemplateStudioModal({
                 </div>
               )}
 
-              {/* 📥 EXPORT ACTION BUTTONS */}
-              <div className="pt-2 space-y-2.5">
+              {/* 📥 EXPORT ACTION BUTTONS — hidden on mobile (shown in sticky footer instead) */}
+              <div className="hidden sm:block pt-2 space-y-2.5">
                 <Button
                   onClick={handleDownloadSinglePNG}
                   disabled={isExporting}
@@ -1297,11 +1395,12 @@ export default function QRTemplateStudioModal({
               </div>
             </div>
 
-            {/* 🖼️ RIGHT LIVE VISUAL STAND PREVIEW (7 Columns) */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-200/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-10 border border-slate-300/80 min-h-95 sm:min-h-120 lg:min-h-140">
+            {/* 🖼️ RIGHT LIVE VISUAL STAND PREVIEW (7 Columns) — shown on lg or when preview tab active on mobile */}
+            <div className={`lg:col-span-7 flex flex-col items-center justify-center bg-slate-200/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-10 border border-slate-300/80 min-h-80 sm:min-h-120 lg:min-h-140 ${mobileTab === 'configure' ? 'hidden lg:flex' : 'flex'}`}>
               <div className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3 sm:mb-5 flex items-center gap-1.5 text-center">
                 <Eye className="w-3.5 h-3.5" />
-                <span>Live 1:1 Print Preview ({wInches}" × {hInches}" • {activeWidth} × {activeHeight} px)</span>
+                <span className="hidden sm:inline">Live 1:1 Print Preview ({wInches}" × {hInches}" • {activeWidth} × {activeHeight} px)</span>
+                <span className="sm:hidden">Live Preview • {wInches}" × {hInches}"</span>
               </div>
 
               {/* 🌟 DYNAMIC ADAPTIVE LIVE VISUAL STANDEE PREVIEW CARD 🌟 */}
@@ -1496,6 +1595,36 @@ export default function QRTemplateStudioModal({
                 💡 High-resolution 300 DPI: export directly into acrylic table tents, wooden blocks, or custom frames.
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* 📱 STICKY MOBILE EXPORT FOOTER — only visible on small screens */}
+        <div className="sm:hidden shrink-0 bg-white border-t border-slate-200 px-4 py-3 space-y-2.5 safe-area-inset-bottom">
+          {exportProgress && (
+            <p className="text-[11px] text-center font-bold text-indigo-600 animate-pulse">
+              {exportProgress}
+            </p>
+          )}
+          <div className={`grid gap-2 ${targetQRs.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <Button
+              onClick={handleDownloadSinglePNG}
+              disabled={isExporting}
+              className="h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-wide shadow-md shadow-indigo-500/25 transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              <span>Table #{currentPreviewQR.tableNumber}</span>
+            </Button>
+
+            {targetQRs.length > 1 && (
+              <Button
+                onClick={handleDownloadBulkPDF}
+                disabled={isExporting}
+                className="h-11 rounded-xl bg-slate-900 hover:bg-black text-amber-400 font-black text-[11px] uppercase tracking-wide shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <FileText className="w-3.5 h-3.5 text-amber-400" />}
+                <span>All {targetQRs.length} PDF</span>
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
