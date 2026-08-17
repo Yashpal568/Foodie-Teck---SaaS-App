@@ -62,6 +62,32 @@ function MaintenanceGuard({ children }) {
   return children
 }
 
+function DashboardRedirect() {
+  const [target, setTarget] = useState(null);
+
+  useEffect(() => {
+    async function resolveTarget() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const storedEmail = localStorage.getItem('servora_merchant_email');
+        if (session?.user?.email) {
+          setTarget(`/console/${session.user.email}`);
+        } else if (storedEmail) {
+          setTarget(`/console/${storedEmail}`);
+        } else {
+          setTarget('/login');
+        }
+      } catch (e) {
+        setTarget('/login');
+      }
+    }
+    resolveTarget();
+  }, []);
+
+  if (!target) return null;
+  return <Navigate to={target} replace />;
+}
+
 function App() {
   return (
     <Router>
@@ -83,7 +109,7 @@ function App() {
 
           {/* Console / Dashboard Routes (Multi-Tenant Isolated) */}
           <Route path="/console/:restaurantId" element={<Dashboard />} />
-          <Route path="/dashboard" element={<Navigate to="/login" replace />} />
+          <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/menu" element={<CustomerMenu />} />
           <Route path="/docs/articles" element={<DocumentationPage />} />
           <Route path="/internal-docs" element={<DocumentationPage />} />

@@ -71,6 +71,62 @@ export const ORDER_STATUS_CONFIG = {
 }
 
 
+// Sample Mock Orders for Demo Merchant Mode
+const MOCK_DEMO_ORDERS = [
+  {
+    id: 'demo-ord-101',
+    tableNumber: '4',
+    customerName: 'Aarav Sharma',
+    items: [
+      { name: 'Butter Chicken Grand', price: 420, quantity: 1 },
+      { name: 'Garlic Butter Naan', price: 65, quantity: 2 },
+      { name: 'Virgin Blue Mojito', price: 160, quantity: 2 }
+    ],
+    total: 770,
+    status: 'PREPARING',
+    createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
+    statusHistory: [
+      { status: 'PENDING', timestamp: new Date(Date.now() - 10 * 60000).toISOString() },
+      { status: 'PREPARING', timestamp: new Date(Date.now() - 8 * 60000).toISOString() }
+    ]
+  },
+  {
+    id: 'demo-ord-102',
+    tableNumber: '2',
+    customerName: 'Priya Patel',
+    items: [
+      { name: 'Paneer Tikka Charcoal', price: 340, quantity: 1 },
+      { name: 'Dal Makhani Special', price: 290, quantity: 1 },
+      { name: 'Jeera Rice Bowl', price: 180, quantity: 1 }
+    ],
+    total: 810,
+    status: 'READY',
+    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
+    statusHistory: [
+      { status: 'PENDING', timestamp: new Date(Date.now() - 18 * 60000).toISOString() },
+      { status: 'PREPARING', timestamp: new Date(Date.now() - 15 * 60000).toISOString() },
+      { status: 'READY', timestamp: new Date(Date.now() - 2 * 60000).toISOString() }
+    ]
+  },
+  {
+    id: 'demo-ord-103',
+    tableNumber: '7',
+    customerName: 'Vikram Singh',
+    items: [
+      { name: 'Dum Handi Biryani', price: 450, quantity: 2 },
+      { name: 'Gulab Jamun with Rabri', price: 150, quantity: 2 }
+    ],
+    total: 1200,
+    status: 'PENDING',
+    createdAt: new Date(Date.now() - 2 * 60000).toISOString(),
+    statusHistory: [
+      { status: 'PENDING', timestamp: new Date(Date.now() - 2 * 60000).toISOString() }
+    ]
+  }
+]
+
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+
 // Custom hook for order management (SUPABASE POWERED)
 export const useOrderManagement = (restaurantId) => {
   const [resolvedId, setResolvedId] = useState(null)
@@ -78,19 +134,25 @@ export const useOrderManagement = (restaurantId) => {
   const [orderHistory, setOrderHistory] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+
   // ── Sync: Resolve Restaurant Identity ──
   useEffect(() => {
     let isMounted = true
     async function resolve() {
-      if (!restaurantId) {
+      if (!restaurantId || isDemo) {
         if (isMounted) setLoading(false)
         return
       }
       
       try {
-        // If it looks like an email, we need to resolve the UUID from DB
+        if (isUUID(restaurantId)) {
+          if (isMounted) setResolvedId(restaurantId)
+          return
+        }
+
         if (restaurantId.includes('@')) {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from('restaurants')
             .select('id')
             .eq('email', restaurantId.toLowerCase())
@@ -100,14 +162,11 @@ export const useOrderManagement = (restaurantId) => {
             if (data?.id) {
               setResolvedId(data.id)
             } else {
-              setLoading(false) // No restaurant found, stop loading
+              setLoading(false)
             }
           }
         } else {
-          // Already a UUID or some other ID format
-          if (isMounted) {
-            setResolvedId(restaurantId)
-          }
+          if (isMounted) setLoading(false)
         }
       } catch (err) {
         console.error('Identity resolution failed:', err)
@@ -116,12 +175,22 @@ export const useOrderManagement = (restaurantId) => {
     }
     resolve()
     return () => { isMounted = false }
-  }, [restaurantId])
+  }, [restaurantId, isDemo])
 
   // ── 1. Fetch Orders from Database ──
   const refreshOrders = useCallback(async (showLoading = true) => {
-    const idToUse = resolvedId || (!restaurantId?.includes('@') ? restaurantId : null)
-    if (!idToUse) return
+    if (isDemo) {
+      setOrders(MOCK_DEMO_ORDERS.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status)))
+      setOrderHistory(MOCK_DEMO_ORDERS.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status)))
+      if (showLoading) setLoading(false)
+      return
+    }
+
+    const idToUse = resolvedId || (isUUID(restaurantId) ? restaurantId : null)
+    if (!idToUse) {
+      if (showLoading) setLoading(false)
+      return
+    }
     
     if (showLoading) setLoading(true)
     try {
@@ -155,15 +224,18 @@ export const useOrderManagement = (restaurantId) => {
     } finally {
       if (showLoading) setLoading(false)
     }
-  }, [restaurantId, resolvedId])
+  }, [restaurantId, resolvedId, isDemo])
 
   // ── 2. Real-time Subscription ──
   useEffect(() => {
-    const effectiveSubscriptionId = resolvedId || (!restaurantId?.includes('@') ? restaurantId : null)
-    
+    if (isDemo) {
+      refreshOrders(false)
+      return
+    }
+
+    const effectiveSubscriptionId = resolvedId || (isUUID(restaurantId) ? restaurantId : null)
     if (!effectiveSubscriptionId) return
 
-    console.log(`📡 Initializing Real-time Sub for: ${effectiveSubscriptionId}`)
     refreshOrders(true)
 
     // Listen for real-time changes to the 'orders' table
@@ -206,18 +278,31 @@ export const useOrderManagement = (restaurantId) => {
   // ── 4. Update Status via DB – WITH OPTIMISTIC UPDATES ──
   const updateStatus = async (orderId, newStatus) => {
     // 1. Optimistic Update (Immediate UI feedback)
-    setOrders(prev => prev.map(o => 
-      o.id === orderId ? { ...o, status: newStatus } : o
-    ))
+    setOrders(prev => {
+      const updated = prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o)
+      if (['FINISHED', 'CANCELLED'].includes(newStatus)) {
+        const moved = updated.find(o => o.id === orderId)
+        if (moved) {
+          setOrderHistory(h => [moved, ...h])
+        }
+        return updated.filter(o => o.id !== orderId)
+      }
+      return updated
+    })
+
+    if (isDemo || !isUUID(orderId)) {
+      const target = MOCK_DEMO_ORDERS.find(o => o.id === orderId)
+      if (target) target.status = newStatus
+      window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: { orderId, status: newStatus } }))
+      return { id: orderId, status: newStatus }
+    }
 
     try {
       const updated = await apiUpdateStatus(orderId, newStatus)
-      // 2. Trigger a full refresh SILENTLY to ensure we are in sync
       await refreshOrders(false)
       return updated
     } catch (e) {
       console.error('Status update failed, rolling back:', e)
-      // 3. Rollback on failure SILENTLY
       refreshOrders(false)
       throw e
     }

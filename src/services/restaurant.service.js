@@ -59,12 +59,23 @@ export const getRestaurantByEmail = async (email) => {
 
 /** Get public restaurant profile for customer menu */
 export const getRestaurantProfile = async (restaurantId) => {
-  const { data } = await supabase
-    .from('restaurants')
-    .select('id, business_name, description, logo_url, cover_url, address, phone')
-    .eq('id', restaurantId)
-    .maybeSingle()
-  return data
+  const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+  let validId = restaurantId
+  if (!isUUID(validId)) {
+    validId = await ensureValidRestaurantUUID(restaurantId)
+  }
+  if (!validId || !isUUID(validId)) return null
+
+  try {
+    const { data } = await supabase
+      .from('restaurants')
+      .select('id, business_name, description, logo_url, cover_url, address, phone')
+      .eq('id', validId)
+      .maybeSingle()
+    return data
+  } catch (e) {
+    return null
+  }
 }
 
 /** Active Session Restaurant ID Resolver (DB-First Auth) */

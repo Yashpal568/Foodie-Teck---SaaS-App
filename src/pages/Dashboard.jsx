@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import OverviewCards from "../components/dashboard/OverviewCards";
 import RecentOrders from "../components/dashboard/RecentOrders";
@@ -44,7 +44,21 @@ import { supabase, getCachedSession } from '@/lib/supabase';
 function Dashboard() {
   const { restaurantId: urlId } = useParams();
   const navigate = useNavigate();
-  const [activeItem, setActiveItem] = useState("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get('tab') || 'dashboard';
+  const [activeItem, setActiveItemState] = useState(currentTab);
+
+  // Sync state with URL search param on browser Back/Forward navigation
+  useEffect(() => {
+    if (currentTab && currentTab !== activeItem) {
+      setActiveItemState(currentTab);
+    }
+  }, [currentTab]);
+
+  const setActiveItem = useCallback((tab) => {
+    setActiveItemState(tab);
+    setSearchParams(tab === 'dashboard' ? {} : { tab });
+  }, [setSearchParams]);
   const [currency, setCurrency] = useState("INR"); // Default to Indian Rupee
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [plan, setPlan] = useState(null);
@@ -101,6 +115,16 @@ function Dashboard() {
       return;
     }
 
+    // ── Live Demo Merchant Bypass (Zero DB Roundtrips) ──
+    const isDemo = urlId === "demo-merchant" || urlId === "demo" || dashboardEmail === "demo-merchant" || dashboardEmail === "demo";
+    if (isDemo) {
+      setIsExpired(false);
+      setSubDetails({ pendingApproval: false, utrNumber: "DEMO-LIVE-PREVIEW", status: "Active" });
+      setPlan({ name: "Enterprise", purchaseDate: new Date().toISOString() });
+      setIsLoading(false);
+      return;
+    }
+
     // Wait until the email→UUID resolution completes before proceeding
     // This prevents double-firing with stale email IDs
     const isEmailUrl = urlId.includes('@')
@@ -136,7 +160,6 @@ function Dashboard() {
         if (q) {
           const { data } = await q;
           rest = data;
-          
           
           // Try fetching subscriptions separately to prevent 400 Bad Request on join failure
           if (rest?.id) {
@@ -668,8 +691,33 @@ function Dashboard() {
     );
   }
 
+  const isDemoMode = urlId === "demo-merchant" || urlId === "demo" || dashboardEmail === "demo-merchant" || dashboardEmail === "demo";
+
   return (
     <>
+      {isDemoMode && (
+        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 text-white px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-md relative z-[1000]">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            <span>✨ Live Merchant Console Demo — Full Enterprise Features Active</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => navigate('/menu')} 
+              className="underline hover:text-blue-100 transition-colors font-semibold cursor-pointer"
+            >
+              Open Live Customer Menu →
+            </button>
+            <button 
+              onClick={() => navigate('/register')} 
+              className="px-3 py-1 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-black shadow-xs active:scale-95 transition-all text-xs cursor-pointer"
+            >
+              Launch Your Restaurant
+            </button>
+          </div>
+        </div>
+      )}
+
       <Layout
         activeItem={activeItem}
         setActiveItem={setActiveItem}

@@ -726,16 +726,19 @@ export default function QRTemplateStudioModal({
       const loadProfile = async () => {
         try {
           const rid = restaurantProfile?.id || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'tigerbistro99@gmail.com'
-          if (rid) {
-            let q = supabase.from('restaurants').select('*')
+          const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+          if (rid && rid !== 'demo-merchant' && rid !== 'demo') {
+            let q = null
             if (rid.includes('@')) {
-              q = q.eq('email', rid.toLowerCase()).maybeSingle()
-            } else {
-              q = q.eq('id', rid).maybeSingle()
+              q = supabase.from('restaurants').select('*').eq('email', rid.toLowerCase()).maybeSingle()
+            } else if (isUUID(rid)) {
+              q = supabase.from('restaurants').select('*').eq('id', rid).maybeSingle()
             }
-            const { data } = await q
-            if (data) {
-              setProfile(prev => ({ ...data, ...prev, logo_url: data.logo_url || prev.logo_url }))
+            if (q) {
+              const { data } = await q
+              if (data) {
+                setProfile(prev => ({ ...data, ...prev, logo_url: data.logo_url || prev.logo_url }))
+              }
             }
           }
         } catch (e) {
@@ -787,7 +790,6 @@ export default function QRTemplateStudioModal({
   const hInches = selectedFormat === 'custom'
     ? Math.max(1.5, Math.min(24, parseFloat(customHeightInches) || 6))
     : currentFormat.heightInches
-
   const activeWidth = selectedFormat === 'custom'
     ? Math.round(wInches * 300)
     : currentFormat.canvasW
@@ -797,15 +799,16 @@ export default function QRTemplateStudioModal({
 
   // Aspect ratio calculation for the preview container
   const previewRatio = activeHeight / (activeWidth || 1)
-  const maxPreviewH = 500
-  const maxPreviewW = 360
+  const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 640
+  const maxPreviewH = isMobileScreen ? 400 : 500
+  const maxPreviewW = isMobileScreen ? 280 : 360
 
-  let computedPreviewW = 320
+  let computedPreviewW = isMobileScreen ? 250 : 320
   let computedPreviewH = Math.round(computedPreviewW * previewRatio)
 
   if (computedPreviewH > maxPreviewH) {
     computedPreviewH = maxPreviewH
-    computedPreviewW = Math.max(160, Math.round(computedPreviewH / previewRatio))
+    computedPreviewW = Math.max(140, Math.round(computedPreviewH / previewRatio))
   } else if (computedPreviewW > maxPreviewW) {
     computedPreviewW = maxPreviewW
     computedPreviewH = Math.round(computedPreviewW * previewRatio)
@@ -861,39 +864,37 @@ export default function QRTemplateStudioModal({
     }
   }
 
-  // 📄 2. Export All Tables as Print-Ready Multi-Page PDF
+  // 📥 2. Export All Tables in Bulk Print-Ready PDF (Vector-Sharp 300 DPI)
   const handleDownloadBulkPDF = async () => {
     if (targetQRs.length === 0) return
     setIsExporting(true)
-    setExportProgress('Preparing multi-page PDF...')
+    setExportProgress(`Initializing 300 DPI PDF Engine for ${targetQRs.length} tables...`)
 
     try {
-      const isLandscape = activeWidth > activeHeight
+      const orientation = wInches > hInches ? 'landscape' : 'portrait'
       const pdf = new jsPDF({
-        orientation: isLandscape ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: 'a4'
+        orientation,
+        unit: 'in',
+        format: [wInches, hInches]
       })
 
-      const imgWidthMM = (wInches * 25.4)
-      const imgHeightMM = (hInches * 25.4)
-      const fitScale = Math.min(180 / imgWidthMM, 260 / imgHeightMM, 1.0)
-      const printW = imgWidthMM * fitScale
-      const printH = imgHeightMM * fitScale
-      const xOffset = (210 - printW) / 2
-      const yOffset = (297 - printH) / 2
+      const printW = wInches
+      const printH = hInches
+      const xOffset = 0
+      const yOffset = 0
 
       for (let i = 0; i < targetQRs.length; i++) {
-        setExportProgress(`Rendering Table #${targetQRs[i].tableNumber} (${i + 1}/${targetQRs.length})...`)
-        
+        const qr = targetQRs[i]
+        setExportProgress(`Rendering Table #${qr.tableNumber} Standee (${i + 1}/${targetQRs.length})...`)
+
         const canvas = await generateStandeeCanvas({
           themeId: selectedTheme,
           canvasWidth: activeWidth,
           canvasHeight: activeHeight,
           restaurantName,
           restaurantLogo,
-          tableNumber: targetQRs[i].tableNumber,
-          qrUrl: targetQRs[i].url,
+          tableNumber: qr.tableNumber,
+          qrUrl: qr.url,
           tagline: customTagline,
           wifiNetwork,
           wifiPassword,
@@ -920,58 +921,58 @@ export default function QRTemplateStudioModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="!max-w-[1200px] !w-[96vw] max-h-[94vh] flex flex-col p-0 rounded-[2.5rem] bg-slate-50 border border-slate-200/80 shadow-2xl overflow-hidden"
+        className="!max-w-6xl !w-[96vw] sm:!w-[92vw] max-h-[92vh] sm:max-h-[90vh] flex flex-col p-0 rounded-2xl sm:rounded-3xl bg-slate-50 border border-slate-200/80 shadow-2xl overflow-hidden"
         showCloseButton={true}
       >
         {/* 🌟 Top Header Bar 🌟 */}
-        <div className="shrink-0 bg-white border-b border-slate-200/80 px-6 sm:px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
-              <Sparkles className="w-5 h-5" />
+        <div className="shrink-0 bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 pr-8 sm:pr-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <DialogTitle className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <div className="min-w-0">
+              <DialogTitle className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <span>Print-Ready Table Standee Studio</span>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200/60">
+                <span className="text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200/60">
                   Pro 300 DPI
                 </span>
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 font-medium">
+              <DialogDescription className="text-[11px] sm:text-xs text-slate-500 font-medium truncate sm:whitespace-normal">
                 Design luxury acrylic table tents, wooden blocks, and custom-sized restaurant standees.
               </DialogDescription>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pr-8">
-            <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-xs px-3 py-1">
+          <div className="flex items-center gap-2 self-start sm:self-center pr-2 sm:pr-8">
+            <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-[10px] sm:text-xs px-2.5 py-0.5 sm:px-3 sm:py-1">
               {targetQRs.length} {targetQRs.length === 1 ? 'Table' : 'Tables'} Ready
             </Badge>
           </div>
         </div>
 
         {/* 🌟 Scrollable 2-Column Studio Body 🌟 */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
             
             {/* 🎛️ LEFT CONTROLS PANEL (5 Columns) */}
-            <div className="lg:col-span-5 space-y-6 pb-6">
+            <div className="lg:col-span-5 space-y-4 sm:space-y-6 pb-4 sm:pb-6">
               
               {/* 1. Template Ambiance & Theme */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+              <div className="space-y-2 sm:space-y-2.5">
+                <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1.5">
+                  <Label className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                     <Palette className="w-3.5 h-3.5 text-indigo-600" />
                     1. Luxury Standee Theme ({TEMPLATE_THEMES.length})
                   </Label>
 
                   {/* Category Filter Pills */}
-                  <div className="flex items-center gap-1 bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
+                  <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-200/80 p-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold overflow-x-auto max-w-full">
                     {['all', 'luxury', 'nature', 'vibrant', 'minimal'].map((cat) => (
                       <button
                         key={cat}
                         type="button"
                         onClick={() => setThemeFilter(cat)}
-                        className={`px-2 py-0.5 rounded-md capitalize transition-all cursor-pointer ${
+                        className={`px-1.5 sm:px-2 py-0.5 rounded-md capitalize transition-all cursor-pointer whitespace-nowrap ${
                           themeFilter === cat 
                             ? 'bg-white text-slate-900 shadow-xs font-black' 
                             : 'text-slate-500 hover:text-slate-800'
@@ -983,7 +984,7 @@ export default function QRTemplateStudioModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1 no-scrollbar">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2 max-h-48 sm:max-h-56 overflow-y-auto pr-1 no-scrollbar">
                   {filteredThemes.map((theme) => {
                     const isSelected = selectedTheme === theme.id
                     return (
@@ -991,23 +992,23 @@ export default function QRTemplateStudioModal({
                         key={theme.id}
                         type="button"
                         onClick={() => setSelectedTheme(theme.id)}
-                        className={`p-3 rounded-2xl text-left border transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
+                        className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-left border transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
                           isSelected
                             ? 'border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/40 shadow-sm scale-[1.02]'
                             : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                             <span 
-                              className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs" 
+                              className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full border border-white/20 shadow-xs shrink-0" 
                               style={{ backgroundColor: theme.hex.accent }}
                             />
-                            <span className="font-bold text-xs text-slate-900">{theme.name}</span>
+                            <span className="font-bold text-[11px] sm:text-xs text-slate-900 truncate">{theme.name}</span>
                           </div>
                           {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
                         </div>
-                        <span className="text-[10px] text-slate-500 mt-1 font-medium truncate">
+                        <span className="text-[9px] sm:text-[10px] text-slate-500 mt-1 font-medium truncate">
                           {theme.badge}
                         </span>
                       </button>
@@ -1017,13 +1018,13 @@ export default function QRTemplateStudioModal({
               </div>
 
               {/* 2. Standee Form Factor & Dimensions */}
-              <div className="space-y-3">
-                <Label className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+              <div className="space-y-2 sm:space-y-3">
+                <Label className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-indigo-600" />
                   2. Form Factor & Dimensions
                 </Label>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                   {FORM_FACTORS.map((format) => {
                     const isSelected = selectedFormat === format.id
                     return (
@@ -1031,17 +1032,17 @@ export default function QRTemplateStudioModal({
                         key={format.id}
                         type="button"
                         onClick={() => setSelectedFormat(format.id)}
-                        className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
+                        className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-left border transition-all cursor-pointer ${
                           isSelected
                             ? 'border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/40 shadow-sm'
                             : 'border-slate-200 bg-white hover:border-slate-300'
                         } ${format.id === 'custom' ? 'col-span-2' : ''}`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-slate-900">{format.name}</span>
-                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                          <span className="font-bold text-[11px] sm:text-xs text-slate-900">{format.name}</span>
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
                         </div>
-                        <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                        <span className="text-[9px] sm:text-[10px] text-slate-500 font-medium block mt-0.5 truncate">
                           {format.sub}
                         </span>
                       </button>
@@ -1297,8 +1298,8 @@ export default function QRTemplateStudioModal({
             </div>
 
             {/* 🖼️ RIGHT LIVE VISUAL STAND PREVIEW (7 Columns) */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-200/60 rounded-3xl p-6 sm:p-10 border border-slate-300/80 min-h-[580px]">
-              <div className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-5 flex items-center gap-1.5">
+            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-200/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-10 border border-slate-300/80 min-h-[380px] sm:min-h-[480px] lg:min-h-[560px]">
+              <div className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3 sm:mb-5 flex items-center gap-1.5 text-center">
                 <Eye className="w-3.5 h-3.5" />
                 <span>Live 1:1 Print Preview ({wInches}" × {hInches}" • {activeWidth} × {activeHeight} px)</span>
               </div>

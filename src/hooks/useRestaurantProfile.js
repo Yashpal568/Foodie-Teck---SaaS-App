@@ -5,30 +5,42 @@ import { getMyRestaurant, updateRestaurantProfile, supabase } from '@/lib/api'
  * Hook to manage restaurant profile information via Supabase
  */
 export const useRestaurantProfile = (restaurantId) => {
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+    const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+
     const [profile, setProfile] = useState({
-        id: null,
+        id: isDemo ? 'demo-merchant' : null,
         name: 'Tiger Bistro',
         business_name: 'Tiger Bistro',
         address: 'Main Square Mall, Floor 2',
         phone: '+91 98765 43210',
         description: 'Premium Dining Experience',
-        plan: 'Basic'
+        plan: isDemo ? 'Enterprise' : 'Basic'
     })
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         const fetchProfile = async () => {
+            if (isDemo) {
+                setLoading(false)
+                return
+            }
+
             try {
                 let data = await getMyRestaurant()
                 if (!data && restaurantId && restaurantId !== 'guest') {
                     let q = supabase.from('restaurants').select('*')
                     if (restaurantId.includes('@')) {
                         q = q.eq('email', restaurantId.toLowerCase()).maybeSingle()
-                    } else {
+                    } else if (isUUID(restaurantId)) {
                         q = q.eq('id', restaurantId).maybeSingle()
+                    } else {
+                        q = null
                     }
-                    const { data: directData } = await q
-                    if (directData) data = directData
+                    if (q) {
+                        const { data: directData } = await q
+                        if (directData) data = directData
+                    }
                 }
                 if (data) {
                     setProfile({
@@ -44,7 +56,7 @@ export const useRestaurantProfile = (restaurantId) => {
         }
         
         fetchProfile()
-    }, [restaurantId])
+    }, [restaurantId, isDemo])
 
     const updateProfile = async (newProfile) => {
         try {

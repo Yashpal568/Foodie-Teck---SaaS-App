@@ -54,9 +54,9 @@ export default function MarketingFooter() {
       <div className="absolute top-0 left-0 w-64 h-64 bg-indigo-500/10 blur-[120px] rounded-full" />
 
       <div className="w-full px-6 lg:px-12 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-12 lg:gap-8 border-b border-white/5 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-12 lg:gap-8 border-b border-white/5 pb-16 sm:pb-20">
           {/* Brand Section */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-6 sm:space-y-8">
             <Link to="/" className="flex items-center gap-2">
               <Logo showText={true} iconSize={32} />
             </Link>
@@ -76,27 +76,29 @@ export default function MarketingFooter() {
             </div>
           </div>
 
-          {/* Links Sections */}
-          {footerLinks.map((section) => (
-            <div key={section.title} className="space-y-6">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
-                {section.title}
-              </h4>
-              <ul className="space-y-4">
-                {section.links.map((link) => (
-                  <li key={link.name}>
-                    <Link 
-                      to={link.href}
-                      className="text-slate-400 font-medium text-xs hover:text-white hover:translate-x-1 flex items-center gap-1 group transition-all"
-                    >
-                      {link.name}
-                      <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity -translate-y-0.5" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {/* Links Sections (2 columns on mobile, 4 columns on desktop) */}
+          <div className="lg:col-span-4 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-8">
+            {footerLinks.map((section) => (
+              <div key={section.title} className="space-y-4 sm:space-y-6">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
+                  {section.title}
+                </h4>
+                <ul className="space-y-3 sm:space-y-4">
+                  {section.links.map((link) => (
+                    <li key={link.name}>
+                      <Link 
+                        to={link.href}
+                        className="text-slate-400 font-medium text-xs hover:text-white hover:translate-x-1 flex items-center gap-1 group transition-all"
+                      >
+                        {link.name}
+                        <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity -translate-y-0.5" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Bottom Banner */}

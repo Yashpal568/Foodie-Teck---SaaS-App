@@ -133,20 +133,20 @@ export default function PricingPage() {
       </Helmet>
       
       {/* ─── Header Section ─────────────────────────────────────────────── */}
-      <section className="relative px-6 text-center space-y-8 mb-24 mt-32">
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-150 bg-linear-to-b from-blue-50/50 to-transparent -z-10 blur-3xl opacity-50" />
-         <Badge variant="outline" className="px-6 py-2 rounded-full border-blue-500 text-blue-600 font-bold uppercase tracking-[0.2em] text-[10px]">Investment Options</Badge>
-         <h1 className="text-5xl lg:text-6xl font-black text-slate-950 tracking-tightest leading-none">
+      <section className="relative px-4 sm:px-6 text-center space-y-4 sm:space-y-8 mb-12 sm:mb-24 mt-24 sm:mt-32">
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-150 bg-linear-to-b from-blue-50/50 to-transparent -z-10 blur-3xl opacity-50 pointer-events-none" />
+         <Badge variant="outline" className="px-4 sm:px-6 py-1.5 sm:py-2 rounded-full border-blue-500 text-blue-600 font-bold uppercase tracking-[0.2em] text-[10px]">Investment Options</Badge>
+         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-950 tracking-tight leading-tight">
             Scale with <span className="text-blue-600">Precision.</span>
          </h1>
-         <p className="text-xl lg:text-3xl text-slate-500 font-medium leading-relaxed max-w-4xl mx-auto tracking-tighter">
-            Transparent pricing designed for culinary growth. From small cafes to global dining chains, <br className="hidden lg:block"/> choose the plan that fuels your kitchen's ambition.
+         <p className="text-base sm:text-xl lg:text-2xl text-slate-500 font-medium leading-relaxed max-w-3xl mx-auto">
+            Transparent pricing designed for culinary growth. From small cafes to global dining chains, choose the plan that fuels your kitchen's ambition.
          </p>
       </section>
 
       {/* ─── Pricing Grid ─────────────────────────────────────────── */}
-      <section className="max-w-screen-2xl mx-auto px-6 mb-40">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 items-stretch">
+      <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 mb-20 lg:mb-40">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-10 items-stretch">
           {plans.map((p, idx) => (
             <motion.div
               key={p.name}
@@ -155,15 +155,15 @@ export default function PricingPage() {
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1, duration: 0.6 }}
               className={cn(
-                "p-8 md:p-10 rounded-3xl border transition-all duration-700 flex flex-col relative group overflow-hidden",
+                "p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border transition-all duration-500 flex flex-col relative group overflow-hidden",
                 p.popular 
-                  ? "bg-slate-950 text-white border-blue-900 shadow-xl shadow-blue-950/20 scale-105 z-10" 
+                  ? "bg-slate-950 text-white border-blue-900 shadow-xl shadow-blue-950/20 lg:scale-105 z-10" 
                   : "bg-white text-slate-900 border-slate-100 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-100"
               )}
             >
               {p.popular && (
-                <div className="absolute top-0 right-0 px-10 py-3 bg-blue-600 text-white font-black text-xs rounded-bl-[2.5rem] uppercase tracking-widest shadow-xl flex items-center gap-2">
-                  <Star className="w-4 h-4 fill-white" />
+                <div className="absolute top-0 right-0 px-6 sm:px-10 py-2 sm:py-3 bg-blue-600 text-white font-black text-[10px] sm:text-xs rounded-bl-2xl sm:rounded-bl-[2.5rem] uppercase tracking-widest shadow-xl flex items-center gap-2">
+                  <Star className="w-3.5 h-3.5 fill-white" />
                   Most Elite
                 </div>
               )}

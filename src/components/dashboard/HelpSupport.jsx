@@ -266,41 +266,24 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
 
     return (
       <div className="min-h-screen bg-gray-50/50">
-        {/* Mobile Navbar */}
-        <div className="lg:hidden sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedTicket(null)} className="text-gray-600 hover:bg-gray-100 rounded-xl">
-              <ArrowLeft className="w-5 h-5" />
+        {/* Unified Responsive Ticket Header */}
+        <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 md:px-6 py-3.5 sm:py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => setSelectedTicket(null)} className="text-gray-600 hover:bg-gray-100 rounded-xl shrink-0 w-9 h-9">
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
-            <span className="font-bold text-gray-900 text-sm truncate">{ticket.id}</span>
-          </div>
-          <Badge variant="outline" className={`text-[10px] font-bold border-${cfg.color}-200 text-${cfg.color}-700 bg-${cfg.color}-50`}>
-            {cfg.label}
-          </Badge>
-        </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:block bg-white/80 backdrop-blur-md border-b border-gray-100">
-          <div className="px-4 md:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => setSelectedTicket(null)} className="text-gray-600 hover:bg-gray-100 rounded-xl">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div>
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] mb-0.5">
-                    <Ticket className="w-3.5 h-3.5" />
-                    <span>Ticket Detail</span>
-                  </div>
-                  <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-none">{ticket.subject}</h1>
-                </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] mb-0.5">
+                <Ticket className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                <span>Ticket Detail</span>
               </div>
-              <Badge variant="outline" className={`h-9 px-3 text-xs font-semibold border-${cfg.color}-200 text-${cfg.color}-700 bg-${cfg.color}-50`}>
-                <StatusIcon className="w-3.5 h-3.5 mr-1.5" />
-                {cfg.label}
-              </Badge>
+              <h1 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 tracking-tight leading-tight truncate">{ticket.subject}</h1>
             </div>
           </div>
+          <Badge variant="outline" className={`shrink-0 h-8 px-2.5 sm:h-9 sm:px-3 text-[10px] sm:text-xs font-semibold border-${cfg.color}-200 text-${cfg.color}-700 bg-${cfg.color}-50`}>
+            <StatusIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1 sm:mr-1.5" />
+            {cfg.label}
+          </Badge>
         </div>
 
         <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
@@ -427,74 +410,37 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
   // ─── Main View ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50/50">
-      {/* Mobile Navbar */}
-      <div className="lg:hidden sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-100 rounded-xl">
-                <Menu className="w-6 h-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 border-none">
-              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-              <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
-              <Sidebar 
-                activeItem={activeItem} 
-                setActiveItem={(item) => {
-                  setActiveItem(item)
-                  setMobileMenuOpen(false)
-                }} 
-                isCollapsed={false}
-                setIsCollapsed={() => {}}
-                isMobile={true}
-                restaurantId={restaurantId}
-              />
-            </SheetContent>
-          </Sheet>
-          <Logo subtitle="Help Center" />
-        </div>
-        <div className="flex items-center gap-1">
-          <NotificationDropdown restaurantId={restaurantId} />
-          <div className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center ml-1">
-            <span className="text-[10px] font-bold text-blue-700">JD</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop Section Header */}
-      <div className="hidden lg:block bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="px-4 md:px-6 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] mb-1">
-                <LifeBuoy className="w-3.5 h-3.5" />
-                <span>Support Center</span>
-              </div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight leading-none">
-                Help & Support
-              </h1>
-              <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-sm">
-                Find answers, get help, and track your support tickets.
-              </p>
+      {/* Unified Responsive Section Header */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 md:px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] mb-1">
+              <LifeBuoy className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Support Center</span>
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              <Badge variant="outline" className="h-9 px-3 text-xs font-semibold text-emerald-700 border-emerald-200 bg-emerald-50/50">
-                <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                All Systems Operational
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight leading-none">
+              Help & Support
+            </h1>
+            <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-sm">
+              Find answers, get help, and track your support tickets.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <Badge variant="outline" className="h-8 px-2.5 sm:h-9 sm:px-3 text-[11px] sm:text-xs font-semibold text-emerald-700 border-emerald-200 bg-emerald-50/50">
+              <CheckCircle className="w-3.5 h-3.5 mr-1 sm:mr-1.5 text-emerald-600" />
+              All Systems Operational
+            </Badge>
+            {openTicketCount > 0 && (
+              <Badge variant="outline" className="h-8 px-2.5 sm:h-9 sm:px-3 text-[11px] sm:text-xs font-semibold text-blue-700 border-blue-200 bg-blue-50/50 cursor-pointer" onClick={() => setActiveTab('tickets')}>
+                <Ticket className="w-3.5 h-3.5 mr-1 sm:mr-1.5 text-blue-600" />
+                {openTicketCount} Open Ticket{openTicketCount > 1 ? 's' : ''}
               </Badge>
-              {openTicketCount > 0 && (
-                <Badge variant="outline" className="h-9 px-3 text-xs font-semibold text-blue-700 border-blue-200 bg-blue-50/50 cursor-pointer" onClick={() => setActiveTab('tickets')}>
-                  <Ticket className="w-3.5 h-3.5 mr-1.5" />
-                  {openTicketCount} Open Ticket{openTicketCount > 1 ? 's' : ''}
-                </Badge>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-32 lg:pb-8">
+      <div className="p-3.5 sm:p-6 lg:p-8 space-y-5 sm:space-y-6 pb-28 lg:pb-8 max-w-7xl mx-auto">
         {/* Hero Search */}
         <div className="relative rounded-3xl border border-slate-200/60 bg-slate-50/50">
           {/* Background graphics clipped to corners */}
@@ -504,22 +450,22 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
           </div>
           
           {/* Content (not clipped) */}
-          <div className="relative z-10 px-6 py-12 md:py-16 text-center">
-            <Badge variant="secondary" className="mb-6 mx-auto bg-white/60 backdrop-blur-sm border-slate-200 text-slate-600 font-semibold px-4 py-1.5 rounded-full shadow-xs">
+          <div className="relative z-10 px-4 py-8 sm:px-6 sm:py-12 md:py-16 text-center">
+            <Badge variant="secondary" className="mb-4 sm:mb-6 mx-auto bg-white/60 backdrop-blur-sm border-slate-200 text-slate-600 font-semibold px-3.5 py-1 sm:px-4 sm:py-1.5 rounded-full shadow-xs text-xs">
               <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
               How can we help you today?
             </Badge>
-            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-4">
               Support <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600">Center</span>
             </h2>
-            <p className="text-sm md:text-base text-slate-500 max-w-lg mx-auto mb-10 font-medium">
+            <p className="text-xs sm:text-sm md:text-base text-slate-500 max-w-lg mx-auto mb-6 sm:mb-10 font-medium px-2">
               Search our knowledge base, browse frequently asked questions, or get in touch with our team.
             </p>
             
             <div className="max-w-2xl mx-auto relative group">
               <div className="absolute -inset-1 bg-linear-to-r from-blue-500 to-indigo-500 rounded-2xl blur-md opacity-20 group-hover:opacity-40 transition duration-500"></div>
               <div className="relative flex items-center bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-xl shadow-slate-200/50 rounded-2xl overflow-hidden ring-1 ring-white/50">
-                <Search className="w-5 h-5 text-slate-400 ml-5 shrink-0" />
+                <Search className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 ml-4 sm:ml-5 shrink-0" />
                 <Input
                   value={searchTerm}
                   onChange={(e) => {
@@ -528,7 +474,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                   }}
                   onFocus={() => { if (searchTerm.length > 0) setActiveTab('faq') }}
                   placeholder="Search for topics, features, or issues..."
-                  className="border-0 shadow-none bg-transparent h-14 pl-3 pr-4 text-base placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0 w-full"
+                  className="border-0 shadow-none bg-transparent h-12 sm:h-14 pl-3 pr-4 text-sm sm:text-base placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0 w-full"
                 />
                 {searchTerm.length > 0 && (
                   <Button variant="ghost" size="icon" onClick={() => setSearchTerm('')} className="mr-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100/50">
@@ -587,11 +533,11 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
         </div>
 
         {/* Quick Action Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[
             { id: 'contact', title: 'New Ticket', desc: 'Submit a request', icon: MessageCircle, color: 'blue', badge: 'Open 24/7' },
             { id: 'tickets', title: 'My Tickets', desc: 'View & track tickets', icon: Ticket, color: 'indigo', badge: `${tickets.length} Total`, alert: openTicketCount },
-            { id: 'call', title: 'Call Us', desc: '+91 xxxxxxxxxx', icon: Phone, color: 'violet', badge: '9am–6pm' },
+            { id: 'call', title: 'Call Us', desc: '+91 98765 43210', icon: Phone, color: 'violet', badge: '9am–6pm' },
             { id: 'contact-bug', title: 'Report Bug', desc: 'Found an issue?', icon: AlertCircle, color: 'rose', badge: 'Priority' }
           ].map((action, idx) => (
             <Card key={idx} 
@@ -601,19 +547,19 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
               }}
               className="border-slate-200/60 shadow-xs hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group bg-white rounded-2xl overflow-hidden relative"
             >
-              <CardContent className="p-5 flex flex-col items-center text-center space-y-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${action.color}-50 text-${action.color}-600 group-hover:bg-${action.color}-600 group-hover:text-white transition-all duration-300 transform group-hover:scale-110 group-hover:-rotate-3`}>
-                  <action.icon className="w-6 h-6" />
+              <CardContent className="p-3.5 sm:p-5 flex flex-col items-center text-center space-y-3 sm:space-y-4">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center bg-${action.color}-50 text-${action.color}-600 group-hover:bg-${action.color}-600 group-hover:text-white transition-all duration-300 transform group-hover:scale-110 group-hover:-rotate-3`}>
+                  <action.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm text-slate-900">{action.title}</h3>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">{action.desc}</p>
+                  <h3 className="font-bold text-xs sm:text-sm text-slate-900">{action.title}</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">{action.desc}</p>
                 </div>
-                <Badge variant="secondary" className={`bg-${action.color}-50 text-${action.color}-700 border-${action.color}-200/50 hover:bg-${action.color}-100 font-semibold text-[10px]`}>
+                <Badge variant="secondary" className={`bg-${action.color}-50 text-${action.color}-700 border-${action.color}-200/50 hover:bg-${action.color}-100 font-bold text-[9px] sm:text-[10px] px-2 py-0.5`}>
                   {action.badge}
                 </Badge>
                 {action.alert > 0 && (
-                  <div className="absolute top-3 right-3 flex items-center justify-center w-6 h-6 bg-red-500 text-white rounded-full text-[10px] font-bold shadow-sm ring-2 ring-white animate-in zoom-in">
+                  <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 bg-red-500 text-white rounded-full text-[9px] sm:text-[10px] font-bold shadow-sm ring-2 ring-white animate-in zoom-in">
                     {action.alert}
                   </div>
                 )}
@@ -623,26 +569,27 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-14 bg-slate-100/80 p-1.5 rounded-2xl">
-            <TabsTrigger value="faq" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
-              <HelpCircle className="w-4 h-4 mr-1.5 sm:mr-2" />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-4 h-12 sm:h-14 bg-slate-100/80 p-1 sm:p-1.5 rounded-2xl">
+            <TabsTrigger value="faq" className="rounded-xl font-bold text-[11px] sm:text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
+              <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               FAQ
             </TabsTrigger>
-            <TabsTrigger value="contact" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
-              <Send className="w-4 h-4 mr-1.5 sm:mr-2" />
+            <TabsTrigger value="contact" className="rounded-xl font-bold text-[11px] sm:text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
+              <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Contact
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300 relative">
-              <Ticket className="w-4 h-4 mr-1.5 sm:mr-2" />
-              Tickets
+            <TabsTrigger value="tickets" className="rounded-xl font-bold text-[11px] sm:text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300 relative">
+              <Ticket className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span>Tickets</span>
               {openTicketCount > 0 && (
-                <span className="ml-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">{openTicketCount}</span>
+                <span className="ml-1 sm:ml-1.5 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 text-white text-[9px] sm:text-[10px] font-bold rounded-full inline-flex items-center justify-center shadow-xs">{openTicketCount}</span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="resources" className="rounded-xl font-semibold text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
-              <BookOpen className="w-4 h-4 mr-1.5 sm:mr-2" />
-              Resources
+            <TabsTrigger value="resources" className="rounded-xl font-bold text-[11px] sm:text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300">
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Resources</span>
+              <span className="xs:hidden">Docs</span>
             </TabsTrigger>
           </TabsList>
 

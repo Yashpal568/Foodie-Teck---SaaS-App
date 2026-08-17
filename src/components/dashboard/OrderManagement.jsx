@@ -20,9 +20,12 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [showOrderHistory, setShowOrderHistory] = useState(false)
 
-  // Merge active orders and history for the main view
+  // Merge active orders and history for the main view (Deduplicated by ID)
   const allAvailableOrders = useMemo(() => {
-    return [...orders, ...orderHistory].sort((a, b) => 
+    const map = new Map()
+    orderHistory.forEach(o => { if (o && o.id) map.set(o.id, o) })
+    orders.forEach(o => { if (o && o.id) map.set(o.id, o) })
+    return Array.from(map.values()).sort((a, b) => 
       new Date(b.createdAt || b.completedAt || 0).getTime() - new Date(a.createdAt || a.completedAt || 0).getTime()
     )
   }, [orders, orderHistory])
@@ -301,15 +304,15 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                           <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-bold text-gray-600 bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
                             <div className="flex items-center gap-1.5">
                               <span className="text-gray-400 uppercase tracking-tighter text-[10px]">Sub</span>
-                              <span className="text-gray-900 underline decoration-blue-200 underline-offset-4 decoration-2">₹{order.subtotal.toFixed(2)}</span>
+                              <span className="text-gray-900 underline decoration-blue-200 underline-offset-4 decoration-2">₹{Number(order.subtotal || order.total || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-gray-400 uppercase tracking-tighter text-[10px]">Tax</span>
-                              <span className="text-gray-900">₹{order.tax.toFixed(2)}</span>
+                              <span className="text-gray-900">₹{Number(order.tax || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex items-center gap-2 ml-auto">
                               <span className="text-blue-600 uppercase tracking-tighter text-[10px]">Total</span>
-                              <span className="text-lg font-black text-blue-600">₹{order.total.toFixed(2)}</span>
+                              <span className="text-lg font-black text-blue-600">₹{Number(order.total || 0).toFixed(2)}</span>
                             </div>
                           </div>
                         </div>

@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import Logo from '@/components/ui/Logo'
 import { supabase, getCachedSession } from '@/lib/supabase'
+import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 
 export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
@@ -28,8 +29,10 @@ export const menuItems = [
   { icon: QrCode, label: 'QR Codes', id: 'qr-codes', route: '/dashboard' },
   { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard' },
   { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard' },
+  { icon: Users, label: 'Customer Management', id: 'customers', route: '/dashboard' },
   { icon: Receipt, label: 'Analytics', id: 'analytics', route: '/dashboard' },
-  { icon: Users, label: 'Customers', id: 'customers', route: '/dashboard' },
+  { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' },
+  { icon: HelpCircle, label: 'Help & Support', id: 'help', route: '/dashboard' }
 ]
 
 export const supportItems = [
@@ -40,27 +43,16 @@ export const supportItems = [
 export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed, isMobile = false, restaurantId }) {
   const navigate = useNavigate()
   const [counts, setCounts] = useState({ orders: 0, tables: 0 })
-
   const [resolvedId, setResolvedId] = useState(restaurantId || null)
   
   // Resolve Identity (Email to UUID)
   useEffect(() => {
     async function resolve() {
       if (!restaurantId) return
-      if (!restaurantId.includes('@')) {
-        setResolvedId(restaurantId)
-        return
-      }
-      
       try {
-        const { data } = await supabase
-          .from('restaurants')
-          .select('id')
-          .eq('email', restaurantId.toLowerCase())
-          .maybeSingle()
-        
-        if (data?.id) {
-          setResolvedId(data.id)
+        const uuid = await ensureValidRestaurantUUID(restaurantId)
+        if (uuid) {
+          setResolvedId(uuid)
         } else {
           setResolvedId(restaurantId)
         }
@@ -72,17 +64,18 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   }, [restaurantId])
 
   useEffect(() => {
-    const targetId = resolvedId || restaurantId
-    if (!targetId) return
+    const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+    const validId = isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)
 
     const fetchActiveCounts = async () => {
       try {
-        // 1. Fetch Orders directly and count active non-finished orders
-        const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-        const validId = isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)
-
         if (!validId) {
-          setCounts({ orders: 0, tables: 0 })
+          const isDemoMode = restaurantId === 'demo-merchant' || !restaurantId || String(restaurantId).includes('demo')
+          if (isDemoMode) {
+            setCounts({ orders: 3, tables: 1 })
+          } else {
+            setCounts({ orders: 0, tables: 0 })
+          }
           return
         }
 
@@ -118,7 +111,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
 
     fetchActiveCounts()
 
-    // Low-frequency safety poll (Real-time events already handle live updates)
+    // Low-frequency safety poll
     const pollInterval = setInterval(fetchActiveCounts, 30000)
 
     // 🏆 Subscribe to Real-time Changes & Window Events
@@ -126,42 +119,53 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
     window.addEventListener('servora_new_order', handleNewOrderEvent)
     window.addEventListener('orderStatusUpdated', handleNewOrderEvent)
     window.addEventListener('qrCodesUpdated', handleNewOrderEvent)
+    window.addEventListener('storage', handleNewOrderEvent)
 
-    const orderChannel = supabase
-      .channel(`sidebar-orders-v3-${targetId}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'orders'
-      }, () => fetchActiveCounts())
-      .subscribe()
+    let orderChannel = null
+    let tableChannel = null
+    let waiterChannel = null
 
-    const tableChannel = supabase
-      .channel(`sidebar-tables-v3-${targetId}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'table_sessions'
-      }, () => fetchActiveCounts())
-      .subscribe()
+    if (validId) {
+      orderChannel = supabase
+        .channel(`sidebar-orders-v3-${validId}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'orders',
+          filter: `restaurant_id=eq.${validId}`
+        }, () => fetchActiveCounts())
+        .subscribe()
 
-    const waiterChannel = supabase
-      .channel(`sidebar-waiter-v3-${targetId}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'waiter_calls'
-      }, () => fetchActiveCounts())
-      .subscribe()
+      tableChannel = supabase
+        .channel(`sidebar-tables-v3-${validId}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'table_sessions',
+          filter: `restaurant_id=eq.${validId}`
+        }, () => fetchActiveCounts())
+        .subscribe()
+
+      waiterChannel = supabase
+        .channel(`sidebar-waiter-v3-${validId}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'waiter_calls',
+          filter: `restaurant_id=eq.${validId}`
+        }, () => fetchActiveCounts())
+        .subscribe()
+    }
 
     return () => {
       clearInterval(pollInterval)
       window.removeEventListener('servora_new_order', handleNewOrderEvent)
       window.removeEventListener('orderStatusUpdated', handleNewOrderEvent)
       window.removeEventListener('qrCodesUpdated', handleNewOrderEvent)
-      supabase.removeChannel(orderChannel)
-      supabase.removeChannel(tableChannel)
-      supabase.removeChannel(waiterChannel)
+      window.removeEventListener('storage', handleNewOrderEvent)
+      if (orderChannel) supabase.removeChannel(orderChannel)
+      if (tableChannel) supabase.removeChannel(tableChannel)
+      if (waiterChannel) supabase.removeChannel(waiterChannel)
     }
   }, [resolvedId, restaurantId])
 
@@ -190,10 +194,17 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
 
   useEffect(() => {
     const checkSub = async () => {
+      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+      if (isDemo) {
+        setSubData({ daysLeft: 30, planName: 'Enterprise' })
+        return
+      }
+
       try {
         const { data: { session } } = await getCachedSession()
         const userEmail = session?.user?.email
         const target = restaurantId || userEmail
+        const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
 
         if (target) {
           let restId = target
@@ -202,7 +213,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
             if (rest?.id) restId = rest.id
           }
 
-          if (restId) {
+          if (restId && isUUID(restId)) {
             const { data: sub } = await supabase.from('subscriptions').select('*').eq('restaurant_id', restId).maybeSingle()
             if (sub) {
               const startDate = new Date(sub.start_date || sub.created_at)

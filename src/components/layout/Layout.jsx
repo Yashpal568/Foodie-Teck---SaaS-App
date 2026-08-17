@@ -49,6 +49,7 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
         <MobileNavbar
           activeItem={activeItem}
           setActiveItem={setActiveItem}
+          restaurantId={restaurantId}
         />
       </div>
     </div>

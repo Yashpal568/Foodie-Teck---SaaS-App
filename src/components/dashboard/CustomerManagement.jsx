@@ -535,7 +535,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
           </CardHeader>
           <CardContent className="p-4 h-[240px]">
             {isMounted && (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={180}>
                 <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
@@ -561,7 +561,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
           <CardContent className="p-4 flex flex-col items-center">
             <div className="h-[160px] w-full">
               {isMounted && (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={140}>
                   <PieChart>
                     <Pie
                       data={segmentData.length > 0 ? segmentData : [{ name: 'No data', value: 1, fill: '#e5e7eb' }]}

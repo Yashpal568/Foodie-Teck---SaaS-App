@@ -178,11 +178,23 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
   useEffect(() => {
     async function fetchRealViews() {
       if (!targetRestaurantId) return
+      const isDemo = targetRestaurantId === 'demo-merchant' || targetRestaurantId === 'demo' || targetRestaurantId === 'guest'
+      if (isDemo) {
+        setRealViewsCount(142)
+        return
+      }
+
       try {
-        let uuid = targetRestaurantId
-        if (targetRestaurantId.includes('@')) {
+        const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+        let uuid = isUUID(targetRestaurantId) ? targetRestaurantId : null
+        if (!uuid && targetRestaurantId.includes('@')) {
           const { data: rest } = await supabase.from('restaurants').select('id').eq('email', targetRestaurantId.toLowerCase()).maybeSingle()
           if (rest?.id) uuid = rest.id
+        }
+
+        if (!uuid || !isUUID(uuid)) {
+          setRealViewsCount(1)
+          return
         }
 
         const { data: sessions } = await supabase

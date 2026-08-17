@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import Logo from '@/components/ui/Logo'
+import Logo, { LogoIcon } from '@/components/ui/Logo'
 
 const values = [
   {
@@ -86,17 +86,38 @@ export default function AboutPage() {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="relative"
+            className="relative w-full"
           >
-            <div className="w-full aspect-square rounded-[4rem] bg-slate-900 p-20 flex items-center justify-center relative overflow-hidden group shadow-2xl shadow-blue-900/10">
-               <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity duration-1000" />
-               <Logo iconSize={300} className="scale-150 opacity-10 group-hover:scale-[1.6] transition-transform duration-[3s]" />
-               <div className="relative z-10 text-center space-y-4">
-                  <ChefHat className="w-24 h-24 text-blue-500 mx-auto animate-bounce-subtle" />
-                  <p className="text-2xl font-black text-white tracking-[0.2em] opacity-40 uppercase">Servora Intelligence</p>
+            <div className="w-full aspect-square max-w-[460px] mx-auto rounded-[2.5rem] sm:rounded-[3.5rem] bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 p-6 sm:p-12 flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl shadow-slate-950/40 border border-white/10">
+               {/* Ambient Glows */}
+               <div className="absolute -top-20 -right-20 w-52 h-52 bg-blue-600/25 rounded-full blur-3xl pointer-events-none" />
+               <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-indigo-600/25 rounded-full blur-3xl pointer-events-none" />
+               
+               {/* Background Watermark (Icon Only - Zero Text Collision) */}
+               <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] group-hover:opacity-[0.1] transition-opacity duration-700 pointer-events-none scale-110">
+                 <LogoIcon size={300} />
+               </div>
+
+               {/* Foreground Floating Core */}
+               <div className="relative z-10 text-center space-y-4 sm:space-y-5">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-blue-500/10 border border-blue-400/20 text-blue-400 flex items-center justify-center mx-auto shadow-2xl shadow-blue-500/20 backdrop-blur-xl group-hover:scale-105 transition-transform duration-500">
+                    <ChefHat className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                      Servora Intelligence
+                    </h3>
+                    <p className="text-xs sm:text-sm font-semibold text-blue-300/70 mt-1">
+                      Next-Gen Hospitality Engine
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 uppercase tracking-wider">Enterprise Mesh v2.4</span>
+                  </div>
                </div>
             </div>
           </motion.div>
@@ -105,7 +126,7 @@ export default function AboutPage() {
 
       {/* ─── Mission & Values ───────────────────────────────────────── */}
       <section className="py-40 bg-slate-950 relative overflow-hidden">
-         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
+         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none" />
          
          <div className="max-w-7xl mx-auto px-6 relative z-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-20 items-center pb-32 border-b border-white/5">

@@ -76,12 +76,20 @@ export const fetchPriceHistory = async (restaurantId) => {
 }
 
 export const fetchGstSettings = async (restaurantId) => {
-  const { data } = await supabase
-    .from('gst_settings')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .maybeSingle()
-  return data || { enabled: false, rate: 0, label: 'GST' }
+  const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+  if (!restaurantId || !isUUID(restaurantId)) {
+    return { enabled: false, rate: 0, label: 'GST' }
+  }
+  try {
+    const { data } = await supabase
+      .from('gst_settings')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle()
+    return data || { enabled: false, rate: 0, label: 'GST' }
+  } catch (e) {
+    return { enabled: false, rate: 0, label: 'GST' }
+  }
 }
 
 export const saveGstSettings = async (restaurantId, gstData) => {

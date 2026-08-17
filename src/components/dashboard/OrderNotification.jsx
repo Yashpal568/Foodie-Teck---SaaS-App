@@ -1,231 +1,300 @@
 import { useState, useEffect } from 'react'
 import { ShoppingBag, X, ChevronRight, Clock, MapPin, BellRing } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
+import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 
 export default function OrderNotification({ restaurantId, onOrderClick }) {
   const [toast, setToast] = useState(null)
   const [resolvedId, setResolvedId] = useState(null)
 
-  // Resolve Identity (Email to UUID)
+  // Resolve Identity (Email or Alias to UUID)
   useEffect(() => {
     async function resolve() {
       if (!restaurantId) return
-      if (!restaurantId.includes('@')) {
+      try {
+        const uuid = await ensureValidRestaurantUUID(restaurantId)
+        if (uuid) {
+          setResolvedId(uuid)
+        } else {
+          setResolvedId(restaurantId)
+        }
+      } catch (err) {
         setResolvedId(restaurantId)
-        return
-      }
-      
-      const { data } = await supabase
-        .from('restaurants')
-        .select('id')
-        .eq('email', restaurantId.toLowerCase())
-        .single()
-      
-      if (data?.id) {
-        setResolvedId(data.id)
       }
     }
     resolve()
   }, [restaurantId])
 
   useEffect(() => {
-    if (!resolvedId) return
+    const targetId = resolvedId || restaurantId || 'demo-merchant'
 
     const playChime = () => {
       try {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
-        audio.play().catch(() => {})
-      } catch (e) {}
+        // High-fidelity Web Audio API synth chime (zero external network dependency)
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15) // A5
+        gain.gain.setValueAtTime(0.3, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start()
+        osc.stop(ctx.currentTime + 0.45)
+      } catch (e) {
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+          audio.play().catch(() => {})
+        } catch (err) {}
+      }
+
+      // Haptic feedback for mobile devices
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate([100, 50, 150])
+        } catch (e) {}
+      }
     }
 
     const handleNewOrder = (order) => {
-      console.log('🍞 Fresh Order for Toast:', order)
+      if (!order) return
+      console.log('🍞 Fresh Order Toast Received:', order)
       const itemsCount = order.items_count || order.itemsCount || 
-                        (Array.isArray(order.items) ? order.items.length : 0) || 1
+                        (Array.isArray(order.items) ? order.items.length : 0) || 
+                        (Array.isArray(order.order_items) ? order.order_items.length : 0) || 1
 
       playChime()
       setToast({
-        id: order.id,
+        id: order.id || `ord-${Date.now()}`,
         type: 'order',
-        tableNumber: order.table_number || order.tableNumber || '?',
-        customerName: order.customer_name || order.customerName || 'Guest',
+        tableNumber: order.table_number || order.tableNumber || '1',
+        customerName: order.customer_name || order.customerName || 'Guest Customer',
         itemsCount: itemsCount,
-        total: order.total || 0,
+        total: Number(order.total || 0),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })
 
-      setTimeout(() => setToast(current => current?.id === order.id ? null : current), 8000)
+      setTimeout(() => setToast(current => current?.id === order.id ? null : current), 9000)
     }
 
-    // ── Local Window Custom Event & Cross-Tab Storage Event ──
+    // ── 1. Local Window Custom Event & Cross-Tab Storage Event ──
     const customEventListener = (e) => {
       if (e.detail) handleNewOrder(e.detail)
     }
+
     const storageListener = (e) => {
       if (e.key === 'servora_latest_order' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue)
-          if (parsed && (!parsed.restaurant_id || String(parsed.restaurant_id) === String(resolvedId))) {
+          if (!parsed) return
+
+          // Match by ID or allow in demo mode
+          const isDemo = restaurantId === 'demo-merchant' || targetId === 'demo-merchant'
+          const idMatches = !parsed.restaurant_id || 
+                            parsed.restaurant_id === targetId || 
+                            parsed.restaurant_id === resolvedId || 
+                            parsed.restaurant_id === restaurantId
+
+          if (isDemo || idMatches) {
             handleNewOrder(parsed)
           }
-        } catch (err) {}
+        } catch (err) {
+          console.warn('Storage listener parse error:', err)
+        }
       }
     }
+
     window.addEventListener('servora_new_order', customEventListener)
     window.addEventListener('storage', storageListener)
 
-    // ── 1. Order Subscription ──
-    const orderChannel = supabase
-      .channel(`order-toasts:rid=${resolvedId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders',
-          filter: `restaurant_id=eq.${resolvedId}`
-        },
-        (payload) => handleNewOrder(payload.new)
-      )
-      .subscribe()
+    // ── 2. Supabase Real-time Subscriptions (Both for resolved UUID & targetId) ──
+    const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+    let orderChannel = null
+    let waiterChannel = null
 
-    // ── 2. Waiter Call Subscription (Broadcast) ──
-    const waiterChannel = supabase
-      .channel(`waiter-toasts:rid=${resolvedId}`)
-      .on(
-        'broadcast',
-        { event: 'waiter_call' },
-        (payload) => {
-          console.log('🔔 Live Waiter Call (Broadcast):', payload)
-          const call = payload.payload
-          
-          playChime() // Play sound alert for waiter calls
-          setToast({
-            id: call.id,
-            type: 'waiter',
-            tableNumber: call.table_number || '?',
-            customerName: call.customer_name || 'Guest',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
+    const subId = isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)
 
-          // No auto-dismiss for waiter calls - they must be manually acknowledged
-        }
-      )
-      .subscribe()
+    if (subId) {
+      orderChannel = supabase
+        .channel(`order-toasts:rid=${subId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'orders',
+            filter: `restaurant_id=eq.${subId}`
+          },
+          (payload) => handleNewOrder(payload.new)
+        )
+        .subscribe()
+
+      waiterChannel = supabase
+        .channel(`waiter-toasts:rid=${subId}`)
+        .on(
+          'broadcast',
+          { event: 'waiter_call' },
+          (payload) => {
+            console.log('🔔 Live Waiter Call (Broadcast):', payload)
+            const call = payload.payload
+            
+            playChime()
+            setToast({
+              id: call?.id || `waiter-${Date.now()}`,
+              type: 'waiter',
+              tableNumber: call?.table_number || '?',
+              customerName: call?.customer_name || 'Guest',
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            })
+          }
+        )
+        .subscribe()
+    }
 
     return () => {
       window.removeEventListener('servora_new_order', customEventListener)
       window.removeEventListener('storage', storageListener)
-      supabase.removeChannel(orderChannel)
-      supabase.removeChannel(waiterChannel)
+      if (orderChannel) supabase.removeChannel(orderChannel)
+      if (waiterChannel) supabase.removeChannel(waiterChannel)
     }
-  }, [resolvedId])
-
-  if (!toast) return null
+  }, [resolvedId, restaurantId])
 
   return (
-    <div 
-      className="fixed top-6 right-6 z-[9999] w-full max-w-sm animate-in fade-in slide-in-from-right-8 duration-500 cursor-pointer group/modal"
-      onClick={() => {
-        if (typeof onOrderClick === 'function') onOrderClick(toast)
-        setToast(null)
-      }}
-    >
-      <div className="relative group overflow-hidden bg-white/90 backdrop-blur-2xl rounded-[2.5rem] border border-white/20 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)] p-1">
-        {/* Animated Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-indigo-500/5 transition-opacity group-hover:opacity-100" />
-        
-        {/* Content Container */}
-        <div className="relative flex items-center gap-5 bg-white rounded-[2.2rem] p-5 border border-slate-100">
-          {/* Executive Icon Stack */}
-          <div className="relative">
-            <div className={cn(
-              "w-16 h-16 rounded-[1.6rem] flex items-center justify-center shadow-xl transition-transform duration-500 group-hover:scale-110",
-              toast.type === 'waiter' ? "bg-amber-500 shadow-amber-500/10" : "bg-slate-900 shadow-slate-900/10"
-            )}>
-              {toast.type === 'waiter' ? (
-                <BellRing className="w-8 h-8 text-white animate-bounce" />
-              ) : (
-                <ShoppingBag className="w-8 h-8 text-white" />
-              )}
+    <AnimatePresence>
+      {toast && (
+        <motion.div
+          key={toast.id}
+          initial={{ opacity: 0, y: -40, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.88, y: -30, transition: { duration: 0.22, ease: 'easeInOut' } }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.75}
+          onDragEnd={(event, info) => {
+            // Swipe left or right > 75px or quick velocity dismisses the toast
+            if (Math.abs(info.offset.x) > 75 || Math.abs(info.velocity.x) > 350) {
+              setToast(null)
+            }
+          }}
+          whileDrag={{ scale: 0.98, opacity: 0.88 }}
+          className="fixed top-3 left-3 right-3 sm:left-auto sm:right-6 sm:top-6 sm:max-w-sm z-[9999] cursor-grab active:cursor-grabbing mx-auto select-none touch-pan-y"
+          onClick={() => {
+            if (typeof onOrderClick === 'function') onOrderClick(toast)
+            setToast(null)
+          }}
+        >
+          <div className="relative group overflow-hidden bg-white/95 backdrop-blur-2xl rounded-2xl sm:rounded-[2.2rem] border border-white/40 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.2)] ring-1 ring-black/5 p-1.5 transition-shadow">
+            {/* Animated Background Gradient */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-indigo-500/10 transition-opacity group-hover:opacity-100" />
+            
+            {/* Mobile Drag Indicator Pill */}
+            <div className="flex justify-center pb-1 sm:hidden">
+              <div className="w-9 h-1 rounded-full bg-slate-200/90" />
             </div>
-            {/* Pulsing Badge */}
-            <div className={cn(
-              "absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center animate-pulse",
-              toast.type === 'waiter' ? "bg-amber-600" : "bg-blue-600"
-            )}>
-               <div className="w-1.5 h-1.5 bg-white rounded-full" />
-            </div>
-          </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <p className={cn(
-                "text-[10px] font-black uppercase tracking-[0.2em]",
-                toast.type === 'waiter' ? "text-amber-600" : "text-blue-600"
-              )}>
-                {toast.type === 'waiter' ? "Waiter Requested" : "New Incoming Order"}
-              </p>
-              <button 
-                onClick={() => setToast(null)}
-                className="p-1 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <h4 className="text-[17px] font-black text-slate-900 truncate leading-tight">
-              Table {toast.tableNumber} <span className="text-slate-400 font-bold mx-1">•</span> {toast.customerName}
-            </h4>
-            
-            <div className="flex items-center gap-4 mt-2">
-              <div className="flex items-center gap-1.5 text-slate-500">
-                <Clock className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-bold">{toast.timestamp}</span>
-              </div>
-              {toast.type === 'order' ? (
-                <>
-                  <div className="flex items-center gap-1.5 text-slate-500">
-                    <ShoppingBag className="w-3.5 h-3.5" />
-                    <span className="text-[11px] font-bold">{toast.itemsCount} Items</span>
-                  </div>
-                  <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-0 text-[10px] px-2 py-0.5 font-black uppercase tracking-wider">
-                     ₹{toast.total.toLocaleString()}
-                  </Badge>
-                </>
-              ) : (
-                <div className="flex items-center gap-1.5 text-amber-600">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-black uppercase tracking-widest">Calling Now</span>
+            {/* Content Container */}
+            <div className="relative flex items-center gap-3 sm:gap-4 bg-white rounded-xl sm:rounded-[1.9rem] p-3 sm:p-4 border border-slate-100/80">
+              {/* Executive Icon Stack */}
+              <div className="relative shrink-0">
+                <div className={cn(
+                  "w-11 h-11 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105",
+                  toast.type === 'waiter' ? "bg-amber-500 shadow-amber-500/20 text-white" : "bg-slate-900 shadow-slate-900/20 text-white"
+                )}>
+                  {toast.type === 'waiter' ? (
+                    <BellRing className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-bounce" />
+                  ) : (
+                    <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  )}
                 </div>
-              )}
+                {/* Pulsing Badge */}
+                <div className={cn(
+                  "absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white flex items-center justify-center animate-pulse",
+                  toast.type === 'waiter' ? "bg-amber-600" : "bg-blue-600"
+                )}>
+                   <div className="w-1 h-1 bg-white rounded-full" />
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className={cn(
+                    "text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em]",
+                    toast.type === 'waiter' ? "text-amber-600" : "text-blue-600"
+                  )}>
+                    {toast.type === 'waiter' ? "Waiter Requested" : "New Incoming Order"}
+                  </p>
+                  
+                  {/* Swipe / Cross Close Button */}
+                  <button 
+                    type="button"
+                    aria-label="Dismiss notification"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setToast(null)
+                    }}
+                    className="p-1.5 -mr-1 -mt-1 hover:bg-slate-100 active:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                <h4 className="text-sm sm:text-base font-black text-slate-900 truncate leading-tight">
+                  Table {toast.tableNumber} <span className="text-slate-400 font-bold mx-1">•</span> {toast.customerName}
+                </h4>
+                
+                <div className="flex items-center gap-2.5 sm:gap-4 mt-1 sm:mt-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <Clock className="w-3 h-3" />
+                    <span className="text-[10px] sm:text-[11px] font-bold">{toast.timestamp}</span>
+                  </div>
+                  {toast.type === 'order' ? (
+                    <>
+                      <div className="flex items-center gap-1 text-slate-500">
+                        <ShoppingBag className="w-3 h-3" />
+                        <span className="text-[10px] sm:text-[11px] font-bold">{toast.itemsCount} Item{toast.itemsCount > 1 ? 's' : ''}</span>
+                      </div>
+                      <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[9px] sm:text-[10px] px-1.5 py-0 font-black">
+                         ₹{toast.total.toLocaleString()}
+                      </Badge>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-1 text-amber-600">
+                      <MapPin className="w-3 h-3" />
+                      <span className="text-[10px] font-black uppercase tracking-wider">Calling Now</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pl-1 shrink-0 hidden xs:block">
+                <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:border-blue-100 transition-all">
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Progress Bar */}
+            <div className="absolute bottom-0 left-4 right-4 h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div className={cn(
+                "h-full w-full origin-right",
+                toast.type === 'waiter' ? "bg-amber-600 animate-[shrink_9s_linear_forwards]" : "bg-blue-600 animate-[shrink_7s_linear_forwards]"
+              )} />
             </div>
           </div>
 
-          <div className="pl-2">
-            <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:border-blue-100 transition-all">
-              <ChevronRight className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-
-        {/* Dynamic Progress Bar */}
-        <div className="absolute bottom-0 left-6 right-6 h-1 bg-slate-50 rounded-full overflow-hidden">
-          <div className={cn(
-            "h-full w-full origin-right",
-            toast.type === 'waiter' ? "bg-amber-600 animate-[shrink_8s_linear_forwards]" : "bg-blue-600 animate-[shrink_6s_linear_forwards]"
-          )} />
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes shrink {
-          from { transform: scaleX(1); }
-          to { transform: scaleX(0); }
-        }
-      `}</style>
-    </div>
+          <style>{`
+            @keyframes shrink {
+              from { transform: scaleX(1); }
+              to { transform: scaleX(0); }
+            }
+          `}</style>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

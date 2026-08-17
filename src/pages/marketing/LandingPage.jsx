@@ -171,44 +171,58 @@ export default function HomePage() {
                <span className="text-[11px] font-black uppercase tracking-widest leading-none">AI-Powered Experience Engine</span>
             </div>
 
-            <h1 className="text-5xl lg:text-7xl font-black text-slate-950 tracking-tightest leading-[0.9] lg:leading-[1.1]">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-950 tracking-tightest leading-[1.05] lg:leading-[1.1]">
               The <span className="text-blue-600">Future</span> of Modern <br className="hidden lg:block"/> Dining.
             </h1>
 
-            <p className="text-xl lg:text-2xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
+            <p className="text-lg sm:text-xl lg:text-2xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
               Servora transforms your restaurant with precision QR ordering, live kitchen synchronization, and deep performance analytics.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-6">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center lg:justify-start gap-3 pt-6">
               <Button 
                 size="lg" 
-                className="h-16 px-10 rounded-[1.5rem] bg-slate-950 hover:bg-black text-white font-bold text-lg shadow-2xl shadow-slate-950/20 active:scale-95 transition-all flex items-center gap-3 group"
+                className="w-full sm:w-auto h-14 sm:h-16 px-8 sm:px-10 rounded-2xl sm:rounded-[1.5rem] bg-slate-950 hover:bg-black text-white font-bold text-base sm:text-lg shadow-2xl shadow-slate-950/20 active:scale-95 transition-all flex items-center justify-center gap-3 group"
                 onClick={() => navigate('/register')}
               >
                 Initialize System
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Button size="lg" variant="ghost" className="h-16 px-10 rounded-[1.5rem] bg-slate-100/50 hover:bg-slate-100 text-slate-900 font-bold text-lg transition-all flex items-center gap-3">
-                <Play className="w-5 h-5 fill-slate-900" />
-                Watch Story
+              <Button 
+                size="lg" 
+                variant="ghost" 
+                className="w-full sm:w-auto h-14 sm:h-16 px-6 sm:px-8 rounded-2xl sm:rounded-[1.5rem] bg-blue-50/90 hover:bg-blue-100 text-blue-700 font-bold text-base sm:text-lg transition-all flex items-center justify-center gap-2.5 active:scale-95 border border-blue-200/60"
+                onClick={() => navigate('/console/demo-merchant')}
+              >
+                <LayoutDashboard className="w-5 h-5 text-blue-600" />
+                Live Dashboard Demo
+              </Button>
+              <Button 
+                size="lg" 
+                variant="ghost" 
+                className="w-full sm:w-auto h-14 sm:h-16 px-6 sm:px-8 rounded-2xl sm:rounded-[1.5rem] bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-bold text-base sm:text-lg transition-all flex items-center justify-center gap-2.5 active:scale-95 border border-slate-200/80"
+                onClick={() => navigate('/menu')}
+              >
+                <UtensilsCrossed className="w-5 h-5 text-slate-700" />
+                Live Menu Demo
               </Button>
             </div>
 
             {/* Trusted By */}
-            <div className="pt-12 space-y-4">
+            <div className="pt-8 sm:pt-12 space-y-4">
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center lg:text-left">Empowering Global Culinary Giants</p>
-               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-8 opacity-40 grayscale group hover:opacity-100 hover:grayscale-0 transition-all duration-700">
+               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 sm:gap-8 opacity-40 grayscale group hover:opacity-100 hover:grayscale-0 transition-all duration-700">
                   <div className="flex items-center gap-2">
-                     <UtensilsCrossed className="w-6 h-6" />
-                     <span className="font-black text-lg tracking-tighter">GRANDE'</span>
+                     <UtensilsCrossed className="w-5 h-5 sm:w-6 sm:h-6" />
+                     <span className="font-black text-base sm:text-lg tracking-tighter">GRANDE'</span>
                   </div>
                   <div className="flex items-center gap-2">
-                     <ChefHat className="w-6 h-6" />
-                     <span className="font-black text-lg tracking-tighter">BISTRO.IO</span>
+                     <ChefHat className="w-5 h-5 sm:w-6 sm:h-6" />
+                     <span className="font-black text-base sm:text-lg tracking-tighter">BISTRO.IO</span>
                   </div>
                   <div className="flex items-center gap-2">
-                     <Globe className="w-6 h-6" />
-                     <span className="font-black text-lg tracking-tighter">CUISINE+</span>
+                     <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
+                     <span className="font-black text-base sm:text-lg tracking-tighter">CUISINE+</span>
                   </div>
                </div>
             </div>
@@ -219,23 +233,26 @@ export default function HomePage() {
             initial={{ opacity: 0, scale: 0.9, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.2 }}
-            className="relative"
+            className="relative w-full"
           >
             {/* Main Visual */}
-            <div className="relative z-10 rounded-[3rem] overflow-hidden shadow-2xl shadow-slate-900/10 border-8 border-white group">
+            <div 
+               onClick={() => navigate('/menu')}
+               className="cursor-pointer relative z-10 rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-2xl shadow-slate-900/10 border-4 sm:border-8 border-white group"
+            >
                <img src={HERO_IMAGE} alt="Premium Dining UI" className="w-full h-auto transform group-hover:scale-110 transition-transform duration-[3s]" />
                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-20 w-20 rounded-full bg-white/20 backdrop-blur-3xl flex items-center justify-center text-white scale-0 group-hover:scale-100 transition-transform duration-500">
-                  <Play className="w-8 h-8 fill-white ml-1" />
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-white/20 backdrop-blur-3xl flex items-center justify-center text-white scale-0 group-hover:scale-100 transition-transform duration-500">
+                  <QrCode className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                </div>
             </div>
 
-            {/* Overlapping Stats Card */}
+            {/* Overlapping Stats Card - Hidden on extra-narrow to prevent horizontal overflow */}
             <motion.div 
                initial={{ opacity: 0, x: 50 }}
                animate={{ opacity: 1, x: 0 }}
                transition={{ delay: 1, duration: 1 }}
-               className="absolute -bottom-10 -right-10 lg:-right-20 z-20 bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-100 space-y-4"
+               className="hidden sm:block absolute -bottom-6 -right-6 lg:-bottom-10 lg:-right-12 z-20 bg-white p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] shadow-2xl border border-slate-100 space-y-4"
             >
                <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-inner">

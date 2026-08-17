@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
@@ -7,7 +7,7 @@ import {
   Lock, 
   ArrowRight, 
   CheckCircle, 
-  ShieldCheck,
+  ShieldCheck, 
   Zap,
   LayoutDashboard
 } from 'lucide-react'
@@ -27,6 +27,22 @@ export default function LoginPage() {
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [error, setError] = useState(null)
 
+  // 🔒 Auto-forward if user is already logged in (prevents back-button logout feeling)
+  useEffect(() => {
+    async function checkExistingAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const storedEmail = localStorage.getItem('servora_merchant_email')
+        if (session?.user?.email) {
+          navigate(`/console/${session.user.email}`, { replace: true })
+        } else if (storedEmail) {
+          navigate(`/console/${storedEmail}`, { replace: true })
+        }
+      } catch (e) {}
+    }
+    checkExistingAuth()
+  }, [navigate])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -39,10 +55,10 @@ export default function LoginPage() {
     setError(null)
     const cleanEmail = formData.email.trim().toLowerCase()
 
-    // Helper to safely dismiss loading overlay and navigate
+    // Helper to safely dismiss loading overlay and navigate with history replacement
     const proceedToConsole = (targetPath) => {
       setIsAuthenticating(false)
-      navigate(targetPath)
+      navigate(targetPath, { replace: true })
     }
 
     // Short-circuit for admin

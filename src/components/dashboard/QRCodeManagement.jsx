@@ -34,23 +34,39 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import Sidebar from '../layout/Sidebar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
+import QRCode from 'qrcode'
 import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes, supabase, ensureValidRestaurantUUID } from '@/lib/api'
 import { generateTableSignature } from '@/utils/tableSecurity'
 import UpgradePlanModal from './UpgradePlanModal'
 import QRTemplateStudioModal from './QRTemplateStudioModal'
 import { getPlanDetails } from '@/utils/planLimits'
 
-// Cryptographic table QR generator
-const generateQRCode = (restaurantId, tableNumber) => {
+// Cryptographic table QR generator (Instant Client-Side Base64 Data URL)
+const generateQRCode = async (restaurantId, tableNumber) => {
   const sig = generateTableSignature(restaurantId, tableNumber)
-  const url = `${window.location.origin}/menu?restaurant=${restaurantId}&table=${tableNumber}&sig=${sig}`
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=jpeg&margin=20&color=000000&bgcolor=FFFFFF`
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+  const url = `${origin}/menu?restaurant=${restaurantId}&table=${tableNumber}&sig=${sig}`
   
+  let qrDataUrl = ''
+  try {
+    qrDataUrl = await QRCode.toDataURL(url, {
+      width: 320,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      },
+      errorCorrectionLevel: 'M'
+    })
+  } catch (err) {
+    qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&format=png&margin=1`
+  }
+
   return {
     url,
     signature: sig,
-    qrImageUrl,
-    qrDataUrl: qrImageUrl,
+    qrImageUrl: qrDataUrl,
+    qrDataUrl: qrDataUrl,
     tableNumber: Number(tableNumber),
     restaurantId,
     generatedAt: new Date().toISOString()
@@ -61,25 +77,29 @@ const generateQRCode = (restaurantId, tableNumber) => {
 const loadQRCodesFromStorage = async (restaurantId, limit = 10) => {
   try {
     if (!restaurantId) return []
-    const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+    const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+    const validId = isUUID(restaurantId) ? restaurantId : (await ensureValidRestaurantUUID(restaurantId) || restaurantId)
     
     // Check if table count is stored in localStorage cache
     const cachedCount = localStorage.getItem(`servora_table_count_${validId}`) || localStorage.getItem(`servora_table_count_${restaurantId}`)
     
-    // Check if any legacy DB rows exist
-    let countToGenerate = cachedCount ? parseInt(cachedCount) : limit
+    // Default to 10 tables if unlimited or not set (instead of 9,999!)
+    let countToGenerate = cachedCount ? parseInt(cachedCount) : 10
+    if (isNaN(countToGenerate) || countToGenerate <= 0) countToGenerate = 10
     
-    try {
-      const { data } = await supabase.from('qr_codes').select('table_number').eq('restaurant_id', validId).order('table_number', { ascending: true })
-      if (data && data.length > 0) {
-        countToGenerate = Math.max(countToGenerate, data.length)
-      }
-    } catch (e) {}
+    if (isUUID(validId)) {
+      try {
+        const { data } = await supabase.from('qr_codes').select('table_number').eq('restaurant_id', validId).order('table_number', { ascending: true })
+        if (data && data.length > 0) {
+          countToGenerate = Math.max(countToGenerate, data.length)
+        }
+      } catch (e) {}
+    }
 
-    const targetCount = Math.min(countToGenerate, limit)
+    const targetCount = Math.min(countToGenerate, limit > 0 ? limit : 10)
     const codes = []
     for (let i = 1; i <= targetCount; i++) {
-      codes.push(generateQRCode(validId, i))
+      codes.push(await generateQRCode(validId, i))
     }
     return codes
   } catch (error) {
@@ -99,7 +119,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
   const [selectedStudioQR, setSelectedStudioQR] = useState(null)
   
   const effectiveLimit = tableLimit || 10
-  const [tableCount, setTableCount] = useState(effectiveLimit)
+  const [tableCount, setTableCount] = useState(10)
   const [qrCodes, setQrCodes] = useState([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -116,16 +136,21 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         if (uuid) setRestaurantId(uuid)
 
         try {
+          const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
           let res = await getMyRestaurant()
           if (!res || (!res.logo_url && !res.avatar)) {
-            let q = supabase.from('restaurants').select('*')
+            let q = null
             if (target.includes('@')) {
-              q = q.eq('email', target.toLowerCase()).maybeSingle()
-            } else {
-              q = q.eq('id', uuid || target).maybeSingle()
+              q = supabase.from('restaurants').select('*').eq('email', target.toLowerCase()).maybeSingle()
+            } else if (uuid && isUUID(uuid)) {
+              q = supabase.from('restaurants').select('*').eq('id', uuid).maybeSingle()
+            } else if (isUUID(target)) {
+              q = supabase.from('restaurants').select('*').eq('id', target).maybeSingle()
             }
-            const { data } = await q
-            if (data) res = data
+            if (q) {
+              const { data } = await q
+              if (data) res = data
+            }
           }
           if (res) setRestaurantProfile(res)
         } catch (e) {
@@ -163,7 +188,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
       const codes = []
       const targetCount = Math.min(tableCount, effectiveLimit)
       for (let i = 1; i <= targetCount; i++) {
-        const qrCode = generateQRCode(activeRid, i)
+        const qrCode = await generateQRCode(activeRid, i)
         codes.push(qrCode)
       }
       setQrCodes(codes)
@@ -176,7 +201,10 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
       }
       
       // Non-blocking sync to table sessions
-      bulkSaveQRCodes(activeRid, codes).catch(() => {})
+      const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+      if (isUUID(activeRid)) {
+        bulkSaveQRCodes(activeRid, codes).catch(() => {})
+      }
       
       window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: codes } }))
     } catch (error) {
@@ -196,17 +224,13 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
   // Download raw QR image
   const downloadQRCode = async (qrCode) => {
     try {
-      const response = await fetch(qrCode.qrImageUrl)
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
+      a.href = qrCode.qrDataUrl || qrCode.qrImageUrl
       a.download = `table-${qrCode.tableNumber}-qr.png`
       document.body.appendChild(a)
       a.click()
       setTimeout(() => {
         document.body.removeChild(a)
-        URL.revokeObjectURL(url)
       }, 100)
     } catch (error) {
       console.error('Error downloading QR code:', error)
@@ -222,38 +246,6 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
   return (
     <div className="min-h-screen bg-slate-50/60 pb-28">
-      {/* 📱 Mobile Navbar */}
-      <div className="lg:hidden sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-slate-700 hover:bg-slate-100 rounded-xl">
-                <Menu className="w-6 h-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 border-none">
-              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-              <SheetDescription className="sr-only">Access all dashboard sections</SheetDescription>
-              <Sidebar 
-                activeItem={activeItem} 
-                setActiveItem={(item) => {
-                  setActiveItem(item)
-                  setMobileMenuOpen(false)
-                }} 
-                isCollapsed={false}
-                setIsCollapsed={() => {}}
-                isMobile={true}
-                restaurantId={restaurantId}
-              />
-            </SheetContent>
-          </Sheet>
-          <Logo subtitle="QR Fleet" />
-        </div>
-        <div className="flex items-center gap-2">
-          <NotificationDropdown restaurantId={restaurantId} />
-        </div>
-      </div>
-
       {/* 🌟 Master Sticky Command Header 🌟 */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
