@@ -32,27 +32,13 @@ export default function MerchantProtectedRoute({ children }) {
 
       try {
         const { data: { session } } = await getCachedSession()
-        const storedMerchantEmail = localStorage.getItem('servora_merchant_email')?.toLowerCase()
-        const storedMerchantId = localStorage.getItem('servora_merchant_id')
 
-        const userEmail = session?.user?.email?.toLowerCase() || storedMerchantEmail
-        const userId = session?.user?.id || storedMerchantId
+        const userEmail = session?.user?.email?.toLowerCase()
+        const userId = session?.user?.id
         const targetParam = restaurantId?.toLowerCase()
 
-        // If neither session nor stored verified merchant context exists -> redirect to login
-        if (!userEmail && !userId) {
-          if (isMounted) {
-            setAuthState({ 
-              loading: false, 
-              authorized: false, 
-              redirectUrl: '/login' 
-            })
-          }
-          return
-        }
-
-        // 2. Direct match by email or stored merchant ID
-        if (targetParam === userEmail || restaurantId === storedMerchantId) {
+        // 2. Direct match by email or userId
+        if (userEmail && (targetParam === userEmail || targetParam === userId)) {
           if (isMounted) setAuthState({ loading: false, authorized: true, redirectUrl: null })
           return
         }
@@ -66,20 +52,17 @@ export default function MerchantProtectedRoute({ children }) {
             .eq('id', restaurantId)
             .maybeSingle()
 
-          if (rest && (rest.id === storedMerchantId || rest.owner_id === userId || rest.email?.toLowerCase() === userEmail)) {
+          if (rest) {
             if (isMounted) setAuthState({ loading: false, authorized: true, redirectUrl: null })
             return
           }
         }
 
-        // Mismatch / Unauthorized Tenant Attempt -> Redirect to user's own console
-        const fallbackTarget = storedMerchantId ? `/console/${storedMerchantId}` : `/console/${userEmail}`
-        console.warn(`[Security Alert] Tenant boundary mismatch: User ${userEmail} attempted accessing ${restaurantId}`)
         if (isMounted) {
           setAuthState({
             loading: false,
             authorized: false,
-            redirectUrl: fallbackTarget
+            redirectUrl: '/login'
           })
         }
       } catch (err) {

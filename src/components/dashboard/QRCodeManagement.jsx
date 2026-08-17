@@ -73,25 +73,20 @@ const generateQRCode = async (restaurantId, tableNumber) => {
   }
 }
 
-// Load QR codes dynamically without flooding database rows
+// Load QR codes dynamically from Supabase
 const loadQRCodesFromStorage = async (restaurantId, limit = 10) => {
   try {
     if (!restaurantId) return []
     const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
     const validId = isUUID(restaurantId) ? restaurantId : (await ensureValidRestaurantUUID(restaurantId) || restaurantId)
     
-    // Check if table count is stored in localStorage cache
-    const cachedCount = localStorage.getItem(`servora_table_count_${validId}`) || localStorage.getItem(`servora_table_count_${restaurantId}`)
-    
-    // Default to 10 tables if unlimited or not set (instead of 9,999!)
-    let countToGenerate = cachedCount ? parseInt(cachedCount) : 10
-    if (isNaN(countToGenerate) || countToGenerate <= 0) countToGenerate = 10
+    let countToGenerate = 10
     
     if (isUUID(validId)) {
       try {
         const { data } = await supabase.from('qr_codes').select('table_number').eq('restaurant_id', validId).order('table_number', { ascending: true })
         if (data && data.length > 0) {
-          countToGenerate = Math.max(countToGenerate, data.length)
+          countToGenerate = data.length
         }
       } catch (e) {}
     }
@@ -194,13 +189,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
       setQrCodes(codes)
       setShowConfigDrawer(false)
       
-      // Save table count to cache
-      localStorage.setItem(`servora_table_count_${activeRid}`, String(targetCount))
-      if (propRestaurantId && propRestaurantId !== activeRid) {
-        localStorage.setItem(`servora_table_count_${propRestaurantId}`, String(targetCount))
-      }
-      
-      // Non-blocking sync to table sessions
+      // Save directly to Supabase table_sessions and qr_codes
       const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
       if (isUUID(activeRid)) {
         bulkSaveQRCodes(activeRid, codes).catch(() => {})

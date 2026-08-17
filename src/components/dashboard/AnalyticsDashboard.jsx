@@ -211,11 +211,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
           .select('table_number, last_activity')
           .eq('restaurant_id', uuid)
         
-        const baseSessions = sessions?.length || 0
-        const extraLiveScans = Number(localStorage.getItem(`servora_real_views_${uuid}`) || 0)
-
-        // Live Menu Visits = Verified Table Scans (27) + incremental real scans
-        const totalVisits = Math.max(baseSessions + extraLiveScans, baseSessions > 0 ? baseSessions : 1)
+        const totalVisits = Math.max(sessions?.length || 0, 1)
         setRealViewsCount(totalVisits)
       } catch (e) {
         console.warn('Real views fetch notice:', e)

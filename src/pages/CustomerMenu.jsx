@@ -203,24 +203,12 @@ export default function CustomerMenu() {
   const [vegOnlyFilter, setVegOnlyFilter] = useState(false)
   const [showWaiterPopup, setShowWaiterPopup] = useState(false)
   const [theme, setTheme] = useState(() => {
-    try {
-      const saved = localStorage.getItem('servora_customer_theme')
-      if (saved) return saved
-      const hour = new Date().getHours()
-      return (hour >= 18 || hour < 6) ? 'dark' : 'light'
-    } catch {
-      return 'light'
-    }
+    const hour = new Date().getHours()
+    return (hour >= 18 || hour < 6) ? 'dark' : 'light'
   })
 
   const toggleTheme = () => {
-    setTheme(prev => {
-      const next = prev === 'dark' ? 'light' : 'dark'
-      try {
-        localStorage.setItem('servora_customer_theme', next)
-      } catch (e) {}
-      return next
-    })
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
   }
 
   const [restaurantData, setRestaurantData] = useState({

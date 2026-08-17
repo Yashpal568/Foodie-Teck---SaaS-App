@@ -94,15 +94,6 @@ export const useNotifications = (restaurantId) => {
   // Local helper to sync a new notification to cloud & state
   const pushNotification = useCallback(async (payload, category = 'orders') => {
     if (!resolvedId) return
-    
-    // Check user preferences
-    let prefs = { orders: true, revenue: true, inventory: false, customers: true }
-    try {
-      const saved = localStorage.getItem(`servora_notifs_${resolvedId}`)
-      if (saved) prefs = { ...prefs, ...JSON.parse(saved) }
-    } catch (e) {}
-    
-    if (prefs[category] === false) return
 
     // Optimistic UI Update with temp ID
     const tempId = `temp-${Date.now()}`
@@ -127,7 +118,7 @@ export const useNotifications = (restaurantId) => {
     }
   }, [resolvedId])
 
-  // ── Listen for real-time Events (Supabase + Window + LocalStorage) ──
+  // ── Listen for real-time Events (Supabase + Window) ──
   useEffect(() => {
     if (!resolvedId) return
 

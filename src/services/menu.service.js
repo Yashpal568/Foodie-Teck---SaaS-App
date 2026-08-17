@@ -27,28 +27,23 @@ async function uploadPhotoIfBase64(photoVal, itemId, restaurantId) {
           if (cloudRes.ok) {
             const cloudData = await cloudRes.json()
             return cloudData.secure_url
-          } else {
-            const errData = await cloudRes.json()
-            console.error('Cloudinary rejected upload:', errData)
           }
         } catch (cloudErr) {
-          console.error('Cloudinary upload failed, falling back to Supabase:', cloudErr)
+          console.warn('Cloudinary upload notice:', cloudErr)
         }
       }
 
       // OPTION 2: SUPABASE STORAGE (Default)
-      const { data, error } = await supabase.storage.from('menu-images').upload(filename, blob, {
+      const { error } = await supabase.storage.from('menu-images').upload(filename, blob, {
         cacheControl: '3600',
         upsert: false
       })
       if (!error) {
          const { data: { publicUrl } } = supabase.storage.from('menu-images').getPublicUrl(filename)
          return publicUrl
-      } else {
-         console.error('Storage bucket error (menu-images):', error)
       }
     } catch (e) {
-      console.error('Image upload failed, falling back to base64', e)
+      console.warn('Image upload notice:', e)
     }
   }
   return photoVal
@@ -76,35 +71,26 @@ export const normalizeMenuItem = (item) => {
   }
 }
 
-/** Fetch menu items directly from Supabase DB with resilient local fallback */
+/** Fetch menu items 100% dynamically from Supabase DB */
 export const fetchMenuItems = async (restaurantId) => {
-  let dbItems = []
   const uuid = await ensureValidRestaurantUUID(restaurantId)
+  if (!uuid) return []
 
-  if (uuid) {
-    try {
-      const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('restaurant_id', uuid)
-        .order('created_at', { ascending: true })
+  try {
+    const { data, error } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('restaurant_id', uuid)
+      .order('created_at', { ascending: true })
 
-      if (!error && data) {
-        dbItems = data.map(normalizeMenuItem)
-      }
-    } catch (e) {
-      console.warn('fetchMenuItems Supabase query notice:', e)
+    if (!error && data) {
+      return data.map(normalizeMenuItem)
     }
+  } catch (e) {
+    console.warn('fetchMenuItems Supabase query notice:', e)
   }
 
-  const localRaw = localStorage.getItem(`servora_menu_items_${restaurantId}`)
-  const localItems = localRaw ? JSON.parse(localRaw).map(normalizeMenuItem) : []
-
-  const itemMap = new Map()
-  localItems.forEach(i => itemMap.set(i.id, i))
-  dbItems.forEach(i => itemMap.set(i.id, i))
-
-  return Array.from(itemMap.values())
+  return []
 }
 
 /** Create a new menu item directly in Supabase DB */
@@ -112,23 +98,6 @@ export const createMenuItem = async (restaurantId, itemData) => {
   const newItemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
   let photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
   photoVal = await uploadPhotoIfBase64(photoVal, newItemId, restaurantId)
-  const normalizedNewItem = normalizeMenuItem({
-    id: newItemId,
-    name: itemData.name,
-    description: itemData.description || '',
-    price: Number(itemData.price),
-    category: itemData.category || 'Main Course',
-    type: itemData.type || 'VEG',
-    isInStock: itemData.isInStock ?? true,
-    photo: photoVal,
-    created_at: new Date().toISOString()
-  })
-
-  try {
-    const localRaw = localStorage.getItem(`servora_menu_items_${restaurantId}`)
-    const localItems = localRaw ? JSON.parse(localRaw) : []
-    localStorage.setItem(`servora_menu_items_${restaurantId}`, JSON.stringify([...localItems, normalizedNewItem]))
-  } catch (e) {}
 
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (uuid) {
@@ -137,7 +106,7 @@ export const createMenuItem = async (restaurantId, itemData) => {
         restaurant_id: uuid,
         name: itemData.name,
         description: itemData.description || '',
-        price: Number(itemData.price),
+        price: Math.max(0, Number(itemData.price) || 0),
         category: itemData.category || 'Main Course',
         type: itemData.type || 'VEG',
         is_in_stock: itemData.isInStock ?? true,
@@ -153,9 +122,22 @@ export const createMenuItem = async (restaurantId, itemData) => {
       if (!error && data) {
         return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error('createMenuItem error:', err)
+    }
   }
-  return normalizedNewItem
+
+  return normalizeMenuItem({
+    id: newItemId,
+    name: itemData.name,
+    description: itemData.description || '',
+    price: Math.max(0, Number(itemData.price) || 0),
+    category: itemData.category || 'Main Course',
+    type: itemData.type || 'VEG',
+    isInStock: itemData.isInStock ?? true,
+    photo: photoVal,
+    created_at: new Date().toISOString()
+  })
 }
 
 /** Update an existing menu item in Supabase DB */
@@ -164,34 +146,12 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
   let photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
   photoVal = await uploadPhotoIfBase64(photoVal, itemId, restaurantId)
 
-  const updatedItem = normalizeMenuItem({
-    id: itemId,
-    name: itemData.name,
-    description: itemData.description || '',
-    price: Number(itemData.price),
-    category: itemData.category,
-    type: itemData.type || 'VEG',
-    isInStock: itemData.isInStock ?? true,
-    photo: photoVal,
-  })
-
-  if (restaurantId) {
-    try {
-      const localRaw = localStorage.getItem(`servora_menu_items_${restaurantId}`)
-      if (localRaw) {
-        const items = JSON.parse(localRaw).map(i => (i.id === itemId || i._id === itemId) ? { ...i, ...updatedItem } : i)
-        localStorage.setItem(`servora_menu_items_${restaurantId}`, JSON.stringify(items))
-      }
-    } catch (e) {}
-  }
-
   if (isUUID(itemId)) {
-
     try {
       const payload = {
         name: itemData.name,
         description: itemData.description || '',
-        price: Number(itemData.price),
+        price: Math.max(0, Number(itemData.price) || 0),
         category: itemData.category,
         type: itemData.type || 'VEG',
         is_in_stock: itemData.isInStock ?? true,
@@ -209,7 +169,9 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
       if (!error && data) {
         return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('updateMenuItem error:', e)
+    }
   } else if (restaurantId) {
     const uuid = await ensureValidRestaurantUUID(restaurantId)
     if (uuid) {
@@ -218,7 +180,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
           restaurant_id: uuid,
           name: itemData.name,
           description: itemData.description || '',
-          price: Number(itemData.price),
+          price: Math.max(0, Number(itemData.price) || 0),
           category: itemData.category,
           type: itemData.type || 'VEG',
           is_in_stock: itemData.isInStock ?? true,
@@ -237,14 +199,23 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
       } catch (err) {}
     }
   }
-  return updatedItem
+
+  return normalizeMenuItem({
+    id: itemId,
+    name: itemData.name,
+    description: itemData.description || '',
+    price: Number(itemData.price),
+    category: itemData.category,
+    type: itemData.type || 'VEG',
+    isInStock: itemData.isInStock ?? true,
+    photo: photoVal,
+  })
 }
 
-/** Toggle stock status in Supabase DB */
-export const toggleMenuItemStock = async (itemId, isInStock, restaurantId) => {
+/** Toggle stock status directly in Supabase DB */
+export const toggleMenuItemStock = async (itemId, isInStock) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
   if (isUUID(itemId)) {
-
     try {
       const { data, error } = await supabase
         .from('menu_items')
@@ -260,24 +231,10 @@ export const toggleMenuItemStock = async (itemId, isInStock, restaurantId) => {
   return { id: itemId, _id: itemId, isInStock }
 }
 
-/** Delete a menu item directly from Supabase DB and purge local cache */
-export const deleteMenuItem = async (itemId, restaurantId) => {
+/** Delete a menu item directly from Supabase DB */
+export const deleteMenuItem = async (itemId) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith('servora_menu_items_')) {
-        const raw = localStorage.getItem(key)
-        if (raw) {
-          const items = JSON.parse(raw).filter(item => (item.id !== itemId && item._id !== itemId))
-          localStorage.setItem(key, JSON.stringify(items))
-        }
-      }
-    }
-  } catch (e) {}
-
   if (isUUID(itemId)) {
-
     let retries = 3
     while (retries > 0) {
       try {
@@ -295,12 +252,11 @@ export const getMenuItems = async (restaurantId) => {
   return fetchMenuItems(restaurantId)
 }
 
-/** Bulk replace menu items (Import functionality) */
+/** Bulk replace menu items directly in Supabase */
 export const bulkReplaceMenuItems = async (restaurantId, items) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) return []
 
-  // Ensure all items have the required fields and are normalized
   const formattedItems = items.map(item => {
     const norm = normalizeMenuItem(item)
     return {
@@ -311,11 +267,10 @@ export const bulkReplaceMenuItems = async (restaurantId, items) => {
       category: norm.category,
       type: norm.type,
       is_in_stock: norm.isInStock,
-      image_url: norm.photo
+      photo_url: norm.photo
     }
   })
 
-  // Insert items to Supabase
   const { data, error } = await supabase
     .from('menu_items')
     .insert(formattedItems)
@@ -325,11 +280,6 @@ export const bulkReplaceMenuItems = async (restaurantId, items) => {
     console.error('bulkReplaceMenuItems error:', error)
     throw error
   }
-
-  // Clear local cache for this restaurant to ensure fresh data on next load
-  try {
-    localStorage.removeItem(`servora_menu_items_${restaurantId}`)
-  } catch (e) {}
 
   return (data || []).map(normalizeMenuItem)
 }

@@ -100,14 +100,6 @@ export const createOrder = async (orderData) => {
   } catch (e) {}
 
   if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem('servora_latest_order', JSON.stringify({
-        ...order,
-        restaurant_id: validRestaurantId,
-        itemsCount: orderData.items?.length || 1,
-        _broadcast_ts: Date.now()
-      }))
-    } catch (e) {}
     window.dispatchEvent(new CustomEvent('servora_new_order', { detail: order }))
   }
 

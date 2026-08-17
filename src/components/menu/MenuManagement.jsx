@@ -50,19 +50,6 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     const init = async () => {
       let rid = getCachedRestaurantId() || (window.location.pathname.includes('/console/') ? window.location.pathname.split('/console/')[1] : null)
       
-      // Instant Load from Cache
-      if (rid) {
-        const localRaw = localStorage.getItem(`servora_menu_items_${rid}`)
-        if (localRaw) {
-          try {
-            const localItems = JSON.parse(localRaw)
-            setMenuItems(localItems)
-            setFilteredItems(localItems)
-            setIsLoading(false)
-          } catch(e) {}
-        }
-      }
-
       if (!rid || rid.includes('@')) {
         try {
           const profile = await getMyRestaurant()
@@ -77,23 +64,14 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
       setCurrentRid(rid)
       try {
         const items = await fetchMenuItems(rid)
-        
-        // Cache the fresh items for the next instant load
-        try {
-          localStorage.setItem(`servora_menu_items_${rid}`, JSON.stringify(items))
-        } catch (storageErr) {
-          console.warn('Could not cache menu items (quota exceeded). Clearing cache.', storageErr)
-          localStorage.removeItem(`servora_menu_items_${rid}`)
-        }
-        
         setMenuItems(items)
         setFilteredItems(items)
-      } catch (err) { 
-        console.error('Menu load error:', err) 
+      } catch (err) {
+        console.error('Menu load error:', err)
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
-
     init()
   }, [])
 

@@ -206,24 +206,16 @@ export default function AdminRevenuePage() {
         const now = new Date()
         const extEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
-        if (restId) {
-           localStorage.setItem(`servora_approved_${restId}`, 'true')
-        }
-        if (company.email) {
-           localStorage.setItem(`servora_approved_${company.email.toLowerCase()}`, 'true')
-        }
-        window.dispatchEvent(new Event('platformConfigUpdated'))
+        await supabase.from('subscriptions').upsert({
+           restaurant_id: restId,
+           plan_name: company.plan || 'Professional',
+           price: company.amount || 2499,
+           status: 'Active',
+           start_date: now.toISOString(),
+           end_date: extEnd
+        }, { onConflict: 'restaurant_id' })
 
-        try {
-           await supabase.from('subscriptions').upsert({
-              restaurant_id: restId,
-              plan_name: company.plan || 'Professional',
-              price: company.amount || 2499,
-              status: 'Active',
-              start_date: now.toISOString(),
-              end_date: extEnd
-           }, { onConflict: 'restaurant_id' })
-        } catch (e) {}
+        window.dispatchEvent(new Event('platformConfigUpdated'))
 
         toast.success('🎁 +30 Days Granted!', {
            description: `Extended subscription for ${company.merchant || company.name} by 30 days.`

@@ -155,56 +155,7 @@ export default function SubscriptionLockOverlay({
   useEffect(() => {
     if (!restaurantId || restaurantId === 'guest') return
 
-    const checkApprovalStatus = () => {
-      try {
-        const isApprovedFlag = 
-          localStorage.getItem(`servora_approved_${restaurantId}`) || 
-          (merchantEmail && localStorage.getItem(`servora_approved_${merchantEmail}`))
-        
-        if (isApprovedFlag === 'true') {
-          setIsApproved(true)
-          if (onCheckStatus) onCheckStatus()
-          toast.success('🎉 Payment Verified & Approved!', {
-             description: 'Unlocking restaurant dashboard...'
-          })
-          setTimeout(() => window.location.reload(), 1000)
-          return true
-        }
-
-        const subs = JSON.parse(localStorage.getItem('servora_subscriptions') || '[]')
-        const matched = subs.find(s => 
-          s.restaurant_id === restaurantId || 
-          s.id === `sub-${restaurantId}` ||
-          (merchantEmail && s.restaurant_id === merchantEmail)
-        )
-        if (matched && (matched.status === 'Approved' || matched.status === 'Active')) {
-          setIsApproved(true)
-          if (onCheckStatus) onCheckStatus()
-          toast.success('🎉 Payment Verified & Approved!', {
-             description: 'Unlocking restaurant dashboard...'
-          })
-          setTimeout(() => window.location.reload(), 1000)
-          return true
-        }
-      } catch (e) {}
-      return false
-    }
-
-    if (checkApprovalStatus()) return
-
-    const handleEventSync = () => {
-      checkApprovalStatus()
-    }
-
-    window.addEventListener('platformConfigUpdated', handleEventSync)
-    window.addEventListener('storage', handleEventSync)
-
     const interval = setInterval(async () => {
-      if (checkApprovalStatus()) {
-        clearInterval(interval)
-        return
-      }
-
       try {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId || '')
         let subData = null
@@ -312,17 +263,6 @@ export default function SubscriptionLockOverlay({
     try {
       setIsChecking(true)
       setViewMode('WAITING_WINDOW')
-      
-      try {
-        const subs = JSON.parse(localStorage.getItem('servora_subscriptions') || '[]')
-        const matched = subs.find(s => s.restaurant_id === restaurantId || s.id === `sub-${restaurantId}` || (merchantEmail && s.restaurant_id === merchantEmail))
-        if (matched && (matched.status === 'Approved' || matched.status === 'Active')) {
-          setIsApproved(true)
-          toast.success('Subscription Verified & Active!', { description: 'Opening restaurant dashboard...' })
-          setTimeout(() => window.location.reload(), 600)
-          return
-        }
-      } catch (e) {}
 
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId || '')
       if (isUUID) {

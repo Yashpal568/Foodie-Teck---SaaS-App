@@ -252,11 +252,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         } catch (e) {
           console.warn('Could not load payment methods:', e)
         }
-
-        const savedNotifs = localStorage.getItem(`servora_notifs_${restaurant.id}`)
-        if (savedNotifs) {
-          try { setNotifications(JSON.parse(savedNotifs)) } catch (e) {}
-        }
       }
     } catch (err) {
       console.error('Failed to load settings:', err)
@@ -337,8 +332,6 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         })
 
         await saveGstSettings(targetRid, gstData)
-
-        localStorage.setItem(`servora_notifs_${targetRid}`, JSON.stringify(notifications))
 
         showToast('Settings successfully synchronized to cloud.', 'success')
       }

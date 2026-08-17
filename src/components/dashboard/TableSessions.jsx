@@ -170,23 +170,8 @@ const TableSessions = ({
         fetchOrders(targetRid),
       ]);
 
-      // Check cloud QRs, then cached QRs, then session count, then default
+      // Determine total tables count directly from Supabase
       let activeQRs = cloudQRs && cloudQRs.length > 0 ? cloudQRs : null;
-      if (!activeQRs) {
-        try {
-          const cached =
-            localStorage.getItem(`servora_qr_codes_${targetRid}`) ||
-            localStorage.getItem(`servora_qr_codes_${restaurantId}`);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              activeQRs = parsed;
-            }
-          }
-        } catch (e) {}
-      }
-
-      // Determine total tables count
       let highestTableNum = 10;
       if (activeQRs && activeQRs.length > 0) {
         highestTableNum = Math.max(

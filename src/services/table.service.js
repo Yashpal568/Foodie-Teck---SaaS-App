@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
 import { generateTableSignature } from '@/utils/tableSecurity'
 
-/** Get floor plan (tables) */
+/** Get floor plan (tables) directly from Supabase */
 export const getTableSessions = async (restaurantId) => {
   const validId = await ensureValidRestaurantUUID(restaurantId)
   if (!validId) return []
@@ -51,7 +51,7 @@ export const requestWaiter = async (restaurantId, tableNumber, customerName = 'G
     created_at: new Date().toISOString()
   }
 
-  // 1. Try DB Insert (Safely log without throwing so broadcast is never interrupted)
+  // 1. DB Insert in Supabase waiter_calls
   let dbRecord = null
   try {
     if (validId) {
@@ -76,7 +76,7 @@ export const requestWaiter = async (restaurantId, tableNumber, customerName = 'G
     console.warn('Waiter call DB log notice:', dbErr)
   }
 
-  // 2. Broadcast via Supabase Realtime Channels (UUID, raw ID, and general)
+  // 2. Broadcast via Supabase Realtime Channels
   const targets = new Set([
     `waiter-toasts:rid=${validId}`,
     `waiter-toasts:rid=${restaurantId}`,
@@ -103,11 +103,10 @@ export const requestWaiter = async (restaurantId, tableNumber, customerName = 'G
     }
   })
 
-  // 3. Local Dispatch for instantaneous same-tab / multi-tab trigger
+  // 3. Local Dispatch for instantaneous window event trigger
   if (typeof window !== 'undefined') {
     try {
       window.dispatchEvent(new CustomEvent('servora_waiter_call', { detail: callPayload }))
-      localStorage.setItem('servora_latest_waiter_call', JSON.stringify({ ...callPayload, _ts: Date.now() }))
     } catch (localErr) {
       console.warn('Local waiter dispatch notice:', localErr)
     }
@@ -139,9 +138,9 @@ export const syncTableSession = async (restaurant_id, tableData) => {
   return data
 }
 
-/** Get QR Codes directly from Supabase with LocalStorage fallback */
+/** Get QR Codes directly from Supabase */
 export const getQRCodes = async (restaurantId) => {
-  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
+  const validId = (await ensureValidRestaurantUUID(restaurantId)) || restaurantId
   if (!validId) return []
 
   try {
@@ -151,42 +150,25 @@ export const getQRCodes = async (restaurantId) => {
       .eq('restaurant_id', validId)
       .order('table_number', { ascending: true })
     
-    if (!error && data && data.length > 0) {
-      try {
-        localStorage.setItem(`servora_qr_codes_${validId}`, JSON.stringify(data))
-        if (restaurantId && restaurantId !== validId) {
-          localStorage.setItem(`servora_qr_codes_${restaurantId}`, JSON.stringify(data))
-        }
-      } catch (e) {}
+    if (!error && data) {
       return data
     }
   } catch (err) {
     console.warn('getQRCodes Supabase query notice:', err)
   }
 
-  try {
-    const cached = localStorage.getItem(`servora_qr_codes_${validId}`) || 
-                   localStorage.getItem(`servora_qr_codes_${restaurantId}`)
-    if (cached) {
-      const parsed = JSON.parse(cached)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed
-      }
-    }
-  } catch (e) {}
-
   return []
 }
 
-/** Bulk Save QR Codes (Cloud Sync to Supabase + LocalStorage Cache) */
+/** Bulk Save QR Codes directly to Supabase */
 export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
-  if (!qrCodes || qrCodes.length === 0) return
-  const validId = await ensureValidRestaurantUUID(restaurantId) || restaurantId
-  if (!validId) return
+  if (!qrCodes || qrCodes.length === 0) return true
+  const validId = (await ensureValidRestaurantUUID(restaurantId)) || restaurantId
+  if (!validId) return true
 
   try {
-    const validQrCodes = qrCodes.filter(qr => qr.tableNumber !== undefined && qr.tableNumber !== null && !isNaN(Number(qr.tableNumber)));
-    if (validQrCodes.length === 0) return true;
+    const validQrCodes = qrCodes.filter(qr => qr.tableNumber !== undefined && qr.tableNumber !== null && !isNaN(Number(qr.tableNumber)))
+    if (validQrCodes.length === 0) return true
 
     const qrPayloads = validQrCodes.map(qr => {
       const sig = generateTableSignature(validId, qr.tableNumber)
@@ -198,7 +180,7 @@ export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
       }
     })
 
-    const validTableNumbers = validQrCodes.map(q => Number(q.tableNumber)).join(',');
+    const validTableNumbers = validQrCodes.map(q => Number(q.tableNumber)).join(',')
 
     if (validTableNumbers) {
       await supabase

@@ -50,13 +50,7 @@ function MaintenanceGuard({ children }) {
         setIsMaintenance(false)
         return
       }
-
-      const stored = localStorage.getItem('servora_maintenance_mode')
-      if (stored !== null) {
-        setIsMaintenance(stored === 'true')
-      } else {
-        setIsMaintenance(false)
-      }
+      setIsMaintenance(false)
     }
 
     checkMaintenance()

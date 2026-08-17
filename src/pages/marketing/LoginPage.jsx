@@ -68,8 +68,6 @@ export default function LoginPage() {
 
     // 2. Demo Merchant credentials
     if (cleanEmail === 'demo@servora.com' && (formData.password === 'demo123' || formData.password === 'demo')) {
-      localStorage.setItem('servora_merchant_email', 'demo@servora.com')
-      localStorage.setItem('servora_merchant_id', 'demo-merchant')
       proceedToConsole('/console/demo-merchant')
       return
     }
@@ -83,9 +81,6 @@ export default function LoginPage() {
         .maybeSingle()
 
       if (restaurant) {
-        localStorage.setItem('servora_merchant_email', cleanEmail)
-        localStorage.setItem('servora_merchant_id', restaurant.id)
-
         // Non-blocking background session synchronization
         supabase.auth.signInWithPassword({
           email: cleanEmail,
@@ -103,11 +98,7 @@ export default function LoginPage() {
       })
 
       if (!authError && authData?.user) {
-        localStorage.setItem('servora_merchant_email', cleanEmail)
-        if (authData.user.id) {
-          localStorage.setItem('servora_merchant_id', authData.user.id)
-        }
-        proceedToConsole(`/console/${cleanEmail}`)
+        proceedToConsole(`/console/${authData.user.id}`)
         return
       }
 

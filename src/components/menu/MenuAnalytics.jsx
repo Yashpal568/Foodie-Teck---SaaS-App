@@ -40,10 +40,6 @@ export const trackMenuVisit = async (restaurantId, tableNumber) => {
         }, { onConflict: 'restaurant_id, table_number' })
     }
 
-    const key = `servora_real_views_${uuid || restaurantId}`
-    const cur = Number(localStorage.getItem(key) || 0) + 1
-    localStorage.setItem(key, String(cur))
-
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('servora_menu_visit', { detail: { restaurantId: uuid || restaurantId, tableNumber } }))
     }
@@ -52,23 +48,8 @@ export const trackMenuVisit = async (restaurantId, tableNumber) => {
   }
 }
 
-export const trackItemView = (itemId) => {
-  if (!itemId) return
-  try {
-    const key = `servora_item_view_${itemId}`
-    const cur = Number(localStorage.getItem(key) || 0) + 1
-    localStorage.setItem(key, String(cur))
-  } catch (e) {}
-}
-
-export const trackItemOrder = (itemId) => {
-  if (!itemId) return
-  try {
-    const key = `servora_item_order_${itemId}`
-    const cur = Number(localStorage.getItem(key) || 0) + 1
-    localStorage.setItem(key, String(cur))
-  } catch (e) {}
-}
+export const trackItemView = () => {}
+export const trackItemOrder = () => {}
 
 export default function MenuAnalytics({ menuItems, restaurantId }) {
   const [isOpen, setIsOpen] = useState(false)
