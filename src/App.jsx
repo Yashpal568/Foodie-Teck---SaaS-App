@@ -75,11 +75,8 @@ function DashboardRedirect() {
     async function resolveTarget() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const storedEmail = localStorage.getItem('servora_merchant_email');
         if (session?.user?.email) {
           setTarget(`/console/${session.user.email}`);
-        } else if (storedEmail) {
-          setTarget(`/console/${storedEmail}`);
         } else {
           setTarget('/login');
         }

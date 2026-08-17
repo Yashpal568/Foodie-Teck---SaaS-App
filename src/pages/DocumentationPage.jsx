@@ -130,7 +130,7 @@ export default function DocumentationPage() {
                     className="w-full text-left p-3 rounded-lg hover:bg-slate-100 transition-all duration-200 group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 bg-${result.color}-50 text-${result.color}-600 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <div className={`w-8 h-8 bg-${result.color}-50 text-${result.color}-600 rounded-lg flex items-center justify-center shrink-0`}>
                         <result.icon className="w-4 h-4" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -145,7 +145,7 @@ export default function DocumentationPage() {
           </div>
         ) : (
           <div className="p-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2 tracking-widest leading-none">Table of Contents</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase mb-4 px-2 tracking-widest leading-none">Table of Contents</p>
             <nav className="space-y-1 mt-4">
               {docSections.map(section => {
                 const Icon = section.icon
@@ -161,7 +161,7 @@ export default function DocumentationPage() {
                           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                     >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                         isActiveSection 
                           ? `bg-${section.color}-100 text-${section.color}-700` 
                           : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
@@ -218,7 +218,7 @@ export default function DocumentationPage() {
   return (
     <div className="h-screen flex flex-col bg-white overflow-hidden relative">
       {/* Mobile Top Header (Standalone) */}
-      <div className="lg:hidden sticky top-0 z-[60] w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 h-16 flex items-center justify-between gap-4">
+      <div className="lg:hidden sticky top-0 z-60 w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="text-slate-600 hover:bg-slate-100 rounded-xl w-10 h-10" onClick={() => navigate('/dashboard')}>
             <Home className="w-5 h-5" />
@@ -227,12 +227,12 @@ export default function DocumentationPage() {
         </div>
         <div className="flex items-center gap-2">
           <NotificationDropdown />
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-[10px] shadow-lg shadow-blue-200">
+          <div className="w-8 h-8 rounded-xl bg-linear-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-[10px] shadow-lg shadow-blue-200">
             JD
           </div>
         </div>
       </div>
-      <header className="h-16 flex-shrink-0 bg-white border-b border-slate-200 sticky top-0 z-50 px-6 flex items-center justify-between shadow-sm">
+      <header className="h-16 shrink-0 bg-white border-b border-slate-200 sticky top-0 z-50 px-6 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-6">
           <div className="cursor-pointer" onClick={() => navigateToArticle('getting-started', 'introduction')}>
             <Logo subtitle="Documentation" iconSize={32} />
@@ -263,7 +263,7 @@ export default function DocumentationPage() {
               <p className="text-xs font-black text-slate-900 leading-none">John Doe</p>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Admin</p>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-200 cursor-pointer hover:scale-105 transition-transform">
+            <div className="w-9 h-9 rounded-xl bg-linear-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-200 cursor-pointer hover:scale-105 transition-transform">
               JD
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function DocumentationPage() {
       {/* Main Layout Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Fixed Sidebar */}
-        <aside className="hidden lg:block w-80 flex-shrink-0 border-r border-slate-100 overflow-y-auto bg-slate-50/20">
+        <aside className="hidden lg:block w-80 shrink-0 border-r border-slate-100 overflow-y-auto bg-slate-50/20">
           {renderSidebar()}
         </aside>
 
@@ -374,17 +374,17 @@ export default function DocumentationPage() {
 
               {/* Tips Section */}
               {activeArticle.tips && (
-                <div className="p-10 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-[2.5rem] relative overflow-hidden">
+                <div className="p-10 bg-linear-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-[2.5rem] relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-8 opacity-10">
                     <Lightbulb className="w-32 h-32 text-amber-500" />
                   </div>
-                  <h3 className="text-2xl font-black text-amber-900 mb-8 flex items-center gap-3 tracking-tight leading-none uppercase tracking-widest text-xs">
+                  <h3 className="text-xs font-black text-amber-900 mb-8 flex items-center gap-3 uppercase tracking-widest leading-none">
                     Pro Tips & Best Practices
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {activeArticle.tips.map((tip, idx) => (
                       <div key={idx} className="flex items-start gap-4">
-                        <CheckCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-1" />
+                        <CheckCircle className="w-5 h-5 text-amber-500 shrink-0 mt-1" />
                         <p className="text-amber-800 font-black leading-snug">{tip}</p>
                       </div>
                     ))}
@@ -400,7 +400,7 @@ export default function DocumentationPage() {
                   onClick={() => navigateToArticle(prevArticle.sectionId, prevArticle.articleId)}
                   className="group flex-1 flex items-center gap-4 p-6 rounded-3xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all text-left shadow-sm hover:shadow-md"
                 >
-                  <div className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 flex-shrink-0 shadow-sm">
+                  <div className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0 shadow-sm">
                     <ChevronLeft className="w-6 h-6" />
                   </div>
                   <div className="min-w-0">
@@ -419,7 +419,7 @@ export default function DocumentationPage() {
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Next Up</span>
                     <p className="text-lg font-black text-white truncate tracking-tight">{getNextTitle()}</p>
                   </div>
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 flex-shrink-0">
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 shrink-0">
                     <ChevronRight className="w-6 h-6" />
                   </div>
                 </button>

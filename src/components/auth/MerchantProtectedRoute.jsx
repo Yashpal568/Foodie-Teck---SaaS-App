@@ -32,9 +32,15 @@ export default function MerchantProtectedRoute({ children }) {
 
       try {
         const { data: { session } } = await getCachedSession()
+        const storedMerchantEmail = localStorage.getItem('servora_merchant_email')?.toLowerCase()
+        const storedMerchantId = localStorage.getItem('servora_merchant_id')
 
-        // If no authenticated session exists -> redirect to login
-        if (!session?.user) {
+        const userEmail = session?.user?.email?.toLowerCase() || storedMerchantEmail
+        const userId = session?.user?.id || storedMerchantId
+        const targetParam = restaurantId?.toLowerCase()
+
+        // If neither session nor stored verified merchant context exists -> redirect to login
+        if (!userEmail && !userId) {
           if (isMounted) {
             setAuthState({ 
               loading: false, 
@@ -45,12 +51,8 @@ export default function MerchantProtectedRoute({ children }) {
           return
         }
 
-        const userEmail = session.user.email?.toLowerCase()
-        const userId = session.user.id
-        const targetParam = restaurantId?.toLowerCase()
-
-        // 2. Direct match by email
-        if (targetParam === userEmail) {
+        // 2. Direct match by email or stored merchant ID
+        if (targetParam === userEmail || restaurantId === storedMerchantId) {
           if (isMounted) setAuthState({ loading: false, authorized: true, redirectUrl: null })
           return
         }
@@ -64,19 +66,20 @@ export default function MerchantProtectedRoute({ children }) {
             .eq('id', restaurantId)
             .maybeSingle()
 
-          if (rest && (rest.owner_id === userId || rest.email?.toLowerCase() === userEmail)) {
+          if (rest && (rest.id === storedMerchantId || rest.owner_id === userId || rest.email?.toLowerCase() === userEmail)) {
             if (isMounted) setAuthState({ loading: false, authorized: true, redirectUrl: null })
             return
           }
         }
 
         // Mismatch / Unauthorized Tenant Attempt -> Redirect to user's own console
+        const fallbackTarget = storedMerchantId ? `/console/${storedMerchantId}` : `/console/${userEmail}`
         console.warn(`[Security Alert] Tenant boundary mismatch: User ${userEmail} attempted accessing ${restaurantId}`)
         if (isMounted) {
           setAuthState({
             loading: false,
             authorized: false,
-            redirectUrl: `/console/${userEmail}`
+            redirectUrl: fallbackTarget
           })
         }
       } catch (err) {

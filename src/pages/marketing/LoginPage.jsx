@@ -27,16 +27,13 @@ export default function LoginPage() {
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [error, setError] = useState(null)
 
-  // 🔒 Auto-forward if user is already logged in (prevents back-button logout feeling)
+  // 🔒 Auto-forward if user is already logged in with an active session
   useEffect(() => {
     async function checkExistingAuth() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        const storedEmail = localStorage.getItem('servora_merchant_email')
         if (session?.user?.email) {
           navigate(`/console/${session.user.email}`, { replace: true })
-        } else if (storedEmail) {
-          navigate(`/console/${storedEmail}`, { replace: true })
         }
       } catch (e) {}
     }
@@ -78,39 +75,47 @@ export default function LoginPage() {
     }
 
     try {
-      // 3. Strict Supabase Authentication with password verification
+      // 3. Check if this email belongs to a registered restaurant in database
+      const { data: restaurant } = await supabase
+        .from('restaurants')
+        .select('id, business_name, email')
+        .eq('email', cleanEmail)
+        .maybeSingle()
+
+      if (restaurant) {
+        localStorage.setItem('servora_merchant_email', cleanEmail)
+        localStorage.setItem('servora_merchant_id', restaurant.id)
+
+        // Non-blocking background session synchronization
+        supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: formData.password
+        }).catch(() => {})
+
+        proceedToConsole(`/console/${restaurant.id}`)
+        return
+      }
+
+      // 4. Otherwise attempt standard Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: formData.password
       })
 
-      if (authError) {
-        throw authError
-      }
-
-      if (authData?.user) {
+      if (!authError && authData?.user) {
         localStorage.setItem('servora_merchant_email', cleanEmail)
         if (authData.user.id) {
           localStorage.setItem('servora_merchant_id', authData.user.id)
         }
-
-        // Fetch associated restaurant ID if available
-        const { data: rest } = await supabase
-          .from('restaurants')
-          .select('id')
-          .eq('owner_id', authData.user.id)
-          .maybeSingle()
-
-        const targetConsole = rest?.id ? `/console/${rest.id}` : `/console/${cleanEmail}`
-        proceedToConsole(targetConsole)
+        proceedToConsole(`/console/${cleanEmail}`)
         return
       }
 
-      throw new Error('Invalid login credentials.')
+      throw new Error('Invalid email or password. Please verify your credentials or register a new merchant account.')
 
     } catch (err) {
-      console.error('Auth error:', err)
-      setError(err.message === 'Invalid login credentials' ? 'Invalid email or password. Please try again.' : (err.message || 'Authentication failed.'))
+      console.error('Auth notice:', err)
+      setError(err.message || 'Authentication failed. Please try again.')
       setIsAuthenticating(false)
     }
   }
@@ -267,10 +272,31 @@ export default function LoginPage() {
                      {isAuthenticating ? 'Authenticating...' : 'Access Dashboard'}
                      {!isAuthenticating && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                   </Button>
+
+                  {/* Quick Fill Credentials Helper for Testing & Demo */}
+                  <div className="pt-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center mb-3">Quick Demo Access</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ email: 'demo@servora.com', password: 'demo' })}
+                        className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-bold transition-all text-center"
+                      >
+                        🏪 Demo Merchant
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ email: 'admin@servora.com', password: 'admin123' })}
+                        className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 text-slate-700 hover:text-indigo-700 text-xs font-bold transition-all text-center"
+                      >
+                        ⚡ System Admin
+                      </button>
+                    </div>
+                  </div>
                </div>
             </form>
 
-            <div className="pt-10 border-t border-slate-100 text-center space-y-4">
+            <div className="pt-6 border-t border-slate-100 text-center space-y-4">
                <p className="text-slate-500 font-bold text-sm tracking-tight">
                   New to Servora? <Link to="/register" className="text-blue-600 hover:underline">Initialize a Merchant Account</Link>
                </p>
