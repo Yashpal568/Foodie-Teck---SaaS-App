@@ -6,6 +6,7 @@
  * - payment_verifications
  */
 import { supabase } from './supabase'
+import { sendPurchaseSummaryEmail } from '@/services/email.service'
 
 export const getAdminPlatformData = async () => {
   let dbRestaurants = []
@@ -159,6 +160,25 @@ export const approveMerchantPayment = async (item) => {
         status: 'APPROVED', 
         approved_at: now.toISOString() 
       }).or(`utr_number.eq.${item.utr},restaurant_id.eq.${item.restaurantId}`)
+
+      // Automatically dispatch Purchase Summary & PDF Tax Invoice to merchant email
+      const targetEmail = item.email || (item.merchantEmail && item.merchantEmail.includes('@') ? item.merchantEmail : null)
+      if (targetEmail) {
+        try {
+          await sendPurchaseSummaryEmail({
+            email: targetEmail,
+            merchantName: item.merchant || 'Servora Merchant',
+            planName: item.plan || 'PRO',
+            amount: item.amount || 2499,
+            utrNumber: item.utr || 'N/A',
+            startDate: now.toISOString(),
+            endDate: endDate,
+            restaurantId: item.restaurantId
+          })
+        } catch (mailErr) {
+          console.warn('[AdminDataService] Purchase summary email note:', mailErr.message)
+        }
+      }
 
       window.dispatchEvent(new Event('platformConfigUpdated'))
     }

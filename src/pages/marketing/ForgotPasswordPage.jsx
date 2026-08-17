@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Logo from '@/components/ui/Logo'
 import { supabase } from '@/lib/supabase'
+import { sendForgotPasswordEmail } from '@/services/email.service'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -56,6 +57,13 @@ export default function ForgotPasswordPage() {
         if (resetError.message?.toLowerCase().includes('rate limit')) {
           throw new Error('Too many requests. Please wait a few moments before trying again.')
         }
+      }
+
+      // 3. Also dispatch custom branded Servora Gmail notification
+      try {
+        await sendForgotPasswordEmail(cleanEmail, restaurant?.business_name, redirectUrl)
+      } catch (emailErr) {
+        console.warn('Custom email dispatch note:', emailErr.message)
       }
 
       // Always show success state for security (avoids email enumeration) while acknowledging registered merchants

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 import { getAdminPlatformData, approveMerchantPayment } from '@/lib/adminDataService'
+import { sendPurchaseSummaryEmail } from '@/services/email.service'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   DownloadCloud, 
@@ -214,6 +215,24 @@ export default function AdminRevenuePage() {
            start_date: now.toISOString(),
            end_date: extEnd
         }, { onConflict: 'restaurant_id' })
+
+        // Send Extension confirmation & PDF Invoice
+        if (company.email || company.merchantEmail) {
+           try {
+              await sendPurchaseSummaryEmail({
+                 email: company.email || company.merchantEmail,
+                 merchantName: company.merchant || company.name || 'Servora Merchant',
+                 planName: company.plan || 'Professional (+30 Days Grant)',
+                 amount: company.amount || 0,
+                 utrNumber: 'ADMIN-GRANT-30D',
+                 startDate: now.toISOString(),
+                 endDate: extEnd,
+                 restaurantId: restId
+              })
+           } catch (mailErr) {
+              console.warn('[AdminRevenuePage] Extension email note:', mailErr.message)
+           }
+        }
 
         window.dispatchEvent(new Event('platformConfigUpdated'))
 
