@@ -8,6 +8,7 @@ import {
   BadgeDollarSign, Percent, Zap,
 } from 'lucide-react'
 import { useOrderManagement } from '@/hooks/useOrderManagement'
+import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { getCustomers } from '@/lib/api'
 
 import PremiumLock from './PremiumLock'
@@ -28,6 +29,7 @@ import {
 import { cn } from '@/lib/utils'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { getServoraLogoBase64 } from '@/utils/pdfLogo'
 
 // ── Tier metadata ────────────────────────────────────────────────────────────
 const TIER_META = {
@@ -70,66 +72,435 @@ const exportCSV = (list) => {
   URL.revokeObjectURL(url)
 }
 
-const exportPDF = (list) => {
-  const doc = new jsPDF()
+const exportPDF = async (list, stats = {}, restaurantName = 'Tiger Bistro') => {
+  const logoImg = await getServoraLogoBase64()
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
   
-  // Custom Premium Header
+  const pageWidth = doc.internal.pageSize.getWidth()   // 210mm
+  const pageHeight = doc.internal.pageSize.getHeight() // 297mm
+
+  const safeRestaurantName = (restaurantName || 'Tiger Bistro').toUpperCase()
+  const generatedDate = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  })
+  const generatedTime = new Date().toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+
+  // Format currency cleanly without Unicode font corruption
+  const fmtPdfCurrency = (v) => `Rs. ${Number(v || 0).toLocaleString('en-IN')}`
+
+  // ── High-Impact Watermark ──
+  const drawWatermark = () => {
+    try {
+      if (doc.saveGraphicsState) doc.saveGraphicsState()
+      
+      // Circular decorative watermark geometry in center
+      doc.setDrawColor(243, 246, 251)
+      doc.setLineWidth(0.6)
+      doc.circle(pageWidth / 2, pageHeight / 2, 45, 'S')
+      doc.circle(pageWidth / 2, pageHeight / 2, 40, 'S')
+
+      doc.setTextColor(240, 244, 250)
+      doc.setFontSize(36)
+      doc.setFont('helvetica', 'bold')
+      doc.text('SERVORA OS', pageWidth / 2, pageHeight / 2 - 4, {
+        align: 'center',
+        angle: 45
+      })
+      
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(242, 246, 251)
+      doc.text('CUSTOMER INTELLIGENCE • VERIFIED CRM', pageWidth / 2, pageHeight / 2 + 14, {
+        align: 'center',
+        angle: 45
+      })
+      if (doc.restoreGraphicsState) doc.restoreGraphicsState()
+    } catch {
+      // Fallback
+    }
+  }
+
+  // 1. Watermark on Page 1
+  drawWatermark()
+
+  // 2. Executive Dark Architecture Header (Height: 44mm)
+  doc.setFillColor(11, 15, 25) // Ultra Deep Midnight Slate
+  doc.rect(0, 0, pageWidth, 44, 'F')
+
+  // Top Dual Glow Accent Bar (2.5mm)
   doc.setFillColor(13, 148, 136) // Teal-600
-  doc.rect(0, 0, 210, 40, 'F')
-  
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(22)
+  doc.rect(0, 0, pageWidth * 0.6, 2.5, 'F')
+  doc.setFillColor(245, 158, 11) // Amber-500
+  doc.rect(pageWidth * 0.6, 0, pageWidth * 0.4, 2.5, 'F')
+
+  // Servora Logo Image (Left)
+  const iconX = 14
+  const iconY = 10
+  const iconSize = 14
+  if (logoImg) {
+    doc.addImage(logoImg, 'PNG', iconX, iconY, iconSize, iconSize)
+  } else {
+    doc.setFillColor(13, 148, 136)
+    doc.roundedRect(iconX, iconY, iconSize, iconSize, 3, 3, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('S', iconX + iconSize / 2, iconY + iconSize / 2 + 3.2, { align: 'center' })
+  }
+
+  // Left Header Text
+  const textStartX = iconX + iconSize + 4.5
+  doc.setTextColor(153, 246, 228) // Teal-200
+  doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
-  doc.text('Customer Intelligence Report', 14, 25)
-  
-  doc.setFontSize(10)
+  doc.text('SERVORA INTELLIGENCE SUITE  •  GUEST LIFETIME VALUE AUDIT', textStartX, 15)
+
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Customer Intelligence Report', textStartX, 23.5)
+
+  doc.setTextColor(148, 163, 184) // Slate-400
+  doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 32)
+  doc.text('Comprehensive guest directory, loyalty breakdown & lifetime value analysis', textStartX, 30)
+
+  // Right Header Content (Restaurant Name & Badges)
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text(safeRestaurantName, pageWidth - 14, 16, { align: 'right' })
+
+  doc.setTextColor(148, 163, 184)
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Generated: ${generatedDate} • ${generatedTime}`, pageWidth - 14, 22.5, { align: 'right' })
+
+  // Confidential Badge Pill on Top Right
+  const badgeText = 'CONFIDENTIAL CRM'
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  const bWidth = doc.getTextWidth(badgeText) + 8
+  const bHeight = 5
+  const bX = pageWidth - 14 - bWidth
+  const bY = 27
+  doc.setFillColor(245, 158, 11) // Amber
+  doc.roundedRect(bX, bY, bWidth, bHeight, 1.2, 1.2, 'F')
+  doc.setTextColor(15, 23, 42) // Dark text
+  doc.text(badgeText, bX + bWidth / 2, bY + 3.6, { align: 'center' })
+
+  // ── 3. Section Title 1: Key CRM Performance Indicators ──
+  const sec1Y = 51
+  doc.setFillColor(13, 148, 136) // Teal bar
+  doc.rect(14, sec1Y, 2.5, 5, 'F')
+
+  doc.setTextColor(15, 23, 42) // Slate-900
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text('EXECUTIVE GUEST INTELLIGENCE & LTV METRICS', 19, sec1Y + 4)
+
+  // ── 4. Luxury 4-Card Hero Metric Grid (Y: 58mm to 80mm) ──
+  const cardY = 58
+  const cardH = 22
+  const cardSpacing = 4
+  const totalCardsW = pageWidth - 28 // 182mm
+  const cardW = (totalCardsW - (3 * cardSpacing)) / 4 // 42.5mm each
+
+  const totalRev = stats.revenue !== undefined ? stats.revenue : list.reduce((s, c) => s + (c.totalSpent || 0), 0)
+  const totalCount = stats.total !== undefined ? stats.total : list.length
+  const vipCount = stats.vip !== undefined ? stats.vip : list.filter(c => c.tag === 'VIP').length
+  const retRate = stats.retention !== undefined ? stats.retention : (list.length > 0 ? ((list.filter(c => c.visits > 1).length / list.length) * 100).toFixed(1) : '0')
+
+  const kpis = [
+    {
+      pill: 'TOTAL CUSTOMERS',
+      val: String(totalCount),
+      sub: 'Active Profiles',
+      subColor: [99, 102, 241],
+      accent: [99, 102, 241], // Indigo
+    },
+    {
+      pill: 'CUMULATIVE LTV',
+      val: fmtPdfCurrency(totalRev),
+      sub: 'Lifetime Spend',
+      subColor: [5, 150, 105],
+      accent: [16, 185, 129], // Emerald
+    },
+    {
+      pill: 'VIP CHAMPIONS',
+      val: `${vipCount} Members`,
+      sub: `${totalCount > 0 ? Math.round((vipCount / totalCount) * 100) : 0}% High LTV Tier`,
+      subColor: [180, 83, 9],
+      accent: [245, 158, 11], // Amber
+    },
+    {
+      pill: 'REPEAT RATE',
+      val: `${retRate}%`,
+      sub: 'Retention Ratio',
+      subColor: [13, 148, 136],
+      accent: [13, 148, 136], // Teal
+    }
+  ]
+
+  kpis.forEach((kpi, idx) => {
+    const cX = 14 + idx * (cardW + cardSpacing)
+    
+    // Card background
+    doc.setFillColor(248, 250, 252) // Slate-50
+    doc.roundedRect(cX, cardY, cardW, cardH, 2.5, 2.5, 'F')
+    
+    // Card border
+    doc.setDrawColor(226, 232, 240) // Slate-200
+    doc.setLineWidth(0.3)
+    doc.roundedRect(cX, cardY, cardW, cardH, 2.5, 2.5, 'S')
+
+    // Top colored indicator strip (2mm)
+    doc.setFillColor(kpi.accent[0], kpi.accent[1], kpi.accent[2])
+    doc.roundedRect(cX, cardY, cardW, 2, 1, 1, 'F')
+
+    // Label Pill
+    doc.setTextColor(100, 116, 139) // Slate-500
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica', 'bold')
+    doc.text(kpi.pill, cX + 3.5, cardY + 6.5)
+
+    // Main Value
+    doc.setTextColor(15, 23, 42) // Slate-900
+    doc.setFontSize(10.5)
+    doc.setFont('helvetica', 'bold')
+    doc.text(kpi.val, cX + 3.5, cardY + 12.5)
+
+    // Subtext
+    doc.setTextColor(kpi.subColor[0], kpi.subColor[1], kpi.subColor[2])
+    doc.setFontSize(6)
+    doc.setFont('helvetica', 'bold')
+    doc.text(kpi.sub, cX + 3.5, cardY + 17.5)
+  })
+
+  // ── 5. Section Title 2: Customer Registry & Loyalty Breakdown ──
+  const sec2Y = 87
+  doc.setFillColor(245, 158, 11) // Amber bar
+  doc.rect(14, sec2Y, 2.5, 5, 'F')
+
+  doc.setTextColor(15, 23, 42)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text('CUSTOMER DIRECTORY & RETENTION MATRIX', 19, sec2Y + 4)
+
+  const countBadge = `${list.length} Registered Diners`
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100, 116, 139)
+  doc.text(countBadge, pageWidth - 14, sec2Y + 4, { align: 'right' })
+
+  // ── 6. High-Impact Customer Directory Table ──
+  const tableHeaders = [['#', 'Customer Name', 'Contact Info', 'Tier', 'Visits', 'Total Spend (LTV)', 'Loyalty', 'Health']]
   
-  const header = [['Name', 'Contact', 'Tier', 'Visits', 'Total Spent', 'Loyalty', 'Health']]
-  const rows = list.map(c => [
-    c.name,
-    c.email || c.phone || '-',
-    c.tag,
-    c.visits,
-    fmtCurrency(c.totalSpent),
+  const tableRows = list.map((c, index) => [
+    String(index + 1).padStart(2, '0'),
+    c.name || 'Guest Customer',
+    c.email || c.phone || '—',
+    c.tag || 'New',
+    String(c.visits || 1),
+    fmtPdfCurrency(c.totalSpent),
     `${loyaltyScore(c)}/100`,
-    c.health
+    c.health || 'Healthy'
   ])
 
   autoTable(doc, {
-    startY: 45,
-    head: header,
-    body: rows,
-    theme: 'grid',
-    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    styles: { font: 'helvetica', fontSize: 9, cellPadding: 4 },
+    startY: 94,
+    head: tableHeaders,
+    body: tableRows,
+    theme: 'plain',
+    margin: { left: 14, right: 14, bottom: 18 },
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 7.5,
+      cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
+      halign: 'left',
+    },
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      cellPadding: { top: 3.2, bottom: 3.2, left: 3, right: 3 },
+      textColor: [30, 41, 59],
+      lineColor: [238, 242, 246],
+      lineWidth: 0.15,
+    },
+    alternateRowStyles: {
+      fillColor: [249, 250, 252], // Subtle Slate-50 zebra
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 10, fontStyle: 'bold', textColor: [148, 163, 184], cellPadding: { top: 3.2, bottom: 3.2, left: 1, right: 1 } },
+      1: { halign: 'left', cellWidth: 38, fontStyle: 'bold', textColor: [15, 23, 42] },
+      2: { halign: 'left', cellWidth: 34, textColor: [71, 85, 105] },
+      3: { halign: 'center', cellWidth: 22 },
+      4: { halign: 'center', cellWidth: 16, fontStyle: 'bold', textColor: [71, 85, 105] },
+      5: { halign: 'right', cellWidth: 26, fontStyle: 'bold', textColor: [15, 23, 42] },
+      6: { halign: 'center', cellWidth: 16, fontStyle: 'bold', textColor: [99, 102, 241] },
+      7: { halign: 'center', cellWidth: 20 },
+    },
     didParseCell: function (data) {
-      if (data.section === 'body' && data.column.index === 2) { // Tier column
-        if (data.cell.raw === 'VIP') data.cell.styles.textColor = [217, 119, 6] // Amber
-        if (data.cell.raw === 'At Risk') data.cell.styles.textColor = [220, 38, 38] // Red
+      // Suppress default text in Tier and Health columns to prevent double-text overlay
+      if (data.section === 'body' && (data.column.index === 3 || data.column.index === 7)) {
+        data.cell._rawText = String(data.cell.raw || '').toUpperCase()
+        data.cell.text = [] // Suppress default text rendering
       }
-      if (data.section === 'body' && data.column.index === 6) { // Health column
-        if (data.cell.raw === 'At Risk') data.cell.styles.textColor = [220, 38, 38] // Red
-        if (data.cell.raw === 'Healthy') data.cell.styles.textColor = [5, 150, 105] // Green
+    },
+    didDrawCell: function (data) {
+      // Custom Crisp Pill Badges for Tier (index 3) and Health (index 7)
+      if (data.section === 'body') {
+        // Tier Pill
+        if (data.column.index === 3) {
+          const rawText = data.cell._rawText || String(data.cell.raw || '').toUpperCase()
+          let bgColor = [240, 253, 250] // Teal-50
+          let borderColor = [153, 246, 228]
+          let textColor = [13, 148, 136]
+
+          if (rawText.includes('VIP')) {
+            bgColor = [254, 243, 199] // Amber-50
+            borderColor = [253, 230, 138]
+            textColor = [180, 83, 9]
+          } else if (rawText.includes('REGULAR')) {
+            bgColor = [239, 246, 255] // Blue-50
+            borderColor = [191, 219, 254]
+            textColor = [29, 78, 216]
+          } else if (rawText.includes('RISK')) {
+            bgColor = [255, 241, 242] // Rose-50
+            borderColor = [254, 205, 211]
+            textColor = [225, 29, 72]
+          }
+
+          const cell = data.cell
+          const pillW = cell.width - 4
+          const pillH = 5
+          const pillX = cell.x + 2
+          const pillY = cell.y + (cell.height - pillH) / 2
+
+          doc.setFillColor(bgColor[0], bgColor[1], bgColor[2])
+          doc.roundedRect(pillX, pillY, pillW, pillH, 1.2, 1.2, 'F')
+          doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
+          doc.setLineWidth(0.2)
+          doc.roundedRect(pillX, pillY, pillW, pillH, 1.2, 1.2, 'S')
+
+          doc.setTextColor(textColor[0], textColor[1], textColor[2])
+          doc.setFontSize(6.5)
+          doc.setFont('helvetica', 'bold')
+          doc.text(rawText, cell.x + cell.width / 2, pillY + 3.5, { align: 'center' })
+        }
+
+        // Health Pill
+        if (data.column.index === 7) {
+          const rawText = data.cell._rawText || String(data.cell.raw || '').toUpperCase()
+          let bgColor = [236, 253, 245] // Emerald-50
+          let borderColor = [167, 243, 208]
+          let textColor = [5, 150, 105]
+
+          if (rawText.includes('RISK') || rawText.includes('CHURN')) {
+            bgColor = [255, 241, 242] // Rose-50
+            borderColor = [254, 205, 211]
+            textColor = [220, 38, 38]
+          }
+
+          const cell = data.cell
+          const pillW = cell.width - 4
+          const pillH = 5
+          const pillX = cell.x + 2
+          const pillY = cell.y + (cell.height - pillH) / 2
+
+          doc.setFillColor(bgColor[0], bgColor[1], bgColor[2])
+          doc.roundedRect(pillX, pillY, pillW, pillH, 1.2, 1.2, 'F')
+          doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
+          doc.setLineWidth(0.2)
+          doc.roundedRect(pillX, pillY, pillW, pillH, 1.2, 1.2, 'S')
+
+          doc.setTextColor(textColor[0], textColor[1], textColor[2])
+          doc.setFontSize(6.5)
+          doc.setFont('helvetica', 'bold')
+          doc.text(rawText, cell.x + cell.width / 2, pillY + 3.5, { align: 'center' })
+        }
+      }
+    },
+    didDrawPage: function (data) {
+      if (data.pageNumber > 1) {
+        drawWatermark()
+
+        // Continuation Page Slim Header Bar
+        doc.setFillColor(11, 15, 25)
+        doc.rect(0, 0, pageWidth, 12, 'F')
+        
+        doc.setFillColor(13, 148, 136)
+        doc.rect(0, 0, pageWidth, 1.2, 'F')
+
+        if (logoImg) {
+          doc.addImage(logoImg, 'PNG', 14, 2, 8, 8)
+          doc.setTextColor(255, 255, 255)
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'bold')
+          doc.text('SERVORA | CUSTOMER INTELLIGENCE REPORT', 25, 8)
+        } else {
+          doc.setTextColor(255, 255, 255)
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'bold')
+          doc.text('SERVORA | CUSTOMER INTELLIGENCE REPORT', 14, 8)
+        }
+
+        doc.setTextColor(148, 163, 184)
+        doc.setFontSize(7.5)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`${safeRestaurantName} • Page ${data.pageNumber}`, pageWidth - 14, 8, { align: 'right' })
       }
     }
   })
 
-  // Footer
-  const pageCount = typeof doc.getNumberOfPages === 'function' 
+  // ── 7. Multi-Page Footer Stamp ──
+  const totalPages = typeof doc.getNumberOfPages === 'function' 
     ? doc.getNumberOfPages() 
     : (doc.internal?.pages ? Math.max(1, doc.internal.pages.length - 1) : 1)
-  for (let i = 1; i <= pageCount; i++) {
+
+  for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(150)
-    doc.text(`Page ${i} of ${pageCount} • Servora Restaurant OS`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' })
+    
+    // Footer divider
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.2)
+    doc.line(14, pageHeight - 11, pageWidth - 14, pageHeight - 11)
+
+    // Left
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(148, 163, 184)
+    doc.text('CONFIDENTIAL • FOR AUTHORIZED RESTAURANT OPERATORS ONLY', 14, pageHeight - 6.5)
+
+    // Center
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    doc.text('POWERED BY SERVORA RESTAURANT OS', pageWidth / 2, pageHeight - 6.5, { align: 'center' })
+
+    // Right
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 6.5, { align: 'right' })
   }
 
-  doc.save('customer_report.pdf')
+  const filename = `${safeRestaurantName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_customer_intelligence_${new Date().toISOString().split('T')[0]}.pdf`
+  doc.save(filename)
 }
+
+
 
 // ── Reusable: Stat card ──────────────────────────────────────────────────────
 const BG_MAP = {
@@ -327,6 +698,8 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
   const [sortDir, setSortDir] = useState('desc')
 
   const { orderHistory, loading: ordersLoading, refreshOrders } = useOrderManagement(restaurantId)
+  const { profile } = useRestaurantProfile(restaurantId)
+  const restaurantName = profile?.name || profile?.business_name || 'Tiger Bistro'
   const [dbCustomers, setDbCustomers] = useState([])
   const [customersLoading, setCustomersLoading] = useState(true)
 
@@ -502,7 +875,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40 rounded-xl">
               <DropdownMenuItem onClick={() => exportCSV(customers)} className="font-medium cursor-pointer">Export as CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportPDF(customers)} className="font-medium cursor-pointer text-teal-600 focus:text-teal-700">Export as PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportPDF(customers, stats, restaurantName)} className="font-medium cursor-pointer text-teal-600 focus:text-teal-700">Export as PDF</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -893,7 +1266,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40 rounded-xl">
                 <DropdownMenuItem onClick={() => exportCSV(filteredCustomers)} className="font-medium cursor-pointer">Export as CSV</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportPDF(filteredCustomers)} className="font-medium cursor-pointer text-teal-600 focus:text-teal-700">Export as PDF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportPDF(filteredCustomers, stats, restaurantName)} className="font-medium cursor-pointer text-teal-600 focus:text-teal-700">Export as PDF</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
