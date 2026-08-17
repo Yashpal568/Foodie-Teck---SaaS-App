@@ -368,7 +368,7 @@ export default function SubscriptionLockOverlay({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 text-slate-900 flex flex-col justify-between overflow-y-auto font-sans relative select-none">
+    <div className="fixed inset-0 z-50 bg-slate-50 text-slate-900 flex flex-col justify-between overflow-y-auto font-sans select-none">
       
       {/* ── Layer 1: Nano Restaurant Photography Backdrop with Vignette ── */}
       <div 
@@ -381,13 +381,13 @@ export default function SubscriptionLockOverlay({
       />
 
       {/* ── Layer 2: Subtle Dot Grid Engineering Matrix ── */}
-      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:24px_24px] opacity-35" />
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(#94a3b8_1px,transparent_1px)] bg-size-[24px_24px] opacity-35" />
 
       {/* ── Layer 3: Warm Ambient Glow Lighting Aura ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-gradient-to-b from-indigo-200/50 via-blue-100/30 to-transparent rounded-full blur-3xl opacity-80" />
-        <div className="absolute top-1/3 -right-20 w-[600px] h-[600px] bg-amber-100/45 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 -left-20 w-[550px] h-[550px] bg-indigo-100/35 rounded-full blur-3xl" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-250 h-137.5 bg-linear-to-b from-indigo-200/50 via-blue-100/30 to-transparent rounded-full blur-3xl opacity-80" />
+        <div className="absolute top-1/3 -right-20 w-150 h-150 bg-amber-100/45 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 -left-20 w-137.5 h-137.5 bg-indigo-100/35 rounded-full blur-3xl" />
       </div>
 
       {/* ── Executive Top Navbar Bar ── */}
@@ -467,7 +467,7 @@ export default function SubscriptionLockOverlay({
 
               {/* Header Icon with Dynamic Ring */}
               <div className="relative mx-auto w-12 h-12 mb-2.5 flex items-center justify-center">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/80 text-amber-600 flex items-center justify-center shadow-xs">
+                <div className="w-12 h-12 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200/80 text-amber-600 flex items-center justify-center shadow-xs">
                   {isApproved ? (
                     <CheckCircle2 className="w-6 h-6 text-emerald-600 animate-bounce" />
                   ) : (
@@ -698,7 +698,7 @@ export default function SubscriptionLockOverlay({
                     >
                       {/* Featured Center Card Top Floating Ribbon */}
                       {isFeatured && (
-                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-600 text-white font-extrabold text-[10px] rounded-full uppercase tracking-wider shadow-md shadow-indigo-500/30 flex items-center gap-1.5">
+                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-linear-to-r from-indigo-600 via-blue-600 to-indigo-600 text-white font-extrabold text-[10px] rounded-full uppercase tracking-wider shadow-md shadow-indigo-500/30 flex items-center gap-1.5">
                           <Flame className="w-3.5 h-3.5 fill-current text-amber-300" />
                           <span>MOST POPULAR &bull; BEST VALUE</span>
                         </div>
@@ -710,7 +710,7 @@ export default function SubscriptionLockOverlay({
                           <div className="flex items-center gap-3">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs transition-transform group-hover:scale-110 duration-200 ${
                               isFeatured
-                                ? 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/30'
+                                ? 'bg-linear-to-br from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/30'
                                 : isSelected
                                   ? 'bg-indigo-600 text-white'
                                   : 'bg-slate-100 text-slate-700 group-hover:bg-indigo-50 group-hover:text-indigo-600'
@@ -800,7 +800,7 @@ export default function SubscriptionLockOverlay({
                           }}
                           className={`w-full rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                             isFeatured
-                              ? 'h-12 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg shadow-indigo-600/30'
+                              ? 'h-12 bg-linear-to-r from-indigo-600 via-blue-600 to-indigo-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg shadow-indigo-600/30'
                               : isSelected 
                                 ? 'h-11 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20' 
                                 : 'h-11 bg-slate-900 hover:bg-indigo-600 text-white'

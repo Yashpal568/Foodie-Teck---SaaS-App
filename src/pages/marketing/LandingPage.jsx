@@ -158,7 +158,7 @@ export default function HomePage() {
         <meta name="keywords" content="restaurant pos system, digital qr menu, kitchen display system, restaurant analytics, table management software, cafe management, smart menu, hospitality software" />
       </Helmet>
       {/* ─── Hero Section ───────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-40 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-50/20 via-white to-white">
+      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-40 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-blue-50/20 via-white to-white">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
@@ -168,18 +168,19 @@ export default function HomePage() {
           >
             <div className="inline-flex items-center gap-2.5 px-5 py-2 bg-blue-50 text-blue-600 rounded-full border border-blue-100 shadow-sm animate-bounce-subtle">
                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-               <span className="text-[11px] font-black uppercase tracking-widest leading-none">AI-Powered Experience Engine</span>
+               <span className="text-xs font-black uppercase tracking-widest">Next-Gen Dining Protocol</span>
             </div>
-
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-950 tracking-tightest leading-[1.05] lg:leading-[1.1]">
-              The <span className="text-blue-600">Future</span> of Modern <br className="hidden lg:block"/> Dining.
+            
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-slate-950 tracking-tight leading-[1.05]">
+              Redefining the <br />
+              <span className="bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent italic">Culinary Canvas</span>
             </h1>
 
-            <p className="text-lg sm:text-xl lg:text-2xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
-              Servora transforms your restaurant with precision QR ordering, live kitchen synchronization, and deep performance analytics.
+            <p className="text-xl text-slate-600 max-w-xl mx-auto lg:mx-0 font-medium leading-relaxed">
+              Supercharge your restaurant with AI-driven operations, instant contactless ordering, and real-time floor telemetry.
             </p>
 
-            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center lg:justify-start gap-3 pt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
               <Button 
                 size="lg" 
                 className="w-full sm:w-auto h-14 sm:h-16 px-8 sm:px-10 rounded-2xl sm:rounded-[1.5rem] bg-slate-950 hover:bg-black text-white font-bold text-base sm:text-lg shadow-2xl shadow-slate-950/20 active:scale-95 transition-all flex items-center justify-center gap-3 group"
@@ -187,15 +188,6 @@ export default function HomePage() {
               >
                 Initialize System
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Button 
-                size="lg" 
-                variant="ghost" 
-                className="w-full sm:w-auto h-14 sm:h-16 px-6 sm:px-8 rounded-2xl sm:rounded-[1.5rem] bg-blue-50/90 hover:bg-blue-100 text-blue-700 font-bold text-base sm:text-lg transition-all flex items-center justify-center gap-2.5 active:scale-95 border border-blue-200/60"
-                onClick={() => navigate('/console/demo-merchant')}
-              >
-                <LayoutDashboard className="w-5 h-5 text-blue-600" />
-                Live Dashboard Demo
               </Button>
               <Button 
                 size="lg" 
@@ -241,7 +233,7 @@ export default function HomePage() {
                className="cursor-pointer relative z-10 rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-2xl shadow-slate-900/10 border-4 sm:border-8 border-white group"
             >
                <img src={HERO_IMAGE} alt="Premium Dining UI" className="w-full h-auto transform group-hover:scale-110 transition-transform duration-[3s]" />
-               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+               <div className="absolute inset-0 bg-linear-to-t from-slate-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-white/20 backdrop-blur-3xl flex items-center justify-center text-white scale-0 group-hover:scale-100 transition-transform duration-500">
                   <QrCode className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                </div>
@@ -434,7 +426,7 @@ export default function HomePage() {
       {/* ─── Subscription Plans (Pricing) ────────────────────────────── */}
       <section id="pricing" className="py-32 bg-slate-950 relative overflow-hidden">
         {/* Background Effects */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-linear-to-r from-transparent via-blue-500/50 to-transparent" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[150px] rounded-full" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-600/10 blur-[150px] rounded-full" />
 
@@ -484,7 +476,7 @@ export default function HomePage() {
                   {p.features.map(f => (
                     <div key={f} className="flex items-center gap-3">
                       <div className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
+                        "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
                         p.popular ? "bg-white/20" : "bg-blue-500/20"
                       )}>
                         <CheckCircle className={cn(
@@ -548,7 +540,7 @@ export default function HomePage() {
 
       {/* ─── CTA Banner ───────────────────────────────────────────────── */}
       <section className="py-24 bg-white">
-        <div className="max-w-screen-xl mx-auto px-6">
+        <div className="max-w-7xl mx-auto px-6">
            <div className="relative p-12 lg:p-24 bg-slate-50 rounded-[3rem] overflow-hidden group border border-slate-100 shadow-sm">
               <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-[0.03] transition-opacity duration-1000" />
               <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/5 blur-[120px] rounded-full" />
@@ -558,8 +550,8 @@ export default function HomePage() {
                  <div className="space-y-8">
                     <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter leading-[1.1]">
                        Ready to <span className="relative inline-block px-1">
-                          <span className="relative z-10 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent italic">Revolutionize</span>
-                          <span className="absolute bottom-2 left-0 w-full h-3 bg-blue-600/10 -rotate-1 rounded-full -z-0" />
+                          <span className="relative z-10 bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent italic">Revolutionize</span>
+                          <span className="absolute bottom-2 left-0 w-full h-3 bg-blue-600/10 -rotate-1 rounded-full z-0" />
                        </span> Your Service?
                     </h2>
                     <p className="text-xl text-slate-500 font-medium leading-relaxed max-w-sm">
@@ -580,10 +572,10 @@ export default function HomePage() {
                  </div>
 
                  <div className="relative">
-                    <div className="absolute -inset-4 bg-gradient-to-tr from-blue-600/20 to-indigo-600/20 rounded-[4rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                    <div className="absolute -inset-4 bg-linear-to-tr from-blue-600/20 to-indigo-600/20 rounded-[4rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                     <div className="relative w-full aspect-square rounded-[3.5rem] bg-white border-8 border-white shadow-2xl overflow-hidden flex flex-col items-center justify-center space-y-8">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-white" />
-                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 to-indigo-600" />
+                        <div className="absolute inset-0 bg-linear-to-br from-blue-50/50 via-white to-white" />
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-blue-600 to-indigo-600" />
                         
                         <div className="w-32 h-32 rounded-[2rem] bg-blue-50 border border-blue-100 flex items-center justify-center shadow-inner group-hover:rotate-12 transition-transform duration-700">
                            <Logo iconSize={80} className="scale-110" />

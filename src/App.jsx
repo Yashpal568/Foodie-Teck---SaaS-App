@@ -91,7 +91,7 @@ function DashboardRedirect() {
 function App() {
   return (
     <Router>
-      <Toaster position="top-right" richColors closeButton duration={4000} className="z-[99999]" toastOptions={{ style: { zIndex: 999999 } }} />
+      <Toaster position="top-right" richColors closeButton duration={4000} className="z-99999" toastOptions={{ style: { zIndex: 999999 } }} />
       <MaintenanceGuard>
         <Routes>
           {/* Marketing Routes */}

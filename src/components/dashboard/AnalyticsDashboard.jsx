@@ -487,7 +487,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
         {/* 🌟 1. HERO HEADER WITH SHADCN STUDIO CONTROLS */}
         <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0">
+            <div className="w-14 h-14 bg-linear-to-tr from-indigo-600 via-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0">
               <BarChart3 className="w-7 h-7 text-white" />
             </div>
             <div>
@@ -692,7 +692,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                   </div>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <div className="h-[350px] w-full min-h-[350px] relative">
+                  <div className="h-87.5 w-full min-h-87.5 relative">
                     {isChartReady ? (
                       <div className="absolute inset-0 w-full h-full">
                         <ResponsiveContainer width="99%" height={350} debounce={50}>
@@ -732,7 +732,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                               type="monotone" 
                               dataKey="revenue" 
                               stroke="#10b981" 
-                              strokeWidth={3}
+                              strokeWidth={3} 
                               fillOpacity={1} 
                               fill="url(#colorRevenue)" 
                               animationDuration={1500}
@@ -755,7 +755,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                   <CardTitle className="text-lg font-bold text-slate-800">Growth Breakdown</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 flex-1 overflow-hidden flex flex-col justify-between">
-                  <div className={cn("divide-y overflow-y-auto", isHistoryExpanded ? "max-h-[380px]" : "max-h-[290px]")}>
+                  <div className={cn("divide-y overflow-y-auto", isHistoryExpanded ? "max-h-95" : "max-h-72.5")}>
                     {revenueTrend.slice(isHistoryExpanded ? 0 : -5).reverse().map((day, index) => (
                       <div key={index} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                         <div className="space-y-1">
@@ -983,7 +983,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="h-[280px] w-full min-h-[280px]">
+                <div className="h-70 w-full min-h-70">
                   <ResponsiveContainer width="99%" height={280}>
                     <BarChart data={hourlyPeakData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

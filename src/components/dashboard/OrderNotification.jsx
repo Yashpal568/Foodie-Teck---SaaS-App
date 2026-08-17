@@ -182,7 +182,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
             }
           }}
           whileDrag={{ scale: 0.98, opacity: 0.88 }}
-          className="fixed top-3 left-3 right-3 sm:left-auto sm:right-6 sm:top-6 sm:max-w-sm z-[9999] cursor-grab active:cursor-grabbing mx-auto select-none touch-pan-y"
+          className="fixed top-3 left-3 right-3 sm:left-auto sm:right-6 sm:top-6 sm:max-w-sm z-9999 cursor-grab active:cursor-grabbing mx-auto select-none touch-pan-y"
           onClick={() => {
             if (typeof onOrderClick === 'function') onOrderClick(toast)
             setToast(null)
@@ -190,7 +190,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
         >
           <div className="relative group overflow-hidden bg-white/95 backdrop-blur-2xl rounded-2xl sm:rounded-[2.2rem] border border-white/40 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.2)] ring-1 ring-black/5 p-1.5 transition-shadow">
             {/* Animated Background Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-indigo-500/10 transition-opacity group-hover:opacity-100" />
+            <div className="absolute inset-0 bg-linear-to-br from-blue-500/10 via-transparent to-indigo-500/10 transition-opacity group-hover:opacity-100" />
             
             {/* Mobile Drag Indicator Pill */}
             <div className="flex justify-center pb-1 sm:hidden">

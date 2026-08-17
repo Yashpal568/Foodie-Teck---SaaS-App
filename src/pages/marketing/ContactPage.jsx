@@ -84,7 +84,7 @@ export default function ContactPage() {
 
       {/* ─── Hero Section ─────────────────────────────────────────── */}
       <section className="relative px-4 sm:px-6 text-center space-y-4 sm:space-y-6 mb-12 sm:mb-20">
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-gradient-to-b from-indigo-50/50 to-transparent -z-10 blur-3xl opacity-50 pointer-events-none" />
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-100 bg-linear-to-b from-indigo-50/50 to-transparent -z-10 blur-3xl opacity-50 pointer-events-none" />
          <Badge variant="outline" className="px-4 py-1.5 rounded-full border-blue-500/40 bg-blue-50/50 text-blue-600 font-bold uppercase tracking-[0.15em] text-[10px]">
             Direct Transmission Hub
          </Badge>
@@ -155,7 +155,7 @@ export default function ContactPage() {
               initial={{ opacity: 0, scale: 0.98 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              className="lg:col-span-7 relative p-6 sm:p-10 md:p-12 rounded-3xl sm:rounded-[2.5rem] bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 text-white shadow-2xl shadow-slate-950/20 border border-slate-800 overflow-hidden"
+              className="lg:col-span-7 relative p-6 sm:p-10 md:p-12 rounded-3xl sm:rounded-[2.5rem] bg-linear-to-b from-slate-900 via-slate-950 to-slate-950 text-white shadow-2xl shadow-slate-950/20 border border-slate-800 overflow-hidden"
            >
               {/* Ambient Backlight */}
               <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600/15 blur-3xl rounded-full pointer-events-none" />
@@ -217,7 +217,7 @@ export default function ContactPage() {
                           id="contact-message"
                           value={formData.message}
                           onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                          className="min-h-[110px] sm:min-h-[130px] rounded-xl sm:rounded-2xl bg-white/5 border-white/10 text-white placeholder:text-slate-500 font-medium focus:border-blue-500 focus:ring-blue-500/20 p-4 text-sm resize-none" 
+                          className="min-h-27.5 sm:min-h-32.5 rounded-xl sm:rounded-2xl bg-white/5 border-white/10 text-white placeholder:text-slate-500 font-medium focus:border-blue-500 focus:ring-blue-500/20 p-4 text-sm resize-none" 
                           placeholder="Tell us about your restaurant, tables, or integration requirements..." 
                           required
                        />

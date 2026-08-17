@@ -135,11 +135,11 @@ export default function UpgradePlanModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[580px] p-0 gap-0 bg-white border-0 shadow-2xl shadow-slate-900/15 rounded-3xl overflow-hidden [&>button]:hidden">
+        <DialogContent className="sm:max-w-145 p-0 gap-0 bg-white border-0 shadow-2xl shadow-slate-900/15 rounded-3xl overflow-hidden [&>button]:hidden">
           <DialogTitle className="sr-only">Upgrade Plan</DialogTitle>
           <DialogDescription className="sr-only">Upgrade your current Servora plan.</DialogDescription>
           {/* Top gradient accent bar */}
-          <div className="h-[3px] w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
+          <div className="h-0.75 w-full bg-linear-to-r from-indigo-500 via-violet-500 to-purple-500" />
 
           <div className="p-6 sm:p-7">
             {/* Header */}
@@ -182,7 +182,7 @@ export default function UpgradePlanModal({
                     initial={{ width: 0 }}
                     animate={{ width: `${limitInfo.usagePct}%` }}
                     transition={{ duration: 0.7, ease: 'easeOut' }}
-                    className="h-1.5 rounded-full bg-gradient-to-r from-orange-400 to-red-500"
+                    className="h-1.5 rounded-full bg-linear-to-r from-orange-400 to-red-500"
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1.5 font-semibold">{limitInfo.usagePct}% of limit used — upgrade to unlock more</p>
@@ -271,7 +271,7 @@ export default function UpgradePlanModal({
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowUPIModal(true)}
-                className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:opacity-90 text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 h-12 rounded-2xl bg-linear-to-r from-indigo-600 via-violet-600 to-purple-600 hover:opacity-90 text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <QrCode className="w-3.5 h-3.5" />
                 Upgrade to {targetUpgradePlan.name} — ₹{targetUpgradePlan.price.toLocaleString('en-IN')}/mo

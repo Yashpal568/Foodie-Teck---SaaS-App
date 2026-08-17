@@ -30,7 +30,30 @@ import { supabase } from '@/lib/api'
 import { getCachedSession } from '@/lib/supabase'
 import { getPlanDetails } from '@/utils/planLimits'
 
-export default function Navbar({ activeItem, setActiveItem, currency, onCurrencyChange, restaurantId, plan, onUpgradeClick }) {
+/**
+ * @param {{
+ *   activeItem?: any,
+ *   setActiveItem?: any,
+ *   currency?: any,
+ *   onCurrencyChange?: any,
+ *   restaurantId?: any,
+ *   plan?: any,
+ *   onUpgradeClick?: any,
+ *   isCollapsed?: boolean,
+ *   setIsCollapsed?: any
+ * }} props
+ */
+export default function Navbar({ 
+  activeItem, 
+  setActiveItem, 
+  currency, 
+  onCurrencyChange, 
+  restaurantId, 
+  plan, 
+  onUpgradeClick, 
+  isCollapsed = false, 
+  setIsCollapsed = () => {} 
+}) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [showResults, setShowResults] = useState(false)
@@ -128,7 +151,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[280px] bg-white border-r-0">
+            <SheetContent side="left" className="p-0 w-70 bg-white border-r-0">
               <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
               <Sidebar 
                 activeItem={activeItem}
@@ -137,6 +160,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
                   setIsMobileMenuOpen(false)
                 }}
                 isCollapsed={false}
+                setIsCollapsed={setIsCollapsed || (() => {})}
                 isMobile={true}
                 restaurantId={restaurantId}
               />
@@ -234,7 +258,7 @@ export default function Navbar({ activeItem, setActiveItem, currency, onCurrency
             {getPlanDetails(plan?.name).name !== 'Enterprise' && (
               <button
                 onClick={onUpgradeClick}
-                className="hidden xl:flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                className="hidden xl:flex items-center gap-1 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap"
               >
                 <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
                 <span>Upgrade</span>

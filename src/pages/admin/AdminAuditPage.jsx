@@ -161,7 +161,7 @@ export default function AdminAuditPage() {
                      <tr>
                         <td colSpan={5} className="py-32 text-center space-y-4 opacity-30">
                            <Database className="w-16 h-16 mx-auto text-slate-300" />
-                           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 tracking-[0.4em]">Zero Mutations Tracked in Buffer</p>
+                           <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em]">Zero Mutations Tracked in Buffer</p>
                         </td>
                      </tr>
                   )}

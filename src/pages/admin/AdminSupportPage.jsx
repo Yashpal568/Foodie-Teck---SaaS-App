@@ -196,7 +196,7 @@ export default function AdminSupportPage() {
             />
          </div>
          <Select value={activeFilter} onValueChange={setActiveFilter}>
-            <SelectTrigger className="w-full sm:w-[180px] h-11 bg-white border-slate-200 rounded-xl shadow-sm">
+            <SelectTrigger className="w-full sm:w-45 h-11 bg-white border-slate-200 rounded-xl shadow-sm">
                <div className="flex items-center gap-2 text-sm font-medium">
                   <Filter className="w-4 h-4 text-slate-400" />
                   <SelectValue placeholder="Filter Status" />

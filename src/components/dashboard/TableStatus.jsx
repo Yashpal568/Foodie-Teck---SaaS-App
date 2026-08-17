@@ -192,7 +192,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
             'needs-cleaning': 'text-amber-600'
           };
           return (
-            <div key={status} className="bg-white border border-zinc-200/80 shadow-sm px-1 py-2.5 rounded-[16px] flex flex-col items-center text-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+            <div key={status} className="bg-white border border-zinc-200/80 shadow-sm px-1 py-2.5 rounded-3xl flex flex-col items-center text-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <p className={`text-lg font-black leading-none ${colorMap[status]}`}>{stats[status] || 0}</p>
               <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest mt-1 leading-tight">
                 {statusConfig[status].label.split(' ').map((w, i) => <span key={i} className="block">{w}</span>)}
@@ -219,9 +219,9 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                   transition={{ duration: 0.15 }}
                 >
                   <div 
-                    className={`w-full rounded-[20px] p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer ${
+                    className={`w-full rounded-4xl p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer ${
                       isOccupied 
-                        ? 'bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-500/30 shadow-[0_8px_30px_rgb(79,70,229,0.25)] hover:shadow-[0_12px_40px_rgb(79,70,229,0.4)]' 
+                        ? 'bg-linear-to-br from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-500/30 shadow-[0_8px_30px_rgb(79,70,229,0.25)] hover:shadow-[0_12px_40px_rgb(79,70,229,0.4)]' 
                         : 'bg-white border border-zinc-200/80 shadow-sm hover:shadow-md hover:border-zinc-300'
                     }`}
                     onClick={() => setSelectedTable(table)}
@@ -273,13 +273,13 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                           </div>
                         </div>
 
-                        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[12px] p-2.5 px-3 flex justify-between items-center font-black text-xs shadow-sm mt-1">
+                        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-2.5 px-3 flex justify-between items-center font-black text-xs shadow-sm mt-1">
                           <span className="text-indigo-300 text-[10px] uppercase tracking-wider">Active Check</span>
                           <span className="text-white font-sans tracking-tight">Running</span>
                         </div>
                       </div>
                     ) : (
-                      <div className="py-4 mt-2.5 flex-1 flex flex-col items-center justify-center text-center bg-zinc-50/80 rounded-[12px] border border-dashed border-zinc-200">
+                      <div className="py-4 mt-2.5 flex-1 flex flex-col items-center justify-center text-center bg-zinc-50/80 rounded-2xl border border-dashed border-zinc-200">
                         <div className="w-7 h-7 bg-white rounded-full shadow-sm flex items-center justify-center mb-1.5">
                           <Utensils className="w-3.5 h-3.5 text-zinc-300" />
                         </div>
@@ -319,7 +319,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                       )}
 
                       {table.status === 'needs-cleaning' && (
-                        <Button size="sm" className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-8 rounded-xl text-[9px] font-bold text-white px-2 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5" onClick={(e) => {
+                        <Button size="sm" className="bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-8 rounded-xl text-[9px] font-bold text-white px-2 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5" onClick={(e) => {
                           e.stopPropagation();
                           handleStatusChange(tableNum, 'available');
                         }}>MARK READY</Button>
@@ -333,7 +333,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
 
       {/* 🧾 PREMIUM VIEW TABLE & POS CHECK MODAL */}
       <Dialog open={!!selectedTable} onOpenChange={(open) => !open && setSelectedTable(null)}>
-        <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border border-zinc-200/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-[32px] bg-white/60 backdrop-blur-3xl">
+        <DialogContent className="sm:max-w-120 p-0 overflow-hidden border border-zinc-200/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-[32px] bg-white/60 backdrop-blur-3xl">
           <DialogTitle className="sr-only">Table Management</DialogTitle>
           <DialogDescription className="sr-only">
             Manage table session, view active orders, and perform checkout actions.
@@ -341,9 +341,9 @@ const TableStatus = ({ restaurantId = 'default' }) => {
           {selectedTable && (
             <div className="flex flex-col h-full w-full bg-white/70">
               {/* Header */}
-              <div className="p-7 pb-5 flex items-center justify-between border-b border-zinc-100/80 bg-gradient-to-b from-white to-zinc-50/30">
+              <div className="p-7 pb-5 flex items-center justify-between border-b border-zinc-100/80 bg-linear-to-b from-white to-zinc-50/30">
                  <div className="flex items-center gap-4">
-                   <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl shadow-[0_8px_16px_-6px_rgba(99,102,241,0.5)] flex items-center justify-center text-lg font-black text-white border border-indigo-400/30">
+                   <div className="w-14 h-14 bg-linear-to-br from-indigo-500 to-violet-600 rounded-2xl shadow-[0_8px_16px_-6px_rgba(99,102,241,0.5)] flex items-center justify-center text-lg font-black text-white border border-indigo-400/30">
                       T-{selectedTable.table_number || selectedTable.tableNumber}
                    </div>
                    <div>
@@ -366,7 +366,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
 
               <div className="p-7 space-y-8 max-h-[72vh] overflow-y-auto">
                  {/* Live Customer Minutes Count Widget */}
-                 <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-indigo-50 via-white to-blue-50/50 p-6 border border-indigo-100/50 shadow-sm">
+                 <div className="relative overflow-hidden rounded-[24px] bg-linear-to-br from-indigo-50 via-white to-blue-50/50 p-6 border border-indigo-100/50 shadow-sm">
                     <div className="absolute top-0 right-0 p-4 opacity-5">
                       <Clock className="w-24 h-24" />
                     </div>
@@ -446,7 +446,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                          </div>
                       </div>
                     ) : (
-                      <div className="py-12 bg-gradient-to-b from-zinc-50/50 to-zinc-100/50 rounded-[24px] border border-dashed border-zinc-200 text-center flex flex-col items-center justify-center relative overflow-hidden">
+                      <div className="py-12 bg-linear-to-b from-zinc-50/50 to-zinc-100/50 rounded-[24px] border border-dashed border-zinc-200 text-center flex flex-col items-center justify-center relative overflow-hidden">
                          <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
                            <Receipt className="w-6 h-6 text-zinc-300" />
                          </div>
@@ -459,23 +459,23 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                  {/* Quick POS Actions */}
                  <div className="space-y-3 pt-6">
                     {selectedTable.status === 'occupied' && (
-                      <Button className="w-full bg-gradient-to-r from-zinc-900 to-zinc-800 hover:from-black hover:to-zinc-900 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-zinc-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'billing')}>
+                      <Button className="w-full bg-linear-to-r from-zinc-900 to-zinc-800 hover:from-black hover:to-zinc-900 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-zinc-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'billing')}>
                         <CreditCard className="w-4 h-4 mr-2" /> GENERATE CHECK & BILL
                       </Button>
                     )}
 
                     {selectedTable.status === 'billing' && (
-                      <Button className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={handleSettleTable}>
+                      <Button className="w-full bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={handleSettleTable}>
                         <Check className="w-4 h-4 mr-2" /> SETTLE BILL & FREE TABLE
                       </Button>
                     )}
 
                     {selectedTable.status === 'needs-cleaning' ? (
-                      <Button className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'available')}>
+                      <Button className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'available')}>
                         <Sparkles className="w-4 h-4 mr-2" /> MARK TABLE READY
                       </Button>
                     ) : (
-                      <Button variant="outline" className="w-full bg-white/60 h-14 rounded-[16px] font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'needs-cleaning')}>
+                      <Button variant="outline" className="w-full bg-white/60 h-14 rounded-3xl font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'needs-cleaning')}>
                         <Sparkles className="w-4 h-4 mr-2 text-zinc-400 group-hover:text-indigo-500 transition-colors duration-300" /> REQUEST CLEANING
                       </Button>
                     )}

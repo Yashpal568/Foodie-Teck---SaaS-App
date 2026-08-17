@@ -49,7 +49,7 @@ export default function MarketingFooter() {
   return (
     <footer className="relative bg-slate-950 text-white overflow-hidden pt-24 pb-12">
       {/* Decorative Gradients */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
       <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[120px] rounded-full" />
       <div className="absolute top-0 left-0 w-64 h-64 bg-indigo-500/10 blur-[120px] rounded-full" />
 

@@ -259,7 +259,7 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                               {getStatusLabel(order.status)}
                             </Badge>
                           </div>
-                          <p className="text-[11px] text-gray-500 mt-1 font-medium truncate max-w-[200px] xs:max-w-xs">
+                          <p className="text-[11px] text-gray-500 mt-1 font-medium truncate max-w-50 xs:max-w-xs">
                             <span className="text-blue-500 font-bold">#{order.id.slice(0, 8)}</span> • {new Date(order.createdAt).toLocaleString()}
                           </p>
                         </div>
@@ -603,7 +603,7 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
                       const statusConfig = ORDER_STATUS_CONFIG[history.status]
                       return (
                         <div key={index} className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg shrink-0">
                             {statusConfig.icon}
                           </div>
                           <div className="flex-1">

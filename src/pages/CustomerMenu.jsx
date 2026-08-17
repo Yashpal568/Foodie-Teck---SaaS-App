@@ -49,7 +49,7 @@ const FoodTypeBadge = ({ type }) => {
   const isVeg = type === 'VEG' || type === 'veg' || type === true;
   return (
     <div 
-      className={`w-3.5 h-3.5 rounded-[3px] border ${isVeg ? 'border-emerald-600' : 'border-rose-600'} p-[2px] flex items-center justify-center bg-white shadow-xs shrink-0`} 
+      className={`w-3.5 h-3.5 rounded-[3px] border ${isVeg ? 'border-emerald-600' : 'border-rose-600'} p-0.5 flex items-center justify-center bg-white shadow-xs shrink-0`} 
       title={isVeg ? 'Vegetarian' : 'Non-Vegetarian'}
     >
       <div className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-emerald-600' : 'bg-rose-600'}`} />
@@ -227,7 +227,12 @@ export default function CustomerMenu() {
   const [restaurantData, setRestaurantData] = useState({
     name: "Servora",
     rating: 4.8,
-    cuisine: "Multi-Cuisine"
+    cuisine: "Multi-Cuisine",
+    photo: "",
+    logo: "",
+    cover_url: "",
+    coverImage: "",
+    address: ""
   })
   const searchInputRef = useRef(null)
   const categoryRefs = useRef({})
@@ -647,13 +652,13 @@ export default function CustomerMenu() {
     }`}>
       {/* 🌟 LUXURY AMBIENT GLOW LIGHTING MESH 🌟 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className={`absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full blur-[140px] transition-all duration-700 ${
+        <div className={`absolute -top-24 -left-24 w-105 h-105 rounded-full blur-[140px] transition-all duration-700 ${
           theme === 'dark' ? 'bg-amber-500/12' : 'bg-amber-400/20'
         }`} />
-        <div className={`absolute top-1/3 -right-24 w-[420px] h-[420px] rounded-full blur-[140px] transition-all duration-700 ${
+        <div className={`absolute top-1/3 -right-24 w-105 h-105 rounded-full blur-[140px] transition-all duration-700 ${
           theme === 'dark' ? 'bg-indigo-600/12' : 'bg-orange-400/15'
         }`} />
-        <div className={`absolute bottom-24 -left-20 w-[400px] h-[400px] rounded-full blur-[140px] transition-all duration-700 ${
+        <div className={`absolute bottom-24 -left-20 w-100 h-100 rounded-full blur-[140px] transition-all duration-700 ${
           theme === 'dark' ? 'bg-emerald-500/10' : 'bg-rose-400/12'
         }`} />
       </div>
@@ -731,37 +736,42 @@ export default function CustomerMenu() {
                </AnimatePresence>
              </motion.button>
 
-             <div className={`hidden lg:flex items-center gap-4 px-6 py-2.5 rounded-2xl border ${
-               theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800' : 'bg-slate-50/50 border-slate-100/40'
-             }`}>
-                <div className={`flex flex-col items-center border-r pr-4 leading-none ${
-                  theme === 'dark' ? 'border-zinc-700' : 'border-slate-200/60'
-                }`}>
-                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">TABLE</span>
-                   <span className={`text-sm font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{tableNumber}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
-                   <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-emerald-400' : 'text-slate-800'}`}>ACTIVE</span>
-                </div>
-             </div>
-
-             <Button variant="ghost" size="icon" className={`h-11 w-11 rounded-2xl transition-all ${
-               theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-900' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
-             }`}>
-                <User className="h-5 w-5" />
+             {tableNumber && tableNumber !== 'N/A' && (
+               <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-xs font-bold shadow-xs ${
+                 theme === 'dark'
+                   ? 'bg-zinc-900 border-zinc-800 text-amber-300'
+                   : 'bg-amber-50 border-amber-200/80 text-amber-900'
+               }`}>
+                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                 <span className="font-mono uppercase tracking-wider">Table {tableNumber}</span>
+               </div>
+             )}
+             
+             <Button
+               variant="outline"
+               size="sm"
+               onClick={handleCallWaiter}
+               disabled={isSaving}
+               className={`rounded-2xl h-11 px-4 text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer ${
+                 theme === 'dark'
+                   ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
+                   : 'bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50'
+               }`}
+             >
+               <BellRing className="h-4 w-4 text-amber-500 animate-pulse" />
+               <span>Call Concierge</span>
              </Button>
           </div>
         </NavbarContent>
       </Navbar>
 
-      {/* 📱 STICKY MOBILE TOP NAVBAR (FIXED ON SCROLL) */}
-      <header className={`lg:hidden sticky top-0 z-50 px-5 py-3 flex items-center justify-between shadow-sm border-b backdrop-blur-2xl transition-colors duration-500 ${
+      {/* 📱 MOBILE HEADER BAR */}
+      <header className={`lg:hidden px-4 py-3 sticky top-0 z-50 flex items-center justify-between backdrop-blur-xl border-b transition-colors duration-500 ${
         theme === 'dark' 
-          ? 'bg-zinc-950/90 border-zinc-800/80 text-white shadow-[0_4px_20px_rgba(0,0,0,0.5)]' 
-          : 'bg-white/92 border-amber-100/70 text-zinc-900 shadow-xs'
+          ? 'bg-zinc-950/90 border-zinc-800/80 text-white shadow-md' 
+          : 'bg-white/90 border-zinc-200/60 text-zinc-900 shadow-xs'
       }`}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Logo showText={true} iconSize={22} />
           {tableNumber && tableNumber !== 'N/A' && (
             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ml-1 border ${
@@ -770,58 +780,36 @@ export default function CustomerMenu() {
                 : 'bg-amber-50/80 border-amber-200/60 text-amber-900'
             }`}>
                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-               <span className="text-[10px] font-black uppercase tracking-widest pt-[1px]">Table {tableNumber}</span>
+               <span className="text-[10px] font-black uppercase tracking-widest pt-px">Table {tableNumber}</span>
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {/* ☀️ / 🌙 Mobile Day & Night Switcher Pill */}
-          <motion.button
-            whileTap={{ scale: 0.94 }}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={toggleTheme}
-            className={`h-9 px-3 rounded-full border flex items-center gap-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer ${
+            className={`rounded-full h-9 w-9 p-0 flex items-center justify-center transition-all ${
               theme === 'dark'
-                ? 'bg-zinc-900 border-zinc-700 text-amber-300 hover:bg-zinc-800'
-                : 'bg-white border-amber-200/80 text-amber-800 hover:bg-amber-50'
+                ? 'bg-zinc-900 border-zinc-800 text-amber-400'
+                : 'bg-white border-zinc-200 text-amber-600'
             }`}
-            title={`Switch to ${theme === 'dark' ? 'Day Light' : 'Night Velvet'} Mode`}
           >
-            <AnimatePresence mode="wait" initial={false}>
-              {theme === 'dark' ? (
-                <motion.div
-                  key="dark"
-                  initial={{ rotate: -90, scale: 0.6, opacity: 0 }}
-                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                  exit={{ rotate: 90, scale: 0.6, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center gap-1"
-                >
-                  <Moon className="w-3.5 h-3.5 fill-amber-300 text-amber-300 animate-pulse" />
-                  <span className="text-[10px] uppercase tracking-wider font-black">NIGHT</span>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="light"
-                  initial={{ rotate: 90, scale: 0.6, opacity: 0 }}
-                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                  exit={{ rotate: -90, scale: 0.6, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center gap-1"
-                >
-                  <Sun className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                  <span className="text-[10px] uppercase tracking-wider font-black text-amber-900">DAY</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.button>
+            {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </Button>
 
-          <Button variant="ghost" size="icon" className={`rounded-full h-9 w-9 transition-all shadow-sm ${
-            theme === 'dark'
-              ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
-              : 'bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50'
-          }`}>
-            <User className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCallWaiter}
+            className={`rounded-full h-9 w-9 p-0 flex items-center justify-center transition-all ${
+              theme === 'dark'
+                ? 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                : 'bg-white border-zinc-200 text-zinc-600'
+            }`}
+          >
+            <BellRing className="w-4 h-4" />
           </Button>
         </div>
       </header>
@@ -843,7 +831,7 @@ export default function CustomerMenu() {
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                 crossOrigin="anonymous"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/50 via-transparent to-black/10" />
 
               {/* Live Table Badge on top of Banner */}
               {tableNumber && tableNumber !== 'N/A' && (
@@ -864,7 +852,7 @@ export default function CustomerMenu() {
             <div className="p-4 sm:p-6 pt-0 relative">
               {/* Overlapping Restaurant Logo Avatar */}
               <div className="flex items-end justify-between -mt-10 sm:-mt-12 mb-3">
-                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-xl border-2 border-white overflow-hidden shrink-0 bg-zinc-100 group-hover:scale-105 group-hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all duration-300">
+                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-xl border-2 border-white overflow-hidden shrink-0 group-hover:scale-105 group-hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all duration-300">
                   {restaurantData.logo || restaurantData.photo ? (
                     <img 
                       src={restaurantData.logo || restaurantData.photo} 
@@ -917,7 +905,7 @@ export default function CustomerMenu() {
               </div>
 
               {/* Signature Promo Strip */}
-              <div className="mt-3 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/70 rounded-2xl p-2.5 px-3.5 flex items-center justify-between text-orange-900 shadow-xs hover:shadow-md transition-shadow">
+              <div className="mt-3 bg-linear-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/70 rounded-2xl p-2.5 px-3.5 flex items-center justify-between text-orange-900 shadow-xs hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-2">
                   <Flame className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0 animate-pulse" />
                   <span className="text-xs font-bold text-orange-950">
@@ -991,11 +979,11 @@ export default function CustomerMenu() {
                             loading="lazy"
                           />
                           {/* Shimmer light reflection overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-white/20 pointer-events-none group-hover:opacity-80 transition-opacity" />
+                          <div className="absolute inset-0 bg-linear-to-t from-black/25 via-transparent to-white/20 pointer-events-none group-hover:opacity-80 transition-opacity" />
                         </div>
                         
                         {/* Category Label */}
-                        <span className={`text-[12px] font-bold tracking-tight max-w-[88px] text-center truncate transition-all duration-200 ${
+                        <span className={`text-[12px] font-bold tracking-tight max-w-22 text-center truncate transition-all duration-200 ${
                           isActive 
                             ? 'text-amber-500 font-black scale-105' 
                             : theme === 'dark' ? 'text-zinc-300 group-hover:text-amber-400 group-hover:font-black group-hover:scale-105' : 'text-zinc-700 group-hover:text-amber-600 group-hover:font-black group-hover:scale-105'
@@ -1031,7 +1019,7 @@ export default function CustomerMenu() {
                   return (
                     <motion.div 
                       key={item._id} 
-                      className={`shrink-0 w-[240px] sm:w-[260px] snap-start rounded-3xl p-3 border transition-all duration-300 flex flex-col justify-between group cursor-pointer ${
+                      className={`shrink-0 w-60 sm:w-65 snap-start rounded-3xl p-3 border transition-all duration-300 flex flex-col justify-between group cursor-pointer ${
                         theme === 'dark'
                           ? 'bg-zinc-900/85 border-zinc-800/90 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:-translate-y-2 hover:border-amber-500/50 hover:shadow-[0_22px_45px_rgba(0,0,0,0.7),0_0_20px_rgba(245,158,11,0.15)]'
                           : 'bg-white/95 border-zinc-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:-translate-y-2 hover:border-amber-300 hover:shadow-[0_16px_36px_rgba(0,0,0,0.12)]'
@@ -1122,7 +1110,7 @@ export default function CustomerMenu() {
                               }`}
                             >
                               <span>ADD</span>
-                              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                              <Plus className="w-3.5 h-3.5 stroke-3" />
                             </button>
                           )}
                         </div>
@@ -1135,7 +1123,7 @@ export default function CustomerMenu() {
           )}
 
           {/* 🔍 SWIGGY/ZOMATO STICKY SEARCH & QUICK FILTER BAR 🔍 */}
-          <div className={`sticky top-[52px] lg:top-[80px] z-30 px-0 py-3 backdrop-blur-xl transition-all duration-300 space-y-3 ${
+          <div className={`sticky top-13 lg:top-20 z-30 px-0 py-3 backdrop-blur-xl transition-all duration-300 space-y-3 ${
             theme === 'dark' ? 'bg-[#090a0f]/90' : 'bg-[#faf8f5]/90'
           }`}>
              {/* Search Input Box */}
@@ -1307,7 +1295,7 @@ export default function CustomerMenu() {
 
                             {/* Right: Square Food Thumbnail & Overlapping Swiggy ADD Stepper (35%) */}
                             <div className="relative shrink-0 flex flex-col items-center">
-                              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50/50 border border-zinc-100 shadow-xs flex items-center justify-center">
+                              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-linear-to-br from-amber-50 to-orange-50/50 border border-zinc-100 shadow-xs flex items-center justify-center">
                                 {itemImg ? (
                                   <img 
                                     src={itemImg} 
@@ -1361,7 +1349,7 @@ export default function CustomerMenu() {
                                     }`}
                                   >
                                     <span>ADD</span>
-                                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                    <Plus className="w-3.5 h-3.5 stroke-3" />
                                   </button>
                                 )}
                               </div>
@@ -1451,7 +1439,7 @@ export default function CustomerMenu() {
                 <h3 className={`text-sm font-black uppercase tracking-wider mb-1 ${
                   theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'
                 }`}>Your cart is empty</h3>
-                <p className="text-xs text-zinc-400 max-w-[200px]">Select delicious dishes from the menu to build your feast.</p>
+                <p className="text-xs text-zinc-400 max-w-50">Select delicious dishes from the menu to build your feast.</p>
               </div>
             ) : (
               <>
@@ -1542,7 +1530,7 @@ export default function CustomerMenu() {
                   <Button 
                     className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                       theme === 'dark'
-                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
+                        ? 'bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
                         : 'bg-slate-900 hover:bg-black text-white'
                     }`} 
                     onClick={() => setShowConfirmModal(true)}
@@ -1591,7 +1579,7 @@ export default function CustomerMenu() {
 
                 <div className="flex items-center gap-1.5 bg-white text-emerald-700 px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm">
                   <span>View Cart</span>
-                  <ArrowRight className="w-3 h-3 stroke-[3]" />
+                  <ArrowRight className="w-3 h-3 stroke-3" />
                 </div>
               </button>
             </motion.div>
@@ -1679,7 +1667,7 @@ export default function CustomerMenu() {
                 </div>
                 <div className="space-y-1">
                   <h3 className={`text-base font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-zinc-900'}`}>Your Cart is Empty</h3>
-                  <p className="text-xs text-zinc-400 max-w-[240px] mx-auto">Select delicious dishes from the menu to start your dine-in order.</p>
+                  <p className="text-xs text-zinc-400 max-w-60 mx-auto">Select delicious dishes from the menu to start your dine-in order.</p>
                 </div>
                 <Button 
                   onClick={() => setShowConfirmModal(false)}
@@ -1904,7 +1892,7 @@ export default function CustomerMenu() {
               <Button 
                 className={`w-full h-14 rounded-2xl active:scale-[0.99] font-black text-sm uppercase tracking-wider shadow-xl transition-all flex items-center justify-between px-6 cursor-pointer ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
+                    ? 'bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
                     : 'bg-zinc-900 hover:bg-black text-white'
                 }`} 
                 onClick={placeOrder} 
@@ -1915,7 +1903,7 @@ export default function CustomerMenu() {
                   <span className={`font-black text-base ${theme === 'dark' ? 'text-slate-950' : 'text-emerald-400'}`}>
                     {formatPrice(getTotalPrice() + (getTotalPrice() * gstRate / 100))}
                   </span>
-                  <ArrowRight className="w-4 h-4 stroke-[3]" />
+                  <ArrowRight className="w-4 h-4 stroke-3" />
                 </div>
               </Button>
               
@@ -1965,8 +1953,8 @@ export default function CustomerMenu() {
       {/* 🌟 SWIGGY & ZOMATO COMPACT LUXURY FOOTER (DAY & NIGHT THEME AWARE) 🌟 */}
       <footer className={`border-t pt-10 pb-28 lg:pb-14 mt-12 relative overflow-hidden transition-colors duration-500 ${
         theme === 'dark' 
-          ? 'bg-gradient-to-b from-zinc-950 via-[#07080c] to-[#030406] border-zinc-800/90 text-white' 
-          : 'bg-gradient-to-b from-amber-50/30 via-white to-amber-50/50 border-amber-100/70 text-zinc-900'
+          ? 'bg-linear-to-b from-zinc-950 via-[#07080c] to-[#030406] border-zinc-800/90 text-white' 
+          : 'bg-linear-to-b from-amber-50/30 via-white to-amber-50/50 border-amber-100/70 text-zinc-900'
       }`}>
         {/* Ambient Footer Glow */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -2013,7 +2001,7 @@ export default function CustomerMenu() {
               disabled={isSaving}
               className={`px-4 py-2 text-[11px] font-black rounded-xl flex items-center gap-1.5 shadow-md transition-all active:scale-95 hover:scale-105 cursor-pointer ${
                 theme === 'dark'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20'
+                  ? 'bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20'
                   : 'bg-zinc-950 hover:bg-zinc-800 text-white shadow-zinc-900/20'
               }`}
             >
@@ -2100,6 +2088,7 @@ export default function CustomerMenu() {
           setTimeout(() => searchInputRef.current?.focus(), 300)
         }}
         onTrackClick={handleTrackOrders}
+        onCallWaiter={handleCallWaiter}
         theme={theme}
       />
 
@@ -2110,7 +2099,7 @@ export default function CustomerMenu() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+            className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
@@ -2132,7 +2121,7 @@ export default function CustomerMenu() {
               </p>
               <Button 
                 onClick={() => setShowWaiterPopup(false)}
-                className="w-full h-14 rounded-[1.25rem] bg-slate-900 hover:bg-black text-white font-black uppercase tracking-[0.2em] text-[11px] transition-all shadow-xl hover:shadow-2xl relative z-10"
+                className="w-full h-14 rounded-4xl bg-slate-900 hover:bg-black text-white font-black uppercase tracking-[0.2em] text-[11px] transition-all shadow-xl hover:shadow-2xl relative z-10"
               >
                 Okay, Thanks!
               </Button>

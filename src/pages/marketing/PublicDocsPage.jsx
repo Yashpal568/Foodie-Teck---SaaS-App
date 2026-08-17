@@ -180,7 +180,7 @@ export default function PublicDocsPage() {
       <div className="pt-16 sm:pt-20">
         <div className="flex w-full px-4 sm:px-6 lg:px-12">
           {/* Sidebar - Desktop */}
-          <aside className="hidden lg:flex flex-col w-[260px] xl:w-[280px] flex-shrink-0 border-r border-slate-200/60 bg-white sticky top-20 h-[calc(100vh-5rem)] overflow-hidden z-20">
+          <aside className="hidden lg:flex flex-col w-65 xl:w-70 shrink-0 border-r border-slate-200/60 bg-white sticky top-20 h-[calc(100vh-5rem)] overflow-hidden z-20">
             <Sidebar isMobileDrawer={false} />
           </aside>
 
@@ -325,7 +325,7 @@ export default function PublicDocsPage() {
       <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
         <SheetContent 
           side="left" 
-          className="p-0 w-[85vw] max-w-xs border-r border-slate-200 shadow-2xl bg-white z-[999999] flex flex-col h-full overflow-hidden"
+          className="p-0 w-[85vw] max-w-xs border-r border-slate-200 shadow-2xl bg-white z-999999 flex flex-col h-full overflow-hidden"
           style={{ backgroundColor: '#ffffff' }}
         >
           <SheetTitle className="sr-only">Documentation Contents</SheetTitle>

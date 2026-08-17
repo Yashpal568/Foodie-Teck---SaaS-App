@@ -253,7 +253,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
             
             {/* Left Title & Status Beacon */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-linear-to-tr from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
                 <QrCode className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div className="min-w-0">
@@ -306,7 +306,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               <Button 
                 onClick={() => { setSelectedStudioQR(null); setIsStudioOpen(true); }}
                 disabled={qrCodes.length === 0}
-                className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-black hover:to-indigo-900 text-amber-400 font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-md shadow-slate-900/15 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 border border-amber-400/20 shrink-0"
+                className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-black hover:to-indigo-900 text-amber-400 font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-md shadow-slate-900/15 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 border border-amber-400/20 shrink-0"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                 <span>Standee Studio</span>
@@ -355,7 +355,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                 <div 
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-300"
+                  className="h-full rounded-full bg-linear-to-r from-indigo-500 to-purple-600 transition-all duration-300"
                   style={{ width: `${Math.min(100, (qrCodes.length / effectiveLimit) * 100)}%` }}
                 />
               </div>
@@ -434,7 +434,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
         {/* ⚙️ Expandable Fleet Configurator Panel (if toggled or empty) */}
         {(showConfigDrawer || qrCodes.length === 0) && (
-          <div className="p-5 sm:p-7 bg-gradient-to-br from-white to-indigo-50/40 rounded-2xl sm:rounded-3xl border border-indigo-200/80 shadow-lg animate-in fade-in-50 duration-200 space-y-5 sm:space-y-6">
+          <div className="p-5 sm:p-7 bg-linear-to-br from-white to-indigo-50/40 rounded-2xl sm:rounded-3xl border border-indigo-200/80 shadow-lg animate-in fade-in-50 duration-200 space-y-5 sm:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-indigo-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2">

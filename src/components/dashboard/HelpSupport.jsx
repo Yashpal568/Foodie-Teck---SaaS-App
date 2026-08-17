@@ -295,7 +295,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
               { icon: Calendar, label: 'Created', value: timeAgo(ticket.createdAt) },
               { icon: Mail, label: 'Email', value: ticket.email }
             ].map((meta, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-4 flex-1 min-w-[200px]">
+              <div key={idx} className="flex items-center gap-3 p-4 flex-1 min-w-50">
                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
                   <meta.icon className="w-4 h-4" />
                 </div>
@@ -383,7 +383,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Type your reply here..."
-                  className="w-full min-h-[120px] p-4 text-sm resize-none focus:outline-none placeholder:text-gray-400"
+                  className="w-full min-h-30 p-4 text-sm resize-none focus:outline-none placeholder:text-gray-400"
                 />
                 <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end">
                   <Button 
@@ -445,7 +445,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
         <div className="relative rounded-3xl border border-slate-200/60 bg-slate-50/50">
           {/* Background graphics clipped to corners */}
           <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]" />
             <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-white to-transparent" />
           </div>
           
@@ -485,13 +485,13 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
               
               {/* Live Search Results Overlay */}
               {searchTerm.length > 0 && (
-                <div className="absolute top-[calc(100%+12px)] left-0 right-0 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/60 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="absolute top-[calc(100%+12px)] left-0 right-0 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/60 overflow-hidden z-50 animate-in fade-in slide-from-top-2 duration-300">
                   <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {filteredFaqs.reduce((acc, cat) => acc + cat.questions.length, 0)} Matches Found
                     </span>
                   </div>
-                  <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
+                  <div className="max-h-75 overflow-y-auto p-2 space-y-1">
                     {filteredFaqs.length > 0 ? (
                       filteredFaqs.map((cat) => (
                         cat.questions.map((q, idx) => (
@@ -771,7 +771,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                       <Headphones className="w-6 h-6 text-blue-400" />
                     </div>
                     <h3 className="font-bold text-lg text-white">Priority Support</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed max-w-[200px] mx-auto">
+                    <p className="text-xs text-slate-300 leading-relaxed max-w-50 mx-auto">
                       Upgrade to Premium for priority ticket handling and a dedicated support agent.
                     </p>
                     <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white rounded-xl w-full font-semibold border-t-white/40 h-11 mt-2 transition-all">
@@ -866,7 +866,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2 shrink-0 sm:min-w-[100px] border-t sm:border-0 border-slate-100 pt-3 sm:pt-0">
+                      <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2 shrink-0 sm:min-w-25 border-t sm:border-0 border-slate-100 pt-3 sm:pt-0">
                         <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
                           <Clock className="w-3.5 h-3.5" />
                           <span>{timeAgo(ticket.updatedAt)}</span>
@@ -928,7 +928,7 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
                         {item.step}
                       </div>
                       <h4 className="font-bold text-sm text-slate-900 mb-2">{item.title}</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed max-w-[200px]">{item.desc}</p>
+                      <p className="text-xs text-slate-500 leading-relaxed max-w-50">{item.desc}</p>
                     </div>
                   ))}
                 </div>

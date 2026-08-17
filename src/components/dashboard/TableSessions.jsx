@@ -748,9 +748,9 @@ const TableSessions = ({
                     transition={{ duration: 0.2 }}
                   >
                     <div
-                      className={`min-h-[160px] group-[.sidebar-collapsed]:min-h-[200px] w-full rounded-[20px] group-[.sidebar-collapsed]:rounded-[24px] p-4 group-[.sidebar-collapsed]:p-5 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer ${
+                      className={`min-h-40 group-[.sidebar-collapsed]:min-h-50 w-full rounded-4xl group-[.sidebar-collapsed]:rounded-[24px] p-4 group-[.sidebar-collapsed]:p-5 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer ${
                         isOccupied
-                          ? "bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-500/30 shadow-[0_8px_30px_rgb(79,70,229,0.25)] hover:shadow-[0_12px_40px_rgb(79,70,229,0.4)]"
+                          ? "bg-linear-to-br from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-500/30 shadow-[0_8px_30px_rgb(79,70,229,0.25)] hover:shadow-[0_12px_40px_rgb(79,70,229,0.4)]"
                           : "bg-white border border-zinc-200/80 shadow-sm hover:shadow-md hover:border-zinc-300"
                       }`}
                       onClick={() => setSelectedTable(table)}
@@ -822,7 +822,7 @@ const TableSessions = ({
                           </div>
 
                           {/* Order Item & Total Summary Box */}
-                          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[12px] group-[.sidebar-collapsed]:rounded-[16px] p-2.5 group-[.sidebar-collapsed]:p-3 space-y-1 group-[.sidebar-collapsed]:space-y-1.5 shadow-sm">
+                          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl group-[.sidebar-collapsed]:rounded-3xl p-2.5 group-[.sidebar-collapsed]:p-3 space-y-1 group-[.sidebar-collapsed]:space-y-1.5 shadow-sm">
                             <div className="flex justify-between items-center text-[10px] group-[.sidebar-collapsed]:text-[11px] font-semibold truncate">
                               <span className="truncate text-white">
                                 {activeOrder?.order_items?.[0]
@@ -846,7 +846,7 @@ const TableSessions = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="py-4 group-[.sidebar-collapsed]:py-6 mt-2.5 group-[.sidebar-collapsed]:mt-4 flex-1 flex flex-col items-center justify-center text-center bg-zinc-50/80 rounded-[12px] group-[.sidebar-collapsed]:rounded-[16px] border border-dashed border-zinc-200">
+                        <div className="py-4 group-[.sidebar-collapsed]:py-6 mt-2.5 group-[.sidebar-collapsed]:mt-4 flex-1 flex flex-col items-center justify-center text-center bg-zinc-50/80 rounded-2xl group-[.sidebar-collapsed]:rounded-3xl border border-dashed border-zinc-200">
                           <div className="w-7 h-7 group-[.sidebar-collapsed]:w-8 group-[.sidebar-collapsed]:h-8 bg-white rounded-full shadow-sm flex items-center justify-center mb-1.5 group-[.sidebar-collapsed]:mb-2">
                             <Utensils className="w-3.5 h-3.5 group-[.sidebar-collapsed]:w-4 group-[.sidebar-collapsed]:h-4 text-zinc-300" />
                           </div>
@@ -895,7 +895,7 @@ const TableSessions = ({
                         {table.status === "needs-cleaning" && (
                           <Button
                             size="sm"
-                            className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-8 group-[.sidebar-collapsed]:h-9 rounded-xl text-[9px] group-[.sidebar-collapsed]:text-[10px] font-bold text-white px-2 group-[.sidebar-collapsed]:px-3 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+                            className="bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-8 group-[.sidebar-collapsed]:h-9 rounded-xl text-[9px] group-[.sidebar-collapsed]:text-[10px] font-bold text-white px-2 group-[.sidebar-collapsed]:px-3 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleMarkTableAvailable(table);
@@ -1019,7 +1019,7 @@ const TableSessions = ({
         open={!!selectedTable}
         onOpenChange={(open) => !open && setSelectedTable(null)}
       >
-        <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border border-zinc-200/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-[32px] bg-white/60 backdrop-blur-3xl">
+        <DialogContent className="sm:max-w-120 p-0 overflow-hidden border border-zinc-200/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-[32px] bg-white/60 backdrop-blur-3xl">
           <DialogDescription className="sr-only">
             Manage table session, view active orders, and perform checkout
             actions.
@@ -1027,9 +1027,9 @@ const TableSessions = ({
           {selectedTable && (
             <div className="flex flex-col h-full w-full bg-white/70">
               {/* Header */}
-              <div className="p-7 pb-5 flex items-center justify-between border-b border-zinc-100/80 bg-gradient-to-b from-white to-zinc-50/30">
+              <div className="p-7 pb-5 flex items-center justify-between border-b border-zinc-100/80 bg-linear-to-b from-white to-zinc-50/30">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl shadow-[0_8px_16px_-6px_rgba(99,102,241,0.5)] flex items-center justify-center text-lg font-black text-white border border-indigo-400/30">
+                  <div className="w-14 h-14 bg-linear-to-br from-indigo-500 to-violet-600 rounded-2xl shadow-[0_8px_16px_-6px_rgba(99,102,241,0.5)] flex items-center justify-center text-lg font-black text-white border border-indigo-400/30">
                     T-{selectedTable.tableNumber}
                   </div>
                   <div>
@@ -1056,7 +1056,7 @@ const TableSessions = ({
 
               <div className="p-7 space-y-8 max-h-[72vh] overflow-y-auto">
                 {/* Live Customer Minutes Count Widget */}
-                <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-indigo-50 via-white to-blue-50/50 p-6 border border-indigo-100/50 shadow-sm">
+                <div className="relative overflow-hidden rounded-[24px] bg-linear-to-br from-indigo-50 via-white to-blue-50/50 p-6 border border-indigo-100/50 shadow-sm">
                   <div className="absolute top-0 right-0 p-4 opacity-5">
                     <Clock className="w-24 h-24" />
                   </div>
@@ -1166,7 +1166,7 @@ const TableSessions = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="py-12 bg-gradient-to-b from-zinc-50/50 to-zinc-100/50 rounded-[24px] border border-dashed border-zinc-200 text-center flex flex-col items-center justify-center relative overflow-hidden">
+                    <div className="py-12 bg-linear-to-b from-zinc-50/50 to-zinc-100/50 rounded-[24px] border border-dashed border-zinc-200 text-center flex flex-col items-center justify-center relative overflow-hidden">
                       <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
                         <Receipt className="w-6 h-6 text-zinc-300" />
                       </div>
@@ -1184,7 +1184,7 @@ const TableSessions = ({
                 <div className="space-y-3 pt-6">
                   {selectedTable.status === "occupied" && (
                     <Button
-                      className="w-full bg-gradient-to-r from-zinc-900 to-zinc-800 hover:from-black hover:to-zinc-900 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-zinc-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                      className="w-full bg-linear-to-r from-zinc-900 to-zinc-800 hover:from-black hover:to-zinc-900 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-zinc-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
                       onClick={() =>
                         handleStatusChange(selectedTable.tableNumber, "billing")
                       }
@@ -1196,7 +1196,7 @@ const TableSessions = ({
 
                   {selectedTable.status === "billing" && (
                     <Button
-                      className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                      className="w-full bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
                       onClick={handleSettleAndClearPOS}
                     >
                       <Check className="w-4 h-4 mr-2" /> SETTLE BILL & FREE
@@ -1206,7 +1206,7 @@ const TableSessions = ({
 
                   {selectedTable.status === "needs-cleaning" ? (
                     <Button
-                      className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white h-14 rounded-[16px] font-bold text-[13px] tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                      className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
                       onClick={() => handleMarkTableAvailable(selectedTable)}
                     >
                       <Sparkles className="w-4 h-4 mr-2" /> MARK TABLE READY
@@ -1214,7 +1214,7 @@ const TableSessions = ({
                   ) : (
                     <Button
                       variant="outline"
-                      className="w-full bg-white/60 h-14 rounded-[16px] font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group"
+                      className="w-full bg-white/60 h-14 rounded-3xl font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group"
                       onClick={() =>
                         handleStatusChange(
                           selectedTable.tableNumber,
@@ -1242,6 +1242,7 @@ const TableSessions = ({
         currentUsage={stats.totalTables}
         maxLimit={planDetails.tableLimit}
         restaurantId={restaurantId}
+        merchantEmail=""
         merchantName="Restaurant Admin"
         onUpgradeSuccess={() => {
           setShowUpgradeModal(false);

@@ -51,7 +51,7 @@ export default function AboutPage() {
 
       {/* ─── Story Section ─────────────────────────────────────────── */}
       <section className="px-6 mb-40 relative">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-50/50 rounded-full blur-[150px] -z-10 translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute top-0 right-0 w-200 h-200 bg-blue-50/50 rounded-full blur-[150px] -z-10 translate-x-1/2 -translate-y-1/2" />
         
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
           <motion.div
@@ -91,7 +91,7 @@ export default function AboutPage() {
             viewport={{ once: true }}
             className="relative w-full"
           >
-            <div className="w-full aspect-square max-w-[460px] mx-auto rounded-[2.5rem] sm:rounded-[3.5rem] bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 p-6 sm:p-12 flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl shadow-slate-950/40 border border-white/10">
+            <div className="w-full aspect-square max-w-115 mx-auto rounded-[2.5rem] sm:rounded-[3.5rem] bg-linear-to-br from-slate-900 via-slate-950 to-indigo-950 p-6 sm:p-12 flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl shadow-slate-950/40 border border-white/10">
                {/* Ambient Glows */}
                <div className="absolute -top-20 -right-20 w-52 h-52 bg-blue-600/25 rounded-full blur-3xl pointer-events-none" />
                <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-indigo-600/25 rounded-full blur-3xl pointer-events-none" />

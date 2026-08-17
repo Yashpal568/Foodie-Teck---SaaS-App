@@ -319,7 +319,7 @@ export default function OrderTracking({
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative rounded-[2.2rem] overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-slate-950 text-white p-6 sm:p-8 shadow-[0_16px_40px_rgba(0,0,0,0.35)] border border-zinc-800"
+          className="relative rounded-[2.2rem] overflow-hidden bg-linear-to-br from-zinc-950 via-zinc-900 to-slate-950 text-white p-6 sm:p-8 shadow-[0_16px_40px_rgba(0,0,0,0.35)] border border-zinc-800"
         >
           {/* Ambient Colored Glow Spheres */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/15 blur-[90px] rounded-full pointer-events-none" />
@@ -372,7 +372,7 @@ export default function OrderTracking({
                   initial={{ width: 0 }}
                   animate={{ width: `${currentProgressPercent}%` }}
                   transition={{ type: "spring", stiffness: 45, damping: 15 }}
-                  className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.6)]"
+                  className="h-full rounded-full bg-linear-to-r from-amber-500 via-orange-400 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.6)]"
                 />
               </div>
             </div>
@@ -463,7 +463,7 @@ export default function OrderTracking({
                       : isDark ? 'bg-zinc-800 text-zinc-500 border border-zinc-700' : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
                   }`}>
                     {isPast ? (
-                      <Check className="w-4 h-4 stroke-[3]" />
+                      <Check className="w-4 h-4 stroke-3" />
                     ) : (
                       <StageIcon className="w-4 h-4" />
                     )}
@@ -591,11 +591,11 @@ export default function OrderTracking({
               onClick={onClose}
               className={`h-12 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
                 isDark
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
+                  ? 'bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
                   : 'bg-zinc-950 hover:bg-zinc-800 text-white'
               }`}
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
+              <Plus className="w-4 h-4 stroke-3" />
               <span>Order More Dishes</span>
             </Button>
           </div>
@@ -603,7 +603,7 @@ export default function OrderTracking({
         </div>
 
         {/* 👨‍🍳 5. GOURMET KITCHEN PROMISE CARD */}
-        <div className="bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 text-white rounded-[2rem] p-5 text-center space-y-2 border border-zinc-800 shadow-md">
+        <div className="bg-linear-to-r from-zinc-900 via-zinc-950 to-zinc-900 text-white rounded-[2rem] p-5 text-center space-y-2 border border-zinc-800 shadow-md">
           <div className="flex items-center justify-center gap-1.5 text-amber-400 text-[10px] font-black uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5" />
             <span>CULINARY EXCELLENCE</span>

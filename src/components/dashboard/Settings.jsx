@@ -71,7 +71,7 @@ import {
   supabase
 } from '@/lib/api'
 
-export default function Settings({ activeItem, setActiveItem, navigate, restaurantId }) {
+export default function Settings({ activeItem, setActiveItem, navigate, restaurantId, plan, onUpgradeClick }) {
   const profileRef = useRef(null)
   const coverRef = useRef(null)
 
@@ -192,7 +192,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           const activeSub = Array.isArray(joinedSubs)
             ? joinedSubs
                 .filter(s => !['Cancelled', 'CANCELLED', 'cancelled', 'Rejected'].includes(s.status))
-                .sort((a, b) => new Date(b.start_date || 0) - new Date(a.start_date || 0))[0]
+                .sort((a, b) => new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime())[0]
             : null
 
           if (activeSub?.plan_name) {
@@ -487,13 +487,13 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     <div className="flex-1 flex flex-col min-h-screen bg-[#f8fafc] relative selection:bg-indigo-500 selection:text-white">
       {/* 🌟 AMBIENT GLOW MESH IN BACKGROUND 🌟 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[140px]" />
-        <div className="absolute top-1/2 right-1/4 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[140px]" />
+        <div className="absolute top-10 left-1/4 w-125 h-125 bg-indigo-500/5 rounded-full blur-[140px]" />
+        <div className="absolute top-1/2 right-1/4 w-100 h-100 bg-purple-500/5 rounded-full blur-[140px]" />
       </div>
 
       {/* 🔔 FLOATING LUXURY NOTIFICATION TOAST 🔔 */}
       <div className={cn(
-        "fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 pointer-events-none transform",
+        "fixed top-6 left-1/2 -translate-x-1/2 z-100 transition-all duration-500 pointer-events-none transform",
         toast.show ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-6 scale-95"
       )}>
         <div className={cn(
@@ -525,7 +525,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           {/* Brand & Sync Indicator */}
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20">
                 <SettingsIcon className="h-5 w-5" />
               </div>
               <div className="flex flex-col">
@@ -574,7 +574,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             <Button 
               onClick={handleSave}
               disabled={isSaving}
-              className="h-11 px-6 text-xs font-black uppercase tracking-wider rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+              className="h-11 px-6 text-xs font-black uppercase tracking-wider rounded-xl bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -137,7 +137,7 @@ function Dashboard() {
       const activeRestaurantId = resolvedId || profile?.id || urlId;
 
       // ── Single merged query: fetch restaurant + subscriptions in one round trip ──
-      let rest = null;
+      let fetchedSubscriptions = [];
       if (activeRestaurantId && activeRestaurantId !== "guest") {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeRestaurantId);
         const isEmail = activeRestaurantId.includes("@");
@@ -159,7 +159,7 @@ function Dashboard() {
 
         if (q) {
           const { data } = await q;
-          rest = data;
+          const rest = data;
           
           // Try fetching subscriptions separately to prevent 400 Bad Request on join failure
           if (rest?.id) {
@@ -170,11 +170,11 @@ function Dashboard() {
                 .eq("restaurant_id", rest.id)
               
               if (subData) {
-                rest.subscriptions = subData;
+                fetchedSubscriptions = subData;
               }
             } catch (e) {
               // Silently ignore if subscriptions table doesn't exist
-              rest.subscriptions = [];
+              fetchedSubscriptions = [];
             }
           }
         }
@@ -203,9 +203,9 @@ function Dashboard() {
         return;
       }
 
-      // Use the subscription data from the joined query result
-      const subscriptions = Array.isArray(rest?.subscriptions) ? rest.subscriptions : [];
-      const subscription = subscriptions.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null;
+      // Use the subscription data from the query result
+      const subscriptions = Array.isArray(fetchedSubscriptions) ? fetchedSubscriptions : [];
+      const subscription = subscriptions.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
 
       if (subscription) {
         const isApproved =
@@ -696,7 +696,7 @@ function Dashboard() {
   return (
     <>
       {isDemoMode && (
-        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 text-white px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-md relative z-[1000]">
+        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 text-white px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-md relative z-1000">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
             <span>✨ Live Merchant Console Demo — Full Enterprise Features Active</span>

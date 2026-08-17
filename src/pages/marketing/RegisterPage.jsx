@@ -184,7 +184,7 @@ export default function RegisterPage() {
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
-               className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 text-center"
+               className="fixed inset-0 z-100 bg-white flex flex-col items-center justify-center p-8 text-center"
             >
                <div className="absolute inset-x-0 top-0 h-1.5 bg-slate-100">
                   <motion.div 
@@ -209,7 +209,7 @@ export default function RegisterPage() {
                      <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '200ms' }} />
                      <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '400ms' }} />
                   </div>
-                  <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] min-h-[1.5rem]">
+                  <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] min-h-6">
                      {initStatus}
                   </p>
                </div>
@@ -331,7 +331,7 @@ export default function RegisterPage() {
                         <Button 
                            type="submit"
                            disabled={isInitializing}
-                           className="flex-[2] h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                           className="flex-2 h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                            {isInitializing ? 'Processing...' : 'Initialize System'}
                         </Button>

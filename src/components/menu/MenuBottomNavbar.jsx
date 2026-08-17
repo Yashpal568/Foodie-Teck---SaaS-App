@@ -7,13 +7,14 @@ export default function MenuBottomNavbar({
   activeTab, 
   setActiveTab, 
   cartCount = 0, 
-  hasActiveOrder, 
-  onCartClick, 
-  onSearchClick, 
-  onTrackClick, 
+  hasActiveOrder = false, 
+  onCartClick = () => {}, 
+  onSearchClick = () => {}, 
+  onTrackClick = () => {}, 
+  onCallWaiter = () => {},
   orderStatus = 'preparing', 
   theme = 'light',
-  className 
+  className = '' 
 }) {
   const [hoveredTab, setHoveredTab] = useState(null)
   const isDark = theme === 'dark'
@@ -35,8 +36,8 @@ export default function MenuBottomNavbar({
         className={cn(
           "backdrop-blur-3xl rounded-[2.2rem] p-1.5 flex items-center justify-between pointer-events-auto relative overflow-hidden transition-all duration-500",
           isDark 
-            ? "bg-zinc-950/90 border border-zinc-800/90 shadow-[0_25px_60px_rgba(0,0,0,0.75)] ring-1 ring-white/[0.08]" 
-            : "bg-white/92 border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.10)] ring-1 ring-black/[0.04]"
+            ? "bg-zinc-950/90 border border-zinc-800/90 shadow-[0_25px_60px_rgba(0,0,0,0.75)] ring-1 ring-white/8" 
+            : "bg-white/92 border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.10)] ring-1 ring-black/4"
         )}
       >
         {tabs.map((tab) => {
@@ -73,7 +74,7 @@ export default function MenuBottomNavbar({
                   className={cn(
                     "absolute inset-0 rounded-[1.6rem] -z-10 transition-all",
                     isDark 
-                      ? "bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_8px_25px_rgba(245,158,11,0.4)] border border-amber-300/60" 
+                      ? "bg-linear-to-r from-amber-400 to-amber-500 shadow-[0_8px_25px_rgba(245,158,11,0.4)] border border-amber-300/60" 
                       : "bg-zinc-950 shadow-[0_8px_20px_rgba(15,23,42,0.25)] border border-zinc-800"
                   )}
                   transition={{ type: "spring", stiffness: 450, damping: 32 }}

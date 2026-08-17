@@ -118,7 +118,9 @@ const exportPDF = (list) => {
   })
 
   // Footer
-  const pageCount = doc.internal.getNumberOfPages()
+  const pageCount = typeof doc.getNumberOfPages === 'function' 
+    ? doc.getNumberOfPages() 
+    : (doc.internal?.pages ? Math.max(1, doc.internal.pages.length - 1) : 1)
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     doc.setFontSize(8)
@@ -139,7 +141,7 @@ const BG_MAP = {
   violet: 'bg-violet-50 text-violet-600 ring-violet-100',
 }
 
-const StatCard = ({ icon: Icon, label, value, color = 'teal', trend, badge }) => {
+const StatCard = ({ icon: Icon, label, value, color = 'teal', trend = undefined, badge = undefined }) => {
   const cls = BG_MAP[color] || BG_MAP.teal
   const textCls = cls.split(' ')[1]
   return (
@@ -205,10 +207,10 @@ const CustomerProfileDialog = ({ customer, children }) => {
         <DialogTitle className="sr-only">Customer Profile — {customer.name}</DialogTitle>
         <DialogDescription className="sr-only">Full profile of {customer.name}</DialogDescription>
         {/* Hero */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 text-white relative overflow-hidden">
+        <div className="bg-linear-to-br from-slate-800 to-slate-900 p-6 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="relative flex items-center gap-5">
-            <div className={cn('w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center text-2xl font-black text-white shadow-xl', avatarColor(customer.name))}>
+            <div className={cn('w-16 h-16 rounded-2xl bg-linear-to-br flex items-center justify-center text-2xl font-black text-white shadow-xl', avatarColor(customer.name))}>
               {customer.name.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
@@ -483,7 +485,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex -space-x-2">
             {customers.slice(0, 4).map((c, i) => (
-              <div key={i} className={cn('w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br flex items-center justify-center text-[10px] font-bold text-white shadow-sm', avatarColor(c.name))}>
+              <div key={i} className={cn('w-8 h-8 rounded-full border-2 border-white bg-linear-to-br flex items-center justify-center text-[10px] font-bold text-white shadow-sm', avatarColor(c.name))}>
                 {c.name.charAt(0)}
               </div>
             ))}
@@ -533,7 +535,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
             <CardTitle className="text-sm font-bold flex items-center gap-2"><TrendingUp className="w-4 h-4 text-teal-600" />Customer Growth</CardTitle>
             <CardDescription className="text-xs">New customers over the last 7 days</CardDescription>
           </CardHeader>
-          <CardContent className="p-4 h-[240px]">
+          <CardContent className="p-4 h-60">
             {isMounted && (
               <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={180}>
                 <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -559,7 +561,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
             <CardDescription className="text-xs">Distribution by loyalty tier</CardDescription>
           </CardHeader>
           <CardContent className="p-4 flex flex-col items-center">
-            <div className="h-[160px] w-full">
+            <div className="h-40 w-full">
               {isMounted && (
                 <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={140}>
                   <PieChart>
@@ -614,7 +616,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
                             : i === 1 ? <span className="text-sm font-black text-gray-400">2</span>
                             : <span className="text-sm font-bold text-gray-300">{i + 1}</span>}
                         </div>
-                        <div className={cn('w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-sm font-black text-white shadow-sm', avatarColor(c.name))}>
+                        <div className={cn('w-10 h-10 rounded-xl bg-linear-to-br flex items-center justify-center text-sm font-black text-white shadow-sm', avatarColor(c.name))}>
                           {c.name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -626,7 +628,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
                           </div>
                           <div className="flex items-center gap-3 mt-1">
                             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-gradient-to-r from-teal-400 to-teal-600 rounded-full" style={{ width: `${score}%` }} />
+                              <div className="h-full bg-linear-to-r from-teal-400 to-teal-600 rounded-full" style={{ width: `${score}%` }} />
                             </div>
                             <span className="text-[10px] text-gray-400 font-semibold">{score}/100</span>
                           </div>
@@ -658,14 +660,14 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
               </div>
             ) : atRiskCustomers.map((c, i) => (
               <div key={i} className="flex items-center gap-3 p-3 bg-red-50/50 rounded-xl border border-red-100">
-                <div className={cn('w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center text-sm font-black text-white shadow-sm flex-shrink-0', avatarColor(c.name))}>
+                <div className={cn('w-9 h-9 rounded-xl bg-linear-to-br flex items-center justify-center text-sm font-black text-white shadow-sm shrink-0', avatarColor(c.name))}>
                   {c.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-gray-800 truncate">{c.name}</p>
                   <p className="text-[10px] text-red-500 font-semibold">{daysSince(c.lastVisit)}d since last visit</p>
                 </div>
-                <Badge variant="outline" className="text-[10px] border-red-200 text-red-600 flex-shrink-0">Risk</Badge>
+                <Badge variant="outline" className="text-[10px] border-red-200 text-red-600 shrink-0">Risk</Badge>
               </div>
             ))}
             {atRiskCustomers.length > 0 && (
@@ -684,7 +686,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
             <CardTitle className="text-sm font-bold flex items-center gap-2"><BarChart2 className="w-4 h-4 text-indigo-600" />Revenue by Customer Tier</CardTitle>
             <CardDescription className="text-xs">Lifetime revenue breakdown across loyalty tiers</CardDescription>
           </CardHeader>
-          <CardContent className="p-4 h-[200px]">
+          <CardContent className="p-4 h-50">
             {isMounted && (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={tierRevenueData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -760,7 +762,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
                   {segC.length > 0 && (
                     <div className="flex -space-x-2">
                       {segC.slice(0, 5).map((cu, i) => (
-                        <div key={i} className={cn('w-7 h-7 rounded-full border-2 border-white bg-gradient-to-br flex items-center justify-center text-[9px] font-black text-white', avatarColor(cu.name))}>
+                        <div key={i} className={cn('w-7 h-7 rounded-full border-2 border-white bg-linear-to-br flex items-center justify-center text-[9px] font-black text-white', avatarColor(cu.name))}>
                           {cu.name.charAt(0)}
                         </div>
                       ))}
@@ -804,17 +806,17 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
 
   // ── Insights tab ────────────────────────────────────────────────────────
   const renderInsights = () => {
-    const avgVisitFreq = customers.length > 0 ? (customers.reduce((s, c) => s + c.visits, 0) / customers.length).toFixed(1) : 0
+    const avgVisitFreq = customers.length > 0 ? (customers.reduce((s, c) => s + c.visits, 0) / customers.length).toFixed(1) : '0'
     const churnRisk = stats.atRisk
     const healthyPct = stats.total > 0 ? Math.round(((stats.total - stats.atRisk) / stats.total) * 100) : 0
     const vipRevenuePct = stats.total > 0
       ? Math.round((customers.filter(c => c.tag === 'VIP').reduce((s, c) => s + c.totalSpent, 0) / Math.max(stats.revenue, 1)) * 100)
       : 0
     const radarData = [
-      { subject: 'Retention',   A: parseFloat(stats.retention),                                              fullMark: 100 },
+      { subject: 'Retention',   A: parseFloat(String(stats.retention || '0')),                               fullMark: 100 },
       { subject: 'VIP %',       A: stats.total > 0 ? Math.round((stats.vip / stats.total) * 100) : 0,       fullMark: 100 },
       { subject: 'Health',      A: healthyPct,                                                                fullMark: 100 },
-      { subject: 'Engagement',  A: Math.min(parseFloat(avgVisitFreq) * 10, 100),                             fullMark: 100 },
+      { subject: 'Engagement',  A: Math.min(parseFloat(String(avgVisitFreq)) * 10, 100),                     fullMark: 100 },
       { subject: 'LTV Index',   A: Math.min(Math.round(stats.avgOrderVal / 1000), 100),                     fullMark: 100 },
     ]
     return (
@@ -831,7 +833,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
               <CardTitle className="text-sm font-bold flex items-center gap-2"><Layers className="w-4 h-4 text-indigo-600" />Business Health Radar</CardTitle>
               <CardDescription className="text-xs">Multi-dimensional performance score</CardDescription>
             </CardHeader>
-            <CardContent className="p-4 h-[280px]">
+            <CardContent className="p-4 h-70">
               {isMounted && (
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
@@ -852,7 +854,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
               { icon: Sparkles,     title: 'Growth Opportunity',        desc: `Converting ${stats.new} new customers to regulars could increase LTV by an estimated 3–5×`,                              accent: 'border-violet-100 bg-violet-50/30',iconCls: 'bg-violet-100 text-violet-600' },
             ].map(({ icon: Icon, title, desc, accent, iconCls }) => (
               <div key={title} className={cn('flex items-start gap-4 p-4 rounded-xl border', accent)}>
-                <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0', iconCls)}>
+                <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', iconCls)}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <div>
@@ -927,12 +929,12 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
                   <TableRow key={idx} className="group hover:bg-gray-50/70 transition-colors border-gray-50">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className={cn('w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center text-sm font-black text-white shadow-sm', avatarColor(customer.name))}>
+                        <div className={cn('w-9 h-9 rounded-xl bg-linear-to-br flex items-center justify-center text-sm font-black text-white shadow-sm', avatarColor(customer.name))}>
                           {customer.name.charAt(0)}
                         </div>
                         <div>
                           <div className="font-bold text-sm text-gray-900">{customer.name}</div>
-                          <div className="text-[11px] text-gray-400 truncate max-w-[160px]">{customer.email || customer.phone || '—'}</div>
+                          <div className="text-[11px] text-gray-400 truncate max-w-40">{customer.email || customer.phone || '—'}</div>
                         </div>
                       </div>
                     </TableCell>
@@ -1005,7 +1007,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
         <div className="px-4 md:px-8 space-y-6 relative">
           <Tabs defaultValue="overview" className="w-full shadow-none border-0" onValueChange={setActiveTab}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-              <TabsList className="bg-white border p-1 h-11 rounded-xl shadow-sm border-gray-100 w-full sm:w-auto overflow-x-auto flex-shrink-0">
+              <TabsList className="bg-white border p-1 h-11 rounded-xl shadow-sm border-gray-100 w-full sm:w-auto overflow-x-auto shrink-0">
                 <TabsTrigger value="overview" className="rounded-lg px-4 data-[state=active]:bg-teal-600 data-[state=active]:text-white shadow-none transition-all text-xs font-semibold gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5" />Overview
                 </TabsTrigger>
@@ -1031,7 +1033,7 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
                     />
                   </div>
                   <Select value={tierFilter} onValueChange={setTierFilter}>
-                    <SelectTrigger className="rounded-xl border-gray-200 shadow-none w-full sm:w-[140px] h-10 bg-white text-sm">
+                    <SelectTrigger className="rounded-xl border-gray-200 shadow-none w-full sm:w-35 h-10 bg-white text-sm">
                       <div className="flex items-center gap-2">
                         <Filter className="w-4 h-4 text-gray-400" />
                         <SelectValue placeholder="All Tiers" />

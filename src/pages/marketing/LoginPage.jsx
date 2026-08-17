@@ -181,10 +181,10 @@ export default function LoginPage() {
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
-               className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 text-center"
+               className="fixed inset-0 z-100 bg-white flex flex-col items-center justify-center p-8 text-center"
             >
                <div className="relative mb-8">
-                  <div className="absolute inset-0 bg-emerald-500 rounded-full blur-[40px] opacity-20 animate-pulse" />
+                  <div className="absolute inset-0 bg-emerald-500 rounded-full blur-2xl opacity-20 animate-pulse" />
                   <div className="relative w-20 h-20 bg-emerald-50 border-4 border-emerald-100 rounded-3xl flex items-center justify-center">
                      <ShieldCheck className="w-10 h-10 text-emerald-600" />
                   </div>

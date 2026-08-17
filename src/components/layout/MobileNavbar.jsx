@@ -124,14 +124,14 @@ export default function MobileNavbar({ activeItem, setActiveItem, restaurantId }
             <button
               key={item.id}
               onClick={() => handleNavigation(item)}
-              className={`flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[62px] rounded-xl transition-all duration-200 relative cursor-pointer ${
+              className={`flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-15.5 rounded-xl transition-all duration-200 relative cursor-pointer ${
                 isActive 
                   ? 'text-blue-600' 
                   : 'text-slate-400 hover:text-slate-600 active:scale-95'
               }`}
             >
               {isActive && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-7 h-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full shadow-xs" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-7 h-1 bg-linear-to-r from-blue-600 to-indigo-600 rounded-full shadow-xs" />
               )}
               
               <div className={`p-1.5 rounded-xl transition-all duration-200 relative ${isActive ? 'bg-blue-50/80 text-blue-600' : ''}`}>
@@ -139,7 +139,7 @@ export default function MobileNavbar({ activeItem, setActiveItem, restaurantId }
                 
                 {/* 🔴 Live Order Badge */}
                 {showBadge && (
-                  <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 bg-gradient-to-r from-red-500 to-rose-600 text-white font-black text-[9px] rounded-full flex items-center justify-center shadow-md shadow-red-500/40 ring-2 ring-white animate-in zoom-in duration-300">
+                  <span className="absolute -top-1 -right-2 min-w-4.5 h-4.5 px-1 bg-linear-to-r from-red-500 to-rose-600 text-white font-black text-[9px] rounded-full flex items-center justify-center shadow-md shadow-red-500/40 ring-2 ring-white animate-in zoom-in duration-300">
                     {activeOrdersCount > 99 ? '99+' : activeOrdersCount}
                   </span>
                 )}

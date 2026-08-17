@@ -111,10 +111,10 @@ export default function MenuListView({
             <div className="flex items-center gap-2 min-w-max">
               <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-100 shadow-sm">
                 <Filter className="w-3.5 h-3.5 text-gray-400 ml-2" />
-                <div className="h-4 w-[1px] bg-gray-100 mx-1" />
+                <div className="h-4 w-px bg-gray-100 mx-1" />
                 
                 <Select value={categoryFilter} onValueChange={onCategoryFilterChange}>
-                  <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 text-xs font-bold w-[120px]">
+                  <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 text-xs font-bold w-30">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -124,10 +124,10 @@ export default function MenuListView({
                   </SelectContent>
                 </Select>
 
-                <div className="h-4 w-[1px] bg-gray-100" />
+                <div className="h-4 w-px bg-gray-100" />
 
                 <Select value={typeFilter} onValueChange={onTypeFilterChange}>
-                  <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 text-xs font-bold w-[110px]">
+                  <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 text-xs font-bold w-27.5">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -137,10 +137,10 @@ export default function MenuListView({
                   </SelectContent>
                 </Select>
 
-                <div className="h-4 w-[1px] bg-gray-100" />
+                <div className="h-4 w-px bg-gray-100" />
 
                 <Select value={stockFilter} onValueChange={onStockFilterChange}>
-                  <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 text-xs font-bold w-[110px]">
+                  <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 text-xs font-bold w-27.5">
                     <SelectValue placeholder="Stock" />
                   </SelectTrigger>
                   <SelectContent>
@@ -194,7 +194,7 @@ export default function MenuListView({
                   <Table className="">
                     <TableHeader className="">
                       <TableRow className="">
-                        <TableHead className="w-[80px]">Image</TableHead>
+                        <TableHead className="w-20">Image</TableHead>
                         <TableHead className="">Item Name</TableHead>
                         <TableHead className="">Category</TableHead>
                         <TableHead className="">Type</TableHead>
@@ -224,7 +224,7 @@ export default function MenuListView({
                             <TableCell className="">
                               <div className="">
                                 <div className="font-bold text-gray-900">{item.name}</div>
-                                <div className="text-xs text-gray-500 line-clamp-1 max-w-[200px]">
+                                <div className="text-xs text-gray-500 line-clamp-1 max-w-50">
                                   {item.description}
                                 </div>
                               </div>
@@ -326,7 +326,7 @@ export default function MenuListView({
                     
                     return (
                       <Card key={item._id} className="overflow-hidden border-slate-200/60 shadow-sm transition-all hover:shadow-md bg-white">
-                        <div className="flex items-stretch h-[110px]">
+                        <div className="flex items-stretch h-27.5">
                           {/* Left: Image (Full height) */}
                           <div className="relative w-28 h-full shrink-0 bg-slate-50 border-r border-slate-100">
                             {item.photo ? (
@@ -388,7 +388,7 @@ export default function MenuListView({
                                       {item.isInStock ? <ToggleRight className="w-4 h-4 mr-2 text-emerald-500" /> : <ToggleLeft className="w-4 h-4 mr-2 text-slate-400" />}
                                       <span className="text-xs font-semibold">{item.isInStock ? 'Mark Out of Stock' : 'Mark In Stock'}</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
+                                    <DropdownMenuSeparator className="" />
                                     <DropdownMenuItem onClick={() => onDelete(item._id)} className="py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
                                       <Trash2 className="w-4 h-4 mr-2" />
                                       <span className="text-xs font-semibold">Delete Item</span>
@@ -414,7 +414,7 @@ export default function MenuListView({
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
               <DialogHeader className="">
                 <DialogTitle className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                     {selectedItem.photo ? (
                       <img
                         src={selectedItem.photo}

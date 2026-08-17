@@ -693,7 +693,7 @@ export default function QRTemplateStudioModal({
   open,
   onOpenChange,
   qrCodes = [],
-  restaurantProfile = {},
+  restaurantProfile = null,
   selectedSingleQR = null
 }) {
   const [selectedTheme, setSelectedTheme] = useState('royal_gold')
@@ -710,7 +710,7 @@ export default function QRTemplateStudioModal({
   const [previewTableIndex, setPreviewTableIndex] = useState(0)
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false)
   const [tableSearch, setTableSearch] = useState('')
-  const [profile, setProfile] = useState(restaurantProfile || {})
+  const [profile, setProfile] = useState(() => restaurantProfile || {})
   const dropdownRef = useRef(null)
   const tableButtonRefs = useRef([])
 
@@ -780,8 +780,8 @@ export default function QRTemplateStudioModal({
     qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://servora.app'
   }
 
-  const restaurantName = profile.name || profile.business_name || restaurantProfile.name || restaurantProfile.business_name || 'Tiger Bistro'
-  const restaurantLogo = profile.logo_url || profile.avatar || profile.logo || restaurantProfile.logo_url || restaurantProfile.avatar || restaurantProfile.logo || ''
+  const restaurantName = profile?.name || profile?.business_name || restaurantProfile?.name || restaurantProfile?.business_name || 'Tiger Bistro'
+  const restaurantLogo = profile?.logo_url || profile?.avatar || profile?.logo || restaurantProfile?.logo_url || restaurantProfile?.avatar || restaurantProfile?.logo || ''
 
   // Compute Active Dimensions (Inches to 300 DPI Canvas Pixels)
   const wInches = selectedFormat === 'custom'
@@ -921,13 +921,13 @@ export default function QRTemplateStudioModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="!max-w-6xl !w-[96vw] sm:!w-[92vw] max-h-[92vh] sm:max-h-[90vh] flex flex-col p-0 rounded-2xl sm:rounded-3xl bg-slate-50 border border-slate-200/80 shadow-2xl overflow-hidden"
+        className="max-w-6xl! w-[96vw]! sm:w-[92vw]! max-h-[92vh] sm:max-h-[90vh] flex flex-col p-0 rounded-2xl sm:rounded-3xl bg-slate-50 border border-slate-200/80 shadow-2xl overflow-hidden"
         showCloseButton={true}
       >
         {/* 🌟 Top Header Bar 🌟 */}
         <div className="shrink-0 bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 pr-8 sm:pr-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
@@ -1240,7 +1240,7 @@ export default function QRTemplateStudioModal({
                       {targetQRs.map((qr, idx) => (
                         <button
                           key={qr.tableNumber}
-                          ref={(el) => (tableButtonRefs.current[idx] = el)}
+                          ref={(el) => { tableButtonRefs.current[idx] = el }}
                           type="button"
                           onClick={() => setPreviewTableIndex(idx)}
                           className={`h-10 min-w-10 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer shrink-0 flex items-center justify-center border shadow-2xs ${
@@ -1298,7 +1298,7 @@ export default function QRTemplateStudioModal({
             </div>
 
             {/* 🖼️ RIGHT LIVE VISUAL STAND PREVIEW (7 Columns) */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-200/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-10 border border-slate-300/80 min-h-[380px] sm:min-h-[480px] lg:min-h-[560px]">
+            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-200/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-10 border border-slate-300/80 min-h-95 sm:min-h-120 lg:min-h-140">
               <div className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3 sm:mb-5 flex items-center gap-1.5 text-center">
                 <Eye className="w-3.5 h-3.5" />
                 <span>Live 1:1 Print Preview ({wInches}" × {hInches}" • {activeWidth} × {activeHeight} px)</span>
@@ -1331,7 +1331,7 @@ export default function QRTemplateStudioModal({
                             <img src={restaurantLogo} alt="Logo" className="w-full h-full object-cover" />
                           </div>
                         ) : (
-                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black text-sm shadow-xs shrink-0">
+                          <div className="w-8 h-8 rounded-xl bg-linear-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black text-sm shadow-xs shrink-0">
                             {restaurantName.charAt(0)}
                           </div>
                         )}
@@ -1391,7 +1391,7 @@ export default function QRTemplateStudioModal({
                         </div>
                       ) : (
                         <div 
-                          className="mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0"
+                          className="mx-auto rounded-2xl bg-linear-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0"
                           style={{ 
                             width: isNarrowCard ? '36px' : '48px', 
                             height: isNarrowCard ? '36px' : '48px',

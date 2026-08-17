@@ -79,7 +79,7 @@ export default function ModuleLockOverlay({ featureName, requiredPlan, price, fe
         {/* Main Card */}
         <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-2xl shadow-slate-900/8">
           {/* Top gradient bar */}
-          <div className={`h-1.5 w-full bg-gradient-to-r ${config.gradientFrom} ${config.gradientVia} ${config.gradientTo}`} />
+          <div className={`h-1.5 w-full bg-linear-to-r ${config.gradientFrom} ${config.gradientVia} ${config.gradientTo}`} />
 
           <div className="p-8 lg:p-12">
             <div className="flex flex-col items-center text-center space-y-6">
@@ -101,7 +101,7 @@ export default function ModuleLockOverlay({ featureName, requiredPlan, price, fe
               <div className="space-y-3">
                 <h2 className="text-3xl lg:text-4xl font-black text-slate-950 tracking-tight leading-none">
                   {featureName} is<br />
-                  <span className={`bg-gradient-to-r ${config.gradientFrom} ${config.gradientTo} bg-clip-text text-transparent`}>
+                  <span className={`bg-linear-to-r ${config.gradientFrom} ${config.gradientTo} bg-clip-text text-transparent`}>
                     Plan Restricted
                   </span>
                 </h2>
@@ -137,7 +137,7 @@ export default function ModuleLockOverlay({ featureName, requiredPlan, price, fe
 
                 <Button
                   onClick={handleUpgrade}
-                  className={`w-full h-14 rounded-2xl bg-gradient-to-r ${config.gradientFrom} ${config.gradientTo} hover:opacity-90 text-white font-black uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all group border-0`}
+                  className={`w-full h-14 rounded-2xl bg-linear-to-r ${config.gradientFrom} ${config.gradientTo} hover:opacity-90 text-white font-black uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all group border-0`}
                 >
                   <Zap className="w-4 h-4 mr-2 text-yellow-300 fill-yellow-300" />
                   Upgrade to {requiredPlan}

@@ -62,7 +62,7 @@ export default function MarketingNavbar() {
     <>
       <nav
         className={cn(
-          'fixed top-0 inset-x-0 z-[100] transition-all duration-300',
+          'fixed top-0 inset-x-0 z-100 transition-all duration-300',
           isScrolled 
             ? 'h-16 sm:h-20 bg-white/90 backdrop-blur-2xl border-b border-slate-200/60 shadow-md shadow-slate-900/5' 
             : 'h-16 sm:h-22 bg-white/80 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none border-b border-slate-100/60 sm:border-transparent'
@@ -143,7 +143,7 @@ export default function MarketingNavbar() {
       {/* 📱 Fullscreen Solid Mobile Menu Overlay (Outside Nav Stacking Context) */}
       <div 
         className={cn(
-          "fixed inset-0 w-full h-[100dvh] bg-white z-[99999] flex flex-col justify-between overflow-y-auto transition-all duration-300 lg:hidden",
+          "fixed inset-0 w-full h-dvh bg-white z-99999 flex flex-col justify-between overflow-y-auto transition-all duration-300 lg:hidden",
           mobileMenuOpen ? "opacity-100 pointer-events-auto translate-x-0" : "opacity-0 pointer-events-none translate-x-full"
         )}
         style={{ backgroundColor: '#ffffff' }}
