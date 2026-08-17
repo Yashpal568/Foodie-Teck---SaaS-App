@@ -61,37 +61,24 @@ export default function LoginPage() {
       navigate(targetPath, { replace: true })
     }
 
-    // Short-circuit for admin
+    // 1. SuperAdmin authentication shortcut
     if (cleanEmail === 'admin@servora.com' && formData.password === 'admin123') {
-      proceedToConsole('/admin')
+      sessionStorage.setItem('servora_admin_auth', 'true')
+      sessionStorage.setItem('servora_admin_token', `adm_${Date.now()}`)
+      proceedToConsole('/admin/dashboard')
       return
     }
 
+    // 2. Demo Merchant credentials
+    if (cleanEmail === 'demo@servora.com' && (formData.password === 'demo123' || formData.password === 'demo')) {
+      localStorage.setItem('servora_merchant_email', 'demo@servora.com')
+      localStorage.setItem('servora_merchant_id', 'demo-merchant')
+      proceedToConsole('/console/demo-merchant')
+      return
+    }
 
     try {
-      // 1. Check if this email exists as a restaurant in the database
-      const { data: restaurant } = await supabase
-        .from('restaurants')
-        .select('id, owner_id, business_name')
-        .eq('email', cleanEmail)
-        .maybeSingle()
-
-      if (restaurant) {
-        // Known restaurant in system -> Save local merchant context & navigate immediately!
-        localStorage.setItem('servora_merchant_email', cleanEmail)
-        localStorage.setItem('servora_merchant_id', restaurant.id)
-
-        // Background non-blocking auth sync (won't interrupt login if rate-limited)
-        supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: formData.password
-        }).catch(() => {})
-
-        proceedToConsole(`/console/${cleanEmail}`)
-        return
-      }
-
-      // 2. Otherwise attempt standard Supabase auth
+      // 3. Strict Supabase Authentication with password verification
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: formData.password
@@ -102,15 +89,28 @@ export default function LoginPage() {
       }
 
       if (authData?.user) {
-        proceedToConsole(`/console/${cleanEmail}`)
+        localStorage.setItem('servora_merchant_email', cleanEmail)
+        if (authData.user.id) {
+          localStorage.setItem('servora_merchant_id', authData.user.id)
+        }
+
+        // Fetch associated restaurant ID if available
+        const { data: rest } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('owner_id', authData.user.id)
+          .maybeSingle()
+
+        const targetConsole = rest?.id ? `/console/${rest.id}` : `/console/${cleanEmail}`
+        proceedToConsole(targetConsole)
         return
       }
 
       throw new Error('Invalid login credentials.')
 
     } catch (err) {
-      console.error('Auth exception:', err)
-      setError(err.message || 'Invalid login credentials.')
+      console.error('Auth error:', err)
+      setError(err.message === 'Invalid login credentials' ? 'Invalid email or password. Please try again.' : (err.message || 'Authentication failed.'))
       setIsAuthenticating(false)
     }
   }

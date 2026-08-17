@@ -96,8 +96,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
       type: formData.type,
       isInStock: formData.isInStock,
       photo: formData.photo,
-      price: parseFloat(formData.price),
-      restaurantId: 'restaurant-123',
+      price: Math.max(0, parseFloat(formData.price) || 0),
       createdAt: item?.createdAt || new Date(),
       updatedAt: new Date()
     }

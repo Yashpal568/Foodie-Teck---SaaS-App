@@ -10,10 +10,16 @@ export default function AdminProtectedRoute() {
   useEffect(() => {
     async function checkAuth() {
       try {
+        const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@servora.com'
         const { data: { session } } = await getCachedSession()
-        const adminSession = sessionStorage.getItem('servora_admin_auth') || sessionStorage.getItem('servora_admin_token')
-        
-        if (session || adminSession) {
+        const adminAuthFlag = sessionStorage.getItem('servora_admin_auth')
+        const adminToken = sessionStorage.getItem('servora_admin_token')
+
+        const hasAdminSession = adminAuthFlag === 'true' && !!adminToken
+        const isSuperAdminEmail = session?.user?.email?.toLowerCase() === adminEmail.toLowerCase()
+        const hasAdminRole = session?.user?.app_metadata?.role === 'SUPER_ADMIN' || session?.user?.user_metadata?.role === 'SUPER_ADMIN'
+
+        if (hasAdminSession || isSuperAdminEmail || hasAdminRole) {
           setIsAuthenticated(true)
         } else {
           setIsAuthenticated(false)

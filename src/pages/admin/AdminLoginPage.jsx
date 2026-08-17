@@ -31,8 +31,10 @@ export default function AdminLoginPage() {
     const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
 
     if (secureEmail === adminEmail && password === adminPassword) {
-      sessionStorage.setItem('servora_admin_token', 'SERVORA_PLATFORM_OWNER_2026')
-      sessionStorage.setItem('servora_admin_user', JSON.stringify({ name: 'System Owner', role: 'SUPER_ADMIN' }))
+      const dynamicToken = `adm_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+      sessionStorage.setItem('servora_admin_token', dynamicToken)
+      sessionStorage.setItem('servora_admin_auth', 'true')
+      sessionStorage.setItem('servora_admin_user', JSON.stringify({ name: 'System Owner', role: 'SUPER_ADMIN', email: adminEmail }))
       navigate('/admin/dashboard')
     } else {
       setError('Invalid platform credentials. Access denied.')

@@ -12,17 +12,34 @@ export const createOrder = async (orderData) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
   const validRestaurantId = isUUID(targetRid) ? targetRid : (await ensureValidRestaurantUUID(targetRid || 'demo-restaurant'))
 
+  const lineItems = (orderData.items || []).map(item => {
+    const rawId = item._id || item.id
+    const itemPrice = Math.max(0, Number(item.price || 0))
+    const itemQuantity = Math.max(1, Math.min(99, Number(item.quantity) || 1))
+    return {
+      menu_item_id: isUUID(rawId) ? rawId : null,
+      name: String(item.name || 'Menu Item').slice(0, 100),
+      price: itemPrice,
+      quantity: itemQuantity
+    }
+  })
+
+  const computedSubtotal = lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const gstRate = Math.max(0, Math.min(100, Number(orderData.gstRate || 0)))
+  const computedTax = computedSubtotal * (gstRate / 100)
+  const computedTotal = computedSubtotal + computedTax
+
   const { data: order, error } = await supabase
     .from('orders')
     .insert({
       restaurant_id: validRestaurantId,
       table_number: String(orderData.tableNumber || 'N/A'),
-      customer_name: orderData.customerName || 'Guest Customer',
+      customer_name: String(orderData.customerName || 'Guest Customer').slice(0, 100),
       status: 'PENDING',
-      subtotal: Number(orderData.subtotal || 0),
-      tax: Number(orderData.tax || 0),
-      total: Number(orderData.total || 0),
-      gst_rate: Number(orderData.gstRate || 0),
+      subtotal: computedSubtotal,
+      tax: computedTax,
+      total: computedTotal,
+      gst_rate: gstRate,
       gst_label: orderData.gstLabel || 'GST',
       type: orderData.type || 'DINE-IN',
       created_at: new Date().toISOString()
@@ -48,18 +65,12 @@ export const createOrder = async (orderData) => {
     } catch (e) {}
   }
 
-  if (orderData.items && orderData.items.length > 0) {
-    const lineItems = orderData.items.map(item => {
-      const rawId = item._id || item.id
-      return {
-        order_id: order.id,
-        menu_item_id: isUUID(rawId) ? rawId : null,
-        name: item.name,
-        price: Number(item.price),
-        quantity: Number(item.quantity),
-      }
-    })
-    const { error: itemsError } = await supabase.from('order_items').insert(lineItems)
+  if (lineItems.length > 0) {
+    const orderItemsPayload = lineItems.map(item => ({
+      order_id: order.id,
+      ...item
+    }))
+    const { error: itemsError } = await supabase.from('order_items').insert(orderItemsPayload)
     if (itemsError) console.error('Error inserting order items:', itemsError)
   }
 

@@ -180,30 +180,7 @@ function Dashboard() {
         }
       }
 
-      // Check local storage approval override first (fast path — no DB needed)
-      const isApprovedLocally =
-        localStorage.getItem(`servora_approved_${activeRestaurantId}`) ||
-        (userEmail && localStorage.getItem(`servora_approved_${userEmail}`)) ||
-        (urlId && localStorage.getItem(`servora_approved_${urlId}`));
-
-      const subsList = JSON.parse(localStorage.getItem("servora_subscriptions") || "[]");
-      const localSub = subsList.find(
-        (s) =>
-          s.restaurant_id === activeRestaurantId ||
-          s.restaurant_id === userEmail ||
-          s.restaurant_id === urlId ||
-          s.id === `sub-${activeRestaurantId}`,
-      );
-
-      if (isApprovedLocally === "true" || localSub?.status === "Active" || localSub?.status === "Approved") {
-        setIsExpired(false);
-        setSubDetails({ pendingApproval: false, utrNumber: localSub?.utr_number || "", status: "Active" });
-        setPlan({ name: localSub?.plan_name || "Starter", purchaseDate: new Date().toISOString() });
-        setIsLoading(false);
-        return;
-      }
-
-      // Use the subscription data from the query result
+      // Use authoritative database subscription record as source of truth
       const subscriptions = Array.isArray(fetchedSubscriptions) ? fetchedSubscriptions : [];
       const subscription = subscriptions.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
 

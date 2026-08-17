@@ -541,7 +541,7 @@ export default function CustomerMenu() {
   }, [isDragging, handleDragMove, handleDragEnd])
 
   const placeOrder = async () => {
-    if (cart.length === 0) return
+    if (isSaving || cart.length === 0) return
     setIsSaving(true)
     try {
       const taxAmount = getTotalPrice() * (gstRate / 100)

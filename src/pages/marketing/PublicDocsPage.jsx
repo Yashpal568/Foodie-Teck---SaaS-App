@@ -69,8 +69,8 @@ export default function PublicDocsPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Sidebar Component
-  const Sidebar = ({ isMobileDrawer = false, onClose }) => (
+  // Sidebar Render Helper
+  const renderSidebar = (isMobileDrawer = false, onClose) => (
     <div className="h-full flex flex-col bg-white overflow-hidden" style={{ backgroundColor: '#ffffff' }}>
       {/* Mobile Drawer Header */}
       {isMobileDrawer && (
@@ -181,7 +181,7 @@ export default function PublicDocsPage() {
         <div className="flex w-full px-4 sm:px-6 lg:px-12">
           {/* Sidebar - Desktop */}
           <aside className="hidden lg:flex flex-col w-65 xl:w-70 shrink-0 border-r border-slate-200/60 bg-white sticky top-20 h-[calc(100vh-5rem)] overflow-hidden z-20">
-            <Sidebar isMobileDrawer={false} />
+            {renderSidebar(false)}
           </aside>
 
           {/* Main Content */}
@@ -330,7 +330,7 @@ export default function PublicDocsPage() {
         >
           <SheetTitle className="sr-only">Documentation Contents</SheetTitle>
           <SheetDescription className="sr-only">Browse all documentation articles and categories.</SheetDescription>
-          <Sidebar isMobileDrawer={true} onClose={() => setIsSidebarOpen(false)} />
+          {renderSidebar(true, () => setIsSidebarOpen(false))}
         </SheetContent>
       </Sheet>
     </div>

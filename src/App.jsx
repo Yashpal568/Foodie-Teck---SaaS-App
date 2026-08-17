@@ -5,6 +5,7 @@ import SubscriptionLockOverlay from './components/dashboard/SubscriptionLockOver
 import MarketingLayout from './layouts/MarketingLayout'
 import AdminLayout from './layouts/AdminLayout'
 import AdminProtectedRoute from './components/admin/AdminProtectedRoute'
+import MerchantProtectedRoute from './components/auth/MerchantProtectedRoute'
 
 // Lazy-loaded Pages for Optimal Code-Splitting & Bundle Performance
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -114,7 +115,11 @@ function App() {
             <Route path="/select-plan" element={<PricingPage />} />
 
             {/* Console / Dashboard Routes (Multi-Tenant Isolated) */}
-            <Route path="/console/:restaurantId" element={<Dashboard />} />
+            <Route path="/console/:restaurantId" element={
+              <MerchantProtectedRoute>
+                <Dashboard />
+              </MerchantProtectedRoute>
+            } />
             <Route path="/dashboard" element={<DashboardRedirect />} />
             <Route path="/menu" element={<CustomerMenu />} />
             <Route path="/docs/articles" element={<DocumentationPage />} />

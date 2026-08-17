@@ -89,7 +89,7 @@ export default function DocumentationPage() {
   }
 
   // ─── Premium Sidebar ─────────────────────────────────────────────────
-  const PremiumSidebar = () => (
+  const renderSidebar = () => (
     <div className="h-full flex flex-col bg-white border-r border-slate-200/60 shadow-xl z-20">
       <div className="p-4 border-b border-slate-100">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-lg border border-blue-100/50 w-fit">
@@ -274,7 +274,7 @@ export default function DocumentationPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Fixed Sidebar */}
         <aside className="hidden lg:block w-80 flex-shrink-0 border-r border-slate-100 overflow-y-auto bg-slate-50/20">
-          <PremiumSidebar />
+          {renderSidebar()}
         </aside>
 
         {/* Dynamic Content Area */}
@@ -439,7 +439,7 @@ export default function DocumentationPage() {
             <SheetContent side="left" className="p-0 w-80 border-none shadow-2xl">
               <SheetTitle className="sr-only">Documentation Menu</SheetTitle>
               <SheetDescription className="sr-only">Browse documentation sections and articles</SheetDescription>
-              <PremiumSidebar />
+              {renderSidebar()}
             </SheetContent>
           </Sheet>
         </div>
