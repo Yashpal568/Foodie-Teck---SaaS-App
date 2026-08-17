@@ -10,6 +10,8 @@ import {
   HelpCircle,
   Menu,
   X,
+  ChevronLeft,
+  ChevronRight,
   Receipt,
   Table,
   LogOut,
@@ -30,9 +32,7 @@ export const menuItems = [
   { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard' },
   { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard' },
   { icon: Users, label: 'Customer Management', id: 'customers', route: '/dashboard' },
-  { icon: Receipt, label: 'Analytics', id: 'analytics', route: '/dashboard' },
-  { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' },
-  { icon: HelpCircle, label: 'Help & Support', id: 'help', route: '/dashboard' }
+  { icon: Receipt, label: 'Analytics', id: 'analytics', route: '/dashboard' }
 ]
 
 export const supportItems = [
@@ -369,17 +369,18 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       </div>
 
       {/* Collapse Toggle */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-3 border-t border-gray-100">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors font-bold text-xs cursor-pointer"
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           {isCollapsed ? (
-            <Menu className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4" />
           ) : (
             <>
-              <X className="w-5 h-5" />
-              <span className="text-sm font-medium">Collapse</span>
+              <ChevronLeft className="w-4 h-4" />
+              <span>Collapse Sidebar</span>
             </>
           )}
         </button>

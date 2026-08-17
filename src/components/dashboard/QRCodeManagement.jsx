@@ -248,56 +248,55 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     <div className="min-h-screen bg-slate-50/60 pb-28">
       {/* 🌟 Master Sticky Command Header 🌟 */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
             
             {/* Left Title & Status Beacon */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
-                <QrCode className="w-6 h-6" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                <QrCode className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-black text-slate-900 tracking-tight">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
                     QR Fleet Command
                   </h1>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Live Signatures
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 font-medium">
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate sm:whitespace-normal">
                   Cryptographically secured QR codes & print-ready standees for your dining tables.
                 </p>
               </div>
             </div>
 
-            {/* Right Action Hub (Clean & Minimal) */}
-            <div className="flex items-center gap-2.5 self-start md:self-center flex-wrap">
+            {/* Right Action Hub (Clean, Responsive & Minimal) */}
+            <div className="flex items-center gap-2 sm:gap-2.5 self-start md:self-center flex-wrap sm:flex-nowrap">
               
               {/* Plan Fleet Counter Pill */}
-              <div className="h-10 px-3.5 rounded-xl bg-slate-100/90 border border-slate-200/90 flex items-center gap-2">
+              <div className="h-9 sm:h-10 px-3 rounded-xl bg-slate-100/90 border border-slate-200/90 flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <Table className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-xs font-black text-slate-900">
-                  {qrCodes.length} <span className="text-slate-400 font-medium">/ {effectiveLimit >= 9999 ? '∞' : effectiveLimit} Tables</span>
+                <span className="text-[11px] sm:text-xs font-black text-slate-900">
+                  {qrCodes.length} <span className="text-slate-400 font-medium">/ {effectiveLimit >= 9999 ? '∞' : effectiveLimit}</span>
                 </span>
               </div>
-
 
               {/* Add / Change Tables Toggle */}
               <Button
                 variant="outline"
                 onClick={() => setShowConfigDrawer(!showConfigDrawer)}
-                className="h-10 px-3.5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 font-bold text-xs text-slate-700 shadow-2xs cursor-pointer flex items-center gap-1.5 transition-all"
+                className="h-9 sm:h-10 px-3 rounded-xl border-slate-200 bg-white hover:bg-slate-50 font-bold text-[11px] sm:text-xs text-slate-700 shadow-2xs cursor-pointer flex items-center gap-1.5 transition-all shrink-0"
               >
                 {showConfigDrawer ? (
                   <>
-                    <X className="w-4 h-4 text-slate-500" />
-                    <span>Close Settings</span>
+                    <X className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Close</span>
                   </>
                 ) : (
                   <>
-                    <Plus className="w-4 h-4 text-indigo-600" />
+                    <Plus className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Add / Change Tables</span>
                   </>
                 )}
@@ -307,9 +306,9 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               <Button 
                 onClick={() => { setSelectedStudioQR(null); setIsStudioOpen(true); }}
                 disabled={qrCodes.length === 0}
-                className="h-10 px-5 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-black hover:to-indigo-900 text-amber-400 font-black text-xs uppercase tracking-wider shadow-lg shadow-slate-900/15 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2 border border-amber-400/20"
+                className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-black hover:to-indigo-900 text-amber-400 font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-md shadow-slate-900/15 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 border border-amber-400/20 shrink-0"
               >
-                <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                 <span>Standee Studio</span>
               </Button>
             </div>
@@ -317,10 +316,10 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6">
 
         {/* 🌟 3 Compact Professional Stat Cards 🌟 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           
           {/* Card 1: Active Fleet & Capacity Progress */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-all duration-150 flex flex-col justify-between space-y-2.5">
@@ -391,7 +390,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
           </div>
 
           {/* Card 3: 300 DPI Standee Studio */}
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-all duration-150 flex flex-col justify-between space-y-2.5">
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-all duration-150 flex flex-col justify-between space-y-2.5 sm:col-span-2 lg:col-span-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
@@ -435,8 +434,8 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
         {/* ⚙️ Expandable Fleet Configurator Panel (if toggled or empty) */}
         {(showConfigDrawer || qrCodes.length === 0) && (
-          <div className="p-6 sm:p-8 bg-gradient-to-br from-white to-indigo-50/40 rounded-3xl border border-indigo-200/80 shadow-lg animate-in fade-in-50 duration-200 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-100 pb-5">
+          <div className="p-5 sm:p-7 bg-gradient-to-br from-white to-indigo-50/40 rounded-2xl sm:rounded-3xl border border-indigo-200/80 shadow-lg animate-in fade-in-50 duration-200 space-y-5 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-indigo-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                   <Settings2 className="w-5 h-5 text-indigo-600" />
@@ -447,25 +446,25 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                 </p>
               </div>
 
-              <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-xs px-3 py-1">
+              <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-xs px-3 py-1 self-start sm:self-auto">
                 Plan Limit: {effectiveLimit >= 9999 ? 'Unlimited' : `${effectiveLimit} Tables`}
               </Badge>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-center">
               
               {/* Table Stepper Controller */}
               <div className="md:col-span-6 space-y-2">
                 <Label className="text-xs font-black uppercase tracking-wider text-slate-700">
                   Total Dining Tables
                 </Label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => setTableCount(prev => Math.max(1, prev - 1))}
-                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold hover:bg-slate-50 active:scale-95 transition-all shadow-xs cursor-pointer"
+                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold hover:bg-slate-50 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0"
                   >
-                    <Minus className="w-5 h-5" />
+                    <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
 
                   <Input
@@ -477,30 +476,30 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                       const val = parseInt(e.target.value) || 1
                       setTableCount(Math.min(effectiveLimit, Math.max(1, val)))
                     }}
-                    className="h-12 text-center text-lg font-black rounded-2xl bg-white border-slate-200"
+                    className="h-11 sm:h-12 text-center text-base sm:text-lg font-black rounded-xl sm:rounded-2xl bg-white border-slate-200"
                   />
 
                   <button
                     type="button"
                     onClick={() => setTableCount(prev => Math.min(effectiveLimit, prev + 1))}
-                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold hover:bg-slate-50 active:scale-95 transition-all shadow-xs cursor-pointer"
+                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold hover:bg-slate-50 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
               </div>
 
               {/* Action Button */}
-              <div className="md:col-span-6 flex flex-col justify-end pt-2 md:pt-6">
+              <div className="md:col-span-6 flex flex-col justify-end pt-1 md:pt-6">
                 <Button
                   onClick={generateAllQRCodes}
                   disabled={isGenerating}
-                  className="h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-indigo-500/20 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-indigo-500/20 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isGenerating ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Generating & Cryptographically Signing...</span>
+                      <span>Generating & Signing...</span>
                     </>
                   ) : (
                     <>
@@ -519,7 +518,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
           <div className="space-y-4">
             
             {/* Filter & Quick Search Bar */}
-            <div className="p-4 bg-white rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-3.5 sm:p-4 bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
               
               {/* Search Table */}
               <div className="relative w-full sm:w-72">
@@ -528,7 +527,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                   placeholder="Filter table number (e.g. 5)..."
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
-                  className="h-10 pl-9 rounded-2xl bg-slate-50 border-slate-200 text-xs font-bold text-slate-900 focus:bg-white"
+                  className="h-9 sm:h-10 pl-9 rounded-xl sm:rounded-2xl bg-slate-50 border-slate-200 text-xs font-bold text-slate-900 focus:bg-white"
                 />
               </div>
 
@@ -548,17 +547,17 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
               </div>
             </div>
 
-            {/* 🌟 Grid of Table QR Cards (Obsidian Glass & Tactile) 🌟 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {/* 🌟 Grid of Table QR Cards (Responsive for iPad & Desktop) 🌟 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               {filteredQRs.map((qr) => (
                 <div 
                   key={qr.tableNumber}
-                  className="group bg-white rounded-3xl border border-slate-200/90 hover:border-indigo-400 hover:shadow-xl transition-all duration-200 p-5 flex flex-col justify-between space-y-4 relative overflow-hidden"
+                  className="group bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 hover:border-indigo-400 hover:shadow-xl transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5 sm:space-y-4 relative overflow-hidden"
                 >
                   {/* Top Bar: Table Pill & Signature Verification */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge className="bg-slate-900 text-amber-400 border border-slate-800 font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+                      <Badge className="bg-slate-900 text-amber-400 border border-slate-800 font-black text-xs px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-xl shadow-xs">
                         Table #{qr.tableNumber}
                       </Badge>
                     </div>
@@ -570,21 +569,21 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                   </div>
 
                   {/* Centerpiece: QR Code on Crisp White Frame */}
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center group-hover:scale-105 transition-transform duration-200 shadow-inner">
+                  <div className="p-3 sm:p-4 bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-100 flex items-center justify-center group-hover:scale-105 transition-transform duration-200 shadow-inner">
                     <img 
                       src={qr.qrImageUrl} 
                       alt={`Table ${qr.tableNumber}`} 
-                      className="w-36 h-36 object-contain"
+                      className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
                       loading="lazy"
                     />
                   </div>
 
                   {/* URL Text / Copy Button */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <button
                       type="button"
                       onClick={() => handleCopyUrl(qr)}
-                      className="w-full h-8 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-600 flex items-center justify-between transition-all cursor-pointer"
+                      className="w-full h-8 px-2.5 sm:px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[10px] sm:text-[11px] font-mono text-slate-600 flex items-center justify-between transition-all cursor-pointer"
                       title="Click to copy menu link"
                     >
                       <span className="truncate">table={qr.tableNumber}&sig={qr.signature?.slice(0, 8)}...</span>
@@ -597,10 +596,10 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
                     <Button 
                       onClick={() => { setSelectedStudioQR(qr); setIsStudioOpen(true); }}
-                      className="h-10 rounded-xl bg-slate-900 hover:bg-black text-amber-400 font-black text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-black text-amber-400 font-black text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                       <span>Standee</span>
@@ -609,7 +608,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                     <Button 
                       variant="outline"
                       onClick={() => downloadQRCode(qr)}
-                      className="h-10 rounded-xl border-slate-200 bg-white hover:bg-slate-50 font-bold text-xs text-slate-700 shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="h-9 sm:h-10 rounded-xl border-slate-200 bg-white hover:bg-slate-50 font-bold text-xs text-slate-700 shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5 text-indigo-600" />
                       <span>PNG</span>
@@ -622,7 +621,6 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         )}
 
       </div>
-
       {/* 🌟 UPGRADE PLAN MODAL 🌟 */}
       <UpgradePlanModal 
         open={showUpgradeModal}

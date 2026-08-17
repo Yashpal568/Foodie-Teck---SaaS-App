@@ -202,8 +202,8 @@ const TableStatus = ({ restaurantId = 'default' }) => {
         })}
       </div>
 
-      {/* Table Cards */}
-      <div className="grid grid-cols-1 gap-3">
+      {/* Table Cards Grid (2-3 Table Boxes per Row on Tablet & Desktop) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
             {displayTables.map((table) => {
               const tableNum = table.table_number || table.tableNumber
               const statusKey = table.status || 'available'

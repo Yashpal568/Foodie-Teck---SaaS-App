@@ -415,15 +415,15 @@ function Dashboard() {
 
               {/* ── MAIN CONTENT AREA ── */}
               <div className="flex-1 p-3 sm:p-4 lg:p-6 xl:p-8">
-                {/* ── 3-COLUMN GRID: metrics / orders / tables ── */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 lg:gap-6">
-                  {/* ── LEFT: Metrics + Recent Orders ── */}
-                  <div className="xl:col-span-8 flex flex-col gap-5">
+                {/* ── SPLIT GRID FOR IPAD & DESKTOP: Orders & Metrics (Left) + Live Floor Tables (Right) ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 xl:gap-6 items-start">
+                  {/* ── LEFT: Metrics + Shortcuts + Recent Orders ── */}
+                  <div className="lg:col-span-6 xl:col-span-6 2xl:col-span-6 flex flex-col gap-4 lg:gap-5 min-w-0">
                     {/* KPI Metric Cards */}
                     <OverviewCards restaurantId={restaurantId} />
 
                     {/* Quick shortcuts row */}
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
                       {[
                         {
                           label: "Manage Orders",
@@ -453,7 +453,7 @@ function Dashboard() {
                         <button
                           key={item.action}
                           onClick={() => setActiveItem(item.action)}
-                          className={`flex flex-col items-center gap-1.5 p-2 sm:p-3 bg-white border ${item.border} rounded-xl hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 text-center group`}
+                          className={`flex flex-col items-center gap-1.5 p-2 sm:p-3 bg-white border ${item.border} rounded-xl hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 text-center group cursor-pointer`}
                         >
                           <div className={`p-1.5 sm:p-2 ${item.bg} rounded-lg`}>
                             <item.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${item.color}`} />
@@ -472,11 +472,11 @@ function Dashboard() {
                     />
                   </div>
 
-                  {/* ── RIGHT: Table Status Panel ── */}
-                  <div className="xl:col-span-4">
+                  {/* ── RIGHT: Live Floor Table Status Panel (Split View) ── */}
+                  <div className="lg:col-span-6 xl:col-span-6 2xl:col-span-6 min-w-0">
                     {/* Table Status Header */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-                      <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col sticky top-20">
+                      <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-50 flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
                           <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-100">
                             <Users className="w-4 h-4 text-slate-600" />
@@ -497,7 +497,7 @@ function Dashboard() {
                           </span>
                         </div>
                       </div>
-                      <div className="p-4 xl:max-h-[calc(100vh-17rem)] xl:overflow-y-auto">
+                      <div className="p-3 sm:p-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto scrollbar-thin">
                         <TableStatus restaurantId={restaurantId} />
                       </div>
                     </div>
