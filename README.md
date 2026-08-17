@@ -1,179 +1,104 @@
-# FoodieTech - Restaurant Management System
+# 🍽️ Servora Client — Next-Gen Autonomous Restaurant Frontend
 
-A modern, feature-rich restaurant management system built with React, Vite, and Tailwind CSS. FoodieTech provides a complete solution for restaurants to manage menus, orders, and customer experiences seamlessly.
+<div align="center">
 
-## 🚀 Features
+![Servora Hero Banner](./public/assets/servora_hero_banner.jpg)
 
-### Customer Experience
-- **Digital Menu**: Interactive menu with categories, search, and real-time filtering
-- **Mobile-First Design**: Responsive design optimized for all devices
-- **Draggable Cart Button**: Innovative draggable floating cart for mobile users
-- **Order Tracking**: Real-time order status tracking with detailed timeline
-- **QR Code Integration**: Easy table-based ordering with QR codes
+[![Vite](https://img.shields.io/badge/Vite-5.0+-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-18.0+-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-100%25%20Dynamic-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS%203.0+-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-### Restaurant Management
-- **Menu Management**: Add, edit, and categorize menu items
-- **Order Management**: Complete order lifecycle from placement to completion
-- **Table Management**: Assign and manage restaurant tables
-- **Order History**: Comprehensive order tracking with timestamps
-- **Real-time Updates**: Live order status synchronization
-
-### Technical Features
-- **Modern UI**: Built with shadcn/ui components for professional appearance
-- **Smooth Animations**: Framer Motion for fluid user interactions
-- **State Management**: Efficient React state management with hooks
-- **Local Storage**: Persistent data storage for menu items and orders
-- **Error Handling**: Comprehensive error boundaries and user feedback
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 18 with Vite
-- **Styling**: Tailwind CSS + shadcn/ui components
-- **Animations**: Framer Motion
-- **Icons**: Lucide React
-- **Build Tool**: Vite
-- **Package Manager**: npm
-
-## 📱 Responsive Design
-
-FoodieTech is fully responsive with optimized experiences for:
-- **Mobile**: Touch-friendly interface with draggable cart
-- **Tablet**: Adaptive layouts for medium screens
-- **Desktop**: Full-featured management dashboard
-
-## 🏗️ Project Structure
-
-```
-client/
-├── src/
-│   ├── components/
-│   │   ├── ui/           # Reusable UI components
-│   │   ├── order/        # Order-related components
-│   │   └── dashboard/    # Dashboard components
-│   ├── pages/
-│   │   └── CustomerMenu.jsx    # Main customer interface
-│   ├── hooks/
-│   │   └── useOrderManagement.js  # Order management logic
-│   ├── services/
-│   │   └── menuService.js        # Menu API service
-│   └── App.jsx              # Main application component
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 16+ 
-- npm or yarn
-
-### Installation
-
-1. Clone the repository
-```bash
-git clone <repository-url>
-cd foodie-tech/client
-```
-
-2. Install dependencies
-```bash
-npm install
-```
-
-3. Start the development server
-```bash
-npm run dev
-```
-
-4. Open your browser and navigate to `http://localhost:5173`
-
-### Build for Production
-```bash
-npm run build
-```
-
-## 📋 Usage
-
-### For Customers
-1. Scan QR code at restaurant table
-2. Browse the interactive menu
-3. Add items to cart using draggable cart button
-4. Place order and track real-time status
-
-### For Restaurant Staff
-1. Access dashboard to manage menu items
-2. Monitor and process incoming orders
-3. Update order status in real-time
-## 📸 Application Screenshots & Live Demos
-
-### 1. Admin Financial Intelligence & Platform Control
-![Admin Financial Intelligence](./admin_revenue_after_sql_fix.png)
-
-### 2. Merchant Subscription Gateway
-![Merchant Subscription Gateway](./new_merchant_paywall.png)
-
-### 3. UPI QR Code & Instant UTR Verification Modal
-![UPI Payment Modal](./enterprise_upi_modal.png)
-
-### 4. Real-Time Payment Verification Pending State
-![Waiting Window](./merchant_waiting_window_live.png)
-
-### 5. Unlocked Active Merchant Console Dashboard
-![Unlocked Dashboard](./merchant_dashboard_unlocked_final.png)
-
-## 🎯 Key Features Highlight
-
-### Draggable Cart Button
-- Innovative mobile cart that can be repositioned
-- Smooth drag functionality with boundary constraints
-- Visual feedback during interactions
-
-### Order Tracking System
-- Real-time order status updates
-- Detailed timeline with timestamps
-- Automatic session management
-
-### Professional UI
-- Modern design with shadcn/ui components
-- Smooth animations and transitions
-- Consistent color scheme and typography
-
-## 🔧 Configuration
-
-### Environment Variables
-Create a `.env` file in the root directory:
-```env
-VITE_API_URL=http://localhost:3000
-VITE_RESTAURANT_ID=restaurant-123
-```
-
-### Menu Data
-Menu items are stored in localStorage for persistence. Add items through the dashboard interface.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- [shadcn/ui](https://ui.shadcn.com/) for beautiful UI components
-- [Tailwind CSS](https://tailwindcss.com/) for utility-first CSS framework
-- [Framer Motion](https://www.framer.com/motion/) for animations
-- [Lucide](https://lucide.dev/) for beautiful icons
-
-## 📞 Support
-
-For support and questions:
-- Email: info@foodietech.com
-- Documentation: [Wiki](https://github.com/username/foodie-tech/wiki)
-- Issues: [GitHub Issues](https://github.com/username/foodie-tech/issues)
+</div>
 
 ---
 
-**FoodieTech** - Transforming restaurant dining experiences with technology. 🍽️✨
+## 🚀 Key Client Modules
+
+### 1. Customer QR Menu & Table Ordering (`/menu/:restaurantId`)
+- **Physics-Based Draggable Cart**: Smooth touch-drag floating action button.
+- **Dynamic Categories & Stock Badging**: Real-time Supabase streaming for menu catalogs.
+- **Table Session Sync**: Multi-party ordering bound to scanned table QR codes.
+- **Live Order Timeline**: Real-time progress updates with kitchen dispatch indicators.
+
+<div align="center">
+
+![Smart QR Table Ordering](./public/assets/qr_smart_ordering.jpg)
+
+</div>
+
+---
+
+### 2. Merchant Kitchen Display & Operations Hub (`/console/:restaurantId`)
+- **Live Kitchen Telemetry (KDS)**: Real-time order cards with preparation timers and audio cues.
+- **100% Dynamic Menu Engineering**: Instant price adjustments, category creation, and stock toggling.
+- **Floor Plan & QR Code Management**: Automated table session initialization and high-res QR export.
+- **Waiter Call Stream**: Instant toast notifications and response triggers.
+
+<div align="center">
+
+![Kitchen KDS Telemetry](./public/assets/kitchen_kds_telemetry.jpg)
+
+</div>
+
+---
+
+### 3. Executive SaaS Analytics & Admin Engine (`/admin/revenue`)
+- **Financial Intelligence Telemetry**: Net MRR, ARR, ARPU, LTV, and Plan Tier Distribution charts.
+- **GateSphere Payment Engine**: Manual UPI UTR verification queue with 1-click subscription activation.
+- **Multi-Tenant Security**: Boundary enforcement through `MerchantProtectedRoute`.
+
+<div align="center">
+
+![SaaS Analytics Engine](./public/assets/saas_analytics_engine.jpg)
+
+</div>
+
+---
+
+## 🏗️ Directory Architecture
+
+```
+client/
+├── public/
+│   └── assets/           # High-resolution platform showcases and banners
+├── src/
+│   ├── components/
+│   │   ├── auth/         # Multi-tenant route protection (MerchantProtectedRoute)
+│   │   ├── dashboard/    # Analytics, QR generators, Table Sessions, KDS
+│   │   ├── menu/         # Menu management, category editors, stock toggles
+│   │   ├── order/        # Draggable cart, order timeline, item counters
+│   │   └── ui/           # Custom shadcn/ui component primitives
+│   ├── hooks/            # useNotifications, useOrderManagement, useCart
+│   ├── lib/              # adminDataService, supabaseClient, utils
+│   ├── pages/            # CustomerMenu, MerchantConsole, AdminRevenue, Auth
+│   ├── services/         # menu.service, table.service, order.service (Supabase direct)
+│   ├── App.jsx           # Master route registry
+│   └── main.jsx          # React DOM root
+```
+
+---
+
+## 🛠️ Development & Build
+
+```bash
+# Install dependencies
+npm install
+
+# Start Vite hot-reloading dev server
+npm run dev
+
+# Run production build
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+---
+
+<div align="center">
+
+**Servora Client** — *Engineered for performance, speed, and real-time responsiveness.* 🍽️✨
+
+</div>
