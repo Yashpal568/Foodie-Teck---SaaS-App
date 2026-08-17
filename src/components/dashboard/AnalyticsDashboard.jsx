@@ -770,14 +770,13 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
       didParseCell: function (data) {
         // Suppress default text in status column to prevent double-text overlay
         if (data.section === 'body' && data.column.index === 5) {
-          data.cell._rawStatus = String(data.cell.raw || '').toUpperCase()
           data.cell.text = [] // Suppress default text rendering
         }
       },
       didDrawCell: function (data) {
         // Custom Crisp Pill Badges for Status column (index 5)
         if (data.section === 'body' && data.column.index === 5) {
-          const rawText = data.cell._rawStatus || String(data.cell.raw || '').toUpperCase()
+          const rawText = String(data.cell.raw || '').toUpperCase()
           let bgColor = [236, 253, 245] // Light emerald
           let borderColor = [167, 243, 208]
           let textColor = [5, 150, 105]

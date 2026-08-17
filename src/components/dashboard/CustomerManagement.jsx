@@ -356,7 +356,6 @@ const exportPDF = async (list, stats = {}, restaurantName = 'Tiger Bistro') => {
     didParseCell: function (data) {
       // Suppress default text in Tier and Health columns to prevent double-text overlay
       if (data.section === 'body' && (data.column.index === 3 || data.column.index === 7)) {
-        data.cell._rawText = String(data.cell.raw || '').toUpperCase()
         data.cell.text = [] // Suppress default text rendering
       }
     },
@@ -365,7 +364,7 @@ const exportPDF = async (list, stats = {}, restaurantName = 'Tiger Bistro') => {
       if (data.section === 'body') {
         // Tier Pill
         if (data.column.index === 3) {
-          const rawText = data.cell._rawText || String(data.cell.raw || '').toUpperCase()
+          const rawText = String(data.cell.raw || '').toUpperCase()
           let bgColor = [240, 253, 250] // Teal-50
           let borderColor = [153, 246, 228]
           let textColor = [13, 148, 136]
@@ -404,7 +403,7 @@ const exportPDF = async (list, stats = {}, restaurantName = 'Tiger Bistro') => {
 
         // Health Pill
         if (data.column.index === 7) {
-          const rawText = data.cell._rawText || String(data.cell.raw || '').toUpperCase()
+          const rawText = String(data.cell.raw || '').toUpperCase()
           let bgColor = [236, 253, 245] // Emerald-50
           let borderColor = [167, 243, 208]
           let textColor = [5, 150, 105]
