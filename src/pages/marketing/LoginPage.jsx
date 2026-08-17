@@ -58,15 +58,7 @@ export default function LoginPage() {
       navigate(targetPath, { replace: true })
     }
 
-    // 1. SuperAdmin authentication shortcut
-    if (cleanEmail === 'admin@servora.com' && formData.password === 'admin123') {
-      sessionStorage.setItem('servora_admin_auth', 'true')
-      sessionStorage.setItem('servora_admin_token', `adm_${Date.now()}`)
-      proceedToConsole('/admin/dashboard')
-      return
-    }
-
-    // 2. Demo Merchant credentials
+    // 1. Demo Merchant credentials
     if (cleanEmail === 'demo@servora.com' && (formData.password === 'demo123' || formData.password === 'demo')) {
       proceedToConsole('/console/demo-merchant')
       return
@@ -240,7 +232,7 @@ export default function LoginPage() {
                   <div className="space-y-2">
                      <div className="flex items-center justify-between px-1">
                         <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Secure Password</label>
-                        <a href="#" className="text-xs font-bold text-blue-600 hover:underline">Forgot password?</a>
+                        <Link to="/forgot-password" className="text-xs font-bold text-blue-600 hover:underline">Forgot password?</Link>
                      </div>
                      <div className="relative group">
                         <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
@@ -264,25 +256,16 @@ export default function LoginPage() {
                      {!isAuthenticating && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                   </Button>
 
-                  {/* Quick Fill Credentials Helper for Testing & Demo */}
+                  {/* Quick Fill Credentials Helper for Demo Merchant */}
                   <div className="pt-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center mb-3">Quick Demo Access</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ email: 'demo@servora.com', password: 'demo' })}
-                        className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-bold transition-all text-center"
-                      >
-                        🏪 Demo Merchant
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ email: 'admin@servora.com', password: 'admin123' })}
-                        className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 text-slate-700 hover:text-indigo-700 text-xs font-bold transition-all text-center"
-                      >
-                        ⚡ System Admin
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ email: 'demo@servora.com', password: 'demo' })}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-bold transition-all text-center flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                    >
+                      <span>🏪</span> Explore Demo Merchant
+                    </button>
                   </div>
                </div>
             </form>

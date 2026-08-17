@@ -162,6 +162,7 @@ export default function Navbar({
                 isCollapsed={false}
                 setIsCollapsed={setIsCollapsed || (() => {})}
                 isMobile={true}
+                onClose={() => setIsMobileMenuOpen(false)}
                 restaurantId={restaurantId}
               />
             </SheetContent>

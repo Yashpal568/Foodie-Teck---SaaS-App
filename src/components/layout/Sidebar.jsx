@@ -41,7 +41,7 @@ export const supportItems = [
   { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' },
 ]
 
-export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed, isMobile = false, restaurantId }) {
+export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsCollapsed, isMobile = false, onClose = () => {}, restaurantId }) {
   const navigate = useNavigate()
   const [counts, setCounts] = useState({ orders: 0, tables: 0 })
   const [resolvedId, setResolvedId] = useState(restaurantId || null)
@@ -372,11 +372,22 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
       {/* Collapse Toggle */}
       <div className="p-3 border-t border-gray-100">
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors font-bold text-xs cursor-pointer"
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          onClick={() => {
+            if (isMobile) {
+              onClose()
+            } else {
+              setIsCollapsed(!isCollapsed)
+            }
+          }}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors font-bold text-xs cursor-pointer"
+          title={isMobile ? "Close Sidebar" : (isCollapsed ? "Expand Sidebar" : "Collapse Sidebar")}
         >
-          {isCollapsed ? (
+          {isMobile ? (
+            <>
+              <ChevronLeft className="w-4 h-4" />
+              <span>Close Sidebar</span>
+            </>
+          ) : isCollapsed ? (
             <ChevronRight className="w-4 h-4" />
           ) : (
             <>

@@ -22,6 +22,8 @@ const ContactPage = lazy(() => import('./pages/marketing/ContactPage'))
 const PublicDocsPage = lazy(() => import('./pages/marketing/PublicDocsPage'))
 const RegisterPage = lazy(() => import('./pages/marketing/RegisterPage'))
 const LoginPage = lazy(() => import('./pages/marketing/LoginPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/marketing/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/marketing/ResetPasswordPage'))
 
 // Admin Panel Routes
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'))
@@ -103,6 +105,8 @@ function App() {
             </Route>
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/select-plan" element={<PricingPage />} />
 
             {/* Console / Dashboard Routes (Multi-Tenant Isolated) */}
@@ -113,6 +117,7 @@ function App() {
             } />
             <Route path="/dashboard" element={<DashboardRedirect />} />
             <Route path="/menu" element={<CustomerMenu />} />
+            <Route path="/menu/:restaurantId" element={<CustomerMenu />} />
             <Route path="/docs/articles" element={<DocumentationPage />} />
             <Route path="/internal-docs" element={<DocumentationPage />} />
             <Route path="/releases" element={<ReleaseNotesPage />} />

@@ -9,6 +9,7 @@ import MenuManagement from "../components/menu/MenuManagement";
 import QRCodeManagement from "../components/dashboard/QRCodeManagement";
 import OrderManagement from "../components/dashboard/OrderManagement";
 import AnalyticsDashboard from "../components/dashboard/AnalyticsDashboard";
+import DashboardRealtimeAnalytics from "../components/dashboard/DashboardRealtimeAnalytics";
 import CustomerManagement from "../components/dashboard/CustomerManagement";
 import HelpSupport from "../components/dashboard/HelpSupport";
 import Documentation from "../components/dashboard/Documentation";
@@ -37,6 +38,7 @@ import {
   TrendingUp,
   Zap,
   Bell,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase, getCachedSession } from '@/lib/supabase';
@@ -391,16 +393,16 @@ function Dashboard() {
               </div>
 
               {/* ── MAIN CONTENT AREA ── */}
-              <div className="flex-1 p-3 sm:p-4 lg:p-6 xl:p-8">
-                {/* ── SPLIT GRID FOR IPAD & DESKTOP: Orders & Metrics (Left) + Live Floor Tables (Right) ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 xl:gap-6 items-start">
-                  {/* ── LEFT: Metrics + Shortcuts + Recent Orders ── */}
-                  <div className="lg:col-span-6 xl:col-span-6 2xl:col-span-6 flex flex-col gap-4 lg:gap-5 min-w-0">
-                    {/* KPI Metric Cards */}
-                    <OverviewCards restaurantId={restaurantId} />
+              <div className="flex-1 p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6">
+                {/* ── 1. FULL WIDTH KPI OVERVIEW CARDS ── */}
+                <OverviewCards restaurantId={restaurantId} />
 
+                {/* ── 2. OPERATIONAL SPLIT GRID: Shortcuts & Recent Orders (Left) + Live Floor Tables (Right) ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 xl:gap-6 items-stretch">
+                  {/* ── LEFT: Shortcuts + Recent Orders ── */}
+                  <div className="lg:col-span-6 xl:col-span-6 2xl:col-span-6 flex flex-col gap-4 lg:gap-5 min-w-0 h-full">
                     {/* Quick shortcuts row */}
-                    <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                    <div className="grid grid-cols-3 gap-2.5 sm:gap-3 shrink-0">
                       {[
                         {
                           label: "Manage Orders",
@@ -443,17 +445,19 @@ function Dashboard() {
                     </div>
 
                     {/* Recent Orders */}
-                    <RecentOrders
-                      restaurantId={restaurantId}
-                      onViewAll={() => setActiveItem("orders")}
-                    />
+                    <div className="flex-1 flex flex-col min-h-0">
+                      <RecentOrders
+                        restaurantId={restaurantId}
+                        onViewAll={() => setActiveItem("orders")}
+                      />
+                    </div>
                   </div>
 
                   {/* ── RIGHT: Live Floor Table Status Panel (Split View) ── */}
-                  <div className="lg:col-span-6 xl:col-span-6 2xl:col-span-6 min-w-0">
+                  <div className="lg:col-span-6 xl:col-span-6 2xl:col-span-6 flex flex-col min-w-0 h-full">
                     {/* Table Status Header */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col sticky top-20">
-                      <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-50 flex items-center justify-between">
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col flex-1 h-full">
+                      <div className="px-4 sm:px-5 py-4 border-b border-slate-50 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-2.5">
                           <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-100">
                             <Users className="w-4 h-4 text-slate-600" />
@@ -474,12 +478,33 @@ function Dashboard() {
                           </span>
                         </div>
                       </div>
-                      <div className="p-3 sm:p-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto scrollbar-thin">
+                      
+                      <div className="p-3 sm:p-4 flex-1 overflow-y-auto scrollbar-thin max-h-[380px]">
                         <TableStatus restaurantId={restaurantId} />
+                      </div>
+
+                      {/* Matching Footer Bar for perfect bottom alignment */}
+                      <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between shrink-0 mt-auto">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                          Floor Management
+                        </span>
+                        <button
+                          onClick={() => setActiveItem("tables")}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          Table Sessions
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* ── 3. REAL-TIME ANALYTICS & PIE CHART SECTION ── */}
+                <DashboardRealtimeAnalytics
+                  restaurantId={restaurantId || resolvedId || profile?.id}
+                  onNavigateAnalytics={() => setActiveItem("analytics")}
+                />
               </div>
             </div>
           </div>

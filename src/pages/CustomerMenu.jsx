@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, ShoppingCart, Plus, Minus, X, CheckCircle, AlertCircle, Star, Leaf, RefreshCw, Sparkles, Timer, Clock, MapPin, Heart, Award, TrendingUp, Utensils, User, ShoppingBag, Phone, Mail, Facebook, Twitter, Instagram, Menu, BellRing, Flame, ArrowRight, ChevronRight, Check, Trash2, Receipt, ShieldCheck, ShieldAlert, QrCode, Lock, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -165,6 +166,7 @@ const getCategoryPlateInfo = (category = '', itemsInCategory = []) => {
 };
 
 export default function CustomerMenu() {
+  const routeParams = useParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [cart, setCart] = useState([])
   const [tableNumber, setTableNumber] = useState('')
@@ -233,7 +235,7 @@ export default function CustomerMenu() {
         setError(null)
         
         const params = new URLSearchParams(window.location.search)
-        let resId = params.get('restaurant') || 'default'
+        let resId = routeParams?.restaurantId || params.get('restaurant') || 'default'
         
         // 0. Identity Resolution: If resId is an email, resolve to UUID for cloud-native storage
         if (resId.includes('@')) {
