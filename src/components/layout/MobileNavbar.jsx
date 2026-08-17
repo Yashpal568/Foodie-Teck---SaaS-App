@@ -7,7 +7,7 @@ import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 const navItems = [
   { icon: Home, label: 'Home', id: 'dashboard', route: '/dashboard' },
   { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard', badgeKey: 'orders' },
-  { icon: ChefHat, label: 'Menu', id: 'menu', route: '/dashboard' },
+  { icon: ChefHat, label: 'Inventory', id: 'menu', route: '/dashboard' },
   { icon: Receipt, label: 'Analytics', id: 'analytics', route: '/dashboard' },
   { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' }
 ]

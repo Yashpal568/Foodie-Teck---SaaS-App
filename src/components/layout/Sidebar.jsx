@@ -15,7 +15,8 @@ import {
   Receipt,
   Table,
   LogOut,
-  Lock
+  Lock,
+  ChefHat
 } from 'lucide-react'
 import { getPlanDetails } from '@/utils/planLimits'
 import { Badge } from '@/components/ui/badge'
@@ -27,7 +28,7 @@ import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 
 export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
-  { icon: Table, label: 'Menu Management', id: 'menu', route: '/dashboard' },
+  { icon: ChefHat, label: 'Inventory', id: 'menu', route: '/dashboard' },
   { icon: QrCode, label: 'QR Codes', id: 'qr-codes', route: '/dashboard' },
   { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard' },
   { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard' },

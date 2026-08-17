@@ -36,7 +36,7 @@ export default function MenuNavbar({
           <span>Inventory & Operations</span>
         </div>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 tracking-tight whitespace-nowrap leading-none transition-all">Menu Management</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 tracking-tight whitespace-nowrap leading-none transition-all">Inventory</h1>
           
           <div className="flex items-center gap-1.5">
             <Badge variant="secondary" className={`${isNearLimit ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-100'} font-bold px-2 py-0.5 h-6 text-xs min-w-fit flex items-center gap-1`}>

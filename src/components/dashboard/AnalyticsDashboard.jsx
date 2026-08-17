@@ -786,88 +786,94 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto pb-28 lg:pb-12">
         
         {/* 🌟 1. HERO HEADER WITH SHADCN STUDIO CONTROLS */}
-        <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-linear-to-tr from-indigo-600 via-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0">
-              <BarChart3 className="w-7 h-7 text-white" />
+        <div className="flex flex-col xl:flex-row gap-4 sm:gap-5 items-stretch xl:items-center justify-between bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200/80 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+            <div className="w-11 h-11 sm:w-14 sm:h-14 bg-linear-to-tr from-indigo-600 via-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md sm:shadow-lg shadow-indigo-500/25 shrink-0 mt-0.5 sm:mt-0">
+              <BarChart3 className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">Analytics & Intelligence</h1>
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-xs">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-950 tracking-tight">Analytics & Intelligence</h1>
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] sm:text-[11px] font-bold px-2 sm:px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-xs shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Live Sync
                 </Badge>
               </div>
-              <p className="text-slate-500 text-xs sm:text-sm font-medium mt-0.5">Real-time revenue metrics, order velocity, and guest retention analytics</p>
+              <p className="text-slate-500 text-[11px] sm:text-sm font-medium mt-0.5 leading-relaxed sm:leading-normal">Real-time revenue metrics, order velocity, and guest retention analytics</p>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-            {/* Time Range Selector */}
-            <div className="flex bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-inner">
-              {['7days', '30days', '90days', 'all'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={cn(
-                    "px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all capitalize duration-200",
-                    timeRange === range 
-                      ? "bg-white text-indigo-700 shadow-sm font-black ring-1 ring-slate-200/70" 
-                      : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-                  )}
-                >
-                  {range === '7days' ? '7D' : range === '30days' ? '30D' : range === '90days' ? '90D' : 'All Time'}
-                </button>
-              ))}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 w-full xl:w-auto">
+            {/* Time Range Selector & Refresh */}
+            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+              <div className="grid grid-cols-4 sm:flex bg-slate-100/90 p-1 rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-inner flex-1 sm:flex-initial">
+                {['7days', '30days', '90days', 'all'].map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className={cn(
+                      "px-1 sm:px-3.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-xl transition-all capitalize duration-200 text-center truncate",
+                      timeRange === range 
+                        ? "bg-white text-indigo-700 shadow-sm font-black ring-1 ring-slate-200/70" 
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                    )}
+                  >
+                    {range === '7days' ? '7D' : range === '30days' ? '30D' : range === '90days' ? '90D' : 'All Time'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Refresh Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                className="rounded-xl sm:rounded-2xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 w-9 sm:w-auto px-0 sm:px-3 shrink-0 flex items-center justify-center gap-1.5 shadow-xs"
+                title="Refresh Analytics"
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin text-indigo-600")} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
             </div>
 
             {/* Quick Action Buttons */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleManualRefresh}
-              disabled={isRefreshing}
-              className="rounded-2xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-3 gap-1.5 shadow-xs"
-            >
-              <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin text-indigo-600")} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
+              {/* Direct Download Report Button */}
+              <Button 
+                size="sm" 
+                onClick={handleExportPDF}
+                className="w-full sm:w-auto justify-center rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] sm:text-xs h-9 px-2.5 sm:px-3.5 gap-1.5 shadow-sm shadow-indigo-500/20"
+              >
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Download Report</span>
+              </Button>
 
-            {/* Direct Download Report Button */}
-            <Button 
-              size="sm" 
-              onClick={handleExportPDF}
-              className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-9 px-3.5 gap-1.5 shadow-sm shadow-indigo-500/20"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Download Report</span>
-            </Button>
-
-            {/* Export Dropdown Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="rounded-2xl border-indigo-200 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs h-9 px-3 gap-1.5 shadow-xs"
-                >
-                  <Download className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Export</span>
-                  <ChevronDown className="w-3 h-3 text-indigo-500 opacity-70 ml-0.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1.5 shadow-xl border-slate-100 bg-white">
-                <DropdownMenuItem onClick={handleExportPDF} className="rounded-xl font-bold text-xs py-2.5 px-3 cursor-pointer text-indigo-600 hover:bg-indigo-50 focus:bg-indigo-50 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-indigo-600" />
-                  <span>Download PDF Report</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportReport} className="rounded-xl font-bold text-xs py-2.5 px-3 cursor-pointer text-slate-700 hover:bg-slate-50 focus:bg-slate-50 flex items-center gap-2">
-                  <Download className="w-4 h-4 text-slate-500" />
-                  <span>Export CSV Ledger</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              {/* Export Dropdown Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full sm:w-auto justify-center rounded-xl sm:rounded-2xl border-indigo-200 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 font-bold text-[11px] sm:text-xs h-9 px-2.5 sm:px-3 gap-1.5 shadow-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>Export</span>
+                    <ChevronDown className="w-3 h-3 text-indigo-500 opacity-70 ml-0.5 shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1.5 shadow-xl border-slate-100 bg-white">
+                  <DropdownMenuItem onClick={handleExportPDF} className="rounded-xl font-bold text-xs py-2.5 px-3 cursor-pointer text-indigo-600 hover:bg-indigo-50 focus:bg-indigo-50 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <span>Download PDF Report</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportReport} className="rounded-xl font-bold text-xs py-2.5 px-3 cursor-pointer text-slate-700 hover:bg-slate-50 focus:bg-slate-50 flex items-center gap-2">
+                    <Download className="w-4 h-4 text-slate-500" />
+                    <span>Export CSV Ledger</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
