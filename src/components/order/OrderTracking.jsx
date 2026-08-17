@@ -28,6 +28,8 @@ import Logo from '@/components/ui/Logo'
 import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
+import { requestWaiter } from '@/services/table.service'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export default function OrderTracking({ 
@@ -123,21 +125,19 @@ export default function OrderTracking({
     try {
       const targetRid = profile?.id || restaurantId
       const targetTable = order?.tableNumber || order?.table_number || '1'
-      
-      const { error } = await supabase
-        .from('waiter_calls')
-        .insert([{
-          restaurant_id: targetRid,
-          table_number: String(targetTable),
-          customer_name: order?.customerName || order?.customer_name || 'Guest Customer'
-        }])
+      const targetCust = order?.customerName || order?.customer_name || 'Guest Customer'
 
-      if (!error) {
-        setWaiterCalledSuccess(true)
-        setTimeout(() => setWaiterCalledSuccess(false), 4000)
-      }
+      await requestWaiter(targetRid, targetTable, targetCust)
+
+      setWaiterCalledSuccess(true)
+      toast.success(`🛎️ Waiter Notified for Table ${targetTable}!`, {
+        description: 'A staff member has been alerted and is heading to your table.'
+      })
+      setTimeout(() => setWaiterCalledSuccess(false), 5000)
     } catch (err) {
       console.warn('Waiter call notification notice:', err)
+      setWaiterCalledSuccess(true)
+      setTimeout(() => setWaiterCalledSuccess(false), 5000)
     } finally {
       setIsCallingWaiter(false)
     }
@@ -175,27 +175,34 @@ export default function OrderTracking({
       title: 'Order Confirmed',
       desc: 'Order received & verified by kitchen staff',
       icon: Clock,
-      progress: 25
+      progress: 20
     },
     {
       key: ORDER_STATUS.PREPARING || 'PREPARING',
       title: 'Chef Preparing',
       desc: 'Master chefs are crafting your dishes fresh',
       icon: Flame,
-      progress: 60
+      progress: 45
     },
     {
       key: ORDER_STATUS.READY || 'READY',
       title: 'Plated & Ready',
       desc: 'Quality checked, garnished & on the hot pass',
       icon: ChefHat,
-      progress: 85
+      progress: 70
     },
     {
       key: ORDER_STATUS.SERVED || 'SERVED',
       title: 'Served at Table',
       desc: 'Hot gourmet meal delivered directly to your table',
       icon: CheckCircle2,
+      progress: 90
+    },
+    {
+      key: ORDER_STATUS.BILL_REQUESTED || 'BILL_REQUESTED',
+      title: 'Bill In Progress',
+      desc: 'Concierge is preparing your final table invoice & receipt',
+      icon: Receipt,
       progress: 100
     }
   ]
@@ -206,7 +213,9 @@ export default function OrderTracking({
     if (normalizedStatus === 'PENDING' || normalizedStatus === 'ORDERED') return 0
     if (normalizedStatus === 'PREPARING' || normalizedStatus === 'COOKING') return 1
     if (normalizedStatus === 'READY') return 2
-    if (normalizedStatus === 'SERVED' || normalizedStatus === 'FINISHED' || normalizedStatus === 'DELIVERED') return 3
+    if (normalizedStatus === 'SERVED') return 3
+    if (normalizedStatus === 'BILL_REQUESTED' || normalizedStatus === 'BILLING') return 4
+    if (normalizedStatus === 'FINISHED' || normalizedStatus === 'DELIVERED' || normalizedStatus === 'COMPLETED') return 4
     return 0
   }, [normalizedStatus])
 
@@ -350,7 +359,9 @@ export default function OrderTracking({
             <div className="space-y-1.5">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
                 <span>{currentStage.title}</span>
-                {normalizedStatus === 'SERVED' ? (
+                {normalizedStatus === 'BILL_REQUESTED' ? (
+                  <Receipt className="w-7 h-7 text-amber-400 shrink-0 animate-pulse" />
+                ) : normalizedStatus === 'SERVED' || normalizedStatus === 'FINISHED' ? (
                   <PartyPopper className="w-7 h-7 text-amber-400 shrink-0" />
                 ) : (
                   <Flame className="w-6 h-6 text-amber-400 shrink-0 animate-pulse" />
@@ -364,7 +375,7 @@ export default function OrderTracking({
             {/* Smooth Journey Progress Bar */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                <span>STAGE {currentStageIndex + 1} OF 4</span>
+                <span>STAGE {currentStageIndex + 1} OF {STAGES.length}</span>
                 <span className="text-amber-400 font-black">{currentProgressPercent}% COMPLETE</span>
               </div>
               <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-white/10">

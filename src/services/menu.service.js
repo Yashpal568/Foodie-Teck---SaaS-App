@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase'
-import { ensureAdminSession } from '../lib/adminSupabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
 
 /** Uploads base64 image to Supabase Storage and returns public URL */

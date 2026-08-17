@@ -112,10 +112,10 @@ export default function SubscriptionLockOverlay({
   expiredSince = new Date(), 
   pendingApproval = false,
   utrNumber = '',
-  restaurantId,
-  merchantEmail,
-  merchantName,
-  onCheckStatus
+  restaurantId = '',
+  merchantEmail = '',
+  merchantName = '',
+  onCheckStatus = () => {}
 }) {
   const navigate = useNavigate()
   const [showUPIModal, setShowUPIModal] = useState(false)

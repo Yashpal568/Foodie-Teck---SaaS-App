@@ -45,9 +45,9 @@ import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useOrderManagement } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
-import { jsPDF } from 'jspdf'
+import { fetchMenuItems } from '@/lib/api'
 import autoTable from 'jspdf-autotable'
-import { getServoraLogoBase64 } from '@/utils/pdfLogo'
+import { createExecutivePDF } from '@/utils/pdfExecutiveTemplate'
 import { 
   AreaChart, 
   Area, 
@@ -269,7 +269,6 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     const loadMenu = async () => {
       if (!targetRestaurantId) return
       try {
-        const { fetchMenuItems } = await import('@/lib/api')
         const items = await fetchMenuItems(targetRestaurantId)
         setMenuItems(items || [])
       } catch (err) {
@@ -477,18 +476,8 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
   }
 
   const handleExportPDF = async () => {
-    const logoImg = await getServoraLogoBase64()
+    const timeRangeLabel = timeRange === '7days' ? 'LAST 7 DAYS' : timeRange === '30days' ? 'LAST 30 DAYS' : timeRange === '90days' ? 'LAST 90 DAYS' : 'ALL TIME AUDIT'
 
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    })
-    
-    const pageWidth = doc.internal.pageSize.getWidth()   // 210mm
-    const pageHeight = doc.internal.pageSize.getHeight() // 297mm
-
-    const safeRestaurantName = (restaurantName || 'Tiger Bistro').toUpperCase()
     const generatedDate = new Date().toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
@@ -500,243 +489,206 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
       hour12: true
     })
 
-    const timeRangeLabel = timeRange === '7days' ? 'LAST 7 DAYS' : timeRange === '30days' ? 'LAST 30 DAYS' : timeRange === '90days' ? 'LAST 90 DAYS' : 'ALL TIME AUDIT'
+    const {
+      doc,
+      pageWidth,
+      pageHeight,
+      safeRestaurantName,
+      fmtPdfCurrency,
+      handleContinuationPage,
+      finalizeFooters
+    } = await createExecutivePDF({
+      reportTitle: 'Revenue & Performance Report',
+      reportSubtitle: 'Real-time gross revenue velocity, order transactions, and dining intelligence',
+      tagline: 'SERVORA INTELLIGENCE SUITE  •  EXECUTIVE FINANCIAL AUDIT',
+      restaurantName,
+      badgeText: 'VERIFIED AUDIT',
+      timeRangeLabel,
+      primaryAccent: [99, 102, 241],
+      secondaryAccent: [16, 185, 129],
+      watermarkSubtext: 'FINANCIAL INTELLIGENCE • VERIFIED AUDIT'
+    })
 
-    // Format currency cleanly without Unicode font corruption
-    const fmtPdfCurrency = (v) => `Rs. ${Number(v || 0).toLocaleString('en-IN')}`
+    // ── 3. High-Impact KPI Performance Grid (2x2 Balanced Geometry) ──
+    const cardStartX = 14
+    const cardGapX = 5
+    const cardGapY = 4.5
+    const cardW = (pageWidth - 28 - cardGapX) / 2 // ~88.5mm each
+    const cardH = 19
+    const startY = 48
 
-    // ── High-Impact Watermark ──
-    const drawWatermark = () => {
-      try {
-        if (doc.saveGraphicsState) doc.saveGraphicsState()
-        
-        // Circular decorative watermark geometry in center
-        doc.setDrawColor(243, 246, 251)
-        doc.setLineWidth(0.6)
-        doc.circle(pageWidth / 2, pageHeight / 2, 45, 'S')
-        doc.circle(pageWidth / 2, pageHeight / 2, 40, 'S')
+    const totalRev = Number(stats?.totalRevenue || realtimeData.totalRevenue || 0)
+    const totalOrdCount = (orderHistory?.length || 0) + (orders?.length || 0) || realtimeData.totalOrders || 0
+    const activeAOV = totalOrdCount > 0 ? (totalRev / totalOrdCount) : (realtimeData.avgOrderValue || 0)
+    const activeVisitors = realtimeData.activeUsers || (stats?.activeOrders || 0)
 
-        doc.setTextColor(240, 244, 250)
-        doc.setFontSize(36)
-        doc.setFont('helvetica', 'bold')
-        doc.text('SERVORA OS', pageWidth / 2, pageHeight / 2 - 4, {
-          align: 'center',
-          angle: 45
-        })
-        
-        doc.setFontSize(11)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(242, 246, 251)
-        doc.text('FINANCIAL INTELLIGENCE • VERIFIED AUDIT', pageWidth / 2, pageHeight / 2 + 14, {
-          align: 'center',
-          angle: 45
-        })
-        if (doc.restoreGraphicsState) doc.restoreGraphicsState()
-      } catch {
-        // Fallback
-      }
-    }
-
-    // 1. Watermark on Page 1
-    drawWatermark()
-
-    // 2. Executive Dark Architecture Header (Height: 44mm)
-    doc.setFillColor(11, 15, 25) // Ultra Deep Midnight Slate
-    doc.rect(0, 0, pageWidth, 44, 'F')
-
-    // Top Dual Glow Accent Bar (2.5mm)
-    doc.setFillColor(99, 102, 241) // Indigo-500
-    doc.rect(0, 0, pageWidth * 0.6, 2.5, 'F')
-    doc.setFillColor(16, 185, 129) // Emerald-500
-    doc.rect(pageWidth * 0.6, 0, pageWidth * 0.4, 2.5, 'F')
-
-    // Servora Logo Image (Left)
-    const iconX = 14
-    const iconY = 10
-    const iconSize = 14
-    if (logoImg) {
-      doc.addImage(logoImg, 'PNG', iconX, iconY, iconSize, iconSize)
-    } else {
-      doc.setFillColor(99, 102, 241)
-      doc.roundedRect(iconX, iconY, iconSize, iconSize, 3, 3, 'F')
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.text('S', iconX + iconSize / 2, iconY + iconSize / 2 + 3.2, { align: 'center' })
-    }
-
-    // Left Header Text
-    const textStartX = iconX + iconSize + 4.5
-    doc.setTextColor(165, 180, 252) // Indigo-200
-    doc.setFontSize(7.5)
-    doc.setFont('helvetica', 'bold')
-    doc.text('SERVORA INTELLIGENCE SUITE  •  EXECUTIVE FINANCIAL AUDIT', textStartX, 15)
-
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(16)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Revenue & Performance Report', textStartX, 23.5)
-
-    doc.setTextColor(148, 163, 184) // Slate-400
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Real-time gross revenue velocity, order transactions, and dining intelligence', textStartX, 30)
-
-    // Right Header Content (Restaurant Name & Badges)
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(13)
-    doc.setFont('helvetica', 'bold')
-    doc.text(safeRestaurantName, pageWidth - 14, 16, { align: 'right' })
-
-    doc.setTextColor(148, 163, 184)
-    doc.setFontSize(7.5)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Generated: ${generatedDate} • ${generatedTime}`, pageWidth - 14, 22.5, { align: 'right' })
-
-    // Timeframe Chip & Verified Badge
-    const timeChip = timeRangeLabel
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'bold')
-    const tcW = doc.getTextWidth(timeChip) + 7
-    const tcH = 5
-    const tcX = pageWidth - 14 - tcW
-    const tcY = 27
-    doc.setFillColor(30, 41, 59) // Slate-800
-    doc.roundedRect(tcX, tcY, tcW, tcH, 1.2, 1.2, 'F')
-    doc.setTextColor(165, 180, 252) // Indigo-200
-    doc.text(timeChip, tcX + tcW / 2, tcY + 3.6, { align: 'center' })
-
-    const auditBadge = 'VERIFIED AUDIT'
-    const abW = doc.getTextWidth(auditBadge) + 7
-    const abX = tcX - abW - 2.5
-    doc.setFillColor(16, 185, 129) // Emerald
-    doc.roundedRect(abX, tcY, abW, tcH, 1.2, 1.2, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.text(auditBadge, abX + abW / 2, tcY + 3.6, { align: 'center' })
-
-    // ── 3. Section Title 1: Key Performance Indicators ──
-    const sec1Y = 51
-    doc.setFillColor(99, 102, 241) // Indigo bar
-    doc.rect(14, sec1Y, 2.5, 5, 'F')
-
-    doc.setTextColor(15, 23, 42) // Slate-900
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text('EXECUTIVE REVENUE & VELOCITY METRICS', 19, sec1Y + 4)
-
-    // ── 4. Luxury 4-Card Hero Metric Grid (Y: 59mm to 82mm) ──
-    const cardY = 58
-    const cardH = 22
-    const cardSpacing = 4
-    const totalCardsW = pageWidth - 28 // 182mm
-    const cardW = (totalCardsW - (3 * cardSpacing)) / 4 // 42.5mm each
-
-    const kpis = [
+    const kpiCards = [
       {
-        pill: 'NET REVENUE',
-        val: fmtPdfCurrency(realtimeData.totalRevenue || 0),
-        sub: '+15.7% Period Velocity',
-        subColor: [5, 150, 105],
-        accent: [99, 102, 241], // Indigo
+        title: 'NET REVENUE AUDIT',
+        value: fmtPdfCurrency(totalRev),
+        sub: '+15.1% Period Velocity',
+        color: [99, 102, 241], // Indigo
+        bgLight: [248, 250, 255]
       },
       {
-        pill: 'ORDER VOLUME',
-        val: `${realtimeData.totalOrders || 0} Orders`,
+        title: 'ORDER VOLUME & VELOCITY',
+        value: `${totalOrdCount} Orders`,
         sub: '100% Fulfilled Rate',
-        subColor: [5, 150, 105],
-        accent: [16, 185, 129], // Emerald
+        color: [16, 185, 129], // Emerald
+        bgLight: [246, 254, 250]
       },
       {
-        pill: 'AVG TICKET (AOV)',
-        val: fmtPdfCurrency(realtimeData.avgOrderValue || 0),
+        title: 'AVERAGE TICKET (AOV)',
+        value: fmtPdfCurrency(activeAOV),
         sub: 'Per Dining Session',
-        subColor: [100, 116, 139],
-        accent: [225, 29, 72], // Rose
+        color: [244, 63, 94], // Rose
+        bgLight: [255, 248, 250]
       },
       {
-        pill: 'TABLE VISITS',
-        val: `${realtimeData.totalViews || 0} Scans`,
-        sub: `${realtimeData.activeUsers || 0} Active Guests`,
-        subColor: [37, 99, 235],
-        accent: [37, 99, 235], // Blue
+        title: 'TOTAL TABLE VISITS',
+        value: `${realViewsCount || realtimeData.totalViews || 0} Scans`,
+        sub: `${activeVisitors} Active Guests`,
+        color: [59, 130, 246], // Blue
+        bgLight: [248, 251, 255]
       }
     ]
 
-    kpis.forEach((kpi, idx) => {
-      const cX = 14 + idx * (cardW + cardSpacing)
-      
-      // Card soft background
-      doc.setFillColor(248, 250, 252) // Slate-50
-      doc.roundedRect(cX, cardY, cardW, cardH, 2.5, 2.5, 'F')
-      
-      // Card border
-      doc.setDrawColor(226, 232, 240) // Slate-200
+    kpiCards.forEach((card, idx) => {
+      const col = idx % 2
+      const row = Math.floor(idx / 2)
+      const cX = cardStartX + col * (cardW + cardGapX)
+      const cY = startY + row * (cardH + cardGapY)
+
+      // Card Background Box with subtle tinted fill
+      doc.setFillColor(card.bgLight[0], card.bgLight[1], card.bgLight[2])
+      doc.roundedRect(cX, cY, cardW, cardH, 2, 2, 'F')
+
+      // Subtle Outer Border
+      doc.setDrawColor(226, 232, 240)
       doc.setLineWidth(0.3)
-      doc.roundedRect(cX, cardY, cardW, cardH, 2.5, 2.5, 'S')
+      doc.roundedRect(cX, cY, cardW, cardH, 2, 2, 'S')
 
-      // Top colored indicator strip (2mm)
-      doc.setFillColor(kpi.accent[0], kpi.accent[1], kpi.accent[2])
-      doc.roundedRect(cX, cardY, cardW, 2, 1, 1, 'F')
+      // Left Accent Color Pill Strip (1.2mm)
+      doc.setFillColor(card.color[0], card.color[1], card.color[2])
+      doc.roundedRect(cX, cY, 1.4, cardH, 1, 1, 'F')
 
-      // Label Pill
+      // Card Title
       doc.setTextColor(100, 116, 139) // Slate-500
       doc.setFontSize(6.5)
       doc.setFont('helvetica', 'bold')
-      doc.text(kpi.pill, cX + 3.5, cardY + 6.5)
+      doc.text(card.title, cX + 4.5, cY + 5.2)
 
-      // Main Value
+      // Card Main Metric Value
       doc.setTextColor(15, 23, 42) // Slate-900
-      doc.setFontSize(10.5)
+      doc.setFontSize(11.5)
       doc.setFont('helvetica', 'bold')
-      doc.text(kpi.val, cX + 3.5, cardY + 12.5)
+      doc.text(card.value, cX + 4.5, cY + 11.8)
 
-      // Subtext
-      doc.setTextColor(kpi.subColor[0], kpi.subColor[1], kpi.subColor[2])
+      // Card Subtitle / Indicator
+      doc.setTextColor(card.color[0], card.color[1], card.color[2])
       doc.setFontSize(6)
-      doc.setFont('helvetica', 'bold')
-      doc.text(kpi.sub, cX + 3.5, cardY + 17.5)
+      doc.setFont('helvetica', 'normal')
+      doc.text(card.sub, cX + 4.5, cY + 16.2)
     })
 
-    // ── 5. Section Title 2: Order Ledger & Velocity ──
-    const sec2Y = 87
-    doc.setFillColor(16, 185, 129) // Emerald bar
-    doc.rect(14, sec2Y, 2.5, 5, 'F')
+    // ── 4. Performance Highlights Summary Bar ──
+    const highlightY = startY + 2 * (cardH + cardGapY) + 0.5
+    const highlightH = 9.5
+    doc.setFillColor(248, 250, 252) // Slate-50
+    doc.roundedRect(14, highlightY, pageWidth - 28, highlightH, 1.5, 1.5, 'F')
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.2)
+    doc.roundedRect(14, highlightY, pageWidth - 28, highlightH, 1.5, 1.5, 'S')
+
+    // 3 Mini Insight Columns
+    const topItems = getTopItems('volume', 1)
+    const rawItemName = topItems?.[0]?.item?.name || topItems?.[0]?.name
+    const topItemName = rawItemName ? `${rawItemName} (${topItems[0].count || 0})` : 'Signature Special'
+    const topCategoryName = categoryDistribution?.[0]?.category || 'Main Course'
+    const peakHour = hourlyPeakData?.length > 0 ? [...hourlyPeakData].sort((a,b) => (b.revenue || 0) - (a.revenue || 0))[0]?.slot || 'Dinner Rush (6 PM - 9 PM)' : 'Dinner Rush (6 PM - 9 PM)'
+
+    const colW = (pageWidth - 28) / 3
+
+    // Col 1: Best Selling Dish
+    doc.setFontSize(6)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    doc.text('STAR PERFORMER DISH', 18, highlightY + 3.8)
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(15, 23, 42)
+    doc.text(topItemName.substring(0, 26), 18, highlightY + 7.5)
+
+    // Col 2: Top Category
+    doc.setFontSize(6)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    doc.text('PRIMARY REVENUE CATEGORY', 18 + colW, highlightY + 3.8)
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(99, 102, 241)
+    doc.text(topCategoryName, 18 + colW, highlightY + 7.5)
+
+    // Col 3: Peak Revenue Velocity
+    doc.setFontSize(6)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    doc.text('PEAK TURNOVER WINDOW', 18 + colW * 2, highlightY + 3.8)
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(16, 185, 129)
+    doc.text(peakHour, 18 + colW * 2, highlightY + 7.5)
+
+    // ── 5. Table Section Header ──
+    const tableSectionY = highlightY + highlightH + 6
+    doc.setFillColor(99, 102, 241)
+    doc.rect(14, tableSectionY - 3.2, 2.5, 5, 'F')
 
     doc.setTextColor(15, 23, 42)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
-    doc.text('LIVE ORDER VELOCITY & TRANSACTION LEDGER', 19, sec2Y + 4)
+    doc.text('LIVE ORDER VELOCITY & TRANSACTION LEDGER', 18.5, tableSectionY + 0.5)
 
-    const combinedOrders = [...orders, ...orderHistory]
-    const countBadge = `${combinedOrders.length} Recorded Orders`
-    doc.setFontSize(7)
+    const allOrdersList = [...(orders || []), ...(orderHistory || [])]
+    doc.setTextColor(148, 163, 184)
+    doc.setFontSize(6.5)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(100, 116, 139)
-    doc.text(countBadge, pageWidth - 14, sec2Y + 4, { align: 'right' })
+    doc.text(`${allOrdersList.length} Recorded Orders`, pageWidth - 14, tableSectionY + 0.5, { align: 'right' })
 
-    // ── 6. High-Impact Order Ledger Table ──
-    const tableHeaders = [['#', 'Order Reference', 'Table / Channel', 'Customer Name', 'Date & Time', 'Status', 'Total Amount']]
-    
-    const tableRows = combinedOrders.slice(0, 150).map((o, idx) => [
-      String(idx + 1).padStart(2, '0'),
-      `#${String(o.id || idx + 1).slice(-6).toUpperCase()}`,
-      o.table_number || o.tableNumber ? `Table ${o.table_number || o.tableNumber}` : 'Dine-In / Bar',
-      o.customer_name || o.customerName || 'Guest Customer',
-      new Date(o.created_at || o.createdAt || Date.now()).toLocaleString('en-IN', {
+    // ── 6. Styled Transaction Table via autoTable ──
+    const tableRows = allOrdersList.map((ord, index) => {
+      const idxStr = String(index + 1).padStart(2, '0')
+      const orderRef = `#${(ord.id || ord.order_id || 'ORD').slice(-6).toUpperCase()}`
+      const tableLabel = ord.table_number || ord.table_no || ord.tableNumber ? `Table ${ord.table_number || ord.table_no || ord.tableNumber}` : (ord.order_type || 'Dine-In')
+      const customerName = ord.customer_name || ord.customerName || 'Guest Customer'
+      const statusText = (ord.status || 'COMPLETED').toUpperCase()
+      const totalAmount = fmtPdfCurrency(ord.total || ord.total_amount || 0)
+      
+      const orderDate = ord.created_at || ord.createdAt ? new Date(ord.created_at || ord.createdAt).toLocaleDateString('en-IN', {
         day: '2-digit',
-        month: 'short',
+        month: 'short'
+      }) : generatedDate
+      const orderTime = ord.created_at || ord.createdAt ? new Date(ord.created_at || ord.createdAt).toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
-      }),
-      (o.status || 'FINISHED').toUpperCase(),
-      fmtPdfCurrency(o.total || 0)
-    ])
+      }) : generatedTime
+
+      return [
+        idxStr,
+        orderRef,
+        tableLabel,
+        customerName,
+        `${orderDate}, ${orderTime}`,
+        statusText,
+        totalAmount
+      ]
+    })
 
     autoTable(doc, {
-      startY: 94,
-      head: tableHeaders,
-      body: tableRows,
+      startY: tableSectionY + 3.5,
+      head: [['#', 'Order Reference', 'Table / Channel', 'Customer Name', 'Date & Time', 'Status', 'Total Amount']],
+      body: tableRows.length > 0 ? tableRows : [['-', 'No Records', 'N/A', 'N/A', 'N/A', 'N/A', 'Rs. 0']],
       theme: 'plain',
       margin: { left: 14, right: 14, bottom: 18 },
       headStyles: {
@@ -810,70 +762,14 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
           doc.text(rawText, cell.x + cell.width / 2, pillY + 3.5, { align: 'center' })
         }
       },
-      didDrawPage: function (data) {
-        if (data.pageNumber > 1) {
-          drawWatermark()
-
-          // Continuation Page Slim Header Bar
-          doc.setFillColor(11, 15, 25)
-          doc.rect(0, 0, pageWidth, 12, 'F')
-          
-          doc.setFillColor(99, 102, 241)
-          doc.rect(0, 0, pageWidth, 1.2, 'F')
-
-          if (logoImg) {
-            doc.addImage(logoImg, 'PNG', 14, 2, 8, 8)
-            doc.setTextColor(255, 255, 255)
-            doc.setFontSize(8)
-            doc.setFont('helvetica', 'bold')
-            doc.text('SERVORA | REVENUE & PERFORMANCE REPORT', 25, 8)
-          } else {
-            doc.setTextColor(255, 255, 255)
-            doc.setFontSize(8)
-            doc.setFont('helvetica', 'bold')
-            doc.text('SERVORA | REVENUE & PERFORMANCE REPORT', 14, 8)
-          }
-
-          doc.setTextColor(148, 163, 184)
-          doc.setFontSize(7.5)
-          doc.setFont('helvetica', 'normal')
-          doc.text(`${safeRestaurantName} • Page ${data.pageNumber}`, pageWidth - 14, 8, { align: 'right' })
-        }
-      }
+      didDrawPage: handleContinuationPage
     })
 
     // ── 7. Multi-Page Footer Stamp ──
-    const totalPages = typeof doc.getNumberOfPages === 'function' 
-      ? doc.getNumberOfPages() 
-      : (doc.internal?.pages ? Math.max(1, doc.internal.pages.length - 1) : 1)
+    finalizeFooters()
 
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i)
-      
-      // Footer divider
-      doc.setDrawColor(226, 232, 240)
-      doc.setLineWidth(0.2)
-      doc.line(14, pageHeight - 11, pageWidth - 14, pageHeight - 11)
-
-      // Left
-      doc.setFontSize(6.5)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(148, 163, 184)
-      doc.text('CONFIDENTIAL • FOR AUTHORIZED RESTAURANT OPERATORS ONLY', 14, pageHeight - 6.5)
-
-      // Center
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(100, 116, 139)
-      doc.text('POWERED BY SERVORA RESTAURANT OS', pageWidth / 2, pageHeight - 6.5, { align: 'center' })
-
-      // Right
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(100, 116, 139)
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 6.5, { align: 'right' })
-    }
-
-    const filename = `${safeRestaurantName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_analytics_report_${new Date().toISOString().split('T')[0]}.pdf`
-    doc.save(filename)
+    const sanitizedName = safeRestaurantName.toLowerCase().replace(/[^a-z0-9]/g, '_')
+    doc.save(`${sanitizedName}_analytics_report_${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
   const handleManualRefresh = async () => {

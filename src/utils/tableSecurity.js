@@ -8,17 +8,7 @@
 const SECURITY_SALT = 'SERVORA_SECURE_QR_SALT_v2_9f83b2a7d10e4c6f'
 
 /**
- * Fast, lightweight SHA-256 implementation for browser/client
- */
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-/**
- * Synchronous hash fallback for immediate URL rendering in QR generators
+ * Synchronous hash implementation for immediate URL rendering in QR generators
  */
 function syncHash(str) {
   let hash = 0x811c9dc5

@@ -31,7 +31,6 @@ export default function PriceHistory({ menuItems, showLabel = true }) {
     
     setIsLoading(true)
     try {
-      const { fetchPriceHistory } = await import('@/lib/api')
       const history = await fetchPriceHistory(rid)
       setPriceHistory(history)
     } catch (err) {

@@ -25,7 +25,6 @@ import { formatPrice } from '@/components/ui/currency-selector'
 import { trackMenuVisit, trackItemView } from '@/components/menu/MenuAnalytics'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
 import OrderTracking from '@/components/order/OrderTracking'
-import MenuService from '@/services/menuService'
 import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import MenuDealsCarousel from '@/components/menu/MenuDealsCarousel'
 import { 

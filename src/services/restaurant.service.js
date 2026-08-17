@@ -1,5 +1,4 @@
 import { supabase, getCachedSession } from '../lib/supabase'
-import { ensureAdminSession } from '../lib/adminSupabase'
 
 /** Get the current logged-in user's restaurant ID from Supabase session */
 export const getMyRestaurant = async () => {

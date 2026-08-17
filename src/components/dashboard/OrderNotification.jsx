@@ -82,9 +82,29 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       setTimeout(() => setToast(current => current?.id === order.id ? null : current), 9000)
     }
 
+    const handleWaiterCall = (call) => {
+      if (!call) return
+      console.log('🔔 Live Waiter Call Received:', call)
+      playChime()
+      const toastId = call?.id || `waiter-${Date.now()}`
+      setToast({
+        id: toastId,
+        type: 'waiter',
+        tableNumber: call?.table_number || call?.tableNumber || '1',
+        customerName: call?.customer_name || call?.customerName || 'Guest Table',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+
+      setTimeout(() => setToast(current => current?.id === toastId ? null : current), 9000)
+    }
+
     // ── 1. Local Window Custom Event & Cross-Tab Storage Event ──
     const customEventListener = (e) => {
       if (e.detail) handleNewOrder(e.detail)
+    }
+
+    const customWaiterListener = (e) => {
+      if (e.detail) handleWaiterCall(e.detail)
     }
 
     const storageListener = (e) => {
@@ -104,18 +124,38 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
             handleNewOrder(parsed)
           }
         } catch (err) {
-          console.warn('Storage listener parse error:', err)
+          console.warn('Storage order listener parse error:', err)
+        }
+      }
+
+      if (e.key === 'servora_latest_waiter_call' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (!parsed) return
+
+          const isDemo = restaurantId === 'demo-merchant' || targetId === 'demo-merchant'
+          const idMatches = !parsed.restaurant_id || 
+                            parsed.restaurant_id === targetId || 
+                            parsed.restaurant_id === resolvedId || 
+                            parsed.restaurant_id === restaurantId
+
+          if (isDemo || idMatches) {
+            handleWaiterCall(parsed)
+          }
+        } catch (err) {
+          console.warn('Storage waiter listener parse error:', err)
         }
       }
     }
 
     window.addEventListener('servora_new_order', customEventListener)
+    window.addEventListener('servora_waiter_call', customWaiterListener)
     window.addEventListener('storage', storageListener)
 
     // ── 2. Supabase Real-time Subscriptions (Both for resolved UUID & targetId) ──
     const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
     let orderChannel = null
-    let waiterChannel = null
+    const waiterChannels = []
 
     const subId = isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)
 
@@ -133,34 +173,30 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
           (payload) => handleNewOrder(payload.new)
         )
         .subscribe()
+    }
 
-      waiterChannel = supabase
-        .channel(`waiter-toasts:rid=${subId}`)
+    const waiterTargetIds = new Set([subId, resolvedId, restaurantId, targetId, 'all'].filter(Boolean))
+    waiterTargetIds.forEach(id => {
+      const channel = supabase
+        .channel(`waiter-toasts:rid=${id}`)
         .on(
           'broadcast',
           { event: 'waiter_call' },
           (payload) => {
             console.log('🔔 Live Waiter Call (Broadcast):', payload)
-            const call = payload.payload
-            
-            playChime()
-            setToast({
-              id: call?.id || `waiter-${Date.now()}`,
-              type: 'waiter',
-              tableNumber: call?.table_number || '?',
-              customerName: call?.customer_name || 'Guest',
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
+            handleWaiterCall(payload.payload)
           }
         )
         .subscribe()
-    }
+      waiterChannels.push(channel)
+    })
 
     return () => {
       window.removeEventListener('servora_new_order', customEventListener)
+      window.removeEventListener('servora_waiter_call', customWaiterListener)
       window.removeEventListener('storage', storageListener)
       if (orderChannel) supabase.removeChannel(orderChannel)
-      if (waiterChannel) supabase.removeChannel(waiterChannel)
+      waiterChannels.forEach(ch => supabase.removeChannel(ch))
     }
   }, [resolvedId, restaurantId])
 

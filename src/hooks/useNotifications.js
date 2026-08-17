@@ -141,8 +141,25 @@ export const useNotifications = (restaurantId) => {
       }, 'orders')
     }
 
+    const handleIncomingWaiterCall = (call) => {
+      if (!call) return
+      setNotifications(prev => [{
+        id: call.id || Date.now(),
+        type: 'waiter_call',
+        title: '👋 Waiter Called',
+        message: `Table ${call.table_number || call.tableNumber || '?'} (${call.customer_name || call.customerName || 'Guest'}) is requesting a waiter.`,
+        read: false,
+        created_at: new Date().toISOString()
+      }, ...prev])
+      setUnreadCount(prev => prev + 1)
+    }
+
     const windowListener = (e) => {
       if (e.detail) handleIncomingOrder(e.detail)
+    }
+
+    const windowWaiterListener = (e) => {
+      if (e.detail) handleIncomingWaiterCall(e.detail)
     }
 
     const storageListener = (e) => {
@@ -154,9 +171,19 @@ export const useNotifications = (restaurantId) => {
           }
         } catch (err) {}
       }
+
+      if (e.key === 'servora_latest_waiter_call' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (parsed && (!parsed.restaurant_id || String(parsed.restaurant_id) === String(resolvedId))) {
+            handleIncomingWaiterCall(parsed)
+          }
+        } catch (err) {}
+      }
     }
 
     window.addEventListener('servora_new_order', windowListener)
+    window.addEventListener('servora_waiter_call', windowWaiterListener)
     window.addEventListener('storage', storageListener)
 
     const channel = supabase
@@ -208,16 +235,7 @@ export const useNotifications = (restaurantId) => {
         .channel(`waiter-toasts:rid=${resolvedId}`)
         .on('broadcast', { event: 'waiter_call' }, (payload) => {
            console.log('🔔 Notification Triggered (Waiter Broadcast):', payload)
-           const call = payload.payload
-           setNotifications(prev => [{
-             id: call.id || Date.now(),
-             type: 'waiter_call',
-             title: '👋 Waiter Called',
-             message: `Table ${call.table_number} (${call.customer_name}) is requesting a waiter.`,
-             read: false,
-             created_at: new Date().toISOString()
-           }, ...prev])
-           setUnreadCount(prev => prev + 1)
+           handleIncomingWaiterCall(payload.payload)
         })
         .subscribe()
 
@@ -241,8 +259,11 @@ export const useNotifications = (restaurantId) => {
 
     return () => {
       window.removeEventListener('servora_new_order', windowListener)
+      window.removeEventListener('servora_waiter_call', windowWaiterListener)
       window.removeEventListener('storage', storageListener)
       supabase.removeChannel(channel)
+      supabase.removeChannel(waiterChannel)
+      supabase.removeChannel(inventoryChannel)
     }
   }, [resolvedId, pushNotification])
 

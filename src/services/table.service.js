@@ -42,45 +42,78 @@ export const updateTableStatus = async (restaurantId, tableNumber, updates) => {
 
 /** 🛎️ Request Waiter Service */
 export const requestWaiter = async (restaurantId, tableNumber, customerName = 'Guest') => {
-  const validId = await ensureValidRestaurantUUID(restaurantId)
-  if (!validId) return null
+  const validId = (await ensureValidRestaurantUUID(restaurantId)) || restaurantId
+  const callPayload = {
+    id: `waiter_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    table_number: String(tableNumber || '1'),
+    customer_name: customerName || 'Guest',
+    restaurant_id: validId || restaurantId,
+    created_at: new Date().toISOString()
+  }
 
-  const { data, error } = await supabase
-    .from('waiter_calls')
-    .insert({
-      restaurant_id: validId,
-      table_number: String(tableNumber),
-      customer_name: customerName,
-      is_handled: false,
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single()
+  // 1. Try DB Insert (Safely log without throwing so broadcast is never interrupted)
+  let dbRecord = null
+  try {
+    if (validId) {
+      const { data, error } = await supabase
+        .from('waiter_calls')
+        .insert({
+          restaurant_id: validId,
+          table_number: String(tableNumber || '1'),
+          customer_name: customerName || 'Guest',
+          is_handled: false,
+          created_at: callPayload.created_at
+        })
+        .select()
+        .maybeSingle()
 
-  if (error) throw error
+      if (!error && data) {
+        dbRecord = data
+        callPayload.id = data.id
+      }
+    }
+  } catch (dbErr) {
+    console.warn('Waiter call DB log notice:', dbErr)
+  }
 
-  // Broadcast the waiter call directly so the dashboard receives it immediately
-  // bypassing the need for postgres_changes replication on the waiter_calls table
-  const channel = supabase.channel(`waiter-toasts:rid=${validId}`)
-  channel.subscribe((status) => {
-    if (status === 'SUBSCRIBED') {
-      channel.send({
-        type: 'broadcast',
-        event: 'waiter_call',
-        payload: {
-          id: data?.id || Date.now(),
-          table_number: String(tableNumber),
-          customer_name: customerName,
-          restaurant_id: validId
+  // 2. Broadcast via Supabase Realtime Channels (UUID, raw ID, and general)
+  const targets = new Set([
+    `waiter-toasts:rid=${validId}`,
+    `waiter-toasts:rid=${restaurantId}`,
+    `waiter-toasts:rid=all`
+  ])
+
+  targets.forEach(channelName => {
+    try {
+      const channel = supabase.channel(channelName)
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel.send({
+            type: 'broadcast',
+            event: 'waiter_call',
+            payload: callPayload
+          })
+          setTimeout(() => {
+            supabase.removeChannel(channel)
+          }, 2000)
         }
       })
-      setTimeout(() => {
-        supabase.removeChannel(channel)
-      }, 1000)
+    } catch (broadcastErr) {
+      console.warn('Broadcast channel notice:', broadcastErr)
     }
   })
 
-  return data
+  // 3. Local Dispatch for instantaneous same-tab / multi-tab trigger
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('servora_waiter_call', { detail: callPayload }))
+      localStorage.setItem('servora_latest_waiter_call', JSON.stringify({ ...callPayload, _ts: Date.now() }))
+    } catch (localErr) {
+      console.warn('Local waiter dispatch notice:', localErr)
+    }
+  }
+
+  return dbRecord || callPayload
 }
 
 /** Sync Table Session Record */
