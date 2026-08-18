@@ -34,6 +34,16 @@ export default function RegisterPage() {
   const [initStatus, setInitStatus] = useState('')
   const [error, setError] = useState(null)
 
+  const calculateStrength = (pass) => {
+    let score = 0;
+    if (pass.length > 5) score += 33;
+    if (pass.length > 8) score += 33;
+    if (/[A-Z]/.test(pass) && /[0-9]/.test(pass)) score += 34;
+    return score;
+  }
+  
+  const strength = calculateStrength(formData.password)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -297,6 +307,26 @@ export default function RegisterPage() {
                               placeholder="••••••••••••" 
                            />
                         </div>
+                        {formData.password.length > 0 && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="pt-2 space-y-1.5 overflow-hidden"
+                          >
+                            <div className="flex justify-between items-center text-xs font-bold px-1">
+                              <span className="text-slate-400 uppercase tracking-wider text-[10px]">Password strength</span>
+                              <span className={strength < 50 ? 'text-orange-500' : strength < 100 ? 'text-blue-500' : 'text-emerald-500'}>
+                                {strength < 50 ? 'Weak' : strength < 100 ? 'Good' : 'Strong'}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                               <div 
+                                 className={`h-full transition-all ${strength < 50 ? 'bg-orange-500' : strength < 100 ? 'bg-blue-500' : 'bg-emerald-500'}`}
+                                 style={{ width: `${strength}%` }}
+                               />
+                            </div>
+                          </motion.div>
+                        )}
                      </div>
 
                      <div className="grid grid-cols-2 gap-4">
