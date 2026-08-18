@@ -132,10 +132,12 @@ export default function OverviewCards({ restaurantId = 'default' }) {
   const [menuCount, setMenuCount] = useState(0)
 
   useEffect(() => {
-    if (restaurantId && !restaurantId.includes('@')) {
+    if (restaurantId && restaurantId !== 'guest') {
       getMenuItems(restaurantId)
-        .then(items => setMenuCount(items?.length || 0))
-        .catch(() => {})
+        .then(items => setMenuCount(Array.isArray(items) ? items.length : 0))
+        .catch(() => setMenuCount(0))
+    } else {
+      setMenuCount(0)
     }
   }, [restaurantId])
 
@@ -163,51 +165,74 @@ export default function OverviewCards({ restaurantId = 'default' }) {
     }
 
     // Revenue
-    const totalRevenue = orderStats?.totalRevenue || 0
     const todayOrdersList = allOrders.filter(o => getOrderDateStr(o) === today)
     const yesterdayOrdersList = (orderHistory || []).filter(o => getOrderDateStr(o) === yesterday)
 
-    const todayRevenue = todayOrdersList.reduce((sum, o) => sum + getOrderTotal(o), 0) || totalRevenue || (allOrders.length > 0 ? 192637 : 0)
+    const todayRevenue = todayOrdersList.reduce((sum, o) => sum + getOrderTotal(o), 0)
     const yesterdayRevenue = yesterdayOrdersList.reduce((sum, o) => sum + getOrderTotal(o), 0)
-    const revenueDiff = yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : 15.7
+    const revenueDiff = yesterdayRevenue > 0 
+      ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 
+      : 0
 
     // Orders
-    const todayOrders = todayOrdersList.length || allOrders.length || 29
+    const todayOrders = todayOrdersList.length
     const yesterdayOrders = yesterdayOrdersList.length
-    const ordersDiff = yesterdayOrders > 0 ? ((todayOrders - yesterdayOrders) / yesterdayOrders) * 100 : 8.3
+    const ordersDiff = yesterdayOrders > 0 
+      ? ((todayOrders - yesterdayOrders) / yesterdayOrders) * 100 
+      : 0
 
     // Tables
-    const activeTables = (tableStats?.occupied || 0) + (tableStats?.billing || 0) || 1
-    const totalTables = tableStats?.total || 8
+    const activeTables = (tableStats?.occupied || 0) + (tableStats?.billing || 0)
+    const totalTables = tableStats?.total || 0
+
+    const sparkRevenue = yesterdayRevenue > 0 || todayRevenue > 0
+      ? [yesterdayRevenue * 0.6, yesterdayRevenue * 0.8, yesterdayRevenue, todayRevenue * 0.7, todayRevenue * 0.9, todayRevenue]
+      : [0, 0, 0, 0, 0]
+
+    const sparkOrders = yesterdayOrders > 0 || todayOrders > 0
+      ? [yesterdayOrders * 0.4, yesterdayOrders * 0.7, yesterdayOrders, todayOrders * 0.5, todayOrders * 0.8, todayOrders]
+      : [0, 0, 0, 0, 0]
+
+    const sparkTables = activeTables > 0
+      ? [0, 1, activeTables * 0.5, activeTables * 0.8, activeTables]
+      : [0, 0, 0, 0, 0]
+
+    const sparkMenu = menuCount > 0
+      ? [menuCount * 0.5, menuCount * 0.7, menuCount * 0.85, menuCount, menuCount]
+      : [0, 0, 0, 0, 0]
 
     return {
       revenue: {
         value: `₹${Math.round(todayRevenue).toLocaleString('en-IN')}`,
         rawValue: todayRevenue,
         change: revenueDiff,
-        detail: yesterdayRevenue > 0 ? `₹${Math.round(yesterdayRevenue).toLocaleString('en-IN')} yesterday` : '+15.7% vs last week',
-        sparkData: [yesterdayRevenue * 0.6, yesterdayRevenue * 0.8, yesterdayRevenue, todayRevenue * 0.7, todayRevenue * 0.9, todayRevenue],
+        detail: yesterdayRevenue > 0 
+          ? `₹${Math.round(yesterdayRevenue).toLocaleString('en-IN')} yesterday` 
+          : todayRevenue > 0 ? `${todayOrdersList.length} orders placed today` : 'No revenue yet today',
+        sparkData: sparkRevenue,
       },
       tables: {
         value: `${activeTables}`,
         rawValue: activeTables,
-        change: activeTables > 0 ? 15 : 0,
-        detail: `${totalTables} tables active floor`,
-        sparkData: [0, 1, activeTables * 0.5, activeTables * 0.8, activeTables],
+        change: totalTables > 0 && activeTables > 0 ? Math.round((activeTables / totalTables) * 100) : 0,
+        detail: totalTables > 0 ? `${totalTables} tables configured on floor` : 'No tables configured yet',
+        sparkData: sparkTables,
       },
       orders: {
         value: `${todayOrders}`,
         rawValue: todayOrders,
         change: ordersDiff,
-        detail: yesterdayOrders > 0 ? `${yesterdayOrders} orders yesterday` : 'Active orders placed',
-        sparkData: [yesterdayOrders * 0.4, yesterdayOrders * 0.7, yesterdayOrders, todayOrders * 0.5, todayOrders * 0.8, todayOrders],
+        detail: yesterdayOrders > 0 
+          ? `${yesterdayOrders} orders yesterday` 
+          : todayOrders > 0 ? 'Active orders placed today' : 'No orders placed today',
+        sparkData: sparkOrders,
       },
       menu: {
-        value: `${menuCount || 21}`,
-        rawValue: menuCount || 21,
+        value: `${menuCount}`,
+        rawValue: menuCount,
         change: 0,
-        detail: `${menuCount || 21} active items in catalog`,
-        sparkData: [(menuCount || 21) * 0.5, (menuCount || 21) * 0.7, (menuCount || 21) * 0.85, menuCount || 21, menuCount || 21],
+        detail: menuCount > 0 ? `${menuCount} active items in catalog` : 'Catalog is currently empty',
+        sparkData: sparkMenu,
       },
     }
   }, [orderStats, activeOrders, orderHistory, tableStats, menuCount])

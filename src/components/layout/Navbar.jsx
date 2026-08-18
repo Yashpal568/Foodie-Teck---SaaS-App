@@ -1,12 +1,27 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
-  Search, Bell, User, Menu, ChefHat, 
-  Settings, HelpCircle, BookOpen, FileText, 
-  Youtube, Plus, ArrowRight, Zap, Target,
-  Command, Sparkles, LogOut, LayoutDashboard,
-  QrCode, ShoppingCart, BarChart3, Users,
-  UtensilsCrossed, Monitor
+  Search, 
+  User, 
+  Menu, 
+  ChefHat, 
+  Settings, 
+  LifeBuoy, 
+  BookOpen, 
+  FileText, 
+  Youtube, 
+  Plus, 
+  ArrowRight, 
+  Zap, 
+  Command, 
+  LogOut, 
+  LayoutDashboard,
+  QrCode, 
+  ShoppingCart, 
+  BarChart3, 
+  Users,
+  PanelLeft,
+  Store
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -30,19 +45,6 @@ import { supabase } from '@/lib/api'
 import { getCachedSession } from '@/lib/supabase'
 import { getPlanDetails } from '@/utils/planLimits'
 
-/**
- * @param {{
- *   activeItem?: any,
- *   setActiveItem?: any,
- *   currency?: any,
- *   onCurrencyChange?: any,
- *   restaurantId?: any,
- *   plan?: any,
- *   onUpgradeClick?: any,
- *   isCollapsed?: boolean,
- *   setIsCollapsed?: any
- * }} props
- */
 export default function Navbar({ 
   activeItem, 
   setActiveItem, 
@@ -61,31 +63,52 @@ export default function Navbar({
   const searchRef = useRef(null)
   
   const [userProfile, setUserProfile] = useState({
-    name: 'Loading...',
-    email: '',
+    name: 'Merchant Admin',
+    email: 'owner@restaurant.com',
     avatar: ''
   })
 
-  // Sync profile with Supabase Session
+  // Sync profile with Supabase Session & Restaurant Identity
   useEffect(() => {
     const loadProfile = async () => {
-      const { data: { session } } = await getCachedSession()
-      const user = session?.user
+      let email = ''
+      let name = 'Restaurant Owner'
 
-      if (user && user.email) {
-        const { data: rest } = await supabase.from('restaurants').select('*').eq('email', user.email.toLowerCase()).maybeSingle()
-        setUserProfile({
-          name: rest?.business_name || user.user_metadata?.business_name || 'Merchant Admin',
-          email: user.email,
-          avatar: ''
-        })
-      } else {
-        setUserProfile({
-           name: 'System Admin',
-           email: restaurantId || 'admin@servora.tech',
-           avatar: ''
-        })
+      // 1. Try Supabase Auth Session
+      try {
+        const { data: { session } } = await getCachedSession()
+        const user = session?.user
+        if (user?.email) {
+          email = user.email
+          name = user.user_metadata?.business_name || user.email.split('@')[0]
+        }
+      } catch (e) {}
+
+      // 2. Query Restaurant Profile by UUID or Email
+      if (restaurantId && restaurantId !== 'guest' && restaurantId !== 'default') {
+        try {
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
+          let q = supabase.from('restaurants').select('business_name, email')
+          if (isUUID) {
+            q = q.eq('id', restaurantId)
+          } else if (restaurantId.includes('@')) {
+            q = q.eq('email', restaurantId.toLowerCase())
+          } else {
+            q = q.eq('id', restaurantId)
+          }
+          const { data: rest } = await q.maybeSingle()
+          if (rest) {
+            if (rest.business_name) name = rest.business_name
+            if (rest.email) email = rest.email
+          }
+        } catch (e) {}
       }
+
+      setUserProfile({
+        name: name || 'Restaurant Owner',
+        email: email || 'owner@servora.app',
+        avatar: ''
+      })
     }
 
     loadProfile()
@@ -98,18 +121,15 @@ export default function Navbar({
     { id: 'docs', label: 'Documentation', icon: BookOpen, category: 'Resources', route: '/dashboard', type: 'page' },
     { id: 'releases', label: 'Release Notes', icon: FileText, category: 'Resources', route: '/dashboard', type: 'page' },
     { id: 'tutorials', label: 'Video Tutorials', icon: Youtube, category: 'Resources', route: '/dashboard', type: 'page' },
-    { id: 'add-item', label: 'Add Menu Item', icon: Plus, category: 'Actions', type: 'action', action: () => setActiveItem('menu') },
-    { id: 'create-order', label: 'Create Quick Order', icon: Zap, category: 'Actions', type: 'action', action: () => setActiveItem('orders') },
-    { id: 'gen-qr', label: 'Generate QR Codes', icon: QrCode, category: 'Actions', type: 'action', action: () => setActiveItem('qr-codes') },
   ]
 
-  const filteredResults = searchQuery.trim() === '' 
-    ? searchableItems.filter(i => i.category === 'Actions').slice(0, 3)
-    : searchableItems.filter(item => 
-        item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+  // Filter items based on search query
+  const filteredItems = searchQuery.trim() === '' ? [] : searchableItems.filter(item => 
+    item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.category.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
+  // Close search results when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -120,219 +140,239 @@ export default function Navbar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleItemClick = (item) => {
-    if (item.type === 'action') {
+  const handleSearchResultClick = (item) => {
+    if (item.action) {
       item.action()
-    } else {
+    } else if (item.id) {
       setActiveItem(item.id)
-      navigate(item.route)
-      setIsMobileMenuOpen(false) // Close sheet on navigation
     }
-    setShowResults(false)
     setSearchQuery('')
+    setShowResults(false)
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    
-    // Reroute to authentication gate
-    navigate('/login')
+    try {
+      await supabase.auth.signOut()
+      sessionStorage.clear()
+      navigate('/login')
+    } catch (error) {
+      console.error('Sign out error:', error)
+      navigate('/login')
+    }
   }
 
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-3 lg:px-8 py-3 lg:py-4 sticky top-0 z-40">
-      <div className="flex items-center justify-between gap-2 lg:gap-8 min-w-0">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs select-none">
+      <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 h-16">
         
-        {/* Mobile Menu & Logo — Only visible on mobile (<768px), hidden on iPad/Desktop where Sidebar is present */}
-        <div className="flex items-center gap-3 md:hidden">
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0 text-slate-600 hover:bg-slate-100">
-                <Menu className="w-5 h-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-70 bg-white border-r-0">
-              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-              <Sidebar 
-                activeItem={activeItem}
-                setActiveItem={(item) => {
-                  setActiveItem(item)
-                  setIsMobileMenuOpen(false)
-                }}
-                isCollapsed={false}
-                setIsCollapsed={setIsCollapsed || (() => {})}
-                isMobile={true}
-                onClose={() => setIsMobileMenuOpen(false)}
-                restaurantId={restaurantId}
-              />
-            </SheetContent>
-          </Sheet>
-          <div className="scale-90 origin-left">
-            <Logo showText={true} />
+        {/* Left Side: Collapse Toggle & Search Bar */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-1 max-w-lg">
+          {/* Mobile Menu Trigger */}
+          <div className="flex items-center gap-2 md:hidden">
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="shrink-0 text-slate-600 hover:bg-slate-100 rounded-xl">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-72 bg-white border-r-0">
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                <Sidebar 
+                  activeItem={activeItem}
+                  setActiveItem={(item) => {
+                    setActiveItem(item)
+                    setIsMobileMenuOpen(false)
+                  }}
+                  isCollapsed={false}
+                  setIsCollapsed={setIsCollapsed || (() => {})}
+                  isMobile={true}
+                  onClose={() => setIsMobileMenuOpen(false)}
+                  restaurantId={restaurantId}
+                />
+              </SheetContent>
+            </Sheet>
           </div>
-        </div>
 
-        {/* Search Bar Container */}
-        <div className="flex-1 max-w-xs md:max-w-sm lg:max-w-lg xl:max-w-xl hidden md:block" ref={searchRef}>
-          <div className="relative group">
-            <div className="absolute inset-x-0 -inset-y-0.5 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl opacity-0 group-focus-within:opacity-10 transition-opacity duration-300 pointer-events-none" />
-            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-blue-600 transition-colors" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setShowResults(true)
-              }}
-              onFocus={() => setShowResults(true)}
-              placeholder="Search features or actions... (Ctrl+K)"
-              className="pl-10 h-10 lg:h-11 bg-slate-50 border-slate-200 rounded-2xl focus-visible:ring-0 focus:border-blue-200/50 transition-all font-medium text-slate-700 text-xs lg:text-sm placeholder:text-slate-400"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1">
-               <Badge variant="outline" className="bg-white border-slate-200 text-slate-400 font-black px-1.5 h-5 rounded-md text-[9px]">
-                  <Command className="w-2.5 h-2.5 mr-0.5" /> K
-               </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden lg:flex p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 rounded-xl transition-colors cursor-pointer"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            <PanelLeft className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
+          </Button>
+
+          {/* Search Box */}
+          <div ref={searchRef} className="relative w-full max-w-md">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search features or actions... (Ctrl+K)"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setShowResults(true)
+                }}
+                onFocus={() => setShowResults(true)}
+                className="pl-9.5 pr-8 h-9.5 bg-slate-50/80 border-slate-200/90 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-2xs"
+              />
+              <kbd className="hidden sm:inline-flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-white border border-slate-200 rounded">
+                ⌘K
+              </kbd>
             </div>
 
-            {/* Premium Search Results Overlay */}
-            {showResults && (
-              <div className="absolute top-13 left-0 right-0 bg-white rounded-3xl shadow-2xl shadow-blue-900/10 border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
-                <div className="p-3 max-h-120 overflow-y-auto scrollbar-hide">
-                  {filteredResults.length > 0 ? (
-                    <div className="space-y-3">
-                      {['Actions', 'Navigation', 'Resources', 'Support'].map(category => {
-                        const items = filteredResults.filter(i => i.category === category)
-                        if (items.length === 0) return null
-                        return (
-                          <div key={category}>
-                             <h4 className="px-3 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{category}</h4>
-                             <div className="grid grid-cols-1 gap-1">
-                               {items.map(item => (
-                                 <button
-                                   key={item.id}
-                                   onClick={() => handleItemClick(item)}
-                                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 group transition-all"
-                                 >
-                                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shadow-2xs ${
-                                      item.type === 'action' ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-slate-100 border-slate-200 text-slate-500'
-                                   }`}>
-                                     <item.icon className="w-4 h-4" />
-                                   </div>
-                                   <div className="text-left flex-1 min-w-0">
-                                     <p className="text-xs font-black text-slate-800 tracking-tight">{item.label}</p>
-                                     <p className="text-[10px] font-bold text-slate-400">Quick access to {item.label.toLowerCase()}</p>
-                                   </div>
-                                   <ArrowRight className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all" />
-                                 </button>
-                               ))}
-                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center">
-                       <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-slate-100">
-                          <Search className="w-6 h-6 text-slate-200" />
-                       </div>
-                       <h3 className="font-black text-xs text-slate-900">No results found</h3>
-                       <p className="text-xs text-slate-400 max-w-xs mx-auto mt-0.5">Try different keywords.</p>
-                    </div>
-                  )}
+            {/* Live Search Results Overlay */}
+            {showResults && filteredItems.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200/90 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in-0 zoom-in-95 duration-100">
+                <div className="p-1.5 space-y-0.5 max-h-72 overflow-y-auto">
+                  {filteredItems.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSearchResultClick(item)}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left rounded-xl hover:bg-slate-50 transition-colors text-xs cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                          <item.icon className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-bold text-slate-800 group-hover:text-slate-900">{item.label}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] font-bold text-slate-400 uppercase">
+                        {item.category}
+                      </Badge>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-2 lg:gap-3 ml-auto shrink-0">
-          {/* Active Plan Badge & Upgrade Trigger */}
+        {/* Right Side Tools */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Plan Status Pill */}
           <div className="hidden sm:flex items-center gap-1.5">
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100/90 border border-slate-200/90 rounded-xl">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span className="text-[10px] font-mono font-black text-slate-800 uppercase tracking-wider whitespace-nowrap">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+              <span className="text-[10px] font-mono font-bold text-slate-800 uppercase tracking-wider whitespace-nowrap">
                 <span className="hidden xl:inline">{getPlanDetails(plan?.name).name} Plan ({getPlanDetails(plan?.name).formattedPrice})</span>
-                <span className="inline xl:hidden">{getPlanDetails(plan?.name).name} Plan</span>
+                <span className="inline xl:hidden">{getPlanDetails(plan?.name).name}</span>
               </span>
             </div>
 
             {getPlanDetails(plan?.name).name !== 'Enterprise' && (
               <button
                 onClick={onUpgradeClick}
-                className="hidden xl:flex items-center gap-1 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                className="hidden xl:flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
               >
-                <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+                <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
                 <span>Upgrade</span>
               </button>
             )}
           </div>
 
-          <Separator orientation="vertical" className="h-6 opacity-50 hidden lg:block" />
+          <Separator orientation="vertical" className="h-5 opacity-50 hidden lg:block" />
 
           {/* Currency Selector */}
           <div className="hidden lg:block">
             <CurrencySelector 
               value={currency} 
               onChange={onCurrencyChange}
-              className="h-10 border-slate-200/60 bg-slate-50/30 rounded-xl font-bold text-sm shadow-sm"
+              className="h-9 border-slate-200/90 bg-slate-50/50 rounded-xl font-bold text-xs shadow-2xs"
             />
           </div>
 
           {/* Notifications Center */}
           <NotificationDropdown restaurantId={restaurantId} />
 
-          {/* User Profile */}
+          {/* ─── 👤 CLEAN SHADCN USER PROFILE DROPDOWN ─────────────── */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 p-1.5 lg:pr-4 h-10 lg:h-12 rounded-2xl hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
+              <Button 
+                variant="ghost" 
+                className="flex items-center gap-2.5 p-1 sm:px-2.5 h-10 rounded-xl hover:bg-slate-100/80 border border-transparent hover:border-slate-200/60 transition-all cursor-pointer"
+              >
                 <div className="relative">
-                  <Avatar className="w-9 h-9 border-2 border-white shadow-xl shadow-blue-500/10">
-                    <AvatarImage src={userProfile.avatar || "/api/placeholder/32/32"} alt="User" className="aspect-square h-full w-full object-cover" />
-                    <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-700 text-white font-black text-xs">
-                      {userProfile.name.charAt(0)}D
+                  <Avatar className="w-8 h-8 rounded-lg border border-slate-200 shadow-2xs">
+                    <AvatarFallback className="bg-slate-900 text-white font-black text-xs rounded-lg">
+                      {userProfile.name?.charAt(0)?.toUpperCase() || 'M'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
                 </div>
                 <div className="text-left hidden lg:block">
-                  <p className="text-sm font-black text-slate-900 tracking-tight leading-none">{userProfile.name}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Admin Account</p>
+                  <p className="text-xs font-bold text-slate-900 tracking-tight leading-none truncate max-w-[120px]">
+                    {userProfile.name}
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                    Merchant
+                  </p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 bg-white/95 backdrop-blur-md border border-slate-100 shadow-2xl rounded-[2rem] p-2 animate-in slide-in-from-top-2 duration-200 mt-2">
-              <DropdownMenuLabel className="px-4 py-3" inset={undefined}>
-                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Authenticated as</p>
-                 <p className="text-sm font-bold text-slate-900">{userProfile.email}</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-slate-100/50 mx-2" />
-              <div className="p-1 space-y-1">
-                <DropdownMenuItem onClick={() => setActiveItem('settings')} className="cursor-pointer flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors focus:bg-slate-50" inset={undefined}>
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <User className="w-4 h-4" />
+
+            <DropdownMenuContent align="end" className="w-72 bg-white border border-slate-200/90 shadow-xl rounded-2xl p-2 font-sans mt-1.5 animate-in fade-in-0 zoom-in-95 duration-150">
+              {/* User Identity Header Card */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2 mb-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                    {userProfile.name?.charAt(0)?.toUpperCase() || 'M'}
                   </div>
-                  <span className="text-sm font-black text-slate-700">Account Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveItem('settings')} className="cursor-pointer flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors focus:bg-slate-50" inset={undefined}>
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <Settings className="w-4 h-4" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-slate-900 truncate leading-none">
+                        {userProfile.name}
+                      </p>
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[8px] font-bold uppercase px-1.5 py-0">
+                        Active
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                      {userProfile.email}
+                    </p>
                   </div>
-                  <span className="text-sm font-black text-slate-700">Settings</span>
-                </DropdownMenuItem>
+                </div>
               </div>
-              <DropdownMenuSeparator className="bg-slate-100/50 mx-2" />
-              <div className="p-1">
+
+              {/* Menu Links */}
+              <div className="space-y-0.5 py-1">
                 <DropdownMenuItem 
-                  onClick={handleSignOut}
-                  className="cursor-pointer text-rose-600 flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-rose-50 hover:text-rose-700 transition-colors focus:bg-rose-50 focus:text-rose-700" 
-                  inset={undefined}
+                  onClick={() => setActiveItem('settings')} 
+                  className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-100">
-                    <LogOut className="w-4 h-4" />
-                  </div>
-                  <span className="text-sm font-black">Secure Sign Out</span>
+                  <User className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Account & Restaurant Profile</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem 
+                  onClick={() => setActiveItem('settings')} 
+                  className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
+                >
+                  <Settings className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Store Settings</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem 
+                  onClick={() => setActiveItem('help')} 
+                  className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
+                >
+                  <LifeBuoy className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Help & Support</span>
                 </DropdownMenuItem>
               </div>
+
+              <DropdownMenuSeparator className="my-1 bg-slate-100" />
+
+              {/* Sign Out Button */}
+              <DropdownMenuItem 
+                onClick={handleSignOut}
+                className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 focus:bg-rose-50 focus:text-rose-700 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                <span>Sign Out</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
