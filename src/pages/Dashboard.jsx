@@ -19,7 +19,6 @@ import SettingsPage from "../components/dashboard/Settings";
 import OnboardingChecklist from "../components/dashboard/OnboardingChecklist";
 import { useRestaurantProfile } from "../hooks/useRestaurantProfile";
 
-import PlanLockOverlay from "../components/dashboard/PlanLockOverlay";
 import ModuleLockOverlay from "../components/dashboard/ModuleLockOverlay";
 import SubscriptionLockOverlay from "../components/dashboard/SubscriptionLockOverlay";
 import SuspensionOverlay from "../components/dashboard/SuspensionOverlay";
@@ -282,19 +281,15 @@ function Dashboard() {
 
   if (isLoading) return null; // Quick flash prevention
 
-  if (!plan) {
-    return <PlanLockOverlay />;
-  }
-
   if (isSuspended) {
     return <SuspensionOverlay />;
   }
 
-  if (isExpired) {
+  if (!plan || isExpired) {
     return (
       <SubscriptionLockOverlay
-        planName={plan.name}
-        expiredSince={plan.purchaseDate}
+        planName={plan?.name || "Professional"}
+        expiredSince={plan?.purchaseDate || new Date()}
         pendingApproval={subDetails.pendingApproval}
         utrNumber={subDetails.utrNumber}
         restaurantId={resolvedId || profile?.id || urlId}
@@ -303,7 +298,7 @@ function Dashboard() {
           (profile ? profile["email"] : "") ||
           (dashboardEmail?.includes("@")
             ? dashboardEmail
-            : "claudegptusert@gmail.com")
+            : "support@servora.in")
         }
         merchantName={profile?.business_name || "Servora Merchant"}
         onCheckStatus={verifyAuthAndPlan}

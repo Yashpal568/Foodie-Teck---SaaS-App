@@ -217,6 +217,14 @@ export default function SubscriptionLockOverlay({
       })
       .subscribe()
 
+    const handleEventSync = () => {
+      if (onCheckStatus) onCheckStatus()
+      silentCheckStatus()
+    }
+
+    window.addEventListener('platformConfigUpdated', handleEventSync)
+    window.addEventListener('storage', handleEventSync)
+
     return () => {
       clearInterval(interval)
       window.removeEventListener('platformConfigUpdated', handleEventSync)

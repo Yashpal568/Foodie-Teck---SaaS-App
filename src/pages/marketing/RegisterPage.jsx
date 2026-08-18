@@ -92,15 +92,28 @@ export default function RegisterPage() {
     await new Promise(r => setTimeout(r, 1000))
 
     // Fetch the auto-created restaurant
-    const { data: restaurant } = await supabase
+    let { data: restaurant } = await supabase
       .from('restaurants')
       .select('*')
       .eq('owner_id', data.user.id)
       .maybeSingle()
 
+    if (!restaurant) {
+      const { data: restByEmail } = await supabase
+        .from('restaurants')
+        .select('*')
+        .eq('email', formData.email.toLowerCase())
+        .maybeSingle()
+      restaurant = restByEmail
+    }
+
     const restId = restaurant?.id || data.user.id
-    recordNewMerchant({
+    sessionStorage.setItem('servora_restaurant_id', restId)
+    sessionStorage.setItem(`servora_uuid_${formData.email.toLowerCase()}`, restId)
+
+    await recordNewMerchant({
        id: restId,
+       owner_id: data.user.id,
        business_name: formData.businessName || 'Servora Merchant',
        email: formData.email.toLowerCase(),
        status: 'Pending',
@@ -115,17 +128,19 @@ export default function RegisterPage() {
              restaurant_id: restId,
              plan_name: planObj.name,
              price: planObj.price,
-             status: 'PENDING_PAYMENT',
+             status: 'PENDING_APPROVAL',
              start_date: new Date().toISOString()
           }, { onConflict: 'restaurant_id' })
           sessionStorage.removeItem('intended_plan')
        } catch (err) {
           console.warn('Failed to save intended plan on register:', err)
        }
+       // Redirect to merchant console if plan was already chosen
+       navigate(`/console/${restId}`)
+    } else {
+       // If no plan was chosen, direct them to select a plan immediately
+       navigate('/pricing')
     }
-
-    // Redirect to merchant console (which will enforce subscription payment & admin approval)
-    navigate(`/console/${restId}`)
   }
 
 

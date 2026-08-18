@@ -88,20 +88,30 @@ export default function PricingPage() {
       }
 
       const userEmail = session.user.email
+      let rest = null
 
-      // Fetch restaurant ID for current user
-      const { data: rest } = await supabase.from('restaurants').select('*').eq('email', userEmail).maybeSingle()
+      const { data: restByOwner } = await supabase.from('restaurants').select('*').eq('owner_id', session.user.id).maybeSingle()
+      if (restByOwner) {
+        rest = restByOwner
+      } else if (userEmail) {
+        const { data: restByEmail } = await supabase.from('restaurants').select('*').eq('email', userEmail.toLowerCase()).maybeSingle()
+        rest = restByEmail
+      }
 
-      if (rest?.id) {
+      const restId = rest?.id || sessionStorage.getItem('servora_restaurant_id') || session.user.id
+
+      if (restId) {
+         sessionStorage.setItem('servora_restaurant_id', restId)
+
          // Check if subscription already exists
          const { data: existingSub } = await supabase
             .from('subscriptions')
             .select('id')
-            .eq('restaurant_id', rest.id)
+            .eq('restaurant_id', restId)
             .maybeSingle()
 
          const subPayload = {
-            restaurant_id: rest.id,
+            restaurant_id: restId,
             plan_name: plan.name,
             price: plan.price,
             status: 'PENDING_APPROVAL',
@@ -114,9 +124,10 @@ export default function PricingPage() {
          } else {
             await supabase.from('subscriptions').insert(subPayload)
          }
+         navigate(`/console/${restId}`)
+      } else {
+         navigate(`/console/${userEmail}`)
       }
-
-      navigate(`/console/${userEmail}`)
     } catch (err) {
       console.error('Plan selection failed:', err)
     } finally {
