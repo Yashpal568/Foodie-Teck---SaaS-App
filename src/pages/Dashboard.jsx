@@ -16,6 +16,7 @@ import Documentation from "../components/dashboard/Documentation";
 import ReleaseNotes from "../components/dashboard/ReleaseNotes";
 import VideoTutorials from "../components/dashboard/VideoTutorials";
 import SettingsPage from "../components/dashboard/Settings";
+import OnboardingChecklist from "../components/dashboard/OnboardingChecklist";
 import { useRestaurantProfile } from "../hooks/useRestaurantProfile";
 
 import PlanLockOverlay from "../components/dashboard/PlanLockOverlay";
@@ -394,6 +395,9 @@ function Dashboard() {
 
               {/* ── MAIN CONTENT AREA ── */}
               <div className="flex-1 p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6">
+                {/* ── 0. ONBOARDING CHECKLIST ── */}
+                <OnboardingChecklist profile={profile} onSetupClick={() => setActiveItem('settings')} />
+
                 {/* ── 1. FULL WIDTH KPI OVERVIEW CARDS ── */}
                 <OverviewCards restaurantId={restaurantId} />
 
