@@ -321,20 +321,20 @@ function Dashboard() {
             {/* ── PAGE CONTENT ── */}
             <div className="flex flex-col gap-0 flex-1">
               {/* ── HERO HEADER BAND ── */}
-              <div className="bg-white border-b border-slate-100 px-4 lg:px-8 py-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
+              <div className="bg-white border-b border-slate-100 px-4 lg:px-8 py-3 sm:py-4">
+                <div className="flex items-center justify-between gap-3">
                   {/* Left: breadcrumb + title */}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <LayoutDashboard className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                         Overview
                       </span>
                     </div>
-                    <h1 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                    <h1 className="text-lg md:text-xl lg:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
                       Restaurant Dashboard
                     </h1>
-                    <p className="text-xs text-slate-400 font-medium mt-1 truncate">
+                    <p className="text-xs text-slate-400 font-medium mt-1 truncate hidden sm:block">
                       Real-time performance monitoring ·{" "}
                       {new Date().toLocaleDateString("en-IN", {
                         weekday: "long",
@@ -345,11 +345,11 @@ function Dashboard() {
                     </p>
                   </div>
 
-                  {/* Right: Quick Actions */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  {/* Right: Quick Actions — scrollable row on small screens */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar">
                     <button
                       onClick={handleRefresh}
-                      className={`flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all ${isRefreshing ? "opacity-60" : ""}`}
+                      className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${isRefreshing ? "opacity-60" : ""}`}
                     >
                       <RefreshCw
                         className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
@@ -364,25 +364,27 @@ function Dashboard() {
                           "_blank",
                         )
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl transition-all whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl transition-all whitespace-nowrap"
                     >
                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shrink-0" />
-                      Live Menu
+                      <span className="hidden sm:inline">Live Menu</span>
+                      <span className="sm:hidden">Menu</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => setActiveItem("analytics")}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-xs font-bold rounded-xl transition-all whitespace-nowrap"
+                      className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-xs font-bold rounded-xl transition-all whitespace-nowrap"
                     >
                       <TrendingUp className="w-3.5 h-3.5" />
                       Analytics
                     </button>
                     <button
                       onClick={() => setActiveItem("orders")}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-slate-900/20 whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-slate-900/20 whitespace-nowrap"
                     >
                       <Zap className="w-3.5 h-3.5" />
-                      New Order
+                      <span className="hidden sm:inline">New Order</span>
+                      <span className="sm:hidden">Order</span>
                     </button>
                   </div>
                 </div>

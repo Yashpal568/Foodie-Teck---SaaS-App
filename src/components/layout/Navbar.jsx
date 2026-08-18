@@ -178,7 +178,7 @@ export default function Navbar({
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs select-none">
       <div className="flex items-center h-14 sm:h-16 px-3 sm:px-4 lg:px-6 gap-2 sm:gap-3">
 
-        {/* ── Mobile: Hamburger + Wordmark ── */}
+        {/* ── Mobile only (< md): Hamburger sheet + Wordmark ── */}
         <div className="flex items-center gap-2 md:hidden shrink-0">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
@@ -204,7 +204,7 @@ export default function Navbar({
           </Sheet>
         </div>
 
-        {/* App wordmark — mobile only, fills remaining space */}
+        {/* App wordmark — mobile only */}
         <div className="flex md:hidden items-center gap-1.5 flex-1 min-w-0">
           <div className="w-6 h-6 bg-slate-900 rounded-lg flex items-center justify-center shrink-0">
             <ChefHat className="w-3.5 h-3.5 text-white" />
@@ -212,31 +212,31 @@ export default function Navbar({
           <span className="text-sm font-black text-slate-900 tracking-tight">Servora</span>
         </div>
 
-        {/* ── Desktop: Collapse toggle (≥ lg) ── */}
+        {/* ── iPad + Desktop: Sidebar collapse toggle (≥ md) ── */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hidden lg:flex items-center justify-center p-0 h-9 w-9 text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 rounded-xl transition-colors cursor-pointer shrink-0"
+          className="hidden md:flex items-center justify-center p-0 h-9 w-9 text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 rounded-xl transition-colors cursor-pointer shrink-0"
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           <PanelLeft className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
         </Button>
 
-        {/* ── Desktop: Search (≥ md) ── */}
-        <div ref={searchRef} className="relative hidden md:flex flex-1 max-w-md">
+        {/* ── iPad + Desktop: Search (≥ md) ── */}
+        <div ref={searchRef} className="relative hidden md:flex flex-1 min-w-0 max-w-xs lg:max-w-md">
           <div className="relative w-full">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <Input
               type="text"
-              placeholder="Search features or actions... (Ctrl+K)"
+              placeholder="Search... (Ctrl+K)"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
                 setShowResults(true)
               }}
               onFocus={() => setShowResults(true)}
-              className="pl-9.5 pr-10 h-9 bg-slate-50/80 border-slate-200/90 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-2xs w-full"
+              className="pl-9 pr-4 lg:pr-10 h-9 bg-slate-50/80 border-slate-200/90 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-2xs w-full"
             />
             <kbd className="hidden lg:inline-flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-white border border-slate-200 rounded">
               ⌘K
@@ -269,11 +269,11 @@ export default function Navbar({
           )}
         </div>
 
-        {/* ── RIGHT: Actions (auto-pushed to end on mobile via ml-auto) ── */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto md:ml-0">
+        {/* ── RIGHT: Actions — always pushed to far right ── */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
 
-          {/* Plan pill — sm+ only */}
-          <div className="hidden sm:flex items-center gap-1.5">
+          {/* Plan pill — lg+ only (hidden on iPad to save space) */}
+          <div className="hidden lg:flex items-center gap-1.5">
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100/90 border border-slate-200/90 rounded-xl">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
               <span className="text-[10px] font-mono font-bold text-slate-800 uppercase tracking-wider whitespace-nowrap">

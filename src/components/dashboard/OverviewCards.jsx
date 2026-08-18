@@ -238,7 +238,7 @@ export default function OverviewCards({ restaurantId = 'default' }) {
   }, [orderStats, activeOrders, orderHistory, tableStats, menuCount])
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
       {CARD_CONFIGS.map((config) => {
         const stat = stats[config.key]
         const isUp = stat.change >= 0
@@ -247,45 +247,45 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         return (
           <div
             key={config.key}
-            className={`group relative bg-white rounded-2xl border ${config.border} p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden cursor-default`}
+            className={`group relative bg-white rounded-2xl border ${config.border} px-3.5 py-3.5 sm:p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden cursor-default`}
           >
-            {/* Background gradient accent */}
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full bg-linear-to-br ${config.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
+            {/* Background gradient orb */}
+            <div className={`absolute -right-5 -top-5 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-linear-to-br ${config.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
 
-            {/* Top row: Icon + Trend Badge */}
-            <div className="flex items-start justify-between mb-4">
-              <div className={`p-2.5 rounded-xl ${config.lightBg}`}>
-                <config.icon className={`w-5 h-5 ${config.iconColor}`} />
+            {/* Top row: Icon + Trend badge */}
+            <div className="flex items-start justify-between mb-2.5 sm:mb-4">
+              <div className={`p-2 sm:p-2.5 rounded-xl ${config.lightBg}`}>
+                <config.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${config.iconColor}`} />
               </div>
 
               {stat.change !== 0 && (
-                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold ${
                   isUp
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                     : 'bg-red-50 text-red-700 border border-red-100'
                 }`}>
-                  <TrendIcon className="w-3 h-3" />
+                  <TrendIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   {Math.abs(stat.change).toFixed(1)}%
                 </div>
               )}
             </div>
 
             {/* Value */}
-            <div className="mb-1">
-              <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+            <div className="mb-0.5 sm:mb-1">
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
                 {stat.value}
               </p>
             </div>
 
             {/* Title */}
-            <p className="text-xs font-semibold text-slate-500 mb-3">{config.title}</p>
+            <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mb-2.5 sm:mb-3 truncate">{config.title}</p>
 
             {/* Sparkline + detail */}
-            <div className="flex items-end justify-between">
-              <p className="text-[10px] text-slate-400 font-medium leading-tight max-w-[65%]">
+            <div className="flex items-end justify-between gap-1">
+              <p className="text-[9px] sm:text-[10px] text-slate-400 font-medium leading-tight" style={{ maxWidth: '60%' }}>
                 {stat.detail}
               </p>
-              <Sparkline data={stat.sparkData} color={config.accent} height={28} />
+              <Sparkline data={stat.sparkData} color={config.accent} height={22} />
             </div>
           </div>
         )
