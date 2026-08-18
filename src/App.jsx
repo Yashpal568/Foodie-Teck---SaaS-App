@@ -29,6 +29,7 @@ const ResetPasswordPage = lazy(() => import('./pages/marketing/ResetPasswordPage
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'))
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
 const AdminCustomersPage = lazy(() => import('./pages/admin/AdminCustomersPage'))
+const AdminVerificationsPage = lazy(() => import('./pages/admin/AdminVerificationsPage'))
 const AdminPlansPage = lazy(() => import('./pages/admin/AdminPlansPage'))
 const AdminRevenuePage = lazy(() => import('./pages/admin/AdminRevenuePage'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
@@ -132,6 +133,7 @@ function App() {
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                 <Route path="/admin/customers" element={<AdminCustomersPage />} />
+                <Route path="/admin/verifications" element={<AdminVerificationsPage />} />
                 <Route path="/admin/plans" element={<AdminPlansPage />} />
                 <Route path="/admin/revenue" element={<AdminRevenuePage />} />
                 <Route path="/admin/audit" element={<AdminAuditPage />} />

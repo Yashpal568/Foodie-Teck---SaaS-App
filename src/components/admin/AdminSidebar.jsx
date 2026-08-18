@@ -2,12 +2,14 @@ import { Link, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/api'
+import { getAdminPlatformData } from '@/lib/adminDataService'
 import { 
   Building2, 
   BarChart3, 
   Users, 
+  CreditCard,
   ShieldAlert, 
-  HelpCircle,
+  HelpCircle, 
   Settings2, 
   PackageSearch,
   LogOut,
@@ -21,6 +23,7 @@ import { Button } from '@/components/ui/button'
 const navLinks = [
   { name: 'System Overview', icon: BarChart3, path: '/admin/dashboard' },
   { name: 'Merchants & Users', icon: Users, path: '/admin/customers' },
+  { name: 'Payment Verifications', icon: CreditCard, path: '/admin/verifications' },
   { name: 'Subscription Plans', icon: PackageSearch, path: '/admin/plans' },
   { name: 'Revenue Tracking', icon: BarChart3, path: '/admin/revenue' },
   { name: 'System Audit', icon: ShieldAlert, path: '/admin/audit' },
@@ -31,27 +34,39 @@ const navLinks = [
 export default function AdminSidebar({ isOpen, setIsOpen }) {
   const location = useLocation()
   const [openTicketsCount, setOpenTicketsCount] = useState(0)
+  const [pendingVerificationsCount, setPendingVerificationsCount] = useState(0)
+
+  const fetchStats = async () => {
+    try {
+      const { count } = await supabase
+        .from('support_tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'OPEN')
+      setOpenTicketsCount(count || 0)
+
+      const platformData = await getAdminPlatformData()
+      const pCount = (platformData.pendingVerifications || []).length
+      setPendingVerificationsCount(pCount)
+    } catch (err) {}
+  }
 
   useEffect(() => {
-    const fetchOpenTickets = async () => {
-      try {
-        const { count } = await supabase
-          .from('support_tickets')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'OPEN')
-        setOpenTicketsCount(count || 0)
-      } catch (err) {}
-    }
-    
-    fetchOpenTickets()
-    
-    const channel = supabase.channel('admin_sidebar_tickets')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
-        fetchOpenTickets()
-      })
+    fetchStats()
+
+    const interval = setInterval(fetchStats, 4000)
+    window.addEventListener('platformConfigUpdated', fetchStats)
+    window.addEventListener('storage', fetchStats)
+
+    const channel = supabase.channel('admin_sidebar_counts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchStats)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_verifications' }, fetchStats)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions' }, fetchStats)
       .subscribe()
-      
+
     return () => {
+      clearInterval(interval)
+      window.removeEventListener('platformConfigUpdated', fetchStats)
+      window.removeEventListener('storage', fetchStats)
       supabase.removeChannel(channel)
     }
   }, [])
@@ -115,9 +130,16 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
               )}>
                  {link.name}
               </span>
+              {link.name === 'Payment Verifications' && pendingVerificationsCount > 0 && (
+                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black tracking-wider shadow-sm animate-pulse mr-1">
+                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                   <span>{pendingVerificationsCount}</span>
+                 </div>
+              )}
               {link.name === 'Support Tickets' && openTicketsCount > 0 && (
-                 <div className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-[9px] font-black absolute right-8">
-                   {openTicketsCount > 9 ? '9+' : openTicketsCount}
+                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-black tracking-wider shadow-sm mr-1">
+                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                   <span>{openTicketsCount > 9 ? '9+' : openTicketsCount}</span>
                  </div>
               )}
               <ChevronRight className={cn(

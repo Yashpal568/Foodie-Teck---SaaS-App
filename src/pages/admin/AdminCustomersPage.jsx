@@ -155,16 +155,28 @@ export default function AdminCustomersPage() {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
 
-    // Upsert subscription
-    await supabase.from('subscriptions').upsert({
-       restaurant_id: id,
-       plan_name: newPlan,
-       status: 'active',
-       price: newPlan === 'Enterprise' || newPlan === 'PREMIUM' ? 4999 : newPlan === 'Professional' || newPlan === 'PRO' ? 2499 : 999,
-       start_date: new Date().toISOString(),
-       end_date: expiresAt.toISOString(),
-       features: []
-    }, { onConflict: 'restaurant_id' })
+    // Upsert subscription safely
+    const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('restaurant_id', id)
+    if (existingSub && existingSub.length > 0) {
+      await supabase.from('subscriptions').update({
+        plan_name: newPlan,
+        status: 'Active',
+        price: newPlan === 'Enterprise' || newPlan === 'PREMIUM' ? 4999 : newPlan === 'Professional' || newPlan === 'PRO' ? 2499 : 999,
+        start_date: new Date().toISOString(),
+        end_date: expiresAt.toISOString(),
+        features: []
+      }).eq('restaurant_id', id)
+    } else {
+      await supabase.from('subscriptions').insert({
+        restaurant_id: id,
+        plan_name: newPlan,
+        status: 'Active',
+        price: newPlan === 'Enterprise' || newPlan === 'PREMIUM' ? 4999 : newPlan === 'Professional' || newPlan === 'PRO' ? 2499 : 999,
+        start_date: new Date().toISOString(),
+        end_date: expiresAt.toISOString(),
+        features: []
+      })
+    }
     
     await logAdminAction(`Subscription Morph: ${newPlan}`, email, 'SECURITY')
     await loadCustomers()

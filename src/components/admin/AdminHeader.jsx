@@ -55,6 +55,8 @@ export default function AdminHeader({ onMenuClick }) {
   const [showNotifications, setShowNotifications] = useState(false)
   const searchRef = useRef(null)
   const inputRef = useRef(null)
+  const knownPaymentIdsRef = useRef(new Set())
+  const isInitialLoadRef = useRef(true)
 
   const loadNotifications = async () => {
     try {
@@ -72,6 +74,26 @@ export default function AdminHeader({ onMenuClick }) {
 
       // 1. Pending Payment Verifications
       pendingVerifications.forEach(p => {
+        const pKey = p.utr && p.utr !== 'N/A' ? `utr-${p.utr}` : `pay-${p.id}`
+
+        // Trigger real-time popup toast if this is a newly arrived payment after initial mount
+        if (!isInitialLoadRef.current && !knownPaymentIdsRef.current.has(pKey)) {
+          toast('💳 New Payment Verification Received!', {
+            description: `${p.merchant} submitted UTR #${p.utr} for ${p.plan} (₹${p.amount?.toLocaleString('en-IN')})`,
+            action: {
+              label: 'Review Queue',
+              onClick: () => navigate('/admin/verifications')
+            },
+            duration: 9000
+          })
+
+          triggerPushNotification({
+            title: '💳 New Payment Verification',
+            body: `${p.merchant} submitted UTR #${p.utr} for ${p.plan}`
+          })
+        }
+        knownPaymentIdsRef.current.add(pKey)
+
         aggregatedList.push({
           id: `pay-${p.id}`,
           category: 'PAYMENTS',
@@ -80,11 +102,13 @@ export default function AdminHeader({ onMenuClick }) {
           timestamp: p.createdAt || 'Just now',
           rawDate: p.createdAt ? new Date(p.createdAt).getTime() : Date.now(),
           unread: true,
-          route: '/admin/revenue',
+          route: '/admin/verifications',
           icon: CreditCard,
           color: 'emerald'
         })
       })
+
+      isInitialLoadRef.current = false
 
       // 2. Recent Merchant Signups
       restaurants.slice(-4).forEach(r => {
@@ -190,12 +214,37 @@ export default function AdminHeader({ onMenuClick }) {
     requestPushPermission()
     loadNotifications()
 
+    const handleStorage = (e) => {
+      if (e.key === 'servora_admin_payment_alert' && e.newValue) {
+        try {
+          const item = JSON.parse(e.newValue)
+          toast('💳 New Payment Verification Received!', {
+            description: `${item.merchant || 'Merchant'} submitted UTR #${item.utr} for ${item.plan} (₹${item.amount?.toLocaleString('en-IN')})`,
+            action: {
+              label: 'Review Queue',
+              onClick: () => navigate('/admin/verifications')
+            },
+            duration: 9000
+          })
+          triggerPushNotification({
+            title: '💳 New Payment Verification',
+            body: `${item.merchant} submitted UTR #${item.utr} for ${item.plan}`
+          })
+        } catch (err) {}
+      }
+      loadNotifications()
+    }
+
     window.addEventListener('platformConfigUpdated', loadNotifications)
-    window.addEventListener('storage', loadNotifications)
+    window.addEventListener('storage', handleStorage)
+
+    // Regular 4-second polling to ensure 100% telemetry freshness even if Realtime is offline
+    const interval = setInterval(loadNotifications, 4000)
 
     const channel = supabase
       .channel('public:admin_header_notifs')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_verifications' }, () => loadNotifications())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions' }, () => loadNotifications())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => loadNotifications())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => loadNotifications())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => loadNotifications())
@@ -219,8 +268,9 @@ export default function AdminHeader({ onMenuClick }) {
     document.addEventListener('mousedown', handleClickOutside)
 
     return () => {
+      clearInterval(interval)
       window.removeEventListener('platformConfigUpdated', loadNotifications)
-      window.removeEventListener('storage', loadNotifications)
+      window.removeEventListener('storage', handleStorage)
       window.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('mousedown', handleClickOutside)
       supabase.removeChannel(channel)
@@ -416,12 +466,12 @@ export default function AdminHeader({ onMenuClick }) {
              <Button 
                variant="ghost" 
                size="icon" 
-               className="relative h-11 w-11 rounded-2xl hover:bg-slate-100 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-slate-200/60 shadow-xs"
+               className="relative h-11 w-11 rounded-2xl bg-white hover:bg-slate-100 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-slate-200/80 shadow-xs"
              >
                 <Bell className="w-5 h-5 text-slate-700" />
                 {unreadCount > 0 && (
-                   <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-mono text-[9px] font-black animate-pulse shadow-md border-2 border-white">
-                      {unreadCount}
+                   <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black flex items-center justify-center shadow-lg shadow-rose-500/50 border-2 border-white ring-2 ring-rose-500/30 animate-pulse">
+                      {unreadCount > 99 ? '99+' : unreadCount}
                    </span>
                 )}
              </Button>

@@ -154,20 +154,6 @@ export default function UPIPaymentModal({
           })
        } catch (e) {}
 
-       // 3. Safe secondary telemetry logging
-       try {
-          await supabase.from('payment_verifications').insert({
-             restaurant_id: restaurantId,
-             merchant_name: merchantName || merchantEmail || 'Merchant Node',
-             email: merchantEmail,
-             plan_name: planName,
-             amount: amount,
-             utr_number: cleanedUTR,
-             status: 'PENDING_APPROVAL',
-             created_at: new Date().toISOString()
-          })
-       } catch (ignored) {}
-
        try {
           await supabase.from('audit_logs').insert({
              restaurant_id: restaurantId,

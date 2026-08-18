@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 import { getAdminPlatformData, approveMerchantPayment } from '@/lib/adminDataService'
 import { sendPurchaseSummaryEmail } from '@/services/email.service'
@@ -162,43 +163,56 @@ export default function AdminRevenuePage() {
   }
 
   const handleRejectPayment = async (item) => {
-     try {
-        setProcessingId(item.id)
+      try {
+         setProcessingId(item.id)
 
-        if (!item.id.toString().startsWith('sub-')) {
-           await supabase.from('payment_verifications').update({ status: 'REJECTED' }).eq('id', item.id)
-        }
+         // Optimistically remove from UI
+         setPendingVerifications(prev => prev.filter(p => 
+            p.id !== item.id && 
+            p.utr !== item.utr && 
+            p.restaurantId !== item.restaurantId &&
+            (!item.email || p.email.toLowerCase() !== item.email.toLowerCase())
+         ))
 
-        if (item.restaurantId) {
-           await supabase.from('subscriptions').update({ status: 'REJECTED' }).eq('restaurant_id', item.restaurantId)
-        }
+         if (item.utr && item.utr !== 'N/A') {
+            await supabase.from('payment_verifications').update({ status: 'REJECTED' }).eq('utr_number', item.utr)
+         }
+         if (item.restaurantId) {
+            await supabase.from('payment_verifications').update({ status: 'REJECTED' }).eq('restaurant_id', item.restaurantId)
+            await supabase.from('subscriptions').update({ status: 'REJECTED' }).eq('restaurant_id', item.restaurantId)
+         }
+         if (item.id && !item.id.toString().startsWith('sub-')) {
+            await supabase.from('payment_verifications').update({ status: 'REJECTED' }).eq('id', item.id)
+         }
 
-        await supabase.from('audit_logs').insert({
-           restaurant_id: item.restaurantId,
-           action: `Payment Rejected: UTR #${item.utr}`,
-           actor: 'admin@servora',
-           severity: 'WARNING'
-        })
+         try {
+            await supabase.from('audit_logs').insert({
+               restaurant_id: item.restaurantId,
+               action: `Payment Rejected: UTR #${item.utr}`,
+               actor: 'admin@servora',
+               severity: 'WARNING'
+            })
+         } catch (e) {}
 
-        window.dispatchEvent(new Event('platformConfigUpdated'))
+         window.dispatchEvent(new Event('platformConfigUpdated'))
 
-        triggerPushNotification({
-           title: '❌ Payment Verification Rejected',
-           body: `UTR #${item.utr} marked as invalid for ${item.merchant}.`,
-           sound: true
-        })
+         triggerPushNotification({
+            title: '❌ Payment Verification Rejected',
+            body: `UTR #${item.utr} marked as invalid for ${item.merchant}.`,
+            sound: true
+         })
 
-        toast.error('Payment Rejected', { description: `UTR #${item.utr} rejected.` })
+         toast.error('Payment Rejected', { description: `UTR #${item.utr} rejected.` })
 
-        fetchRevenueData()
-        fetchPendingVerifications()
-     } catch (err) {
-        console.error('Failed to reject payment:', err)
-        toast.error('Rejection Error', { description: err.message })
-     } finally {
-        setProcessingId(null)
-     }
-  }
+         fetchRevenueData()
+         fetchPendingVerifications()
+      } catch (err) {
+         console.error('Failed to reject payment:', err)
+         toast.error('Rejection Error', { description: err.message })
+      } finally {
+         setProcessingId(null)
+      }
+   }
 
   const handleGrantExtension = async (company) => {
      try {
@@ -207,14 +221,25 @@ export default function AdminRevenuePage() {
         const now = new Date()
         const extEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
-        await supabase.from('subscriptions').upsert({
-           restaurant_id: restId,
-           plan_name: company.plan || 'Professional',
-           price: company.amount || 2499,
-           status: 'Active',
-           start_date: now.toISOString(),
-           end_date: extEnd
-        }, { onConflict: 'restaurant_id' })
+        const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('restaurant_id', restId)
+        if (existingSub && existingSub.length > 0) {
+          await supabase.from('subscriptions').update({
+            plan_name: company.plan || 'Professional',
+            price: company.amount || 2499,
+            status: 'Active',
+            start_date: now.toISOString(),
+            end_date: extEnd
+          }).eq('restaurant_id', restId)
+        } else {
+          await supabase.from('subscriptions').insert({
+            restaurant_id: restId,
+            plan_name: company.plan || 'Professional',
+            price: company.amount || 2499,
+            status: 'Active',
+            start_date: now.toISOString(),
+            end_date: extEnd
+          })
+        }
 
         // Send Extension confirmation & PDF Invoice
         if (company.email || company.merchantEmail) {
@@ -903,174 +928,6 @@ export default function AdminRevenuePage() {
              </div>
           </Card>
        </div>
-
-       {/* ─── ⚡ PENDING PAYMENT VERIFICATIONS (INDUSTRY-LEVEL LIST VIEW) ─── */}
-       <Card className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-200 shadow-xl space-y-6 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-             <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                   <h2 className="text-2xl font-black text-slate-950 tracking-tight leading-none uppercase">Payment Verification Queue</h2>
-                   <Badge className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                      pendingVerifications.length > 0 
-                         ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30 animate-pulse' 
-                         : 'bg-emerald-500 text-white'
-                   }`}>
-                      {pendingVerifications.length > 0 ? `${pendingVerifications.length} ACTION NEEDED` : 'ALL SETTLED'}
-                   </Badge>
-                </div>
-                <p className="text-xs font-bold text-slate-400">Recheck merchant UTR numbers & approve to activate 30-day subscription expiry.</p>
-             </div>
-
-             <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                <Input 
-                   value={searchPending}
-                   onChange={e => setSearchPending(e.target.value)}
-                   placeholder="Search UTR, Email, Company..."
-                   className="h-11 pl-11 rounded-2xl bg-slate-50 border-slate-200 text-xs font-bold"
-                />
-             </div>
-          </div>
-
-          {/* List View Table */}
-          <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-slate-50/50">
-             <table className="w-full text-left border-collapse">
-                <thead>
-                   <tr className="border-b border-slate-200 bg-slate-100/70 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      <th className="py-4 px-6">Merchant / Company Node</th>
-                      <th className="py-4 px-6">Selected Tier & Price</th>
-                      <th className="py-4 px-6">Submitted UTR Reference</th>
-                      <th className="py-4 px-6">Status & Timestamp</th>
-                      <th className="py-4 px-6 text-right">Quick Actions</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200/60 bg-white">
-                   <AnimatePresence>
-                      {filteredPending.map(item => (
-                         <motion.tr 
-                            key={item.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="hover:bg-slate-50/80 transition-colors group"
-                         >
-                            {/* Company Node */}
-                            <td className="py-4 px-6">
-                               <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-md">
-                                     {item.merchant?.substring(0, 2).toUpperCase()}
-                                  </div>
-                                  <div>
-                                     <div className="font-black text-sm text-slate-900 flex items-center gap-2">
-                                        {item.merchant}
-                                     </div>
-                                     <span className="text-xs font-semibold text-slate-400">{item.email}</span>
-                                  </div>
-                               </div>
-                            </td>
-
-                            {/* Selected Tier & Price */}
-                            <td className="py-4 px-6">
-                               <div className="flex flex-col gap-1">
-                                  <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200/60 w-fit font-mono text-[10px] font-black uppercase">
-                                     {item.plan}
-                                  </Badge>
-                                  <span className="text-xs font-black text-slate-900">₹{item.amount?.toLocaleString('en-IN')}/mo</span>
-                               </div>
-                            </td>
-
-                            {/* UTR Number & Copy */}
-                            <td className="py-4 px-6">
-                               <div className="flex items-center gap-2">
-                                  <span className="font-mono text-xs font-black text-slate-900 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                                     {item.utr}
-                                  </span>
-                                  {item.utr && item.utr !== 'N/A' && (
-                                     <button 
-                                        onClick={() => handleCopyText(item.utr, 'utr')}
-                                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                                        title="Copy UTR Number"
-                                     >
-                                        {copiedUtr === item.utr ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                                     </button>
-                                  )}
-                               </div>
-                            </td>
-
-                            {/* Status & Timestamp */}
-                            <td className="py-4 px-6">
-                               <div className="flex flex-col gap-1">
-                                  <Badge className="bg-amber-100 text-amber-800 border border-amber-300/50 w-fit text-[9px] font-black uppercase flex items-center gap-1">
-                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                                     PENDING APPROVAL
-                                  </Badge>
-                                  <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1">
-                                     <Clock className="w-3 h-3" />
-                                     {item.createdAt}
-                                  </span>
-                               </div>
-                            </td>
-
-                            {/* Quick Actions */}
-                            <td className="py-4 px-6 text-right">
-                               <div className="flex items-center justify-end gap-2">
-                                  <Button 
-                                     onClick={() => handleInspectCompany(item)}
-                                     variant="outline"
-                                     size="sm"
-                                     className="h-9 px-3 rounded-xl border-slate-200 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 font-bold text-xs"
-                                     title="View Company & Payment History"
-                                  >
-                                     <Eye className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
-                                     Inspect
-                                  </Button>
-
-                                  <Button 
-                                     onClick={() => handleApprovePayment(item)}
-                                     disabled={processingId === item.id}
-                                     size="sm"
-                                     className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/20"
-                                  >
-                                     {processingId === item.id ? (
-                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                     ) : (
-                                        <>
-                                           <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                                           Approve (30D)
-                                        </>
-                                     )}
-                                  </Button>
-
-                                  <Button 
-                                     onClick={() => handleRejectPayment(item)}
-                                     disabled={processingId === item.id}
-                                     variant="ghost"
-                                     size="sm"
-                                     className="h-9 px-2 rounded-xl text-rose-600 hover:bg-rose-50 font-bold text-xs"
-                                  >
-                                     <XCircle className="w-4 h-4" />
-                                  </Button>
-                               </div>
-                            </td>
-                         </motion.tr>
-                      ))}
-                   </AnimatePresence>
-                </tbody>
-             </table>
-
-             {filteredPending.length === 0 && (
-                <div className="py-16 text-center space-y-3">
-                   <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-                      <ShieldCheck className="w-6 h-6" />
-                   </div>
-                   <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">All Payment Verifications Settled</h4>
-                   <p className="text-xs font-semibold text-slate-400 max-w-md mx-auto">
-                      When merchants select a plan and submit their 12-digit UTR reference number, pending items will populate here for review.
-                   </p>
-                </div>
-             )}
-          </div>
-       </Card>
 
        {/* ─── LIVE SUBSCRIPTION LEDGER ─────────────────────────────── */}
        <Card className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-200 shadow-xl space-y-6 relative overflow-hidden">
