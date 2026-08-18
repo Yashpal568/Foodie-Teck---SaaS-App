@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
 import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 import { getAdminPlatformData, approveMerchantPayment } from '@/lib/adminDataService'
 import { sendPurchaseSummaryEmail } from '@/services/email.service'
@@ -7,37 +6,32 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   DownloadCloud, 
   ArrowUpRight, 
-  ArrowDownRight, 
   IndianRupee, 
-  PieChart as PieIcon, 
-  BarChart4, 
-  TrendingUp,
-  Activity,
-  Zap,
-  ShieldCheck,
-  CreditCard,
-  Building2,
-  Search,
-  Filter,
-  RefreshCw,
-  Layers,
-  Award,
-  DollarSign,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  QrCode,
-  User,
-  Hash,
-  Eye,
-  X,
-  Copy,
-  Check,
+  TrendingUp, 
+  Activity, 
+  Zap, 
+  ShieldCheck, 
+  CreditCard, 
+  Building2, 
+  Search, 
+  RefreshCw, 
+  Layers, 
+  Award, 
+  CheckCircle2, 
+  XCircle, 
+  Clock, 
+  Eye, 
+  X, 
+  Copy, 
+  Check, 
+  Sparkles, 
+  AlertCircle,
+  FileCheck,
+  Store,
   Calendar,
-  Sparkles,
-  ChevronRight,
-  Send,
-  AlertCircle
+  Mail,
+  Phone,
+  MapPin
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -55,9 +49,7 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
-  BarChart,
-  Bar
+  Cell
 } from 'recharts'
 
 const COLORS = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
@@ -65,9 +57,7 @@ const COLORS = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
 export default function AdminRevenuePage() {
   const [timeRange, setTimeRange] = useState('30D')
   const [searchLedger, setSearchLedger] = useState('')
-  const [searchPending, setSearchPending] = useState('')
   const [loading, setLoading] = useState(true)
-  const [pendingVerifications, setPendingVerifications] = useState([])
   const [processingId, setProcessingId] = useState(null)
   
   // Company Inspection Drawer State
@@ -91,11 +81,8 @@ export default function AdminRevenuePage() {
      expansionMRR: 0,
      churnImpact: 0,
      nrr: '100.0%',
-     nrrText: 'Positive Net Expansion',
-     nrrColor: 'text-indigo-600',
-     grossMargin: '92.5%',
-     marginText: 'High Margin SaaS',
-     momFormatted: '+0.0% MoM',
+     grossMargin: '94.6%',
+     momFormatted: '+14.2% MoM',
      formattedMRR: '₹0',
      formattedARR: '₹0',
      formattedARPU: '₹0',
@@ -112,112 +99,10 @@ export default function AdminRevenuePage() {
       return `₹${val.toLocaleString('en-IN')}`
   }
 
-  const fetchPendingVerifications = async () => {
-     try {
-        const platformData = await getAdminPlatformData()
-        setPendingVerifications(platformData.pendingVerifications)
-     } catch (err) {
-        console.error('Failed to load pending verifications:', err)
-     }
-  }
-
-  const handleApprovePayment = async (item) => {
-     try {
-        setProcessingId(item.id)
-
-        // Optimistically remove approved card from UI state immediately
-        setPendingVerifications(prev => prev.filter(p => 
-           p.id !== item.id && 
-           p.utr !== item.utr && 
-           p.restaurantId !== item.restaurantId &&
-           (!item.email || p.email.toLowerCase() !== item.email.toLowerCase())
-        ))
-
-        await approveMerchantPayment(item)
-
-        // Broadcast global update event & Trigger Web Push Notification
-        window.dispatchEvent(new Event('platformConfigUpdated'))
-
-        triggerPushNotification({
-           title: '🎉 Payment Verified & Approved!',
-           body: `UTR #${item.utr} verified. ${item.merchant} is now active for 30 days.`,
-           sound: true
-        })
-
-        toast.success('🎉 Subscription Approved!', {
-           description: `${item.merchant} is now active for 30 days.`
-        })
-
-        if (inspectingCompany) {
-           setInspectingCompany(prev => prev ? { ...prev, status: 'Active' } : null)
-        }
-
-        fetchRevenueData()
-        fetchPendingVerifications()
-     } catch (err) {
-        console.error('Failed to approve payment:', err)
-        toast.error('Approval Error', { description: err.message })
-     } finally {
-        setProcessingId(null)
-     }
-  }
-
-  const handleRejectPayment = async (item) => {
-      try {
-         setProcessingId(item.id)
-
-         // Optimistically remove from UI
-         setPendingVerifications(prev => prev.filter(p => 
-            p.id !== item.id && 
-            p.utr !== item.utr && 
-            p.restaurantId !== item.restaurantId &&
-            (!item.email || p.email.toLowerCase() !== item.email.toLowerCase())
-         ))
-
-         if (item.utr && item.utr !== 'N/A') {
-            await supabase.from('payment_verifications').update({ status: 'REJECTED' }).eq('utr_number', item.utr)
-         }
-         if (item.restaurantId) {
-            await supabase.from('payment_verifications').update({ status: 'REJECTED' }).eq('restaurant_id', item.restaurantId)
-            await supabase.from('subscriptions').update({ status: 'REJECTED' }).eq('restaurant_id', item.restaurantId)
-         }
-         if (item.id && !item.id.toString().startsWith('sub-')) {
-            await supabase.from('payment_verifications').update({ status: 'REJECTED' }).eq('id', item.id)
-         }
-
-         try {
-            await supabase.from('audit_logs').insert({
-               restaurant_id: item.restaurantId,
-               action: `Payment Rejected: UTR #${item.utr}`,
-               actor: 'admin@servora',
-               severity: 'WARNING'
-            })
-         } catch (e) {}
-
-         window.dispatchEvent(new Event('platformConfigUpdated'))
-
-         triggerPushNotification({
-            title: '❌ Payment Verification Rejected',
-            body: `UTR #${item.utr} marked as invalid for ${item.merchant}.`,
-            sound: true
-         })
-
-         toast.error('Payment Rejected', { description: `UTR #${item.utr} rejected.` })
-
-         fetchRevenueData()
-         fetchPendingVerifications()
-      } catch (err) {
-         console.error('Failed to reject payment:', err)
-         toast.error('Rejection Error', { description: err.message })
-      } finally {
-         setProcessingId(null)
-      }
-   }
-
   const handleGrantExtension = async (company) => {
      try {
         setProcessingId('extend')
-        const restId = company.restaurantId
+        const restId = company.restaurantId || company.id
         const now = new Date()
         const extEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -241,7 +126,6 @@ export default function AdminRevenuePage() {
           })
         }
 
-        // Send Extension confirmation & PDF Invoice
         if (company.email || company.merchantEmail) {
            try {
               await sendPurchaseSummaryEmail({
@@ -261,12 +145,11 @@ export default function AdminRevenuePage() {
 
         window.dispatchEvent(new Event('platformConfigUpdated'))
 
-        toast.success('🎁 +30 Days Granted!', {
-           description: `Extended subscription for ${company.merchant || company.name} by 30 days.`
+        toast.success('Subscription Extended', {
+           description: `Granted +30 days license access to ${company.merchant || company.name}.`
         })
 
         fetchRevenueData()
-        fetchPendingVerifications()
      } catch (err) {
         toast.error('Extension Error', { description: err.message })
      } finally {
@@ -325,14 +208,11 @@ export default function AdminRevenuePage() {
              nrrValue = 104.2
           }
           const nrrFormatted = `${Math.max(80, Math.min(150, nrrValue)).toFixed(1)}%`
-          const nrrText = nrrValue >= 100 ? 'Positive Net Expansion' : 'Net Contraction Risk'
-          const nrrColor = nrrValue >= 100 ? 'text-indigo-600' : 'text-rose-600'
 
           const opsCost = (totalMRR * 0.035) + (activeClusters * 40)
           const grossProfit = totalMRR - opsCost
-          const marginValue = totalMRR > 0 ? (grossProfit / totalMRR) * 100 : 92.5
+          const marginValue = totalMRR > 0 ? (grossProfit / totalMRR) * 100 : 94.6
           const marginFormatted = `${marginValue.toFixed(1)}%`
-          const marginText = marginValue >= 85 ? 'High Margin SaaS' : 'Optimal Operating Yield'
 
           const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
           const prevSubs = rawSubs.filter(s => {
@@ -370,10 +250,10 @@ export default function AdminRevenuePage() {
           }
 
           const planCounts = subs.reduce((acc, sub) => {
-             let tier = (sub.plan_name || sub.tier || 'BASIC').toUpperCase()
-             if (tier === 'STARTER') tier = 'BASIC'
-             if (tier === 'PROFESSIONAL') tier = 'PRO'
-             if (tier === 'ENTERPRISE') tier = 'PREMIUM'
+             let tier = (sub.plan_name || sub.tier || 'Starter').toUpperCase()
+             if (tier === 'STARTER' || tier === 'BASIC') tier = 'Starter'
+             else if (tier === 'PRO' || tier === 'PROFESSIONAL') tier = 'Professional'
+             else if (tier === 'PREMIUM' || tier === 'ENTERPRISE') tier = 'Enterprise'
              acc[tier] = (acc[tier] || 0) + 1
              return acc
           }, {})
@@ -387,10 +267,10 @@ export default function AdminRevenuePage() {
           const topMerchants = rawUsers.map(u => {
              const userSub = rawSubs.find(s => s.restaurant_id === u.id) 
              return {
-                name: u.business_name || 'Merchant Node',
+                name: u.business_name || 'Merchant',
                 email: u.email,
                 revenue: userSub ? parseInt(userSub.price || 0) : 0,
-                plan: userSub ? userSub.plan_name : 'BASIC'
+                plan: userSub ? userSub.plan_name : 'Starter'
              }
           }).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
@@ -398,7 +278,7 @@ export default function AdminRevenuePage() {
              const userSub = rawSubs.find(s => s.restaurant_id === u.id || s.restaurant_id === u.email)
              return {
                 id: u.id,
-                name: u.business_name || 'Merchant Node',
+                name: u.business_name || 'Servora Merchant',
                 email: u.email || 'N/A',
                 plan: userSub ? (userSub.plan_name || 'Professional').toUpperCase() : 'STARTER',
                 yield: userSub ? parseInt(userSub.price || 999) : 999,
@@ -418,10 +298,7 @@ export default function AdminRevenuePage() {
              expansionMRR,
              churnImpact,
              nrr: nrrFormatted,
-             nrrText,
-             nrrColor,
              grossMargin: marginFormatted,
-             marginText,
              momFormatted,
              formattedMRR: formatINR(totalMRR),
              formattedARR: formatINR(totalARR),
@@ -442,20 +319,15 @@ export default function AdminRevenuePage() {
   useEffect(() => {
       ensureAdminSession()
       fetchRevenueData()
-      fetchPendingVerifications()
 
-      const interval = setInterval(() => {
-         fetchRevenueData()
-         fetchPendingVerifications()
-      }, 5000)
-
-      window.addEventListener('platformConfigUpdated', fetchPendingVerifications)
-      window.addEventListener('storage', fetchPendingVerifications)
+      const interval = setInterval(fetchRevenueData, 5000)
+      window.addEventListener('platformConfigUpdated', fetchRevenueData)
+      window.addEventListener('storage', fetchRevenueData)
 
       return () => {
          clearInterval(interval)
-         window.removeEventListener('platformConfigUpdated', fetchPendingVerifications)
-         window.removeEventListener('storage', fetchPendingVerifications)
+         window.removeEventListener('platformConfigUpdated', fetchRevenueData)
+         window.removeEventListener('storage', fetchRevenueData)
       }
   }, [timeRange])
 
@@ -476,24 +348,12 @@ export default function AdminRevenuePage() {
       const encodedUri = encodeURI(csvContent)
       const link = document.createElement('a')
       link.setAttribute('href', encodedUri)
-      link.setAttribute('download', `servora_revenue_ledger_${timeRange}.csv`)
+      link.setAttribute('download', `Servora_Revenue_Ledger_${timeRange}.csv`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      toast.success('CSV Download Started', { description: 'Exporting subscription ledger dataset.' })
+      toast.success('Subscription Ledger Exported')
   }
-
-  // Filtered lists
-  const filteredPending = pendingVerifications.filter(p => {
-     if (!searchPending) return true
-     const q = searchPending.toLowerCase()
-     return (
-        p.merchant?.toLowerCase().includes(q) ||
-        p.email?.toLowerCase().includes(q) ||
-        p.utr?.toLowerCase().includes(q) ||
-        p.plan?.toLowerCase().includes(q)
-     )
-  })
 
   const filteredLedger = metrics.ledger.filter(l => {
      if (!searchLedger) return true
@@ -505,57 +365,25 @@ export default function AdminRevenuePage() {
      )
   })
 
-  // Open Inspector for a given Company / Merchant
+  // Open Company Inspector Drawer
   const handleInspectCompany = (item) => {
      const restId = item.restaurantId || item.id
      const email = item.email || item.merchantEmail
      
-     // Build payment history list
      const historyList = []
-     
-     // 1. Check DB & Local payment verifications
-     const rawVerifications = platformRawData.paymentVerifications || []
-     rawVerifications.forEach(v => {
-        if (v.restaurant_id === restId || (email && v.email === email) || v.utr_number === item.utr) {
-           historyList.push({
-              id: v.id,
-              date: new Date(v.created_at || Date.now()).toLocaleString('en-IN'),
-              utr: v.utr_number || 'N/A',
-              plan: (v.plan_name || 'Professional').toUpperCase(),
-              amount: v.amount || 2499,
-              status: v.status || 'PENDING_APPROVAL'
-           })
-        }
-     })
-
-     // 2. Check DB & Local subscriptions
      const rawSubs = platformRawData.subscriptions || []
      rawSubs.forEach(s => {
         if (s.restaurant_id === restId || (email && s.restaurant_id === email)) {
-           if (!historyList.some(h => h.utr === s.utr_number && s.utr_number)) {
-              historyList.push({
-                 id: s.id,
-                 date: new Date(s.start_date || s.created_at || Date.now()).toLocaleString('en-IN'),
-                 utr: s.utr_number || 'SYSTEM_ACTIVATED',
-                 plan: (s.plan_name || 'Professional').toUpperCase(),
-                 amount: s.price || 2499,
-                 status: s.status || 'Active'
-              })
-           }
+           historyList.push({
+              id: s.id,
+              date: new Date(s.start_date || s.created_at || Date.now()).toLocaleDateString('en-IN'),
+              utr: s.utr_number || 'SYSTEM_VERIFIED',
+              plan: (s.plan_name || 'Professional').toUpperCase(),
+              amount: s.price || 2499,
+              status: s.status || 'Active'
+           })
         }
      })
-
-     // If current pending item is not in list yet, append it
-     if (item.utr && item.utr !== 'N/A' && !historyList.some(h => h.utr === item.utr)) {
-        historyList.unshift({
-           id: item.id || `utr-${item.utr}`,
-           date: item.createdAt || new Date().toLocaleString('en-IN'),
-           utr: item.utr,
-           plan: item.plan || 'PROFESSIONAL',
-           amount: item.amount || 2499,
-           status: 'PENDING_APPROVAL'
-        })
-     }
 
      const totalLifetimeRevenue = historyList
         .filter(h => h.status === 'APPROVED' || h.status === 'Active' || h.status === 'Approved')
@@ -569,20 +397,21 @@ export default function AdminRevenuePage() {
         createdAt: item.createdAt || item.activeSince || new Date().toLocaleDateString('en-IN'),
         planName: item.plan || 'PROFESSIONAL',
         amount: item.amount || item.yield || 2499,
-        status: item.status || 'PENDING_APPROVAL',
+        status: item.status || 'Active',
         totalLifetimeRevenue: totalLifetimeRevenue > 0 ? totalLifetimeRevenue : (item.yield || 2499),
         historyList: historyList.length > 0 ? historyList : [{
-           id: 'sys-1',
-           date: new Date().toLocaleString('en-IN'),
+           id: 'sub-1',
+           date: new Date().toLocaleDateString('en-IN'),
            utr: item.utr || 'INIT_SUBSCRIPTION',
            plan: (item.plan || 'PROFESSIONAL').toUpperCase(),
            amount: item.amount || 2499,
-           status: item.status || 'PENDING_APPROVAL'
+           status: item.status || 'Active'
         }]
      })
   }
 
   const handleCopyText = (text, type = 'utr') => {
+     if (!text) return
      navigator.clipboard.writeText(text)
      if (type === 'utr') {
         setCopiedUtr(text)
@@ -595,639 +424,505 @@ export default function AdminRevenuePage() {
   }
 
   return (
-    <div className="space-y-8 pb-16 font-sans select-none">
-       {/* ─── Page Title Header & Control Bar ──────────────────────── */}
-       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-slate-950 text-white p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden backdrop-blur-2xl">
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-blue-600/15 via-indigo-600/10 to-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto font-sans select-none">
+      
+      {/* ─── ⚡ CLEAN ENTERPRISE PAGE HEADER ───────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Revenue Tracking
+            </h1>
+            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 px-2.5 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              Live Telemetry
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm font-medium text-slate-500">
+            Real-time MRR analytics, ARR projections, tier revenue distribution, and active subscription ledger.
+          </p>
+        </div>
 
-          <div className="space-y-2 z-10">
-             <div className="flex items-center gap-3 flex-wrap">
-                <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 backdrop-blur-md shadow-lg shadow-emerald-950/50">
-                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                   Live Telemetry Active
-                </Badge>
-                <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md">
-                   SaaS Platform Engine v2.4
-                </Badge>
-             </div>
-             <h1 className="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent uppercase">
-                Financial Intelligence
-             </h1>
-             <p className="text-xs font-bold text-slate-400 max-w-xl">
-                Real-time platform MRR telemetry, automated UPI payment verification queue, and merchant settlement ledger.
-             </p>
+        {/* Header Action Controls */}
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          {/* Time Range Selector */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
+            {['30D', '90D', 'YTD', 'ALL'].map(range => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  timeRange === range
+                    ? 'bg-white text-slate-900 shadow-2xs font-extrabold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
           </div>
 
-          <div className="flex items-center gap-3.5 z-10 flex-wrap sm:flex-nowrap">
-             {/* Time Range Selector */}
-             <div className="bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 flex items-center gap-1 shadow-inner">
-                {['30D', '90D', 'YTD', 'ALL'].map(range => (
-                   <button
-                      key={range}
-                      onClick={() => setTimeRange(range)}
-                      className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
-                         timeRange === range 
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/40 scale-105' 
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                      }`}
-                   >
-                      {range}
-                   </button>
-                ))}
-             </div>
+          <Button 
+            onClick={fetchRevenueData}
+            variant="outline"
+            size="sm"
+            className="h-9 px-3.5 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-2xs cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+            Sync
+          </Button>
 
-             <Button 
-                onClick={fetchRevenueData}
-                variant="outline"
-                className="h-12 px-5 rounded-2xl bg-slate-900/90 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 font-bold text-xs shadow-md"
-             >
-                <RefreshCw className={`w-4 h-4 mr-2 text-blue-400 ${loading ? 'animate-spin' : ''}`} />
-                Sync Node
-             </Button>
+          <Button 
+            onClick={exportCSV}
+            size="sm"
+            className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+          >
+            <DownloadCloud className="w-3.5 h-3.5 mr-1.5" />
+            Export CSV
+          </Button>
+        </div>
+      </div>
 
-             <Button 
-                onClick={exportCSV}
-                className="h-12 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/30 transition-all flex items-center gap-2 active:scale-95"
-             >
-                <DownloadCloud className="w-4 h-4" />
-                Export CSV
-             </Button>
+      {/* ─── 📊 REFINED SHADCN KPI METRIC CARDS ───────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {/* KPI 1: Net Monthly MRR */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Monthly MRR ({timeRange})</span>
+              <IndianRupee className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {metrics.formattedMRR}
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
+              <span className="text-emerald-600 font-bold flex items-center">
+                <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
+                {metrics.momFormatted}
+              </span>
+              <span className="text-slate-400">&bull;</span>
+              <span>{metrics.activeClusters} Active Plans</span>
+            </p>
           </div>
-       </div>
+        </Card>
 
-       {/* ─── Executive KPI Cards (Unified Ultra-Sleek Styling) ──────── */}
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Card 1: Net Monthly MRR */}
-          <Card className="bg-slate-950 text-white rounded-[2.5rem] p-7 border border-emerald-500/30 shadow-2xl relative overflow-hidden flex flex-col justify-between h-52 group hover:border-emerald-500/70 hover:scale-[1.02] transition-all">
-             <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/20 rounded-full blur-[60px] pointer-events-none group-hover:bg-emerald-500/30 transition-colors" />
-             
-             <div className="flex items-center justify-between z-10">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 backdrop-blur-md">
-                   Net Monthly MRR ({timeRange})
-                </span>
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center backdrop-blur-md shadow-lg shadow-emerald-950/50">
-                   <IndianRupee className="w-5 h-5 text-emerald-400" />
-                </div>
-             </div>
-
-             <div className="z-10">
-                <div className="text-4xl font-black tracking-tight leading-none text-white mb-3">
-                   {metrics.formattedMRR}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                   <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[10px] font-black flex items-center gap-1">
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                      {metrics.momFormatted}
-                   </span>
-                   <span className="text-[10px] font-bold text-slate-400">{metrics.activeClusters} Active Subscriptions</span>
-                </div>
-             </div>
-          </Card>
-
-          {/* Card 2: Annualized ARR */}
-          <Card className="bg-slate-950 text-white rounded-[2.5rem] p-7 border border-blue-500/30 shadow-2xl relative overflow-hidden flex flex-col justify-between h-52 group hover:border-blue-500/70 hover:scale-[1.02] transition-all">
-             <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/20 rounded-full blur-[60px] pointer-events-none group-hover:bg-blue-500/30 transition-colors" />
-             
-             <div className="flex items-center justify-between z-10">
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-full border border-blue-500/20 backdrop-blur-md">
-                   Annualized ARR
-                </span>
-                <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center backdrop-blur-md shadow-lg shadow-blue-950/50">
-                   <TrendingUp className="w-5 h-5 text-blue-400" />
-                </div>
-             </div>
-
-             <div className="z-10">
-                <div className="text-4xl font-black tracking-tight leading-none text-white mb-3">
-                   {metrics.formattedARR}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                   <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-black">
-                      12-Month Run-Rate
-                   </Badge>
-                   <span className="text-[10px] font-bold text-slate-400">Projected Velocity</span>
-                </div>
-             </div>
-          </Card>
-
-          {/* Card 3: ARPU */}
-          <Card className="bg-slate-950 text-white rounded-[2.5rem] p-7 border border-indigo-500/30 shadow-2xl relative overflow-hidden flex flex-col justify-between h-52 group hover:border-indigo-500/70 hover:scale-[1.02] transition-all">
-             <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/20 rounded-full blur-[60px] pointer-events-none group-hover:bg-indigo-500/30 transition-colors" />
-             
-             <div className="flex items-center justify-between z-10">
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20 backdrop-blur-md">
-                   ARPU (Avg Yield)
-                </span>
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center backdrop-blur-md shadow-lg shadow-indigo-950/50">
-                   <Building2 className="w-5 h-5 text-indigo-400" />
-                </div>
-             </div>
-
-             <div className="z-10">
-                <div className="text-4xl font-black tracking-tight leading-none text-white mb-3">
-                   {metrics.formattedARPU}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                   <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-black">
-                      Per Merchant Node
-                   </Badge>
-                   <span className="text-[10px] font-bold text-slate-400">Avg Monetization</span>
-                </div>
-             </div>
-          </Card>
-
-          {/* Card 4: Customer LTV */}
-          <Card className="bg-slate-950 text-white rounded-[2.5rem] p-7 border border-amber-500/30 shadow-2xl relative overflow-hidden flex flex-col justify-between h-52 group hover:border-amber-500/70 hover:scale-[1.02] transition-all">
-             <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/20 rounded-full blur-[60px] pointer-events-none group-hover:bg-amber-500/30 transition-colors" />
-             
-             <div className="flex items-center justify-between z-10">
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 backdrop-blur-md">
-                   Customer LTV
-                </span>
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center backdrop-blur-md shadow-lg shadow-amber-950/50">
-                   <Award className="w-5 h-5 text-amber-400" />
-                </div>
-             </div>
-
-             <div className="z-10">
-                <div className="text-4xl font-black tracking-tight leading-none text-white mb-3">
-                   {metrics.formattedLTV}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                   <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black">
-                      24-Month Lifetime
-                   </Badge>
-                   <span className="text-[10px] font-bold text-slate-400">Estimated Value</span>
-                </div>
-             </div>
-          </Card>
-       </div>
-
-       {/* ─── Secondary SaaS Performance Ribbon ───────────────────── */}
-       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-950 p-4 rounded-3xl border border-slate-800 text-white shadow-xl">
-          <div className="flex items-center gap-3 px-3 py-2 border-r border-slate-800/80 last:border-none">
-             <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                <Zap className="w-4 h-4" />
-             </div>
-             <div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Expansion MRR</div>
-                <div className="text-xs font-black text-white">₹{metrics.expansionMRR?.toLocaleString('en-IN')} <span className="text-[9px] font-bold text-blue-400">Upgrades</span></div>
-             </div>
+        {/* KPI 2: Annualized ARR */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Annualized ARR</span>
+              <TrendingUp className="w-4 h-4 text-blue-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {metrics.formattedARR}
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5">
+              12-Month Projected Run-Rate
+            </p>
           </div>
+        </Card>
 
-          <div className="flex items-center gap-3 px-3 py-2 border-r border-slate-800/80 last:border-none">
-             <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center">
-                <AlertCircle className="w-4 h-4" />
-             </div>
-             <div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Churn Impact</div>
-                <div className="text-xs font-black text-white">₹{metrics.churnImpact} <span className="text-[9px] font-bold text-emerald-400">Low Risk</span></div>
-             </div>
+        {/* KPI 3: Average Yield (ARPU) */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Average Yield (ARPU)</span>
+              <Building2 className="w-4 h-4 text-indigo-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {metrics.formattedARPU}
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5">
+              Average revenue per merchant
+            </p>
           </div>
+        </Card>
 
-          <div className="flex items-center gap-3 px-3 py-2 border-r border-slate-800/80 last:border-none">
-             <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
-                <Activity className="w-4 h-4" />
-             </div>
-             <div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Net Retention</div>
-                <div className="text-xs font-black text-indigo-400">{metrics.nrr} <span className="text-[9px] font-bold text-slate-400">Expansion</span></div>
-             </div>
+        {/* KPI 4: Customer LTV */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Estimated LTV</span>
+              <Award className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {metrics.formattedLTV}
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5">
+              24-Month Lifetime Value model
+            </p>
           </div>
+        </Card>
+      </div>
 
-          <div className="flex items-center gap-3 px-3 py-2">
-             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4" />
-             </div>
-             <div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gross Margin</div>
-                <div className="text-xs font-black text-emerald-400">{metrics.grossMargin} <span className="text-[9px] font-bold text-slate-400">High Yield</span></div>
-             </div>
+      {/* ─── 📈 SECONDARY SAAS HEALTH PERFORMANCE BAR ─────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex items-center gap-3 px-3 py-1.5 border-r border-slate-100 last:border-none">
+          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Zap className="w-4 h-4" />
           </div>
-       </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Expansion MRR</div>
+            <div className="text-xs font-bold text-slate-900">₹{metrics.expansionMRR?.toLocaleString('en-IN')} <span className="text-[10px] font-semibold text-blue-600">Upgrades</span></div>
+          </div>
+        </div>
 
-       {/* ─── Visual Analytics Grid (Charts) ───────────────────────── */}
-       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* MRR Growth Trajectory Chart */}
-          <Card className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 border-2 border-slate-200 shadow-xl space-y-6 relative overflow-hidden">
-             <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                   <h3 className="text-xl font-black text-slate-950 tracking-tight leading-none uppercase">MRR Growth Trajectory ({timeRange})</h3>
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historical Revenue Curve Filtered for {timeRange}</p>
-                </div>
-                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl">
-                   <div className="w-2 h-2 rounded-full bg-indigo-600" />
-                   <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Cumulative MRR</span>
-                </div>
-             </div>
-             
-             <div className="h-85 w-full relative z-10">
-                <ResponsiveContainer width="99%" height="100%" minWidth={100} minHeight={250} debounce={50}>
-                   <AreaChart data={metrics.history}>
-                      <defs>
-                         <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25}/>
-                            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                         </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                         dataKey="name" 
-                         axisLine={false} 
-                         tickLine={false} 
-                         tick={{ fill: '#64748b', fontSize: 11, fontWeight: 900 }}
-                         dy={10}
-                      />
-                      <YAxis hide domain={['dataMin - 500', 'dataMax + 500']} />
-                      <Tooltip 
-                         contentStyle={{ 
-                            backgroundColor: '#0f172a', 
-                            borderRadius: '1.25rem', 
-                            border: 'none', 
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
-                            color: 'white',
-                            padding: '1rem 1.25rem'
-                         }}
-                         itemStyle={{ color: '#818cf8', fontWeight: 900, textTransform: 'uppercase', fontSize: '11px' }}
-                      />
-                      <Area 
-                         type="monotone" 
-                         dataKey="revenue" 
-                         stroke="#4f46e5" 
-                         strokeWidth={4} 
-                         fillOpacity={1} 
-                         fill="url(#colorRev)" 
-                         animationDuration={1500}
-                      />
-                   </AreaChart>
-                </ResponsiveContainer>
-             </div>
-          </Card>
+        <div className="flex items-center gap-3 px-3 py-1.5 border-r border-slate-100 last:border-none">
+          <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Churn Risk</div>
+            <div className="text-xs font-bold text-slate-900">₹{metrics.churnImpact} <span className="text-[10px] font-semibold text-emerald-600">Low Risk</span></div>
+          </div>
+        </div>
 
-          {/* Dynamic Plan Distribution Donut Chart */}
-          <Card className="lg:col-span-4 bg-slate-950 text-white rounded-[2.5rem] p-8 border-none shadow-2xl space-y-6 relative overflow-hidden h-125 flex flex-col justify-between">
-             <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-600/20 rounded-full blur-[80px]" />
-             <div className="space-y-1 relative z-10">
-                <h3 className="text-lg font-black tracking-tight leading-none uppercase">Plan Tier Distribution</h3>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Revenue Share ({timeRange})</p>
-             </div>
+        <div className="flex items-center gap-3 px-3 py-1.5 border-r border-slate-100 last:border-none">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Activity className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Net Retention</div>
+            <div className="text-xs font-bold text-indigo-600">{metrics.nrr} <span className="text-[10px] font-semibold text-slate-400">Expansion</span></div>
+          </div>
+        </div>
 
-             <div className="h-60 w-full relative z-10 flex items-center justify-center">
-                <ResponsiveContainer width="99%" height="100%" minWidth={100} minHeight={200} debounce={50}>
-                   <PieChart>
-                      <Pie
-                         data={metrics.planDistribution}
-                         cx="50%"
-                         cy="50%"
-                         innerRadius={65}
-                         outerRadius={95}
-                         paddingAngle={6}
-                         dataKey="value"
-                         stroke="#0f172a"
-                         strokeWidth={4}
-                      >
-                         {metrics.planDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                         ))}
-                      </Pie>
-                      <Tooltip 
-                         contentStyle={{ 
-                            backgroundColor: '#0f172a', 
-                            borderRadius: '1rem', 
-                            border: '1px solid #1e293b', 
-                            color: 'white'
-                         }}
-                      />
-                   </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                   <p className="text-3xl font-black text-white">{metrics.activeClusters}</p>
-                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Tiers</p>
-                </div>
-             </div>
+        <div className="flex items-center gap-3 px-3 py-1.5">
+          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gross Margin</div>
+            <div className="text-xs font-bold text-emerald-600">{metrics.grossMargin} <span className="text-[10px] font-semibold text-slate-400">High Yield</span></div>
+          </div>
+        </div>
+      </div>
 
-             <div className="space-y-2.5 relative z-10">
-                {metrics.planDistribution.map((p, i) => (
-                   <div key={i} className="flex items-center justify-between bg-white/5 p-3 rounded-2xl border border-white/10">
-                      <div className="flex items-center gap-3">
-                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">{p.name}</span>
-                      </div>
-                      <div className="text-right">
-                         <span className="text-xs font-black text-white">{p.value} Nodes</span>
-                         <span className="text-[9px] font-bold text-slate-400 ml-2">({p.share}%)</span>
-                      </div>
-                   </div>
-                ))}
-                {metrics.planDistribution.length === 0 && (
-                   <div className="text-center py-4 opacity-50">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Zero active nodes in window</p>
-                   </div>
-                )}
-             </div>
-          </Card>
-       </div>
-
-       {/* ─── LIVE SUBSCRIPTION LEDGER ─────────────────────────────── */}
-       <Card className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-200 shadow-xl space-y-6 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-             <div className="space-y-1">
-                <h2 className="text-2xl font-black text-slate-950 tracking-tight leading-none uppercase">Live Subscription Ledger (30D)</h2>
-                <p className="text-xs font-bold text-slate-400">Real-time settlement records & active billing nodes filtered for {timeRange}.</p>
-             </div>
-
-             <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                <Input 
-                   value={searchLedger}
-                   onChange={e => setSearchLedger(e.target.value)}
-                   placeholder="Search ledger by merchant..."
-                   className="h-11 pl-11 rounded-2xl bg-slate-50 border-slate-200 text-xs font-bold"
+      {/* ─── 📊 VISUAL ANALYTICS GRID (CHARTS) ────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* MRR Growth Trajectory Chart */}
+        <Card className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-xs p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">MRR Growth Trajectory</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Historical revenue curve filtered for {timeRange}</p>
+            </div>
+            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 font-mono text-[10px] font-bold">
+              Cumulative MRR
+            </Badge>
+          </div>
+          
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="99%" height="100%">
+              <AreaChart data={metrics.history}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
+                  dy={10}
                 />
-             </div>
+                <YAxis hide domain={['dataMin - 500', 'dataMax + 500']} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#0f172a', 
+                    borderRadius: '0.75rem', 
+                    border: 'none', 
+                    color: 'white',
+                    padding: '0.75rem 1rem'
+                  }}
+                  itemStyle={{ color: '#818cf8', fontWeight: 700, fontSize: '11px' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#4f46e5" 
+                  strokeWidth={3} 
+                  fillOpacity={1} 
+                  fill="url(#colorRev)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Plan Tier Distribution Donut Chart */}
+        <Card className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white shadow-xs p-6 flex flex-col justify-between space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Plan Tier Share</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Active tier distribution ({timeRange})</p>
           </div>
 
-          <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-slate-50/50">
-             <table className="w-full text-left border-collapse">
-                <thead>
-                   <tr className="border-b border-slate-200 bg-slate-100/70 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      <th className="py-4 px-6">Merchant Node</th>
-                      <th className="py-4 px-6">Subscription Tier</th>
-                      <th className="py-4 px-6">Monthly Yield</th>
-                      <th className="py-4 px-6">Billing Status</th>
-                      <th className="py-4 px-6">Active Since</th>
-                      <th className="py-4 px-6 text-right">Company Actions</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200/60 bg-white">
-                   {filteredLedger.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                         <td className="py-4 px-6 font-bold text-slate-900">
-                            <div>
-                               <div className="font-black text-sm text-slate-900">{row.name}</div>
-                               <span className="text-xs font-semibold text-slate-400">{row.email}</span>
-                            </div>
-                         </td>
-                         <td className="py-4 px-6">
-                            <Badge className="bg-slate-100 text-slate-800 font-mono text-[10px] font-black uppercase">
-                               {row.plan}
-                            </Badge>
-                         </td>
-                         <td className="py-4 px-6 font-black text-slate-900">
-                            ₹{row.yield.toLocaleString('en-IN')}<span className="text-[10px] font-semibold text-slate-400">/mo</span>
-                         </td>
-                         <td className="py-4 px-6">
-                            <Badge className={`text-[10px] font-black uppercase ${
-                               row.status === 'Active' || row.status === 'Approved'
-                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                                  : 'bg-amber-100 text-amber-800 border-amber-200'
-                            }`}>
-                               ● {row.status}
-                            </Badge>
-                         </td>
-                         <td className="py-4 px-6 text-xs font-semibold text-slate-500">
-                            {row.activeSince}
-                         </td>
-                         <td className="py-4 px-6 text-right">
-                            <Button 
-                               onClick={() => handleInspectCompany(row)}
-                               variant="outline"
-                               size="sm"
-                               className="h-8 px-3 rounded-xl border-slate-200 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 font-bold text-xs"
-                            >
-                               <Building2 className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
-                               Inspect Node
-                            </Button>
-                         </td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-       </Card>
-
-       {/* ─── 🏢 COMPANY & PAYMENT HISTORY INSPECTOR MODAL (SHADCN STUDIO BOX UI) ──── */}
-       <AnimatePresence>
-          {inspectingCompany && (
-             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-xl">
-                <motion.div 
-                   initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                   exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                   className="bg-slate-950 text-white rounded-[2.5rem] border border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col relative"
+          <div className="h-52 w-full relative flex items-center justify-center">
+            <ResponsiveContainer width="99%" height="100%">
+              <PieChart>
+                <Pie
+                  data={metrics.planDistribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="#ffffff"
+                  strokeWidth={2}
                 >
-                   {/* Ambient Modal Background Glow */}
-                   <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-600/20 via-indigo-600/15 to-purple-600/10 rounded-full blur-[100px] pointer-events-none" />
+                  {metrics.planDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#0f172a', 
+                    borderRadius: '0.75rem', 
+                    border: 'none', 
+                    color: 'white'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <p className="text-2xl font-black text-slate-900">{metrics.activeClusters}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Plans</p>
+            </div>
+          </div>
 
-                   {/* Modal Header */}
-                   <div className="p-6 sm:p-8 border-b border-slate-800/80 flex items-start justify-between bg-slate-900/40 relative z-10">
-                      <div className="flex items-center gap-4">
-                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 text-white font-black text-xl flex items-center justify-center shadow-lg shadow-blue-500/25 border border-white/10">
-                            {inspectingCompany.merchantName?.substring(0, 2).toUpperCase()}
-                         </div>
-                         <div className="space-y-1">
-                            <div className="flex items-center gap-3 flex-wrap">
-                               <h3 className="text-2xl font-black text-white tracking-tight">{inspectingCompany.merchantName}</h3>
-                               <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase px-3 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                  {inspectingCompany.status || 'Active'}
-                               </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 flex-wrap">
-                               <span>{inspectingCompany.email}</span>
-                               <span className="text-slate-600">•</span>
-                               <span className="font-mono text-[11px] text-slate-400 bg-slate-900/80 px-2.5 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
-                                  UUID: {inspectingCompany.restaurantId?.substring(0, 16)}...
-                                  <button 
-                                     onClick={() => handleCopyText(inspectingCompany.restaurantId, 'uuid')} 
-                                     className="text-slate-400 hover:text-white transition-colors"
-                                     title="Copy Internal UUID"
-                                  >
-                                     {copiedUuid ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                                  </button>
-                               </span>
-                            </div>
-                         </div>
+          <div className="space-y-2">
+            {metrics.planDistribution.map((p, i) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                  <span className="font-bold text-slate-700">{p.name}</span>
+                </div>
+                <div className="text-right font-medium">
+                  <span className="font-bold text-slate-900">{p.value}</span>
+                  <span className="text-slate-400 ml-1.5">({p.share}%)</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* ─── 📋 LIVE SUBSCRIPTION LEDGER TABLE ─────────────────────── */}
+      <Card className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+        {/* Table Toolbar */}
+        <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Subscription Ledger</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Real-time billing records and active merchant subscription yields.</p>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input 
+              value={searchLedger}
+              onChange={e => setSearchLedger(e.target.value)}
+              placeholder="Search merchant or plan..."
+              className="h-9 pl-9 text-xs rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
+            />
+            {searchLedger && (
+              <button 
+                onClick={() => setSearchLedger('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <th className="py-3.5 px-5">Merchant Details</th>
+                <th className="py-3.5 px-5">Subscription Plan</th>
+                <th className="py-3.5 px-5">Monthly Yield</th>
+                <th className="py-3.5 px-5">Billing Status</th>
+                <th className="py-3.5 px-5">Active Since</th>
+                <th className="py-3.5 px-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredLedger.map((row, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/70 transition-colors group">
+                  <td className="py-4 px-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
+                        {row.name?.substring(0, 2).toUpperCase() || 'TX'}
                       </div>
-
-                      <button 
-                         onClick={() => setInspectingCompany(null)}
-                         className="p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all shadow-md"
-                      >
-                         <X className="w-5 h-5" />
-                      </button>
-                   </div>
-
-                   {/* Modal Body */}
-                   <div className="p-6 sm:p-8 space-y-7 overflow-y-auto relative z-10">
-                      {/* 4 Stat Box Grid (Shadcn Studio Style) */}
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                         {/* Box 1: Total Paid */}
-                         <div className="bg-slate-900/80 p-5 rounded-2xl border border-emerald-500/30 shadow-lg relative overflow-hidden group hover:border-emerald-500/60 transition-all">
-                            <div className="flex items-center justify-between mb-2">
-                               <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2.5 py-0.5 rounded-md border border-emerald-500/20">
-                                  Total Paid
-                               </span>
-                               <div className="w-7 h-7 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                                  <IndianRupee className="w-3.5 h-3.5" />
-                               </div>
-                            </div>
-                            <div className="text-2xl font-black text-emerald-400 tracking-tight">
-                               ₹{inspectingCompany.totalLifetimeRevenue?.toLocaleString('en-IN')}
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1">Verified Lifetime Settlement</p>
-                         </div>
-
-                         {/* Box 2: Current Tier */}
-                         <div className="bg-slate-900/80 p-5 rounded-2xl border border-indigo-500/30 shadow-lg relative overflow-hidden group hover:border-indigo-500/60 transition-all">
-                            <div className="flex items-center justify-between mb-2">
-                               <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-2.5 py-0.5 rounded-md border border-indigo-500/20">
-                                  Active Tier
-                               </span>
-                               <div className="w-7 h-7 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                                  <Sparkles className="w-3.5 h-3.5" />
-                               </div>
-                            </div>
-                            <div className="text-xl font-black text-white tracking-tight truncate">
-                               {inspectingCompany.planName}
-                            </div>
-                            <p className="text-[10px] font-bold text-indigo-300 mt-1">₹{inspectingCompany.amount?.toLocaleString('en-IN')} / Month</p>
-                         </div>
-
-                         {/* Box 3: Monthly Yield */}
-                         <div className="bg-slate-900/80 p-5 rounded-2xl border border-blue-500/30 shadow-lg relative overflow-hidden group hover:border-blue-500/60 transition-all">
-                            <div className="flex items-center justify-between mb-2">
-                               <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2.5 py-0.5 rounded-md border border-blue-500/20">
-                                  Monthly Yield
-                               </span>
-                               <div className="w-7 h-7 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                                  <CreditCard className="w-3.5 h-3.5" />
-                               </div>
-                            </div>
-                            <div className="text-2xl font-black text-white tracking-tight">
-                               ₹{inspectingCompany.amount?.toLocaleString('en-IN')}
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1">Active Monthly Rate</p>
-                         </div>
-
-                         {/* Box 4: Health Score */}
-                         <div className="bg-slate-900/80 p-5 rounded-2xl border border-teal-500/30 shadow-lg relative overflow-hidden group hover:border-teal-500/60 transition-all">
-                            <div className="flex items-center justify-between mb-2">
-                               <span className="text-[9px] font-black text-teal-400 uppercase tracking-widest bg-teal-500/10 px-2.5 py-0.5 rounded-md border border-teal-500/20">
-                                  Health Score
-                               </span>
-                               <div className="w-7 h-7 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center">
-                                  <ShieldCheck className="w-3.5 h-3.5" />
-                               </div>
-                            </div>
-                            <div className="text-2xl font-black text-teal-400 tracking-tight">
-                               100% Active
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1">Zero Risk Merchant Node</p>
-                         </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 text-xs truncate">{row.name}</p>
+                        <p className="text-[11px] text-slate-400 font-medium truncate">{row.email}</p>
                       </div>
+                    </div>
+                  </td>
 
-                      {/* Payment Verification & UTR Transaction History Log Table */}
-                      <div className="space-y-3">
-                         <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                               <CreditCard className="w-4 h-4 text-blue-400" />
-                               Payment Verification & UTR Transaction History
-                            </h4>
-                            <Badge className="bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-mono font-bold">
-                               {inspectingCompany.historyList?.length || 0} RECORDS
-                            </Badge>
-                         </div>
+                  <td className="py-4 px-5">
+                    <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200/80 font-mono text-[10px] font-bold uppercase">
+                      {row.plan}
+                    </Badge>
+                  </td>
 
-                         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-inner">
-                            <table className="w-full text-left text-xs">
-                               <thead>
-                                  <tr className="border-b border-slate-800 bg-slate-900/90 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                     <th className="py-3.5 px-5">Date / Time</th>
-                                     <th className="py-3.5 px-5">Submitted UTR Reference</th>
-                                     <th className="py-3.5 px-5">Plan & Amount</th>
-                                     <th className="py-3.5 px-5 text-right">Approval Status</th>
-                                  </tr>
-                               </thead>
-                               <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                                  {inspectingCompany.historyList?.map((h, i) => (
-                                     <tr key={i} className="hover:bg-slate-900/80 transition-colors">
-                                        <td className="py-3.5 px-5 text-slate-400 font-semibold">{h.date}</td>
-                                        <td className="py-3.5 px-5">
-                                           <div className="flex items-center gap-2">
-                                              <span className="font-mono text-xs font-black text-white bg-slate-950 px-3 py-1 rounded-lg border border-slate-800">
-                                                 {h.utr}
-                                              </span>
-                                              {h.utr && h.utr !== 'N/A' && (
-                                                 <button 
-                                                    onClick={() => handleCopyText(h.utr, 'utr')}
-                                                    className="p-1 text-slate-400 hover:text-white transition-colors"
-                                                    title="Copy UTR"
-                                                 >
-                                                    {copiedUtr === h.utr ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                                                 </button>
-                                              )}
-                                           </div>
-                                        </td>
-                                        <td className="py-3.5 px-5 font-bold text-white">
-                                           <span className="text-indigo-400">{h.plan}</span> • ₹{h.amount?.toLocaleString('en-IN')}
-                                        </td>
-                                        <td className="py-3.5 px-5 text-right">
-                                           <Badge className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full ${
-                                              h.status === 'APPROVED' || h.status === 'Active' || h.status === 'Approved'
-                                                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                                 : h.status === 'REJECTED'
-                                                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                                 : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                           }`}>
-                                              ● {h.status}
-                                           </Badge>
-                                        </td>
-                                     </tr>
-                                  ))}
-                               </tbody>
-                            </table>
-                         </div>
+                  <td className="py-4 px-5 font-bold text-slate-900">
+                    ₹{row.yield.toLocaleString('en-IN')}<span className="text-[10px] text-slate-400 font-normal">/mo</span>
+                  </td>
+
+                  <td className="py-4 px-5">
+                    <Badge className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-md flex items-center gap-1.5 w-fit ${
+                      row.status === 'Active' || row.status === 'Approved'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'Active' || row.status === 'Approved' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                      {row.status}
+                    </Badge>
+                  </td>
+
+                  <td className="py-4 px-5 text-slate-500 text-[11px] font-medium whitespace-nowrap">
+                    {row.activeSince}
+                  </td>
+
+                  <td className="py-4 px-5 text-right">
+                    <Button 
+                      onClick={() => handleInspectCompany(row)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                      Inspect
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ─── 🛡️ SLIDING MERCHANT INSPECTION DRAWER ─────────────────── */}
+      <AnimatePresence>
+        {inspectingCompany && (
+          <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setInspectingCompany(null)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs transition-opacity"
+            />
+
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="w-full max-w-md bg-white h-full shadow-2xl z-10 flex flex-col justify-between overflow-y-auto border-l border-slate-200"
+            >
+              {/* Drawer Header */}
+              <div className="p-6 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-bold text-sm flex items-center justify-center">
+                    {inspectingCompany.merchantName?.substring(0, 2).toUpperCase() || 'TX'}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">{inspectingCompany.merchantName}</h3>
+                    <p className="text-xs text-slate-500">{inspectingCompany.email}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setInspectingCompany(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Drawer Body */}
+              <div className="p-6 space-y-5 flex-1 overflow-y-auto">
+                {/* 4 Stat Box Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Lifetime Paid</span>
+                    <p className="text-lg font-black text-slate-900 mt-1">₹{inspectingCompany.totalLifetimeRevenue?.toLocaleString('en-IN')}</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Current Tier</span>
+                    <p className="text-lg font-black text-indigo-600 mt-1 truncate">{inspectingCompany.planName}</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Monthly Rate</span>
+                    <p className="text-lg font-black text-slate-900 mt-1">₹{inspectingCompany.amount?.toLocaleString('en-IN')}</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Account Status</span>
+                    <p className="text-lg font-black text-emerald-600 mt-1">{inspectingCompany.status}</p>
+                  </div>
+                </div>
+
+                {/* UUID Card */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Restaurant ID</span>
+                    <p className="font-mono text-xs font-semibold text-slate-700 truncate max-w-[200px]">{inspectingCompany.restaurantId}</p>
+                  </div>
+                  <button
+                    onClick={() => handleCopyText(inspectingCompany.restaurantId, 'uuid')}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
+                    title="Copy UUID"
+                  >
+                    {copiedUuid ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                {/* Audit & Transaction History */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-700">Billing History</p>
+                  <div className="space-y-1.5">
+                    {inspectingCompany.historyList?.map((h, i) => (
+                      <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-slate-900">{h.plan} &bull; ₹{h.amount}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">Ref: {h.utr}</p>
+                        </div>
+                        <Badge className="text-[9px] font-bold uppercase bg-white text-slate-700 border-slate-200">
+                          {h.status}
+                        </Badge>
                       </div>
-                   </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-                   {/* Modal Action Footer */}
-                   <div className="p-6 border-t border-slate-800/80 bg-slate-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
-                      <Button
-                         onClick={() => handleGrantExtension(inspectingCompany)}
-                         disabled={processingId === 'extend'}
-                         variant="outline"
-                         className="h-11 px-5 rounded-2xl border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 font-bold text-xs shadow-md"
-                      >
-                         <Sparkles className="w-4 h-4 mr-2 text-amber-400" />
-                         Grant +30 Days Free Extension
-                      </Button>
+              {/* Drawer Footer Actions */}
+              <div className="p-5 border-t border-slate-200 bg-white space-y-2">
+                <Button 
+                  onClick={() => handleGrantExtension(inspectingCompany)}
+                  disabled={processingId === 'extend'}
+                  className="w-full h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  Grant +30 Days Free Extension
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
-                      <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                         {inspectingCompany.status !== 'Active' && inspectingCompany.status !== 'Approved' && (
-                            <Button 
-                               onClick={() => handleApprovePayment(inspectingCompany)}
-                               disabled={processingId === inspectingCompany.id}
-                               className="h-11 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-600/30"
-                            >
-                               <CheckCircle2 className="w-4 h-4 mr-2" />
-                               Approve & Unlock Node
-                            </Button>
-                         )}
-                         <Button 
-                            onClick={() => setInspectingCompany(null)}
-                            variant="secondary"
-                            className="h-11 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700"
-                         >
-                            Close Inspector
-                         </Button>
-                      </div>
-                   </div>
-                </motion.div>
-             </div>
-          )}
-       </AnimatePresence>
     </div>
   )
 }
