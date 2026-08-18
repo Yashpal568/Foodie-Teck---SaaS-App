@@ -44,7 +44,7 @@ import { getPlanDetails } from '@/utils/planLimits'
 // Cryptographic table QR generator (Instant Client-Side Base64 Data URL)
 const generateQRCode = async (restaurantId, tableNumber) => {
   const sig = generateTableSignature(restaurantId, tableNumber)
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://servora-kappa.vercel.app'
   const url = `${origin}/menu?restaurant=${restaurantId}&table=${tableNumber}&sig=${sig}`
   
   let qrDataUrl = ''

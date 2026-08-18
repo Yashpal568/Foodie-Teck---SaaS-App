@@ -846,7 +846,7 @@ export default function QRTemplateStudioModal({
   const currentPreviewQR = targetQRs[previewTableIndex] || targetQRs[0] || {
     tableNumber: 1,
     url: `${window.location.origin}/menu?table=1`,
-    qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://servora.app'
+    qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://servora-kappa.vercel.app'
   }
 
   const restaurantName = profile?.name || profile?.business_name || restaurantProfile?.name || restaurantProfile?.business_name || 'Tiger Bistro'
