@@ -382,7 +382,7 @@ export default function AdminPlansPage() {
         {/* Dashed New Tier Card */}
         <button 
           onClick={openNewPlan}
-          className="rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 hover:bg-white hover:border-indigo-400 hover:shadow-sm transition-all p-8 flex flex-col items-center justify-center gap-3 text-center cursor-pointer min-h-[350px] group"
+          className="rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 hover:bg-white hover:border-indigo-400 hover:shadow-sm transition-all p-8 flex flex-col items-center justify-center gap-3 text-center cursor-pointer min-h-87.5 group"
         >
           <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 flex items-center justify-center transition-all group-hover:scale-105">
             <Plus className="w-6 h-6 stroke-[2.5px]" />

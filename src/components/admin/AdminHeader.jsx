@@ -470,7 +470,7 @@ export default function AdminHeader({ onMenuClick }) {
              >
                 <Bell className="w-5 h-5 text-slate-700" />
                 {unreadCount > 0 && (
-                   <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black flex items-center justify-center shadow-lg shadow-rose-500/50 border-2 border-white ring-2 ring-rose-500/30 animate-pulse">
+                   <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black flex items-center justify-center shadow-lg shadow-rose-500/50 border-2 border-white ring-2 ring-rose-500/30 animate-pulse">
                       {unreadCount > 99 ? '99+' : unreadCount}
                    </span>
                 )}
@@ -610,7 +610,7 @@ export default function AdminHeader({ onMenuClick }) {
               variant="ghost" 
               className="flex items-center gap-3 h-12 pl-2 pr-3.5 rounded-2xl hover:bg-slate-100 border border-transparent hover:border-slate-200/80 transition-all cursor-pointer group"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-xl bg-linear-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
                 SO
               </div>
               <div className="text-left hidden md:block leading-none">

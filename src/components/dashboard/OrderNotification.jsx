@@ -98,6 +98,31 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       setTimeout(() => setToast(current => current?.id === toastId ? null : current), 9000)
     }
 
+    // ── 0. BroadcastChannel Cross-Tab Communication ──
+    let broadcastChannel = null
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        broadcastChannel = new BroadcastChannel('servora_orders_channel')
+        broadcastChannel.onmessage = (event) => {
+          const { type, payload } = event.data || {}
+          if (!payload) return
+
+          const isDemo = restaurantId === 'demo-merchant' || targetId === 'demo-merchant'
+          const idMatches = !payload.restaurant_id || 
+                            payload.restaurant_id === targetId || 
+                            payload.restaurant_id === resolvedId || 
+                            payload.restaurant_id === restaurantId
+
+          if (isDemo || idMatches) {
+            if (type === 'NEW_ORDER') handleNewOrder(payload)
+            if (type === 'WAITER_CALL') handleWaiterCall(payload)
+          }
+        }
+      }
+    } catch (bcErr) {
+      console.warn('BroadcastChannel init notice:', bcErr)
+    }
+
     // ── 1. Local Window Custom Event & Cross-Tab Storage Event ──
     const customEventListener = (e) => {
       if (e.detail) handleNewOrder(e.detail)
@@ -192,6 +217,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
     })
 
     return () => {
+      if (broadcastChannel) broadcastChannel.close()
       window.removeEventListener('servora_new_order', customEventListener)
       window.removeEventListener('servora_waiter_call', customWaiterListener)
       window.removeEventListener('storage', storageListener)

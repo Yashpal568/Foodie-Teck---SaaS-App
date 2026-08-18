@@ -250,7 +250,7 @@ export default function OverviewCards({ restaurantId = 'default' }) {
             className={`group relative bg-white rounded-2xl border ${config.border} p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden cursor-default`}
           >
             {/* Background gradient accent */}
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full bg-gradient-to-br ${config.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full bg-linear-to-br ${config.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
 
             {/* Top row: Icon + Trend Badge */}
             <div className="flex items-start justify-between mb-4">

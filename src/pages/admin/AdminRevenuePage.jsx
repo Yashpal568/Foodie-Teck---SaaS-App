@@ -877,7 +877,7 @@ export default function AdminRevenuePage() {
                 <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Restaurant ID</span>
-                    <p className="font-mono text-xs font-semibold text-slate-700 truncate max-w-[200px]">{inspectingCompany.restaurantId}</p>
+                    <p className="font-mono text-xs font-semibold text-slate-700 truncate max-w-50">{inspectingCompany.restaurantId}</p>
                   </div>
                   <button
                     onClick={() => handleCopyText(inspectingCompany.restaurantId, 'uuid')}

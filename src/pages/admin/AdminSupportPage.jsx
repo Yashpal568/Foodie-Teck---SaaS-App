@@ -365,7 +365,7 @@ export default function AdminSupportPage() {
                 </SheetHeader>
 
                 {/* Conversation Feed */}
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-100 overflow-y-auto pr-1">
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1 text-xs">
                     <div className="flex items-center justify-between text-[11px] text-slate-400">
                       <span className="font-bold text-slate-700">{selectedTicket.businessName}</span>

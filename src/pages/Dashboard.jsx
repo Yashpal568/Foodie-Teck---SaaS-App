@@ -478,7 +478,7 @@ function Dashboard() {
                         </div>
                       </div>
                       
-                      <div className="p-3 sm:p-4 flex-1 overflow-y-auto scrollbar-thin max-h-[380px]">
+                      <div className="p-3 sm:p-4 flex-1 overflow-y-auto scrollbar-thin max-h-95">
                         <TableStatus restaurantId={restaurantId} />
                       </div>
 

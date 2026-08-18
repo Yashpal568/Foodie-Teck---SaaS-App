@@ -103,7 +103,19 @@ export const requestWaiter = async (restaurantId, tableNumber, customerName = 'G
     }
   })
 
-  // 3. Local Dispatch for instantaneous window event trigger
+  // 3. Local & Cross-Tab Broadcast for instantaneous popups across tabs
+  try {
+    localStorage.setItem('servora_latest_waiter_call', JSON.stringify({ ...callPayload, _timestamp: Date.now() }))
+  } catch (e) {}
+
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('servora_orders_channel')
+      bc.postMessage({ type: 'WAITER_CALL', payload: callPayload })
+      setTimeout(() => bc.close(), 1000)
+    }
+  } catch (e) {}
+
   if (typeof window !== 'undefined') {
     try {
       window.dispatchEvent(new CustomEvent('servora_waiter_call', { detail: callPayload }))
