@@ -6,14 +6,23 @@ import {
   ArrowRight, 
   CheckCircle2, 
   AlertCircle, 
-  ShieldCheck, 
   Eye, 
   EyeOff,
   KeyRound,
-  Check
+  ShieldCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import Logo from '@/components/ui/Logo'
 import { supabase } from '@/lib/supabase'
 
@@ -24,25 +33,22 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState(null)
-  const [hasValidSession, setHasValidSession] = useState(true)
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Check if recovery access token is present in URL hash or active recovery session
-    const hash = window.location.hash
-    const hasRecoveryHash = hash.includes('type=recovery') || hash.includes('access_token=')
-
-    // Listen for auth state change
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (session && hasRecoveryHash)) {
-        setHasValidSession(true)
-      }
-    })
-
-    return () => {
-      subscription?.unsubscribe()
-    }
+    // Note: We're not enforcing block here strictly because some auth flows
+    // don't emit the exact hash. We just let Supabase handle the update attempt.
   }, [])
+
+  const calculateStrength = (pass) => {
+    let score = 0;
+    if (pass.length > 5) score += 33;
+    if (pass.length > 8) score += 33;
+    if (/[A-Z]/.test(pass) && /[0-9]/.test(pass)) score += 34;
+    return score;
+  }
+  
+  const strength = calculateStrength(password)
 
   const handlePasswordUpdate = async (e) => {
     e.preventDefault()
@@ -62,18 +68,14 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      // Update Supabase Auth user password
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password
       })
 
-      if (updateError) {
-        throw updateError
-      }
+      if (updateError) throw updateError
 
       setIsSuccess(true)
       
-      // Auto redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/login', { replace: true })
       }, 3000)
@@ -86,167 +88,176 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-12 relative overflow-hidden font-sans select-none">
-      {/* Background Ambience */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none" />
+    <div 
+      className="min-h-screen flex flex-col justify-center items-center p-4 sm:p-6 lg:p-12 relative font-sans"
+      style={{
+        backgroundImage: 'url("https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1974&auto=format&fit=crop")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
+      {/* Premium Dark Overlay */}
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" />
 
       {/* Header Logo */}
-      <div className="w-full max-w-lg flex items-center justify-center mb-6 sm:mb-8 z-10">
-        <Link to="/" className="flex items-center gap-2">
+      <div className="w-full max-w-md flex items-center justify-center mb-8 z-10">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Logo showText={true} iconSize={36} />
         </Link>
       </div>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-lg bg-white rounded-3xl sm:rounded-[2.5rem] shadow-2xl shadow-black/80 border border-slate-800/20 p-8 sm:p-10 z-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-md z-10"
       >
-        <AnimatePresence mode="wait">
-          {!isSuccess ? (
-            <motion.div
-              key="reset-form"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="text-center space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-[11px] font-black uppercase tracking-widest mx-auto">
-                  <KeyRound className="w-3.5 h-3.5" />
-                  <span>Security Update</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Create New Password
-                </h1>
-                <p className="text-slate-500 text-xs sm:text-sm font-medium">
-                  Choose a robust password to safeguard your restaurant node.
-                </p>
-              </div>
-
-              {error && (
-                <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                  <p className="text-xs sm:text-sm font-semibold text-red-700 leading-snug">{error}</p>
-                </div>
-              )}
-
-              <form onSubmit={handlePasswordUpdate} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                    New Password
-                  </label>
-                  <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <Input
-                      required
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Minimum 6 characters"
-                      className="h-14 pl-12 pr-12 rounded-2xl bg-slate-50 border-slate-200 focus:border-blue-500 focus:bg-white text-slate-900 font-bold placeholder:text-slate-400 text-sm transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+        <Card className="border-slate-800 bg-slate-950/60 backdrop-blur-xl shadow-2xl shadow-black/50 text-slate-100 p-2">
+          <AnimatePresence mode="wait">
+            {!isSuccess ? (
+              <motion.div
+                key="reset-form"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+              >
+                <CardHeader className="text-center space-y-3 pb-6">
+                  <div className="mx-auto bg-blue-500/10 p-3 rounded-full w-fit mb-2 ring-1 ring-blue-500/30">
+                    <KeyRound className="w-6 h-6 text-blue-400" />
                   </div>
-                </div>
+                  <CardTitle className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                    Create New Password
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-sm">
+                    Enter a robust new password to secure your Servora account.
+                  </CardDescription>
+                </CardHeader>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                    Confirm New Password
-                  </label>
-                  <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <Input
-                      required
-                      type={showPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter password"
-                      className="h-14 pl-12 pr-12 rounded-2xl bg-slate-50 border-slate-200 focus:border-blue-500 focus:bg-white text-slate-900 font-bold placeholder:text-slate-400 text-sm transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Password strength checklist */}
-                <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-1.5">
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${password.length >= 6 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-                      <Check className="w-3 h-3" />
+                <CardContent>
+                  {error && (
+                    <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                      <p className="text-sm font-medium text-red-200">{error}</p>
                     </div>
-                    <span>At least 6 characters long</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${password && password === confirmPassword ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-                      <Check className="w-3 h-3" />
-                    </div>
-                    <span>Both passwords match</span>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full h-15 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-                >
-                  {isLoading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Updating Credentials...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span>Save New Password</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </>
                   )}
-                </Button>
-              </form>
 
-              <div className="pt-4 border-t border-slate-100 text-center">
-                <Link to="/login" className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors">
-                  Cancel and return to Sign In
-                </Link>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="success-state"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="text-center space-y-6 py-4"
-            >
-              <div className="w-16 h-16 bg-emerald-100 border border-emerald-200 rounded-3xl flex items-center justify-center mx-auto text-emerald-600 shadow-lg shadow-emerald-500/10">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
+                  <form onSubmit={handlePasswordUpdate} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        New Password
+                      </Label>
+                      <div className="relative group">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                        <Input
+                          required
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Minimum 6 characters"
+                          className="h-12 pl-10 pr-10 bg-slate-900/50 border-slate-700 text-slate-100 placeholder:text-slate-600 focus-visible:ring-blue-500 focus-visible:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      
+                      {password.length > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="pt-2 space-y-1.5 overflow-hidden"
+                        >
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-400">Password strength</span>
+                            <span className={strength < 50 ? 'text-orange-400' : strength < 100 ? 'text-blue-400' : 'text-emerald-400'}>
+                              {strength < 50 ? 'Weak' : strength < 100 ? 'Good' : 'Strong'}
+                            </span>
+                          </div>
+                          {/* Note: the custom progress component might not accept indicatorColor, we can use an inline style or inline div if needed. Shadcn default uses bg-primary */}
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                             <div 
+                               className={`h-full transition-all ${strength < 50 ? 'bg-orange-500' : strength < 100 ? 'bg-blue-500' : 'bg-emerald-500'}`}
+                               style={{ width: `${strength}%` }}
+                             />
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
 
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                  Password Updated!
-                </h2>
-                <p className="text-slate-600 text-sm font-medium leading-relaxed max-w-sm mx-auto">
-                  Your merchant credentials have been successfully updated. Redirecting you to the sign-in console...
-                </p>
-              </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        Confirm Password
+                      </Label>
+                      <div className="relative group">
+                        <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                        <Input
+                          required
+                          type={showPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Re-enter new password"
+                          className="h-12 pl-10 pr-10 bg-slate-900/50 border-slate-700 text-slate-100 placeholder:text-slate-600 focus-visible:ring-blue-500 focus-visible:border-blue-500"
+                        />
+                      </div>
+                    </div>
 
-              <div className="pt-2">
-                <Link to="/login">
-                  <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer">
-                    Sign In Now
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    <Button
+                      type="submit"
+                      disabled={isLoading || !password || !confirmPassword}
+                      className="w-full h-12 mt-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Updating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Save New Password</span>
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+
+                <CardFooter className="flex justify-center border-t border-slate-800 pt-6">
+                  <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                    Cancel and return to Sign In
+                  </Link>
+                </CardFooter>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="success-state"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-8 px-2 space-y-6"
+              >
+                <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-white">Password Updated!</h2>
+                  <p className="text-slate-400 text-sm max-w-xs mx-auto">
+                    Your credentials have been securely updated. Redirecting you to the sign-in console...
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Link to="/login">
+                    <Button className="w-full h-12 bg-slate-800 hover:bg-slate-700 text-white font-semibold">
+                      Sign In Now
+                    </Button>
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
       </motion.div>
     </div>
   )
