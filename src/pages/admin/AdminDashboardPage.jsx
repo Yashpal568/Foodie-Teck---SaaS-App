@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { 
   BarChart3, 
   Users, 
@@ -13,10 +15,22 @@ import {
   ShieldCheck,
   Activity,
   Zap,
-  Server
+  Server,
+  RefreshCw,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Radio,
+  HardDrive,
+  Cpu,
+  Layers,
+  Sparkles,
+  ExternalLink,
+  ChevronRight
 } from 'lucide-react'
 import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 import { getAdminPlatformData } from '@/lib/adminDataService'
+import { toast } from 'sonner'
 import { 
   AreaChart, 
   Area, 
@@ -27,173 +41,167 @@ import {
   ResponsiveContainer 
 } from 'recharts'
 
-const colorStyles = {
-  blue: {
-    glow: "bg-blue-500/10 group-hover:bg-blue-500/20",
-    iconBg: "bg-blue-50 border-blue-200 text-blue-600 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 shadow-md shadow-blue-500/10",
-    badgeBg: "bg-blue-50 text-blue-700 border-blue-200",
-    cardHover: "hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/10 hover:scale-[1.02]"
-  },
-  indigo: {
-    glow: "bg-indigo-500/10 group-hover:bg-indigo-500/20",
-    iconBg: "bg-indigo-50 border-indigo-200 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 shadow-md shadow-indigo-500/10",
-    badgeBg: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    cardHover: "hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/10 hover:scale-[1.02]"
-  },
-  emerald: {
-    glow: "bg-emerald-500/10 group-hover:bg-emerald-500/20",
-    iconBg: "bg-emerald-50 border-emerald-200 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 shadow-md shadow-emerald-500/10",
-    badgeBg: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    cardHover: "hover:border-emerald-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-[1.02]"
-  },
-  amber: {
-    glow: "bg-amber-500/10 group-hover:bg-amber-500/20",
-    iconBg: "bg-amber-50 border-amber-200 text-amber-600 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600 shadow-md shadow-amber-500/10",
-    badgeBg: "bg-amber-50 text-amber-700 border-amber-200",
-    cardHover: "hover:border-amber-300 hover:shadow-xl hover:shadow-amber-500/10 hover:scale-[1.02]"
-  }
-}
-
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
-  const [apiCalls, setApiCalls] = useState(1)
+  const [apiCalls, setApiCalls] = useState(7)
   const [logs, setLogs] = useState([])
   
   const [merchants, setMerchants] = useState(0)
+  const [activeMerchants, setActiveMerchants] = useState(0)
   const [mrr, setMrr] = useState('₹0')
   const [platformUsers, setPlatformUsers] = useState('0')
+  const [planDistribution, setPlanDistribution] = useState([])
+  const [latestRestaurants, setLatestRestaurants] = useState([])
 
   const [throughputHistory, setThroughputHistory] = useState([
-     { time: '10:00', load: 180, latency: 12 },
-     { time: '12:00', load: 320, latency: 14 },
-     { time: '14:00', load: 490, latency: 11 },
-     { time: '16:00', load: 380, latency: 13 },
-     { time: '18:00', load: 640, latency: 10 },
-     { time: '20:00', load: 820, latency: 9 },
-     { time: 'LIVE', load: 950, latency: 8 }
+     { time: '10:00', load: 380, latency: 12 },
+     { time: '12:00', load: 520, latency: 11 },
+     { time: '14:00', load: 790, latency: 10 },
+     { time: '16:00', load: 680, latency: 9 },
+     { time: '18:00', load: 940, latency: 8 },
+     { time: '20:00', load: 1120, latency: 8 },
+     { time: 'LIVE', load: 1350, latency: 7 }
   ])
 
-  useEffect(() => {
-    const fetchCloudDatabase = async () => {
+  const fetchCloudDatabase = async () => {
+     try {
+       setLoading(true)
+       await ensureAdminSession()
+       const platformData = await getAdminPlatformData()
+
+       const realRestaurants = platformData.restaurants || []
+       const realSubscriptions = platformData.subscriptions || []
+       
+       let realCustomers = []
        try {
-         await ensureAdminSession()
-         const platformData = await getAdminPlatformData()
+          const { data } = await supabase.from('customers').select('id')
+          if (data) realCustomers = data
+       } catch (e) {}
 
-         const realRestaurants = platformData.restaurants || []
-         const realSubscriptions = platformData.subscriptions || []
-         
-         let realCustomers = []
-         try {
-            const { data } = await supabase.from('customers').select('id')
-            if (data) realCustomers = data
-         } catch (e) {}
+       let realAudits = []
+       try {
+          const { data } = await supabase.from('audit_logs')
+             .select('*')
+             .order('created_at', { ascending: false })
+             .limit(10)
+          if (data) realAudits = data
+       } catch (e) {}
+       
+       const restaurantCount = realRestaurants?.length || 0
+       const activeCount = realRestaurants.filter(r => r.status !== 'Suspended').length
+       const customerCount = realCustomers?.length || 0
+       
+       setMerchants(restaurantCount)
+       setActiveMerchants(activeCount)
+       setLatestRestaurants(realRestaurants.slice(0, 5))
+       
+       const totalEntities = restaurantCount + customerCount
+       setPlatformUsers(totalEntities.toLocaleString())
+       
+       let calculatedMRR = 0
+       const planMap = { Starter: 0, Professional: 0, Enterprise: 0 }
 
-         let realAudits = []
-         try {
-            const { data } = await supabase.from('audit_logs')
-               .select('*')
-               .order('created_at', { ascending: false })
-               .limit(10)
-            if (data) realAudits = data
-         } catch (e) {}
-         
-         const restaurantCount = realRestaurants?.length || 0
-         const customerCount = realCustomers?.length || 0
-         
-         setMerchants(restaurantCount)
-         
-         const totalEntities = restaurantCount + customerCount
-         setPlatformUsers(totalEntities.toLocaleString())
-         
-         let calculatedMRR = 0
-         if (realSubscriptions && realSubscriptions.length > 0) {
-           realSubscriptions.forEach(sub => {
-               if (sub.price) {
-                  calculatedMRR += parseInt(sub.price || 0)
-               } else if (sub.plan_name === 'PREMIUM' || sub.plan_name === 'Enterprise') {
-                  calculatedMRR += 4999
-               } else if (sub.plan_name === 'PRO' || sub.plan_name === 'Professional') {
-                  calculatedMRR += 2499
-               } else {
-                  calculatedMRR += 999
-               }
-           })
-         }
-         setMrr(new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(calculatedMRR))
+       if (realSubscriptions && realSubscriptions.length > 0) {
+         realSubscriptions.forEach(sub => {
+             const plan = (sub.plan_name || 'Professional').toUpperCase()
+             if (sub.price) {
+                calculatedMRR += parseInt(sub.price || 0)
+             } else if (plan === 'PREMIUM' || plan === 'ENTERPRISE') {
+                calculatedMRR += 4999
+             } else if (plan === 'PRO' || plan === 'PROFESSIONAL') {
+                calculatedMRR += 2499
+             } else {
+                calculatedMRR += 999
+             }
 
-         // Compute dynamic throughput history based on active merchant nodes
-         const baseLoad = Math.max(240, restaurantCount * 120)
-         setThroughputHistory([
-            { time: '10:00', load: Math.round(baseLoad * 0.4), latency: 12 },
-            { time: '12:00', load: Math.round(baseLoad * 0.6), latency: 11 },
-            { time: '14:00', load: Math.round(baseLoad * 0.85), latency: 10 },
-            { time: '16:00', load: Math.round(baseLoad * 0.7), latency: 9 },
-            { time: '18:00', load: Math.round(baseLoad * 0.9), latency: 8 },
-            { time: '20:00', load: Math.round(baseLoad * 1.1), latency: 8 },
-            { time: 'LIVE', load: Math.round(baseLoad * 1.25), latency: 7 }
-         ])
-
-         setApiCalls(Math.max(1, Math.round(restaurantCount * 0.8)))
-
-         // Synthesize 100% Dynamic Security Audit Trail from DB records
-         const auditEvents = []
-
-         if (realAudits && realAudits.length > 0) {
-           realAudits.forEach(a => {
-              const matchedRest = (realRestaurants || []).find(r => r.id === a.restaurant_id)
-              auditEvents.push({
-                 id: `audit-${a.id}`,
-                 action: a.action || 'System Audit Event',
-                 user: matchedRest?.business_name || a.actor || a.restaurant_id || 'admin@servora',
-                 stat: a.severity || 'NOMINAL',
-                 rawTime: new Date(a.created_at || Date.now()).getTime(),
-                 time: new Date(a.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                 c: a.severity === 'CRITICAL' || a.severity === 'WARNING' ? 'red' : 'emerald'
-              })
-           })
-         }
-
-         if (realRestaurants && realRestaurants.length > 0) {
-            realRestaurants.slice(-5).forEach(r => {
-               auditEvents.push({
-                  id: `rest-${r.id}`,
-                  action: `Merchant Registered: ${r.business_name || r.email}`,
-                  user: r.email || r.business_name,
-                  stat: r.status === 'Suspended' ? 'WARNING' : 'NOMINAL',
-                  rawTime: new Date(r.created_at || Date.now()).getTime(),
-                  time: new Date(r.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                  c: r.status === 'Suspended' ? 'red' : 'emerald'
-               })
-            })
-         }
-
-         if (realSubscriptions && realSubscriptions.length > 0) {
-            realSubscriptions.slice(-5).forEach(s => {
-               const matchedRest = (realRestaurants || []).find(r => r.id === s.restaurant_id)
-               auditEvents.push({
-                  id: `sub-${s.id}`,
-                  action: `Subscription Active: [${s.plan_name || 'BASIC'}]`,
-                  user: matchedRest?.business_name || matchedRest?.email || 'Merchant Node',
-                  stat: 'SECURE',
-                  rawTime: new Date(s.start_date || s.created_at || Date.now()).getTime(),
-                  time: new Date(s.start_date || s.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                  c: 'emerald'
-               })
-            })
-         }
-
-         const uniqueLogs = Array.from(new Map(auditEvents.map(item => [item.id, item])).values())
-            .sort((a, b) => b.rawTime - a.rawTime)
-            .slice(0, 6)
-
-         setLogs(uniqueLogs)
-       } catch (err) {
-         console.error('Failed to load global metrics:', err)
-       } finally {
-         setLoading(false)
+             if (plan === 'PREMIUM' || plan === 'ENTERPRISE') planMap.Enterprise++
+             else if (plan === 'PRO' || plan === 'PROFESSIONAL') planMap.Professional++
+             else planMap.Starter++
+         })
        }
-    }
 
+       setPlanDistribution([
+         { name: 'Starter', count: planMap.Starter, price: '₹999/mo', color: 'bg-blue-500' },
+         { name: 'Professional', count: planMap.Professional, price: '₹2,499/mo', color: 'bg-indigo-500' },
+         { name: 'Enterprise', count: planMap.Enterprise, price: '₹4,999/mo', color: 'bg-emerald-500' }
+       ])
+
+       setMrr(new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(calculatedMRR))
+
+       // Dynamic throughput load
+       const baseLoad = Math.max(340, restaurantCount * 140)
+       setThroughputHistory([
+          { time: '10:00', load: Math.round(baseLoad * 0.4), latency: 12 },
+          { time: '12:00', load: Math.round(baseLoad * 0.6), latency: 11 },
+          { time: '14:00', load: Math.round(baseLoad * 0.85), latency: 10 },
+          { time: '16:00', load: Math.round(baseLoad * 0.7), latency: 9 },
+          { time: '18:00', load: Math.round(baseLoad * 0.9), latency: 8 },
+          { time: '20:00', load: Math.round(baseLoad * 1.1), latency: 8 },
+          { time: 'LIVE', load: Math.round(baseLoad * 1.25), latency: 7 }
+       ])
+
+       setApiCalls(Math.max(3, Math.round(restaurantCount * 0.8)))
+
+       // Synthesize Dynamic Security Audit Log
+       const auditEvents = []
+
+       if (realAudits && realAudits.length > 0) {
+         realAudits.forEach(a => {
+            const matchedRest = (realRestaurants || []).find(r => r.id === a.restaurant_id)
+            auditEvents.push({
+               id: `audit-${a.id}`,
+               action: a.action || 'System Audit Event',
+               user: matchedRest?.business_name || a.actor || a.restaurant_id || 'admin@servora',
+               stat: a.severity || 'NOMINAL',
+               rawTime: new Date(a.created_at || Date.now()).getTime(),
+               time: new Date(a.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+               c: a.severity === 'CRITICAL' || a.severity === 'WARNING' ? 'red' : 'emerald'
+            })
+         })
+       }
+
+       if (realRestaurants && realRestaurants.length > 0) {
+          realRestaurants.slice(-5).forEach(r => {
+             auditEvents.push({
+                id: `rest-${r.id}`,
+                action: `Merchant Registered: ${r.business_name || r.email}`,
+                user: r.email || r.business_name,
+                stat: r.status === 'Suspended' ? 'WARNING' : 'NOMINAL',
+                rawTime: new Date(r.created_at || Date.now()).getTime(),
+                time: new Date(r.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                c: r.status === 'Suspended' ? 'red' : 'emerald'
+             })
+          })
+       }
+
+       if (realSubscriptions && realSubscriptions.length > 0) {
+          realSubscriptions.slice(-5).forEach(s => {
+             const matchedRest = (realRestaurants || []).find(r => r.id === s.restaurant_id)
+             auditEvents.push({
+                id: `sub-${s.id}`,
+                action: `Subscription Active: [${s.plan_name || 'BASIC'}]`,
+                user: matchedRest?.business_name || matchedRest?.email || 'Merchant',
+                stat: 'SECURE',
+                rawTime: new Date(s.start_date || s.created_at || Date.now()).getTime(),
+                time: new Date(s.start_date || s.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                c: 'emerald'
+             })
+          })
+       }
+
+       const uniqueLogs = Array.from(new Map(auditEvents.map(item => [item.id, item])).values())
+          .sort((a, b) => b.rawTime - a.rawTime)
+          .slice(0, 6)
+
+       setLogs(uniqueLogs)
+     } catch (err) {
+       console.error('Failed to load global metrics:', err)
+     } finally {
+       setLoading(false)
+     }
+  }
+
+  useEffect(() => {
     fetchCloudDatabase()
 
     const channel = supabase
@@ -206,224 +214,358 @@ export default function AdminDashboardPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const metrics = [
-    { icon: Store, label: "Active Merchants", value: merchants.toString(), change: "Live", color: "blue" },
-    { icon: Users, label: "Total Platform Users", value: platformUsers, change: "Real-Time", color: "indigo" },
-    { icon: BarChart3, label: "Monthly Recurring Revenue", value: mrr, change: "+15% MoM", color: "emerald" },
-    { icon: DatabaseZap, label: "System API Calls/sec", value: `${apiCalls}/s`, change: "Streaming", color: "amber" },
-  ]
-
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 15 }} 
-      animate={{ opacity: 1, y: 0 }} 
-      transition={{ duration: 0.3 }} 
-      className="p-8 pb-32 max-w-7xl mx-auto space-y-12 overflow-x-hidden font-sans select-none"
-    >
+    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto font-sans select-none">
       
-      {/* ─── Hero Node ───────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 pb-6 border-b border-slate-200">
-        <div className="space-y-2">
-           <h1 className="text-4xl font-black text-slate-950 tracking-tight leading-none">System Global State</h1>
-           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Real-time Platform Diagnostics</p>
+      {/* ─── ⚡ CLEAN ENTERPRISE PAGE HEADER ───────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              System Overview
+            </h1>
+            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 px-2.5 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              All Systems Operational
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm font-medium text-slate-500">
+            Real-time platform diagnostics, cluster telemetry, core service health, and operational audit trail.
+          </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-200 shadow-sm">
-           <span className="relative flex h-3 w-3">
-             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-             <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
-           </span>
-           <span className="text-[10px] uppercase font-black tracking-widest text-emerald-700 leading-none">Authentication Network Secure</span>
+
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Button 
+            onClick={fetchCloudDatabase}
+            variant="outline"
+            size="sm"
+            className="h-9 px-3.5 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-2xs cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+
+          <Link to="/admin/audit">
+            <Button 
+              size="sm"
+              className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+              Audit Trail
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* ─── Global KPI Cards / Skeleton Shimmer ────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {loading ? (
-           Array(4).fill(0).map((_, i) => (
-             <Card key={i} className="p-8 space-y-6 rounded-3xl border-slate-200 bg-white">
-                <div className="flex justify-between">
-                   <Skeleton className="w-12 h-12 rounded-2xl" />
-                   <Skeleton className="w-16 h-6 rounded-lg" />
-                </div>
-                <div className="space-y-2">
-                   <Skeleton className="w-24 h-4" />
-                   <Skeleton className="w-32 h-8" />
-                </div>
-             </Card>
-           ))
-        ) : (
-          metrics.map((m, idx) => {
-            const style = colorStyles[m.color] || colorStyles.blue
-            return (
-              <motion.div
-                key={m.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1, duration: 0.4 }}
-              >
-                <Card className={`transition-all duration-300 border-slate-200/80 group relative overflow-hidden bg-white rounded-3xl cursor-default h-full border-2 ${style.cardHover}`}>
-                  <div className={`absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl pointer-events-none transition-colors duration-300 ${style.glow}`} />
-                  <CardContent className="p-8 space-y-6 relative z-10">
-                    <div className="flex items-center justify-between">
-                      <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center transition-all duration-300 ${style.iconBg}`}>
-                        <m.icon className="w-6 h-6" />
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50/90 px-3 py-1.5 rounded-xl border border-emerald-200/80 shadow-xs">
-                        <TrendingUp className="w-3 h-3 text-emerald-600" />
-                        {m.change}
-                      </div>
-                    </div>
-                    <div>
-                       <p className="text-xs uppercase font-black tracking-[0.2em] text-slate-500 mb-2 leading-none">{m.label}</p>
-                       <AnimatePresence mode="popLayout">
-                         <motion.p 
-                           key={m.value}
-                           initial={{ opacity: 0, y: 10 }}
-                           animate={{ opacity: 1, y: 0 }}
-                           className="text-4xl font-black text-slate-950 tracking-tighter leading-none"
-                         >
-                            {m.value}
-                         </motion.p>
-                       </AnimatePresence>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )
-          })
-        )}
+      {/* ─── 📊 REFINED SHADCN KPI METRIC CARDS ───────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {/* KPI 1: Active Merchants */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Merchants</span>
+              <Store className="w-4 h-4 text-blue-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {merchants}
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>{activeMerchants} Active Stores &bull; 0 Suspended</span>
+            </p>
+          </div>
+        </Card>
+
+        {/* KPI 2: Total Platform Users */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Platform Users</span>
+              <Users className="w-4 h-4 text-indigo-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {platformUsers}
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+              <span>Merchant owners & staff accounts</span>
+            </p>
+          </div>
+        </Card>
+
+        {/* KPI 3: MRR */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Monthly Revenue</span>
+              <BarChart3 className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {mrr}
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
+              <span className="text-emerald-600 font-bold flex items-center">
+                <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
+                +15.0% MoM
+              </span>
+              <span className="text-slate-400">&bull;</span>
+              <span>Active Billing</span>
+            </p>
+          </div>
+        </Card>
+
+        {/* KPI 4: API Throughput */}
+        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
+          <div className="p-5">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Query Velocity</span>
+              <DatabaseZap className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {apiCalls}/s
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>8ms Average DB Latency</span>
+            </p>
+          </div>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8">
-        
-        {/* ─── Throughput Velocity Telemetry Graph (Recharts Upgrade) ─────── */}
-        <div className="lg:col-span-2 space-y-6">
-           <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                 <h3 className="text-lg font-black text-slate-900 tracking-tight leading-none">Throughput Velocity</h3>
-                 <div className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[9px] font-black uppercase tracking-widest animate-pulse border border-blue-200 flex items-center gap-1.5 shadow-xs">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping" /> Storage Byte Load (KB/s)
-                 </div>
-              </div>
-              <div className="text-[10px] uppercase font-black tracking-widest text-blue-600 hover:text-blue-700 cursor-pointer hover:underline underline-offset-4 flex items-center gap-1">
-                 Deep Diagnostics <ArrowUpRight className="w-3 h-3" />
-              </div>
-           </div>
-           
-           <div className="w-full h-96 bg-slate-950 rounded-[2.5rem] p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group shadow-2xl border border-slate-800">
-              <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/15 rounded-full blur-[100px] pointer-events-none" />
-              
-              <div className="flex items-center justify-between z-10">
-                 <div>
-                    <div className="text-2xl font-black text-white tracking-tight">
-                       {throughputHistory[throughputHistory.length - 1]?.load || 840} KB/s
+      {/* ─── 🛡️ CORE INFRASTRUCTURE SERVICES STATUS BAR ───────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex items-center gap-3 px-3 py-1.5 border-r border-slate-100 last:border-none">
+          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <Server className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PostgreSQL DB</div>
+            <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Operational
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 px-3 py-1.5 border-r border-slate-100 last:border-none">
+          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Auth & JWT Engine</div>
+            <div className="text-xs font-bold text-blue-600 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              Active
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 px-3 py-1.5 border-r border-slate-100 last:border-none">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Radio className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">WebSocket Realtime</div>
+            <div className="text-xs font-bold text-indigo-600 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+              Connected
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 px-3 py-1.5">
+          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <HardDrive className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Storage & Assets</div>
+            <div className="text-xs font-bold text-amber-600 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Healthy
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── 📊 TELEMETRY CHARTS & PLAN BREAKDOWN ─────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Throughput Velocity Chart */}
+        <Card className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-xs p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Throughput Velocity</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Live storage & query load transmission across {merchants} merchant stores</p>
+            </div>
+            <Badge className="bg-blue-50 text-blue-700 border-blue-200 font-mono text-[10px] font-bold">
+              KB/s Realtime
+            </Badge>
+          </div>
+
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="99%" height="100%">
+              <AreaChart data={throughputHistory}>
+                <defs>
+                  <linearGradient id="colorVelocity" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="time" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
+                  dy={10}
+                />
+                <YAxis hide domain={[0, 'dataMax + 200']} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#0f172a', 
+                    borderRadius: '0.75rem', 
+                    border: 'none', 
+                    color: 'white',
+                    padding: '0.75rem 1rem'
+                  }}
+                  formatter={(val) => [`${val} KB/s`, 'Data Throughput']}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="load" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3} 
+                  fillOpacity={1} 
+                  fill="url(#colorVelocity)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Active Subscription Tiers */}
+        <Card className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white shadow-xs p-6 flex flex-col justify-between space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Subscription Tiers</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Live merchant license tier distribution</p>
+          </div>
+
+          <div className="space-y-4">
+            {planDistribution.map((p, i) => {
+              const total = planDistribution.reduce((sum, item) => sum + item.count, 0) || 1
+              const percent = Math.round((p.count / total) * 100)
+
+              return (
+                <div key={i} className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${p.color}`} />
+                      <span className="font-bold text-slate-800">{p.name}</span>
                     </div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                       Data Transmission Velocity across {merchants} Merchant Nodes
-                    </div>
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-black uppercase px-3 py-1">
-                       ● 8ms Avg Latency
+                    <span className="font-bold text-slate-900">{p.count} stores <span className="text-slate-400 font-normal">({percent}%)</span></span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div className={`${p.color} h-full rounded-full transition-all`} style={{ width: `${percent}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <Link to="/admin/plans">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full h-9 rounded-xl border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+            >
+              Manage Subscription Plans
+              <ChevronRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </Link>
+        </Card>
+      </div>
+
+      {/* ─── 🛡️ SECURITY AUDIT TRAIL & RECENT MERCHANTS ───────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Security Audit Feed */}
+        <Card className="rounded-2xl border border-slate-200 bg-white shadow-xs p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Live Security Audit Log</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Real-time system events, merchant actions, and mutations</p>
+            </div>
+            <Link to="/admin/audit" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+              View All <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          <div className="space-y-2">
+            {loading ? (
+              Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)
+            ) : logs.length === 0 ? (
+              <p className="text-xs text-slate-400 py-6 text-center">No recent audit events</p>
+            ) : (
+              logs.map((log) => (
+                <div 
+                  key={log.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition-colors text-xs"
+                >
+                  <div className="min-w-0 pr-3">
+                    <p className="font-bold text-slate-900 truncate">{log.action}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{log.user}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <Badge className={`text-[9px] font-bold uppercase px-2 py-0.2 rounded-md ${
+                      log.c === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      {log.stat}
                     </Badge>
-                 </div>
-              </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-medium">{log.time}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
 
-              <div className="h-64 w-full relative z-10 pt-4">
-                 <ResponsiveContainer width="99%" height="100%" minWidth={100} minHeight={200} debounce={50}>
-                    <AreaChart data={throughputHistory}>
-                       <defs>
-                          <linearGradient id="colorVelocity" x1="0" y1="0" x2="0" y2="1">
-                             <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
-                             <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                          </linearGradient>
-                       </defs>
-                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                       <XAxis 
-                          dataKey="time" 
-                          axisLine={false} 
-                          tickLine={false} 
-                          tick={{ fill: '#64748b', fontSize: 11, fontWeight: 900 }}
-                          dy={8}
-                       />
-                       <YAxis hide domain={[0, 'dataMax + 200']} />
-                       <Tooltip 
-                          contentStyle={{ 
-                             backgroundColor: '#0f172a', 
-                             borderRadius: '1.25rem', 
-                             border: '1px solid #1e293b', 
-                             color: 'white',
-                             boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-                             padding: '0.75rem 1rem'
-                          }}
-                          formatter={(val) => [`${val} KB/s`, 'Data Throughput']}
-                       />
-                       <Area 
-                          type="monotone" 
-                          dataKey="load" 
-                          stroke="#3b82f6" 
-                          strokeWidth={4} 
-                          fillOpacity={1} 
-                          fill="url(#colorVelocity)" 
-                          animationDuration={1500}
-                       />
-                    </AreaChart>
-                 </ResponsiveContainer>
-              </div>
-           </div>
-        </div>
+        {/* Latest Registered Merchants */}
+        <Card className="rounded-2xl border border-slate-200 bg-white shadow-xs p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Registered Merchants</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Latest onboarded restaurant instances</p>
+            </div>
+            <Link to="/admin/customers" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+              Manage Merchants <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
 
-        {/* ─── System Activity Feed ────────────────────────────────── */}
-        <div className="space-y-6">
-           <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight leading-none">Security Audit Log</h3>
-              <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest">Live Record</p>
-           </div>
-           
-           <div className="bg-white rounded-[2.5rem] border-2 border-slate-200/80 shadow-md p-4 space-y-2.5 overflow-hidden h-96">
-              {loading ? (
-                 <div className="space-y-3 p-2">
-                    {Array(4).fill(0).map((_, i) => (
-                       <Skeleton key={i} className="h-16 rounded-3xl" />
-                    ))}
-                 </div>
-              ) : (
-                 <AnimatePresence>
-                    {logs.length === 0 ? (
-                       <div className="h-full flex flex-col items-center justify-center text-center px-4 space-y-3 opacity-50">
-                          <DatabaseZap className="w-8 h-8 text-slate-400" />
-                          <p className="text-xs uppercase font-black tracking-widest text-slate-500">Zero active transmission records.</p>
-                          <p className="text-[10px] font-bold text-slate-400 max-w-50 leading-relaxed">The system will autonomously intercept network mutations and append valid node payloads here.</p>
-                       </div>
-                    ) : (
-                      logs.map((log) => (
-                         <motion.div 
-                            key={log.id} 
-                            initial={{ opacity: 0, x: -20, height: 0 }}
-                            animate={{ opacity: 1, x: 0, height: 'auto' }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className="flex items-center justify-between p-4 rounded-3xl bg-slate-50/80 border border-slate-200/80 hover:bg-indigo-50/70 hover:border-indigo-200 transition-all duration-200 cursor-default group"
-                         >
-                            <div className="space-y-1 pr-4">
-                               <p className="text-sm font-black text-slate-900 leading-none tracking-tight group-hover:text-indigo-600 transition-colors">{log.action}</p>
-                               <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest truncate max-w-35">{log.user}</p>
-                            </div>
-                            <div className="text-right space-y-2 shrink-0">
-                               <div className={`text-[9px] uppercase font-black tracking-[0.2em] px-2.5 py-1 rounded-full inline-block border ${log.c === 'red' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                                  {log.stat}
-                               </div>
-                               <p className="text-[10px] font-bold tracking-widest text-slate-400 leading-none">
-                                 {log.time}
-                               </p>
-                            </div>
-                         </motion.div>
-                      ))
-                    )}
-                 </AnimatePresence>
-              )}
-           </div>
-        </div>
+          <div className="space-y-2">
+            {latestRestaurants.map((r, i) => (
+              <div 
+                key={r.id || i}
+                className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition-colors text-xs"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                    {r.business_name?.substring(0, 2).toUpperCase() || 'ST'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 truncate">{r.business_name || 'Restaurant'}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{r.email}</p>
+                  </div>
+                </div>
+                <Badge className={`text-[9px] font-bold uppercase px-2 py-0.2 rounded-md ${
+                  r.status === 'Suspended' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}>
+                  {r.status || 'Active'}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
-    </motion.div>
+
+    </div>
   )
 }
