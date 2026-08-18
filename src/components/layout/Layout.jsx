@@ -5,10 +5,9 @@ import MobileNavbar from './MobileNavbar'
 import OrderNotification from '../dashboard/OrderNotification'
 
 export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange, restaurantId, plan, onUpgradeClick }) {
-  // On iPad (md), default to collapsed. On desktop (lg+), start expanded.
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    return typeof window !== 'undefined' ? window.innerWidth < 1024 : false
-  })
+  // Sidebar starts expanded on all screen sizes (md+).
+  // User can collapse it anytime using the PanelLeft toggle in the navbar.
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
