@@ -19,6 +19,8 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
     category: defaultCategory,
     type: item?.type || 'VEG',
     isInStock: item?.isInStock !== undefined ? item.isInStock : true,
+    quantity: item?.quantity ?? '',
+    halfPrice: item?.halfPrice ?? '',
     photo: item?.photo || ''
   })
 
@@ -95,6 +97,8 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
       category: formData.category,
       type: formData.type,
       isInStock: formData.isInStock,
+      quantity: formData.quantity,
+      halfPrice: formData.halfPrice,
       photo: formData.photo,
       price: Math.max(0, parseFloat(formData.price) || 0),
       createdAt: item?.createdAt || new Date(),
@@ -134,15 +138,50 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="price">Price ({currencySymbol}) *</Label>
+              <Label htmlFor="price">Full Plate Price *</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-gray-500">{currencySymbol}</span>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => handleInputChange('price', e.target.value)}
+                  className="pl-8"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="halfPrice">Half Plate Price (Optional)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-gray-500">{currencySymbol}</span>
+                <Input
+                  id="halfPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.halfPrice}
+                  onChange={(e) => handleInputChange('halfPrice', e.target.value)}
+                  className="pl-8"
+                  placeholder="Leave blank if N/A"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Stock Quantity (Optional)</Label>
               <Input
-                id="price"
+                id="quantity"
                 type="number"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => handleInputChange('price', e.target.value)}
-                placeholder="0.00"
-                required
+                min="0"
+                step="1"
+                value={formData.quantity}
+                onChange={(e) => handleInputChange('quantity', e.target.value)}
+                placeholder="Leave blank for infinite"
               />
             </div>
           </div>

@@ -35,7 +35,10 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       try {
         // High-fidelity Web Audio API synth chime (zero external network dependency)
         const ctx = new (window.AudioContext || window.webkitAudioContext)()
-      // Respect user's sound preferences
+      } catch (err) {}
+
+      // Respect user's sound preferences (currently disabled until settings context is added)
+      const settings = { soundEnabled: true, notificationsEnabled: true };
       if (settings?.soundEnabled === false || settings?.notificationsEnabled === false) {
         return
       }

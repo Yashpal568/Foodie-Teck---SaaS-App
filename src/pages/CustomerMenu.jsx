@@ -198,6 +198,9 @@ export default function CustomerMenu() {
     offsetY: 0
   }) 
   const [isDragging, setIsDragging] = useState(false)
+
+  // New state for Variant Selection Modal
+  const [variantModalItem, setVariantModalItem] = useState(null)
   const [customerName, setCustomerName] = useState('')
   const [cookingInstructions, setCookingInstructions] = useState('')
   const [activeTab, setActiveTab] = useState('menu')
@@ -459,26 +462,42 @@ export default function CustomerMenu() {
     }
   }, [categories, activeCategory])
 
-  const addToCart = (item) => {
+  const addToCart = (item, variant = 'full') => {
     trackItemView(item._id)
-    const existing = cart.find(i => i._id === item._id)
+    const price = variant === 'half' ? item.halfPrice : item.price
+    const name = variant === 'half' ? `${item.name} (Half Plate)` : item.name
+    const cartItemId = `${item._id}-${variant}`
+
+    // Check stock limit across variants
+    const totalInCart = cart.filter(i => i._id === item._id).reduce((sum, i) => sum + i.quantity, 0)
+    if (item.quantity !== null && item.quantity !== undefined && totalInCart >= item.quantity) {
+      toast.error(`Only ${item.quantity} available in stock`)
+      return
+    }
+
+    const existing = cart.find(i => i.cartItemId === cartItemId)
     if (existing) {
-      setCart(cart.map(i => i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i))
+      setCart(cart.map(i => i.cartItemId === cartItemId ? { ...i, quantity: i.quantity + 1 } : i))
     } else {
-      setCart([...cart, { ...item, quantity: 1 }])
+      setCart([...cart, { ...item, cartItemId, price, name, variant, quantity: 1 }])
     }
   }
 
-  const removeFromCart = (itemId) => {
-    const existing = cart.find(i => i._id === itemId)
+  const removeFromCart = (cartItemId) => {
+    const existing = cart.find(i => i.cartItemId === cartItemId)
     if (existing?.quantity > 1) {
-      setCart(cart.map(i => i._id === itemId ? { ...i, quantity: i.quantity - 1 } : i))
+      setCart(cart.map(i => i.cartItemId === cartItemId ? { ...i, quantity: i.quantity - 1 } : i))
     } else {
-      setCart(cart.filter(i => i._id !== itemId))
+      setCart(cart.filter(i => i.cartItemId !== cartItemId))
     }
   }
 
-  const getQuantity = (itemId) => cart.find(i => i._id === itemId)?.quantity || 0
+  // Get total quantity of a specific item across all variants (for stock checking)
+  const getTotalQuantityForItem = (itemId) => cart.filter(i => i._id === itemId).reduce((sum, i) => sum + i.quantity, 0)
+  
+  // Get quantity of a specific variant in cart
+  const getQuantity = (cartItemId) => cart.find(i => i.cartItemId === cartItemId)?.quantity || 0
+
   const getTotalPrice = () => cart.reduce((t, i) => t + (i.price * i.quantity), 0)
   const getTotalItems = () => cart.reduce((t, i) => t + i.quantity, 0)
 
@@ -1071,36 +1090,52 @@ export default function CustomerMenu() {
                             {formatPrice(item.price)}
                           </span>
 
-                          {getQuantity(item._id) > 0 ? (
+                          {getTotalQuantityForItem(item._id) > 0 && !item.halfPrice ? (
                             <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-md gap-2 border border-white/20">
                               <button 
                                 className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                onClick={(e) => { e.stopPropagation(); removeFromCart(item._id); }}
+                                onClick={(e) => { e.stopPropagation(); removeFromCart(`${item._id}-full`); }}
                               >
                                 <Minus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                               </button>
                               <span className="text-xs font-black min-w-4 text-center text-white">
-                                {getQuantity(item._id)}
+                                {getQuantity(`${item._id}-full`)}
                               </span>
                               <button 
                                 className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                onClick={(e) => { e.stopPropagation(); addToCart(item); }}
+                                onClick={(e) => { e.stopPropagation(); addToCart(item, 'full'); }}
                               >
                                 <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                               </button>
                             </div>
+                          ) : item.quantity !== null && item.quantity !== undefined && item.quantity <= 0 ? (
+                            <div className="px-3 py-1.5 border border-red-500/20 bg-red-50/50 rounded-lg text-[10px] font-bold text-red-600 uppercase tracking-wider">
+                              Out of Stock
+                            </div>
                           ) : (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); addToCart(item); }}
-                              className={`px-4 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-sm hover:shadow-md rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
-                                theme === 'dark'
-                                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-black hover:border-amber-400'
-                                  : 'bg-white text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500'
-                              }`}
-                            >
-                              <span>ADD</span>
-                              <Plus className="w-3.5 h-3.5 stroke-3" />
-                            </button>
+                            <div className="flex flex-col items-end gap-1">
+                              <button 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  if (item.halfPrice) {
+                                    setVariantModalItem(item)
+                                  } else {
+                                    addToCart(item, 'full')
+                                  }
+                                }}
+                                className={`px-4 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-sm hover:shadow-md rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                                  theme === 'dark'
+                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-black hover:border-amber-400'
+                                    : 'bg-white text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500'
+                                }`}
+                              >
+                                <span>ADD</span>
+                                <Plus className="w-3.5 h-3.5 stroke-3" />
+                              </button>
+                              {item.halfPrice && (
+                                <span className="text-[9px] text-zinc-500 font-bold">Customizable</span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1304,42 +1339,58 @@ export default function CustomerMenu() {
 
                               {/* Swiggy/Zomato Signature Overlapping ADD Button */}
                               <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-10">
-                                {getQuantity(item._id) > 0 ? (
+                                {getTotalQuantityForItem(item._id) > 0 && !item.halfPrice ? (
                                   <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-lg gap-2 border border-white/20 whitespace-nowrap">
                                     <button 
                                       className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                      onClick={(e) => { e.stopPropagation(); removeFromCart(item._id); }}
+                                      onClick={(e) => { e.stopPropagation(); removeFromCart(`${item._id}-full`); }}
                                     >
                                       <Minus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                                     </button>
                                     <motion.span 
-                                      key={getQuantity(item._id)} 
+                                      key={getQuantity(`${item._id}-full`)} 
                                       initial={{ scale: 1.35 }} 
                                       animate={{ scale: 1 }} 
                                       transition={{ type: "spring", stiffness: 500, damping: 20 }}
                                       className="text-xs font-black min-w-4 text-center text-white"
                                     >
-                                      {getQuantity(item._id)}
+                                      {getQuantity(`${item._id}-full`)}
                                     </motion.span>
                                     <button 
                                       className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                      onClick={(e) => { e.stopPropagation(); addToCart(item); }}
+                                      onClick={(e) => { e.stopPropagation(); addToCart(item, 'full'); }}
                                     >
                                       <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                                     </button>
                                   </div>
+                                ) : item.quantity !== null && item.quantity !== undefined && item.quantity <= 0 ? (
+                                  <div className="px-3 py-1 bg-red-50/90 backdrop-blur border border-red-200 rounded-lg text-[9px] font-bold text-red-600 uppercase tracking-wider shadow-sm">
+                                    Out of Stock
+                                  </div>
                                 ) : (
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); addToCart(item); }} 
-                                    className={`px-5 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-md rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1 transition-all whitespace-nowrap cursor-pointer ${
-                                      theme === 'dark'
-                                        ? 'bg-zinc-900 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 hover:shadow-[0_4px_15px_rgba(245,158,11,0.35)]'
-                                        : 'bg-white text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500'
-                                    }`}
-                                  >
-                                    <span>ADD</span>
-                                    <Plus className="w-3.5 h-3.5 stroke-3" />
-                                  </button>
+                                  <div className="flex flex-col items-center gap-1">
+                                    <button 
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        if (item.halfPrice) {
+                                          setVariantModalItem(item)
+                                        } else {
+                                          addToCart(item, 'full')
+                                        }
+                                      }} 
+                                      className={`px-5 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-md rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1 transition-all whitespace-nowrap cursor-pointer ${
+                                        theme === 'dark'
+                                          ? 'bg-zinc-900 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 hover:shadow-[0_4px_15px_rgba(245,158,11,0.35)]'
+                                          : 'bg-white text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 hover:border-emerald-500'
+                                      }`}
+                                    >
+                                      <span>ADD</span>
+                                      <Plus className="w-3.5 h-3.5 stroke-3" />
+                                    </button>
+                                    {item.halfPrice && (
+                                      <span className="text-[9px] text-zinc-500 font-bold bg-white/80 px-2 py-0.5 rounded-full border border-zinc-200 shadow-sm mt-0.5">Customizable</span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1457,14 +1508,14 @@ export default function CustomerMenu() {
                           }`}>
                             <button 
                               className="h-5 w-5 rounded-md flex items-center justify-center hover:bg-white/20 active:scale-90 cursor-pointer" 
-                              onClick={() => removeFromCart(item._id)}
+                              onClick={() => removeFromCart(item.cartItemId)}
                             >
                               <Minus className="w-2.5 h-2.5 text-white" />
                             </button>
                             <span className="text-[11px] font-black min-w-3 text-center">{item.quantity}</span>
                             <button 
                               className="h-5 w-5 rounded-md flex items-center justify-center hover:bg-white/20 active:scale-90 cursor-pointer" 
-                              onClick={() => addToCart(item)}
+                              onClick={() => addToCart(item, item.variant)}
                             >
                               <Plus className="w-2.5 h-2.5 text-white" />
                             </button>
@@ -1768,7 +1819,7 @@ export default function CustomerMenu() {
                         }`}>
                           <button 
                             className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                            onClick={() => removeFromCart(item._id)}
+                            onClick={() => removeFromCart(item.cartItemId)}
                           >
                             <Minus className="w-3 h-3 text-white stroke-[2.5]" />
                           </button>
@@ -1777,7 +1828,7 @@ export default function CustomerMenu() {
                           </span>
                           <button 
                             className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                            onClick={() => addToCart(item)}
+                            onClick={() => addToCart(item, item.variant)}
                           >
                             <Plus className="w-3 h-3 text-white stroke-[2.5]" />
                           </button>
@@ -2080,6 +2131,75 @@ export default function CustomerMenu() {
         onCallWaiter={handleCallWaiter}
         theme={theme}
       />
+
+      {/* Variant Selection Modal */}
+      <AnimatePresence>
+        {variantModalItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-200 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4"
+            onClick={() => setVariantModalItem(null)}
+          >
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+              onClick={e => e.stopPropagation()}
+              className={`w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl p-6 ${
+                theme === 'dark' ? 'bg-[#12141a] text-white border-t border-zinc-800' : 'bg-white text-zinc-900'
+              }`}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-xl font-bold">{variantModalItem.name}</h3>
+                  <p className={`text-sm ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                    Customize your portion size
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setVariantModalItem(null)}
+                  className={`p-2 rounded-full ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'}`}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {/* Full Plate Option */}
+                <div 
+                  onClick={() => { addToCart(variantModalItem, 'full'); setVariantModalItem(null); }}
+                  className={`flex justify-between items-center p-4 rounded-xl cursor-pointer border-2 transition-all hover:-translate-y-1 ${
+                    theme === 'dark' ? 'bg-zinc-900 border-zinc-800 hover:border-amber-500' : 'bg-zinc-50 border-zinc-200 hover:border-amber-400'
+                  }`}
+                >
+                  <div>
+                    <h4 className="font-bold text-[15px]">Full Plate</h4>
+                    <p className={`text-xs ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>Standard portion</p>
+                  </div>
+                  <span className="font-black text-lg">{formatPrice(variantModalItem.price)}</span>
+                </div>
+
+                {/* Half Plate Option */}
+                <div 
+                  onClick={() => { addToCart(variantModalItem, 'half'); setVariantModalItem(null); }}
+                  className={`flex justify-between items-center p-4 rounded-xl cursor-pointer border-2 transition-all hover:-translate-y-1 ${
+                    theme === 'dark' ? 'bg-zinc-900 border-zinc-800 hover:border-amber-500' : 'bg-zinc-50 border-zinc-200 hover:border-amber-400'
+                  }`}
+                >
+                  <div>
+                    <h4 className="font-bold text-[15px]">Half Plate</h4>
+                    <p className={`text-xs ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>Smaller portion</p>
+                  </div>
+                  <span className="font-black text-lg">{formatPrice(variantModalItem.halfPrice)}</span>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Waiter Call Popup */}
       <AnimatePresence>

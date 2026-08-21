@@ -103,6 +103,21 @@ export const createOrder = async (orderData) => {
     }))
     const { error: itemsError } = await supabase.from('order_items').insert(orderItemsPayload)
     if (itemsError) console.error('Error inserting order items:', itemsError)
+    
+    // Deduct stock for items that have inventory tracking
+    if (validRestaurantId && !itemsError) {
+      for (const item of lineItems) {
+        if (item.menu_item_id) {
+          try {
+            const { data: currentItem } = await supabase.from('menu_items').select('quantity').eq('id', item.menu_item_id).single()
+            if (currentItem && currentItem.quantity !== null && currentItem.quantity !== undefined) {
+              const newQty = Math.max(0, currentItem.quantity - item.quantity)
+              await supabase.from('menu_items').update({ quantity: newQty }).eq('id', item.menu_item_id)
+            }
+          } catch (err) {}
+        }
+      }
+    }
   }
 
   try {

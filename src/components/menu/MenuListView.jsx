@@ -244,7 +244,12 @@ export default function MenuListView({
                             </TableCell>
                             
                             <TableCell className="font-bold text-gray-900">
-                              {formatPrice(item.price, currency)}
+                              <div>{formatPrice(item.price, currency)}</div>
+                              {item.halfPrice && (
+                                <div className="text-[10px] font-normal text-gray-500 mt-0.5">
+                                  Half: {formatPrice(item.halfPrice, currency)}
+                                </div>
+                              )}
                             </TableCell>
                             
                             <TableCell className="">
@@ -254,6 +259,11 @@ export default function MenuListView({
                               >
                                 {item.isInStock ? 'In Stock' : 'Out of Stock'}
                               </Badge>
+                              {item.quantity !== undefined && item.quantity !== null && (
+                                <div className="mt-1 text-[10px] font-semibold text-gray-500">
+                                  Qty: {item.quantity}
+                                </div>
+                              )}
                             </TableCell>
                             
                             <TableCell className="text-right">
@@ -348,7 +358,12 @@ export default function MenuListView({
                             <div>
                               <div className="flex items-start justify-between gap-2 mb-1">
                                 <h4 className="font-bold text-slate-900 text-sm leading-tight truncate">{item.name}</h4>
-                                <span className="font-black text-slate-900 text-sm shrink-0">{formatPrice(item.price, currency)}</span>
+                                <div className="flex flex-col items-end shrink-0">
+                                  <span className="font-black text-slate-900 text-sm">{formatPrice(item.price, currency)}</span>
+                                  {item.halfPrice && (
+                                    <span className="text-[9px] text-slate-500 font-bold">H: {formatPrice(item.halfPrice, currency)}</span>
+                                  )}
+                                </div>
                               </div>
                               
                               <p className="text-[11px] text-slate-500 line-clamp-1 mb-2 font-medium">{item.description}</p>
@@ -366,9 +381,14 @@ export default function MenuListView({
                             
                             {/* Actions */}
                             <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-2">
-                              <Badge variant={item.isInStock ? "default" : "secondary"} className={item.isInStock ? "bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-bold uppercase h-5 px-2 shadow-sm" : "text-[9px] font-bold uppercase h-5 px-2 text-slate-400"}>
-                                {item.isInStock ? 'Live' : 'Hidden'}
-                              </Badge>
+                              <div className="flex flex-col gap-0.5">
+                                <Badge variant={item.isInStock ? "default" : "secondary"} className={item.isInStock ? "bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-bold uppercase h-5 px-2 shadow-sm w-fit" : "text-[9px] font-bold uppercase h-5 px-2 text-slate-400 w-fit"}>
+                                  {item.isInStock ? 'Live' : 'Hidden'}
+                                </Badge>
+                                {item.quantity !== undefined && item.quantity !== null && (
+                                  <span className="text-[9px] font-bold text-slate-500 ml-0.5">Qty: {item.quantity}</span>
+                                )}
+                              </div>
                               
                               <div className="flex items-center gap-0.5">
                                 <Button size="icon" variant="ghost" onClick={() => handleItemClick(item)} className="h-6 w-6 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50">
@@ -465,21 +485,35 @@ export default function MenuListView({
                 {/* Item Details Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-gray-50/50 p-4 rounded-2xl ring-1 ring-gray-100">
                   <div>
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Price</h4>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {formatPrice(selectedItem.price, currency)}
-                    </p>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Pricing</h4>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-2xl font-bold text-gray-900">
+                        {formatPrice(selectedItem.price, currency)} <span className="text-sm font-normal text-gray-500">Full</span>
+                      </p>
+                      {selectedItem.halfPrice && (
+                        <p className="text-lg font-bold text-gray-700">
+                          {formatPrice(selectedItem.halfPrice, currency)} <span className="text-xs font-normal text-gray-500">Half</span>
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Availability</h4>
-                    <Badge 
-                      variant={selectedItem.isInStock ? "default" : "destructive"}
-                      className={selectedItem.isInStock 
-                        ? "bg-green-100 text-green-700 border-none px-3 py-1 text-[10px] font-bold h-7" 
-                        : "px-3 py-1 text-[10px] font-bold border-none h-7"}
-                    >
-                      {selectedItem.isInStock ? 'AVAILABLE' : 'OUT OF STOCK'}
-                    </Badge>
+                    <div className="flex flex-col gap-2 items-start">
+                      <Badge 
+                        variant={selectedItem.isInStock ? "default" : "destructive"}
+                        className={selectedItem.isInStock 
+                          ? "bg-green-100 text-green-700 border-none px-3 py-1 text-[10px] font-bold h-7" 
+                          : "px-3 py-1 text-[10px] font-bold border-none h-7"}
+                      >
+                        {selectedItem.isInStock ? 'AVAILABLE' : 'OUT OF STOCK'}
+                      </Badge>
+                      {selectedItem.quantity !== undefined && selectedItem.quantity !== null && (
+                        <Badge variant="outline" className="text-[10px] font-semibold text-gray-600 bg-white border-gray-200">
+                          Stock: {selectedItem.quantity} units
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
 

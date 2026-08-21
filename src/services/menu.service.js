@@ -62,6 +62,10 @@ export const normalizeMenuItem = (item) => {
     category: item.category || 'Main Course',
     type: item.type || 'VEG',
     isInStock: item.is_in_stock ?? item.isInStock ?? true,
+    quantity: item.quantity !== undefined ? item.quantity : null,
+    halfPrice: (item.half_price !== undefined && item.half_price !== null) 
+      ? Number(item.half_price) 
+      : (item.halfPrice !== undefined && item.halfPrice !== null ? Number(item.halfPrice) : null),
     photo: photo,
     photo_url: photo,
     image_url: photo,
@@ -110,6 +114,8 @@ export const createMenuItem = async (restaurantId, itemData) => {
         category: itemData.category || 'Main Course',
         type: itemData.type || 'VEG',
         is_in_stock: itemData.isInStock ?? true,
+        quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
+        half_price: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
         photo_url: photoVal,
       }
 
@@ -135,6 +141,8 @@ export const createMenuItem = async (restaurantId, itemData) => {
     category: itemData.category || 'Main Course',
     type: itemData.type || 'VEG',
     isInStock: itemData.isInStock ?? true,
+    quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
+    halfPrice: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
     photo: photoVal,
     created_at: new Date().toISOString()
   })
@@ -155,6 +163,8 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
         category: itemData.category,
         type: itemData.type || 'VEG',
         is_in_stock: itemData.isInStock ?? true,
+        quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
+        half_price: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
         photo_url: photoVal,
         updated_at: new Date().toISOString(),
       }
@@ -184,6 +194,8 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
           category: itemData.category,
           type: itemData.type || 'VEG',
           is_in_stock: itemData.isInStock ?? true,
+          quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
+          half_price: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
           photo_url: photoVal,
         }
 
@@ -208,6 +220,8 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
     category: itemData.category,
     type: itemData.type || 'VEG',
     isInStock: itemData.isInStock ?? true,
+    quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
+    halfPrice: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
     photo: photoVal,
   })
 }
