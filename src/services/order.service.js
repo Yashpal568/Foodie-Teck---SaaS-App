@@ -150,7 +150,24 @@ export const createOrder = async (orderData) => {
     localStorage.setItem('servora_latest_order', JSON.stringify(orderBroadcastPayload))
   } catch (e) {}
 
-  // 2. Cross-tab BroadcastChannel
+  // 2. Cross-Device Real-time Broadcast (Supabase Channels)
+  try {
+    const broadcastId = validRestaurantId || targetRid || 'demo-merchant'
+    const broadcastChannel = supabase.channel(`order-toasts:rid=${broadcastId}`)
+    broadcastChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        broadcastChannel.send({
+          type: 'broadcast',
+          event: 'new_order',
+          payload: orderBroadcastPayload
+        }).then(() => {
+          setTimeout(() => supabase.removeChannel(broadcastChannel), 500)
+        })
+      }
+    })
+  } catch (e) {}
+
+  // 3. Cross-tab BroadcastChannel
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const channel = new BroadcastChannel('servora_orders_channel')
@@ -159,7 +176,7 @@ export const createOrder = async (orderData) => {
     }
   } catch (e) {}
 
-  // 3. Local Window Custom Event
+  // 4. Local Window Custom Event
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('servora_new_order', { detail: orderBroadcastPayload }))
   }

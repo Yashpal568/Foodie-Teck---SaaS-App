@@ -35,18 +35,12 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       try {
         // High-fidelity Web Audio API synth chime (zero external network dependency)
         const ctx = new (window.AudioContext || window.webkitAudioContext)()
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.type = 'sine'
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15) // A5
-        gain.gain.setValueAtTime(0.3, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45)
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.start()
-        osc.stop(ctx.currentTime + 0.45)
-      } catch (e) {
+      // Respect user's sound preferences
+      if (settings?.soundEnabled === false || settings?.notificationsEnabled === false) {
+        return
+      }
+
+      if (typeof window !== 'undefined') {
         try {
           const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
           audio.play().catch(() => {})
@@ -63,6 +57,19 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
 
     const handleNewOrder = (order) => {
       if (!order) return
+      
+      const orderId = order.id || `ord-${Date.now()}`
+      
+      // Deduplicate orders coming from multiple channels (postgres, broadcast, local storage)
+      if (processedOrders.current.has(orderId)) return
+      processedOrders.current.add(orderId)
+      
+      // Keep Set size manageable
+      if (processedOrders.current.size > 100) {
+        const iter = processedOrders.current.values()
+        processedOrders.current.delete(iter.next().value)
+      }
+
       console.log('🍞 Fresh Order Toast Received:', order)
       const itemsCount = order.items_count || order.itemsCount || 
                         (Array.isArray(order.items) ? order.items.length : 0) || 
@@ -70,7 +77,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
 
       playChime()
       setToast({
-        id: order.id || `ord-${Date.now()}`,
+        id: orderId,
         type: 'order',
         tableNumber: order.table_number || order.tableNumber || '1',
         customerName: order.customer_name || order.customerName || 'Guest Customer',
@@ -179,14 +186,14 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
 
     // ── 2. Supabase Real-time Subscriptions (Both for resolved UUID & targetId) ──
     const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-    let orderChannel = null
-    const waiterChannels = []
+    const activeChannels = []
 
     const subId = isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)
 
+    // Listen to actual DB inserts ONLY if valid UUID (otherwise demo uses broadcast)
     if (subId) {
-      orderChannel = supabase
-        .channel(`order-toasts:rid=${subId}`)
+      const pgChannel = supabase
+        .channel(`order-pg-changes:rid=${subId}`)
         .on(
           'postgres_changes',
           {
@@ -198,11 +205,27 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
           (payload) => handleNewOrder(payload.new)
         )
         .subscribe()
+      activeChannels.push(pgChannel)
     }
 
-    const waiterTargetIds = new Set([subId, resolvedId, restaurantId, targetId, 'all'].filter(Boolean))
-    waiterTargetIds.forEach(id => {
-      const channel = supabase
+    const targetIds = new Set([subId, resolvedId, restaurantId, targetId, 'all'].filter(Boolean))
+    targetIds.forEach(id => {
+      // 2a. Real-time Order Broadcasts (Crucial for cross-device QR code orders on Demo accounts)
+      const orderCh = supabase
+        .channel(`order-toasts:rid=${id}`)
+        .on(
+          'broadcast',
+          { event: 'new_order' },
+          (payload) => {
+            console.log('🔔 Live Order Broadcast Received:', payload)
+            handleNewOrder(payload.payload)
+          }
+        )
+        .subscribe()
+      activeChannels.push(orderCh)
+
+      // 2b. Real-time Waiter Call Broadcasts
+      const waiterCh = supabase
         .channel(`waiter-toasts:rid=${id}`)
         .on(
           'broadcast',
@@ -213,7 +236,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
           }
         )
         .subscribe()
-      waiterChannels.push(channel)
+      activeChannels.push(waiterCh)
     })
 
     return () => {
@@ -221,8 +244,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       window.removeEventListener('servora_new_order', customEventListener)
       window.removeEventListener('servora_waiter_call', customWaiterListener)
       window.removeEventListener('storage', storageListener)
-      if (orderChannel) supabase.removeChannel(orderChannel)
-      waiterChannels.forEach(ch => supabase.removeChannel(ch))
+      activeChannels.forEach(ch => supabase.removeChannel(ch))
     }
   }, [resolvedId, restaurantId])
 
