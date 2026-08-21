@@ -200,7 +200,17 @@ export default function CustomerMenu() {
   const [isDragging, setIsDragging] = useState(false)
 
   // New state for Variant Selection Modal
-  const [variantModalItem, setVariantModalItem] = useState(null)
+  const [cardVariants, setCardVariants] = useState({})
+  
+  const handleToggleVariant = (e, itemId, variant) => {
+    e.stopPropagation()
+    setCardVariants(prev => ({ ...prev, [itemId]: variant }))
+  }
+  
+  const getActiveVariant = (item) => {
+    if (!item.halfPrice) return 'full'
+    return cardVariants[item._id] || 'full'
+  }
   const [customerName, setCustomerName] = useState('')
   const [cookingInstructions, setCookingInstructions] = useState('')
   const [activeTab, setActiveTab] = useState('menu')
@@ -1084,26 +1094,40 @@ export default function CustomerMenu() {
                         <div className={`flex items-center justify-between pt-2 border-t ${
                           theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
                         }`}>
-                          <span className={`text-base font-black tracking-tight group-hover:scale-105 transition-transform duration-200 inline-block ${
-                            theme === 'dark' ? 'text-white' : 'text-zinc-900'
-                          }`}>
-                            {formatPrice(item.price)}
-                          </span>
+                          <div className="flex flex-col gap-1 text-right">
+                            {item.halfPrice && (
+                              <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5 w-max ml-auto">
+                                <button 
+                                  onClick={(e) => handleToggleVariant(e, item._id, 'half')}
+                                  className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-all cursor-pointer ${getActiveVariant(item) === 'half' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'}`}
+                                >Half</button>
+                                <button 
+                                  onClick={(e) => handleToggleVariant(e, item._id, 'full')}
+                                  className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-all cursor-pointer ${getActiveVariant(item) === 'full' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'}`}
+                                >Full</button>
+                              </div>
+                            )}
+                            <span className={`text-base font-black tracking-tight group-hover:scale-105 transition-transform duration-200 inline-block ${
+                              theme === 'dark' ? 'text-white' : 'text-zinc-900'
+                            }`}>
+                              {formatPrice(getActiveVariant(item) === 'half' ? item.halfPrice : item.price)}
+                            </span>
+                          </div>
 
-                          {getTotalQuantityForItem(item._id) > 0 && !item.halfPrice ? (
+                          {getQuantity(`${item._id}-${getActiveVariant(item)}`) > 0 ? (
                             <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-md gap-2 border border-white/20">
                               <button 
                                 className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                onClick={(e) => { e.stopPropagation(); removeFromCart(`${item._id}-full`); }}
+                                onClick={(e) => { e.stopPropagation(); removeFromCart(`${item._id}-${getActiveVariant(item)}`); }}
                               >
                                 <Minus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                               </button>
                               <span className="text-xs font-black min-w-4 text-center text-white">
-                                {getQuantity(`${item._id}-full`)}
+                                {getQuantity(`${item._id}-${getActiveVariant(item)}`)}
                               </span>
                               <button 
                                 className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                onClick={(e) => { e.stopPropagation(); addToCart(item, 'full'); }}
+                                onClick={(e) => { e.stopPropagation(); addToCart(item, getActiveVariant(item)); }}
                               >
                                 <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                               </button>
@@ -1117,11 +1141,7 @@ export default function CustomerMenu() {
                               <button 
                                 onClick={(e) => { 
                                   e.stopPropagation(); 
-                                  if (item.halfPrice) {
-                                    setVariantModalItem(item)
-                                  } else {
-                                    addToCart(item, 'full')
-                                  }
+                                  addToCart(item, getActiveVariant(item))
                                 }}
                                 className={`px-4 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-sm hover:shadow-md rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
                                   theme === 'dark'
@@ -1132,9 +1152,6 @@ export default function CustomerMenu() {
                                 <span>ADD</span>
                                 <Plus className="w-3.5 h-3.5 stroke-3" />
                               </button>
-                              {item.halfPrice && (
-                                <span className="text-[9px] text-zinc-500 font-bold">Customizable</span>
-                              )}
                             </div>
                           )}
                         </div>
@@ -1293,11 +1310,23 @@ export default function CustomerMenu() {
                               </h3>
 
                               {/* Price */}
-                              <div className="flex items-center gap-2 mt-1">
+                              <div className="flex flex-col gap-1.5 mt-1">
+                                {item.halfPrice && (
+                                  <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5 w-max">
+                                    <button 
+                                      onClick={(e) => handleToggleVariant(e, item._id, 'half')}
+                                      className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-all cursor-pointer ${getActiveVariant(item) === 'half' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'}`}
+                                    >Half</button>
+                                    <button 
+                                      onClick={(e) => handleToggleVariant(e, item._id, 'full')}
+                                      className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-all cursor-pointer ${getActiveVariant(item) === 'full' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'}`}
+                                    >Full</button>
+                                  </div>
+                                )}
                                 <span className={`text-base sm:text-lg font-black tracking-tight group-hover:scale-105 transition-transform duration-200 inline-block ${
                                   theme === 'dark' ? 'text-white' : 'text-zinc-900'
                                 }`}>
-                                  {formatPrice(item.price)}
+                                  {formatPrice(getActiveVariant(item) === 'half' ? item.halfPrice : item.price)}
                                 </span>
                               </div>
 
@@ -1339,26 +1368,26 @@ export default function CustomerMenu() {
 
                               {/* Swiggy/Zomato Signature Overlapping ADD Button */}
                               <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-10">
-                                {getTotalQuantityForItem(item._id) > 0 && !item.halfPrice ? (
+                                {getQuantity(`${item._id}-${getActiveVariant(item)}`) > 0 ? (
                                   <div className="flex items-center bg-zinc-900 text-white rounded-xl p-1 shadow-lg gap-2 border border-white/20 whitespace-nowrap">
                                     <button 
                                       className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                      onClick={(e) => { e.stopPropagation(); removeFromCart(`${item._id}-full`); }}
+                                      onClick={(e) => { e.stopPropagation(); removeFromCart(`${item._id}-${getActiveVariant(item)}`); }}
                                     >
                                       <Minus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                                     </button>
                                     <motion.span 
-                                      key={getQuantity(`${item._id}-full`)} 
+                                      key={getQuantity(`${item._id}-${getActiveVariant(item)}`)} 
                                       initial={{ scale: 1.35 }} 
                                       animate={{ scale: 1 }} 
                                       transition={{ type: "spring", stiffness: 500, damping: 20 }}
                                       className="text-xs font-black min-w-4 text-center text-white"
                                     >
-                                      {getQuantity(`${item._id}-full`)}
+                                      {getQuantity(`${item._id}-${getActiveVariant(item)}`)}
                                     </motion.span>
                                     <button 
                                       className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-white/20 active:scale-90 transition-transform cursor-pointer" 
-                                      onClick={(e) => { e.stopPropagation(); addToCart(item, 'full'); }}
+                                      onClick={(e) => { e.stopPropagation(); addToCart(item, getActiveVariant(item)); }}
                                     >
                                       <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                                     </button>
@@ -1372,11 +1401,7 @@ export default function CustomerMenu() {
                                     <button 
                                       onClick={(e) => { 
                                         e.stopPropagation(); 
-                                        if (item.halfPrice) {
-                                          setVariantModalItem(item)
-                                        } else {
-                                          addToCart(item, 'full')
-                                        }
+                                        addToCart(item, getActiveVariant(item))
                                       }} 
                                       className={`px-5 py-1.5 border-2 hover:scale-110 active:scale-95 shadow-md rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1 transition-all whitespace-nowrap cursor-pointer ${
                                         theme === 'dark'
@@ -1387,9 +1412,6 @@ export default function CustomerMenu() {
                                       <span>ADD</span>
                                       <Plus className="w-3.5 h-3.5 stroke-3" />
                                     </button>
-                                    {item.halfPrice && (
-                                      <span className="text-[9px] text-zinc-500 font-bold bg-white/80 px-2 py-0.5 rounded-full border border-zinc-200 shadow-sm mt-0.5">Customizable</span>
-                                    )}
                                   </div>
                                 )}
                               </div>
@@ -2132,74 +2154,7 @@ export default function CustomerMenu() {
         theme={theme}
       />
 
-      {/* Variant Selection Modal */}
-      <AnimatePresence>
-        {variantModalItem && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-200 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4"
-            onClick={() => setVariantModalItem(null)}
-          >
-            <motion.div
-              initial={{ y: "100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "100%", opacity: 0 }}
-              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              onClick={e => e.stopPropagation()}
-              className={`w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl p-6 ${
-                theme === 'dark' ? 'bg-[#12141a] text-white border-t border-zinc-800' : 'bg-white text-zinc-900'
-              }`}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-xl font-bold">{variantModalItem.name}</h3>
-                  <p className={`text-sm ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                    Customize your portion size
-                  </p>
-                </div>
-                <button 
-                  onClick={() => setVariantModalItem(null)}
-                  className={`p-2 rounded-full ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'}`}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
 
-              <div className="space-y-4 mb-6">
-                {/* Full Plate Option */}
-                <div 
-                  onClick={() => { addToCart(variantModalItem, 'full'); setVariantModalItem(null); }}
-                  className={`flex justify-between items-center p-4 rounded-xl cursor-pointer border-2 transition-all hover:-translate-y-1 ${
-                    theme === 'dark' ? 'bg-zinc-900 border-zinc-800 hover:border-amber-500' : 'bg-zinc-50 border-zinc-200 hover:border-amber-400'
-                  }`}
-                >
-                  <div>
-                    <h4 className="font-bold text-[15px]">Full Plate</h4>
-                    <p className={`text-xs ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>Standard portion</p>
-                  </div>
-                  <span className="font-black text-lg">{formatPrice(variantModalItem.price)}</span>
-                </div>
-
-                {/* Half Plate Option */}
-                <div 
-                  onClick={() => { addToCart(variantModalItem, 'half'); setVariantModalItem(null); }}
-                  className={`flex justify-between items-center p-4 rounded-xl cursor-pointer border-2 transition-all hover:-translate-y-1 ${
-                    theme === 'dark' ? 'bg-zinc-900 border-zinc-800 hover:border-amber-500' : 'bg-zinc-50 border-zinc-200 hover:border-amber-400'
-                  }`}
-                >
-                  <div>
-                    <h4 className="font-bold text-[15px]">Half Plate</h4>
-                    <p className={`text-xs ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>Smaller portion</p>
-                  </div>
-                  <span className="font-black text-lg">{formatPrice(variantModalItem.halfPrice)}</span>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Waiter Call Popup */}
       <AnimatePresence>
