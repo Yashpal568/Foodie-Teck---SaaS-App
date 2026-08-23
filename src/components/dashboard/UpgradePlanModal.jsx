@@ -33,10 +33,10 @@ export default function UpgradePlanModal({
   limitType = 'menu',
   currentUsage = 0,
   maxLimit = 0,
-  restaurantId,
-  merchantEmail,
-  merchantName,
-  onUpgradeSuccess
+  restaurantId = '',
+  merchantEmail = '',
+  merchantName = '',
+  onUpgradeSuccess = () => {}
 }) {
   const [showUPIModal, setShowUPIModal] = useState(false)
   const currentPlan = getPlanDetails(currentPlanName)

@@ -48,8 +48,8 @@ export const trackMenuVisit = async (restaurantId, tableNumber) => {
   }
 }
 
-export const trackItemView = () => {}
-export const trackItemOrder = () => {}
+export const trackItemView = (_itemId, _restaurantId) => {}
+export const trackItemOrder = (_itemId, _quantity, _restaurantId) => {}
 
 export default function MenuAnalytics({ menuItems, restaurantId }) {
   const [isOpen, setIsOpen] = useState(false)

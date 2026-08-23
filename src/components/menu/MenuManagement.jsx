@@ -16,7 +16,7 @@ import ImageStorage from '@/utils/imageStorage'
 import MenuNavbar from './MenuNavbar'
 import MenuMobileNavbar from './MenuMobileNavbar'
 import DeleteConfirmModal from './DeleteConfirmModal'
-import { fetchMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemStock, getCachedRestaurantId, getMyRestaurant, bulkReplaceMenuItems, recordPriceChange } from '@/lib/api'
+import { fetchMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemStock, getCachedRestaurantId, getMyRestaurant, bulkReplaceMenuItems, bulkAddMenuItems, recordPriceChange } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import UpgradePlanModal from '../dashboard/UpgradePlanModal'
@@ -286,6 +286,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           currentUsage={menuItems.length}
           maxLimit={planDetails.menuItemLimit}
           restaurantId={currentRid}
+          merchantEmail="owner@restaurant.com"
           merchantName="Restaurant Admin"
           onUpgradeSuccess={() => {
             setShowUpgradeModal(false)

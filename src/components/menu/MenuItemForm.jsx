@@ -75,7 +75,9 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
           setFormData(prev => ({ ...prev, photo: compressedDataUrl }))
           setIsUploading(false)
         }
-        img.src = event.target.result
+        if (typeof event.target?.result === 'string') {
+          img.src = event.target.result
+        }
       }
       reader.readAsDataURL(file)
     }

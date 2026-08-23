@@ -5,7 +5,6 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJ
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    lock: false, // Attempt to disable locks to mitigate contention
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true

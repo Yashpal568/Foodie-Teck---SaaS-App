@@ -7,6 +7,7 @@ import {
   markAllNotificationsRead, 
   clearNotifications 
 } from '@/lib/api'
+import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 
 export const useNotifications = (restaurantId) => {
   const [resolvedId, setResolvedId] = useState(null)
@@ -22,23 +23,24 @@ export const useNotifications = (restaurantId) => {
 
   // Resolve restaurant ID (Email to UUID)
   useEffect(() => {
+    let isMounted = true
     async function resolve() {
-      if (!restaurantId || !restaurantId.includes('@')) {
-        setResolvedId(restaurantId)
+      if (!restaurantId) {
+        if (isMounted) setResolvedId(null)
         return
       }
       
-      const { data } = await supabase
-        .from('restaurants')
-        .select('id')
-        .eq('email', restaurantId.toLowerCase())
-        .single()
-      
-      if (data?.id) {
-        setResolvedId(data.id)
+      try {
+        const uuid = await ensureValidRestaurantUUID(restaurantId)
+        if (isMounted && uuid) {
+          setResolvedId(uuid)
+        }
+      } catch (e) {
+        console.error('Notification identity resolve error:', e)
       }
     }
     resolve()
+    return () => { isMounted = false }
   }, [restaurantId])
 
   // Load notifications from cloud (with Orders table fallback)

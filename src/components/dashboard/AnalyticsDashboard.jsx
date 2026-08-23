@@ -598,7 +598,7 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
 
     // 3 Mini Insight Columns
     const topItems = getTopItems('volume', 1)
-    const rawItemName = topItems?.[0]?.item?.name || topItems?.[0]?.name
+    const rawItemName = topItems?.[0]?.item?.name || ''
     const topItemName = rawItemName ? `${rawItemName} (${topItems[0].count || 0})` : 'Signature Special'
     const topCategoryName = categoryDistribution?.[0]?.category || 'Main Course'
     const peakHour = hourlyPeakData?.length > 0 ? [...hourlyPeakData].sort((a,b) => (b.revenue || 0) - (a.revenue || 0))[0]?.slot || 'Dinner Rush (6 PM - 9 PM)' : 'Dinner Rush (6 PM - 9 PM)'

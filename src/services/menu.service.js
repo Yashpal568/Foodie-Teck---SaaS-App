@@ -75,26 +75,103 @@ export const normalizeMenuItem = (item) => {
   }
 }
 
+export const DEFAULT_SAMPLE_MENU = [
+  {
+    id: 'item-sample-1',
+    name: 'Steamed Veg Momos',
+    category: 'Starters',
+    price: 140,
+    halfPrice: 80,
+    quantity: 12,
+    type: 'VEG',
+    description: 'Juicy steamed dumplings served with spicy red chutney and garlic mayo dip.',
+    isInStock: true,
+    photo_url: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 'item-sample-2',
+    name: 'Crispy Paneer Burger',
+    category: 'Burgers',
+    price: 180,
+    halfPrice: 110,
+    quantity: 1,
+    type: 'VEG',
+    description: 'Golden spiced paneer patty with lettuce, tomatoes, and chef secret chipotle sauce.',
+    isInStock: true,
+    photo_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 'item-sample-3',
+    name: 'Farmhouse Special Pizza (10")',
+    category: 'Pizza',
+    price: 340,
+    halfPrice: 210,
+    quantity: 1,
+    type: 'VEG',
+    description: 'Hand-stretched pizza topped with bell peppers, olives, mushrooms, and melted mozzarella.',
+    isInStock: true,
+    photo_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 'item-sample-4',
+    name: 'Paneer Butter Masala',
+    category: 'Main Course',
+    price: 280,
+    halfPrice: 160,
+    quantity: 1,
+    type: 'VEG',
+    description: 'Fresh cottage cheese simmered in a velvety, rich tomato, butter, and cashew gravy.',
+    isInStock: true,
+    photo_url: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 'item-sample-5',
+    name: 'Butter Garlic Naan',
+    category: 'Breads',
+    price: 60,
+    halfPrice: null,
+    quantity: 1,
+    type: 'VEG',
+    description: 'Tandoor-baked flatbread brushed with roasted garlic and salted butter.',
+    isInStock: true,
+    photo_url: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 'item-sample-6',
+    name: 'Classic Cold Coffee with Ice Cream',
+    category: 'Beverages',
+    price: 130,
+    halfPrice: null,
+    quantity: 1,
+    type: 'VEG',
+    description: 'Chilled brewed espresso blended with rich milk and topped with vanilla ice cream.',
+    isInStock: true,
+    photo_url: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=600&q=80'
+  }
+]
+
 /** Fetch menu items 100% dynamically from Supabase DB */
 export const fetchMenuItems = async (restaurantId) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
-  if (!uuid) return []
 
   try {
-    const { data, error } = await supabase
-      .from('menu_items')
-      .select('*')
-      .eq('restaurant_id', uuid)
-      .order('created_at', { ascending: true })
+    if (uuid) {
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('*')
+        .eq('restaurant_id', uuid)
+        .order('created_at', { ascending: true })
 
-    if (!error && data) {
-      return data.map(normalizeMenuItem)
+      if (!error && data && data.length > 0) {
+        return data.map(normalizeMenuItem)
+      }
     }
   } catch (e) {
     console.warn('fetchMenuItems Supabase query notice:', e)
   }
 
-  return []
+  // Fallback to rich sample menu items so menu is never blank
+  return DEFAULT_SAMPLE_MENU.map(normalizeMenuItem)
 }
 
 /** Create a new menu item directly in Supabase DB */
@@ -227,7 +304,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
 }
 
 /** Toggle stock status directly in Supabase DB */
-export const toggleMenuItemStock = async (itemId, isInStock) => {
+export const toggleMenuItemStock = async (itemId, isInStock, _restaurantId = null) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
   if (isUUID(itemId)) {
     try {
@@ -246,7 +323,7 @@ export const toggleMenuItemStock = async (itemId, isInStock) => {
 }
 
 /** Delete a menu item directly from Supabase DB */
-export const deleteMenuItem = async (itemId) => {
+export const deleteMenuItem = async (itemId, _restaurantId = null) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
   if (isUUID(itemId)) {
     let retries = 3
@@ -264,6 +341,43 @@ export const deleteMenuItem = async (itemId) => {
 
 export const getMenuItems = async (restaurantId) => {
   return fetchMenuItems(restaurantId)
+}
+
+/** Bulk add menu items directly in Supabase */
+export const bulkAddMenuItems = async (restaurantId, items) => {
+  const uuid = await ensureValidRestaurantUUID(restaurantId)
+  if (!uuid) return items.map(normalizeMenuItem)
+
+  const formattedItems = items.map(item => {
+    const norm = normalizeMenuItem(item)
+    return {
+      restaurant_id: uuid,
+      name: norm.name,
+      description: norm.description || '',
+      price: norm.price || 0,
+      half_price: norm.halfPrice ?? null,
+      quantity: norm.quantity ?? null,
+      category: norm.category || 'Main Course',
+      type: norm.type || 'VEG',
+      is_in_stock: norm.isInStock ?? true,
+      photo_url: norm.photo || null
+    }
+  })
+
+  try {
+    const { data, error } = await supabase
+      .from('menu_items')
+      .insert(formattedItems)
+      .select()
+
+    if (!error && data) {
+      return data.map(normalizeMenuItem)
+    }
+  } catch (err) {
+    console.error('bulkAddMenuItems error:', err)
+  }
+
+  return items.map(normalizeMenuItem)
 }
 
 /** Bulk replace menu items directly in Supabase */

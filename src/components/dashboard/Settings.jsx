@@ -400,8 +400,11 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    if (navigate) navigate('/login')
+    sessionStorage.clear()
+    localStorage.removeItem('servora_restaurant_id')
+    localStorage.removeItem('servora_user_email')
+    try { await supabase.auth.signOut() } catch (e) {}
+    if (navigate) navigate('/login', { replace: true })
   }
 
   const handleAddCard = async (e) => {

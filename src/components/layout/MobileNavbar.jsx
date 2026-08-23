@@ -12,7 +12,7 @@ const navItems = [
   { icon: Settings, label: 'Settings', id: 'settings', route: '/dashboard' }
 ]
 
-export default function MobileNavbar({ activeItem, setActiveItem, restaurantId }) {
+export default function MobileNavbar({ activeItem, setActiveItem = () => {}, restaurantId = 'demo-merchant' }) {
   const navigate = useNavigate()
   const [activeOrdersCount, setActiveOrdersCount] = useState(() => {
     return (restaurantId === 'demo-merchant' || !restaurantId) ? 3 : 0

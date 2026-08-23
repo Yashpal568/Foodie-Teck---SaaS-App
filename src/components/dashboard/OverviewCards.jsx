@@ -128,7 +128,7 @@ const CARD_CONFIGS = [
 
 export default function OverviewCards({ restaurantId = 'default' }) {
   const { stats: orderStats, orders: activeOrders, orderHistory } = useOrderManagement(restaurantId)
-  const { stats: tableStats } = useTableSessions(restaurantId)
+  const { stats: tableStats, tables } = useTableSessions(restaurantId)
   const [menuCount, setMenuCount] = useState(0)
 
   useEffect(() => {
@@ -151,12 +151,12 @@ export default function OverviewCards({ restaurantId = 'default' }) {
 
     const getOrderDateStr = (order) => {
       const raw = order?.created_at || order?.createdAt || order?.date
-      if (!raw) return today
+      if (!raw) return null
       try {
         const d = new Date(raw)
-        return isNaN(d.getTime()) ? today : d.toLocaleDateString('en-CA')
+        return isNaN(d.getTime()) ? null : d.toLocaleDateString('en-CA')
       } catch {
-        return today
+        return null
       }
     }
 
@@ -171,34 +171,36 @@ export default function OverviewCards({ restaurantId = 'default' }) {
     const todayRevenue = todayOrdersList.reduce((sum, o) => sum + getOrderTotal(o), 0)
     const yesterdayRevenue = yesterdayOrdersList.reduce((sum, o) => sum + getOrderTotal(o), 0)
     const revenueDiff = yesterdayRevenue > 0 
-      ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 
-      : 0
+      ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 * 10) / 10
+      : (todayRevenue > 0 ? 100 : 0)
 
     // Orders
     const todayOrders = todayOrdersList.length
     const yesterdayOrders = yesterdayOrdersList.length
     const ordersDiff = yesterdayOrders > 0 
-      ? ((todayOrders - yesterdayOrders) / yesterdayOrders) * 100 
-      : 0
+      ? Math.round(((todayOrders - yesterdayOrders) / yesterdayOrders) * 100 * 10) / 10
+      : (todayOrders > 0 ? 100 : 0)
 
     // Tables
     const activeTables = (tableStats?.occupied || 0) + (tableStats?.billing || 0)
-    const totalTables = tableStats?.total || 0
+    const totalTables = tableStats?.total || (tables?.length || 0)
 
-    const sparkRevenue = yesterdayRevenue > 0 || todayRevenue > 0
-      ? [yesterdayRevenue * 0.6, yesterdayRevenue * 0.8, yesterdayRevenue, todayRevenue * 0.7, todayRevenue * 0.9, todayRevenue]
-      : [0, 0, 0, 0, 0]
+    const effectiveMenuCount = menuCount || 0
 
-    const sparkOrders = yesterdayOrders > 0 || todayOrders > 0
-      ? [yesterdayOrders * 0.4, yesterdayOrders * 0.7, yesterdayOrders, todayOrders * 0.5, todayOrders * 0.8, todayOrders]
-      : [0, 0, 0, 0, 0]
+    const sparkRevenue = todayRevenue > 0
+      ? [todayRevenue * 0.4, todayRevenue * 0.6, todayRevenue * 0.8, todayRevenue * 0.7, todayRevenue * 0.9, todayRevenue]
+      : (yesterdayRevenue > 0 ? [yesterdayRevenue * 0.5, yesterdayRevenue, 0, 0, 0] : [0, 0, 0, 0, 0])
+
+    const sparkOrders = todayOrders > 0
+      ? [todayOrders * 0.4, todayOrders * 0.7, todayOrders * 0.6, todayOrders * 0.8, todayOrders * 0.9, todayOrders]
+      : (yesterdayOrders > 0 ? [yesterdayOrders * 0.5, yesterdayOrders, 0, 0, 0] : [0, 0, 0, 0, 0])
 
     const sparkTables = activeTables > 0
-      ? [0, 1, activeTables * 0.5, activeTables * 0.8, activeTables]
+      ? [1, 1, activeTables * 0.8, activeTables * 0.9, activeTables]
       : [0, 0, 0, 0, 0]
 
-    const sparkMenu = menuCount > 0
-      ? [menuCount * 0.5, menuCount * 0.7, menuCount * 0.85, menuCount, menuCount]
+    const sparkMenu = effectiveMenuCount > 0
+      ? [effectiveMenuCount * 0.5, effectiveMenuCount * 0.7, effectiveMenuCount * 0.85, effectiveMenuCount, effectiveMenuCount]
       : [0, 0, 0, 0, 0]
 
     return {
@@ -208,7 +210,7 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         change: revenueDiff,
         detail: yesterdayRevenue > 0 
           ? `₹${Math.round(yesterdayRevenue).toLocaleString('en-IN')} yesterday` 
-          : todayRevenue > 0 ? `${todayOrdersList.length} orders placed today` : 'No revenue yet today',
+          : (todayRevenue > 0 ? `${todayOrders} orders processed today` : 'No revenue yet today'),
         sparkData: sparkRevenue,
       },
       tables: {
@@ -224,14 +226,14 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         change: ordersDiff,
         detail: yesterdayOrders > 0 
           ? `${yesterdayOrders} orders yesterday` 
-          : todayOrders > 0 ? 'Active orders placed today' : 'No orders placed today',
+          : (todayOrders > 0 ? 'Active orders placed today' : 'No orders placed today'),
         sparkData: sparkOrders,
       },
       menu: {
-        value: `${menuCount}`,
-        rawValue: menuCount,
+        value: `${effectiveMenuCount}`,
+        rawValue: effectiveMenuCount,
         change: 0,
-        detail: menuCount > 0 ? `${menuCount} active items in catalog` : 'Catalog is currently empty',
+        detail: effectiveMenuCount > 0 ? `${effectiveMenuCount} active items in catalog` : 'Catalog is currently empty',
         sparkData: sparkMenu,
       },
     }

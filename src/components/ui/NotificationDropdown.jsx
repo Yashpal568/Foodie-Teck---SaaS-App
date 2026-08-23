@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useNotifications } from '@/hooks/useNotifications'
 
-const NotificationDropdown = ({ restaurantId }) => {
+const NotificationDropdown = ({ restaurantId = 'demo-merchant' }) => {
   const { 
     notifications, 
     unreadCount, 

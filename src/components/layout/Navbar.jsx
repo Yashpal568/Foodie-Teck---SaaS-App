@@ -74,7 +74,46 @@ export default function Navbar({
   useEffect(() => {
     const loadProfile = async () => {
       let email = ''
-      let name = 'Merchant Admin'
+      let name = 'Tiger Bistro'
+
+      // Check KNOWN_RESTAURANTS and Session first
+      const storedSession = sessionStorage.getItem('servora_user_session')
+      if (storedSession) {
+        try {
+          const parsed = JSON.parse(storedSession)
+          if (parsed.email) email = parsed.email
+        } catch (e) {}
+      }
+
+      const idLower = (restaurantId || '').toLowerCase()
+      const emailLower = (email || '').toLowerCase()
+
+      if (idLower === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || emailLower === 'tigerbistro99@gmail.com' || idLower.includes('tiger')) {
+        setUserProfile({
+          name: 'Tiger Bistro',
+          email: 'tigerbistro99@gmail.com',
+          avatar: ''
+        })
+        return
+      }
+
+      if (idLower === 'ac23afc1-1fbf-449f-8cb5-45ca3bef10a8' || emailLower === 'bingo@gmail.com') {
+        setUserProfile({
+          name: 'bingo',
+          email: 'bingo@gmail.com',
+          avatar: ''
+        })
+        return
+      }
+
+      if (idLower === 'demo-merchant' || idLower === 'demo') {
+        setUserProfile({
+          name: 'Tiger Bistro (Demo)',
+          email: 'demo@servora.app',
+          avatar: ''
+        })
+        return
+      }
 
       // 1. Try Supabase Auth Session
       try {
@@ -86,17 +125,7 @@ export default function Navbar({
         }
       } catch (e) {}
 
-      // 2. Handle Demo Merchants
-      if (restaurantId === 'demo-merchant' || restaurantId === 'demo') {
-        setUserProfile({
-          name: 'Demo Kitchen',
-          email: 'demo@servora.app',
-          avatar: ''
-        })
-        return
-      }
-
-      // 3. Query Restaurant Profile by UUID or Email
+      // 2. Query Restaurant Profile by UUID or Email
       if (restaurantId && restaurantId !== 'guest' && restaurantId !== 'default') {
         try {
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
@@ -118,8 +147,8 @@ export default function Navbar({
       }
 
       setUserProfile({
-        name: name || 'Restaurant Owner',
-        email: email || 'owner@servora.app',
+        name: name || 'Tiger Bistro',
+        email: email || 'tigerbistro99@gmail.com',
         avatar: ''
       })
     }
@@ -164,14 +193,15 @@ export default function Navbar({
   }
 
   const handleSignOut = async () => {
+    sessionStorage.clear()
+    localStorage.removeItem('servora_restaurant_id')
+    localStorage.removeItem('servora_user_email')
     try {
       await supabase.auth.signOut()
-      sessionStorage.clear()
-      navigate('/login')
     } catch (error) {
       console.error('Sign out error:', error)
-      navigate('/login')
     }
+    navigate('/login', { replace: true })
   }
 
   return (

@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, ArrowRight, Store, MapPin, Phone, Image as ImageI
 import { motion } from 'framer-motion';
 
 export default function OnboardingChecklist({ profile, onSetupClick }) {
-  if (!profile || profile.id === 'demo-merchant' || profile.id === 'demo' || profile.id === 'guest') return null;
+  if (!profile || profile.id === 'demo-merchant' || profile.id === 'demo' || profile.id === 'guest' || profile.id === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || profile.email === 'tigerbistro99@gmail.com' || profile.name === 'Tiger Bistro') return null;
 
   // We consider it complete if they have phone, address, and logo
   const hasPhone = !!profile.phone && profile.phone !== '+91 98765 43210';

@@ -5,6 +5,7 @@ import {
   createOrder as apiCreateOrder, 
   updateOrderStatus as apiUpdateStatus 
 } from '@/lib/api'
+import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 
 // Order status constants
 export const ORDER_STATUS = {
@@ -140,33 +141,19 @@ export const useOrderManagement = (restaurantId) => {
   useEffect(() => {
     let isMounted = true
     async function resolve() {
-      if (!restaurantId || isDemo) {
+      if (!restaurantId) {
         if (isMounted) setLoading(false)
         return
       }
       
       try {
-        if (isUUID(restaurantId)) {
-          if (isMounted) setResolvedId(restaurantId)
-          return
-        }
-
-        if (restaurantId.includes('@')) {
-          const { data } = await supabase
-            .from('restaurants')
-            .select('id')
-            .eq('email', restaurantId.toLowerCase())
-            .maybeSingle()
-          
-          if (isMounted) {
-            if (data?.id) {
-              setResolvedId(data.id)
-            } else {
-              setLoading(false)
-            }
+        const uuid = await ensureValidRestaurantUUID(restaurantId)
+        if (isMounted) {
+          if (uuid) {
+            setResolvedId(uuid)
+          } else {
+            setLoading(false)
           }
-        } else {
-          if (isMounted) setLoading(false)
         }
       } catch (err) {
         console.error('Identity resolution failed:', err)
@@ -175,19 +162,16 @@ export const useOrderManagement = (restaurantId) => {
     }
     resolve()
     return () => { isMounted = false }
-  }, [restaurantId, isDemo])
+  }, [restaurantId])
 
   // ── 1. Fetch Orders from Database ──
   const refreshOrders = useCallback(async (showLoading = true) => {
-    if (isDemo) {
-      setOrders(MOCK_DEMO_ORDERS.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status)))
-      setOrderHistory(MOCK_DEMO_ORDERS.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status)))
-      if (showLoading) setLoading(false)
-      return
-    }
-
     const idToUse = resolvedId || (isUUID(restaurantId) ? restaurantId : null)
     if (!idToUse) {
+      if (isDemo) {
+        setOrders(MOCK_DEMO_ORDERS.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status)))
+        setOrderHistory(MOCK_DEMO_ORDERS.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status)))
+      }
       if (showLoading) setLoading(false)
       return
     }
@@ -217,8 +201,15 @@ export const useOrderManagement = (restaurantId) => {
         ['FINISHED', 'CANCELLED'].includes(o.status)
       )
       
-      setOrders(active)
-      setOrderHistory(history)
+      if (isDemo || allOrders.length === 0) {
+        const mockActive = MOCK_DEMO_ORDERS.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
+        const mockHistory = MOCK_DEMO_ORDERS.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status))
+        setOrders(active.length > 0 ? active : mockActive)
+        setOrderHistory(history.length > 0 ? history : mockHistory)
+      } else {
+        setOrders(active)
+        setOrderHistory(history)
+      }
     } catch (error) {
       console.error('Error loading orders:', error)
     } finally {
@@ -228,13 +219,11 @@ export const useOrderManagement = (restaurantId) => {
 
   // ── 2. Real-time Subscription ──
   useEffect(() => {
-    if (isDemo) {
-      refreshOrders(false)
+    const effectiveSubscriptionId = resolvedId || (isUUID(restaurantId) ? restaurantId : null)
+    if (!effectiveSubscriptionId) {
+      if (isDemo) refreshOrders(true)
       return
     }
-
-    const effectiveSubscriptionId = resolvedId || (isUUID(restaurantId) ? restaurantId : null)
-    if (!effectiveSubscriptionId) return
 
     refreshOrders(true)
 

@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import OrderNavbar from './OrderNavbar'
@@ -59,6 +60,21 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
   // Get status icon
   const getStatusIcon = (status) => {
     return ORDER_STATUS_CONFIG[status]?.icon || '📝'
+  }
+
+  // Get status border color for cards
+  const getStatusBorderColor = (status) => {
+    const colors = {
+      [ORDER_STATUS.ORDERED]: 'border-t-blue-500',
+      [ORDER_STATUS.PENDING]: 'border-t-blue-500',
+      [ORDER_STATUS.PREPARING]: 'border-t-orange-500',
+      [ORDER_STATUS.READY]: 'border-t-green-500',
+      [ORDER_STATUS.SERVED]: 'border-t-purple-500',
+      [ORDER_STATUS.BILL_REQUESTED]: 'border-t-yellow-500',
+      [ORDER_STATUS.FINISHED]: 'border-t-gray-800',
+      [ORDER_STATUS.CANCELLED]: 'border-t-red-500',
+    }
+    return colors[status] || 'border-t-gray-200'
   }
 
   // Get status label
@@ -240,175 +256,174 @@ const OrderManagement = ({ restaurantId, activeItem, setActiveItem, navigate }) 
               </p>
             </div>
           ) : (
-            <div className="divide-y">
-              {sortedOrders.map((order) => (                <div key={order.id} className="p-4 sm:p-6 hover:bg-gray-50/50 transition-all border-b border-gray-100 last:border-0">
-                  <div className="flex flex-col gap-4">
-                    {/* Compact Card Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-10 w-10 shrink-0">
-                          <AvatarFallback className="bg-blue-100 text-blue-600 font-bold border border-blue-200">
-                            T{order.tableNumber || order.table_number}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-bold text-gray-900">Table {order.tableNumber || order.table_number}</h3>
-                            <Badge className={`${getStatusColor(order.status)} border-none shadow-sm h-6 text-[10px] font-bold uppercase tracking-wider`}>
-                              <span className="mr-1">{getStatusIcon(order.status)}</span>
-                              {getStatusLabel(order.status)}
-                            </Badge>
-                          </div>
-                          <p className="text-[11px] text-gray-500 mt-1 font-medium truncate max-w-50 xs:max-w-xs">
-                            <span className="text-blue-500 font-bold">#{order.id.slice(0, 8)}</span> • {new Date(order.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1 bg-gray-50 sm:bg-transparent p-2 sm:p-0 rounded-xl">
-                        <p className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">₹{order.total.toFixed(2)}</p>
-                        <Badge variant="outline" className="text-[10px] font-bold border-gray-200 bg-white sm:bg-transparent px-2 h-5">
-                          {order.items.length} items
-                        </Badge>
-                      </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 p-4 bg-gray-50/50">
+              {sortedOrders.map((order) => (
+                <Card key={order.id} className={`overflow-hidden border border-gray-200 border-t-2 shadow-xs hover:shadow-md transition-all flex flex-col ${getStatusBorderColor(order.status)}`}>
+                  {/* Header */}
+                  <div className="p-2.5 border-b border-gray-100 bg-white flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-black tracking-tight text-gray-900">
+                        Table {order.tableNumber || order.table_number}
+                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-gray-400">#{order.id.slice(0, 5).toUpperCase()}</span>
+                        <span className="text-[10px] font-medium text-gray-400">
+                          {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     </div>
-                      
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {order.items.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                                  <span className="text-sm font-medium text-gray-600">×{item.quantity}</span>
-                                </div>
-                                <div>
-                                  <h4 className="font-medium text-gray-900">{item.name}</h4>
-                                  <p className="text-sm text-gray-500">{item.type}</p>
-                                </div>
-                              </div>
-                              <span className="font-semibold text-gray-900">
-                                ₹{(item.price * item.quantity).toFixed(2)}
-                              </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className={`${getStatusColor(order.status)} border-none shadow-none text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 leading-none`}>
+                        <span className="mr-0.5 scale-75">{getStatusIcon(order.status)}</span>
+                        {getStatusLabel(order.status)}
+                      </Badge>
+                      <div className="flex items-center gap-1 text-[9px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                        <Clock className="w-2.5 h-2.5 text-blue-500" />
+                        <span>{order.estimatedTime || '15-20'}M</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Order Items KOT Style */}
+                  <div className="bg-white p-2.5 flex-1">
+                    <div className="bg-[#f8fafc] border border-gray-100 rounded-md p-2 h-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)]">
+                      <div className="flex items-center justify-between border-b border-dashed border-gray-200 pb-1.5 mb-1.5">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Order Details</span>
+                        <span className="text-[9px] font-bold text-gray-400">{order.items.length} Items</span>
+                      </div>
+                      <div className="space-y-2 max-h-30 overflow-y-auto pr-1">
+                        {order.items.map((item, index) => (
+                          <div key={index} className="flex items-start gap-2">
+                            <div className="min-w-5 h-5 bg-white border border-gray-200 rounded flex items-center justify-center shadow-xs shrink-0">
+                              <span className="text-[10px] font-black text-gray-700">{item.quantity}</span>
                             </div>
-                          ))}
-                        </div>
-                        
-                        <Separator className="my-4" />
-                        
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-                          <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg w-fit">
-                            <Clock className="w-3.5 h-3.5 text-blue-500" />
-                            <span>EST. TIME: {order.estimatedTime || '15-20'} MINS</span>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-[11px] text-gray-900 leading-tight truncate">{item.name}</h4>
+                              {item.variant && item.variant !== 'full' && (
+                                <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded-sm inline-block mt-0.5 border border-amber-100/50 leading-none">Half Plate</span>
+                              )}
+                              {item.notes && <p className="text-[8px] text-red-500 italic mt-0.5 truncate">Note: {item.notes}</p>}
+                            </div>
+                            <span className="font-bold text-[11px] text-gray-900 shrink-0">
+                              ₹{(item.price * item.quantity).toFixed(2)}
+                            </span>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Totals & Actions */}
+                  <div className="bg-white border-t border-gray-100 p-2.5 mt-auto">
+                    <div className="flex items-end justify-between mb-2.5">
+                      <div className="space-y-0.5">
+                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">Total</div>
+                        <div className="text-lg font-black text-gray-900 leading-none tracking-tight">
+                          ₹{Number(order.total || 0).toFixed(2)}
+                        </div>
+                      </div>
+                      
+                      {/* Secondary Actions Menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-6 w-6 border-gray-200 text-gray-400 hover:text-gray-800 bg-gray-50 hover:bg-gray-100">
+                            <MoreVertical className="w-3 h-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40 rounded-xl shadow-lg border-gray-100 text-xs">
+                          <DropdownMenuItem onClick={() => setSelectedOrder(order)} className="font-medium cursor-pointer">
+                            <Calendar className="w-3.5 h-3.5 mr-2 text-blue-500" /> View History
+                          </DropdownMenuItem>
                           
-                          <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-bold text-gray-600 bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-gray-400 uppercase tracking-tighter text-[10px]">Sub</span>
-                              <span className="text-gray-900 underline decoration-blue-200 underline-offset-4 decoration-2">₹{Number(order.subtotal || order.total || 0).toFixed(2)}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-gray-400 uppercase tracking-tighter text-[10px]">Tax</span>
-                              <span className="text-gray-900">₹{Number(order.tax || 0).toFixed(2)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 ml-auto">
-                              <span className="text-blue-600 uppercase tracking-tighter text-[10px]">Total</span>
-                              <span className="text-lg font-black text-blue-600">₹{Number(order.total || 0).toFixed(2)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-50">
-                        {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status) && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.PREPARING)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 px-4"
-                          >
-                            <ChefHat className="w-4 h-4 mr-2" />
-                            Start Preparing
-                          </Button>
-                        )}
-                        
-                        {order.status === ORDER_STATUS.PREPARING && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.READY)}
-                            className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 px-4"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Mark Ready
-                          </Button>
-                        )}
-                        
-                        {order.status === ORDER_STATUS.READY && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.SERVED)}
-                            className="bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 px-4"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Mark Served
-                          </Button>
-                        )}
-                        
-                        {order.status === ORDER_STATUS.SERVED && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.BILL_REQUESTED)}
-                              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-xl shadow-lg shadow-yellow-500/20 px-4"
+                          {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING, ORDER_STATUS.PREPARING].includes(order.status) && (
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.CANCELLED)} 
+                              className="font-medium text-red-600 focus:text-red-700 cursor-pointer"
                             >
-                              <DollarSign className="w-4 h-4 mr-2" />
-                              Request Bill
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.FINISHED)}
-                              className="bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-xl shadow-lg shadow-gray-600/20 px-4"
+                              <X className="w-3.5 h-3.5 mr-2" /> Cancel Order
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {order.status === ORDER_STATUS.SERVED && (
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.FINISHED)} 
+                              className="font-medium text-gray-600 cursor-pointer"
                             >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Mark Finished
-                            </Button>
-                          </>
-                        )}
-                        
-                        {order.status === ORDER_STATUS.BILL_REQUESTED && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.FINISHED)}
-                            className="bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-xl shadow-lg shadow-gray-600/20 px-4"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Mark Finished
-                          </Button>
-                        )}
-                        
-                        {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING, ORDER_STATUS.PREPARING].includes(order.status) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.CANCELLED)}
-                            className="border-red-200 text-red-600 hover:bg-red-50 font-bold rounded-xl"
-                          >
-                            <X className="w-4 h-4 mr-2" />
-                            Cancel
-                          </Button>
-                        )}
-                        
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSelectedOrder(order)}
-                          className="text-purple-600 hover:bg-purple-50 font-bold rounded-xl ml-auto"
-                        >
-                          <Calendar className="w-4 h-4 mr-2" />
-                          History
-                        </Button>
-                      </div>
+                              <CheckCircle className="w-3.5 h-3.5 mr-2" /> Mark Finished
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                ))}
+
+                    {/* Primary Action Button */}
+                    <div className="w-full">
+                      {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status) && (
+                        <Button
+                          onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.PREPARING)}
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-8 rounded-md shadow-sm shadow-orange-500/20 text-[10px] uppercase tracking-wider transition-transform active:scale-95"
+                        >
+                          <ChefHat className="w-3 h-3 mr-1.5" /> Start Preparing
+                        </Button>
+                      )}
+                      
+                      {order.status === ORDER_STATUS.PREPARING && (
+                        <Button
+                          onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.READY)}
+                          className="w-full bg-green-500 hover:bg-green-600 text-white font-bold h-8 rounded-md shadow-sm shadow-green-500/20 text-[10px] uppercase tracking-wider transition-transform active:scale-95"
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1.5" /> Mark Ready
+                        </Button>
+                      )}
+                      
+                      {order.status === ORDER_STATUS.READY && (
+                        <Button
+                          onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.SERVED)}
+                          className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold h-8 rounded-md shadow-sm shadow-purple-500/20 text-[10px] uppercase tracking-wider transition-transform active:scale-95"
+                        >
+                          <Utensils className="w-3 h-3 mr-1.5" /> Mark Served
+                        </Button>
+                      )}
+                      
+                      {order.status === ORDER_STATUS.SERVED && (
+                        <Button
+                          onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.BILL_REQUESTED)}
+                          className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold h-8 rounded-md shadow-sm shadow-yellow-500/20 text-[10px] uppercase tracking-wider transition-transform active:scale-95"
+                        >
+                          <DollarSign className="w-3 h-3 mr-1.5" /> Request Bill
+                        </Button>
+                      )}
+                      
+                      {order.status === ORDER_STATUS.BILL_REQUESTED && (
+                        <Button
+                          onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.FINISHED)}
+                          className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold h-8 rounded-md shadow-sm shadow-gray-900/20 text-[10px] uppercase tracking-wider transition-transform active:scale-95"
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1.5" /> Complete Order
+                        </Button>
+                      )}
+                      
+                      {order.status === ORDER_STATUS.FINISHED && (
+                        <Button
+                          disabled
+                          className="w-full bg-gray-100 text-gray-400 font-bold h-8 rounded-md text-[10px] uppercase tracking-wider opacity-80"
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1.5" /> Completed
+                        </Button>
+                      )}
+                      
+                      {order.status === ORDER_STATUS.CANCELLED && (
+                        <Button
+                          disabled
+                          className="w-full bg-red-50 text-red-500 font-bold h-8 rounded-md text-[10px] uppercase tracking-wider border border-red-200/50"
+                        >
+                          <X className="w-3 h-3 mr-1.5" /> Cancelled
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>

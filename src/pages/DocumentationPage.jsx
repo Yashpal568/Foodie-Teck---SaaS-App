@@ -226,7 +226,7 @@ export default function DocumentationPage() {
           <Logo subtitle="Docs" iconSize={26} />
         </div>
         <div className="flex items-center gap-2">
-          <NotificationDropdown />
+          <NotificationDropdown restaurantId="demo-merchant" />
           <div className="w-8 h-8 rounded-xl bg-linear-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-[10px] shadow-lg shadow-blue-200">
             JD
           </div>
@@ -257,7 +257,7 @@ export default function DocumentationPage() {
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
             <span className="text-[10px] font-black text-emerald-700 uppercase tracking-tight">Premium</span>
           </div>
-          <NotificationDropdown />
+          <NotificationDropdown restaurantId="demo-merchant" />
           <div className="flex items-center gap-3 pl-2 ml-2 border-l border-slate-100">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-black text-slate-900 leading-none">John Doe</p>
@@ -446,7 +446,7 @@ export default function DocumentationPage() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <MobileNavbar activeItem="docs" setActiveItem={() => {}} />
+      <MobileNavbar activeItem="docs" setActiveItem={() => {}} restaurantId="demo-merchant" />
     </div>
   )
 }

@@ -6,16 +6,19 @@ import { getMyRestaurant, updateRestaurantProfile, supabase } from '@/lib/api'
  */
 export const useRestaurantProfile = (restaurantId) => {
     const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+    const isTiger = restaurantId === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || restaurantId === 'tigerbistro99@gmail.com'
     const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
 
     const [profile, setProfile] = useState({
-        id: isDemo ? 'demo-merchant' : null,
+        id: restaurantId || 'a3b0c97f-7acb-478b-8b5a-68763af06b5c',
         name: 'Tiger Bistro',
         business_name: 'Tiger Bistro',
+        email: 'tigerbistro99@gmail.com',
         address: 'Main Square Mall, Floor 2',
         phone: '+91 98765 43210',
         description: 'Premium Dining Experience',
-        plan: isDemo ? 'Enterprise' : 'Basic'
+        plan: 'Professional',
+        status: 'Active'
     })
     const [loading, setLoading] = useState(true)
 

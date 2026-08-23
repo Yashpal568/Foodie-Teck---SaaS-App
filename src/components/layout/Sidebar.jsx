@@ -188,8 +188,11 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    navigate('/login')
+    sessionStorage.clear()
+    localStorage.removeItem('servora_restaurant_id')
+    localStorage.removeItem('servora_user_email')
+    try { await supabase.auth.signOut() } catch (e) {}
+    navigate('/login', { replace: true })
   }
   const [subData, setSubData] = useState({ daysLeft: 30, planName: 'Professional' })
 

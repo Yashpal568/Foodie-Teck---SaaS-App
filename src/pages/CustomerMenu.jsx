@@ -25,6 +25,7 @@ import { TrackOrderButton } from '@/components/ui/track-order-button'
 import { formatPrice } from '@/components/ui/currency-selector'
 import { trackMenuVisit, trackItemView } from '@/components/menu/MenuAnalytics'
 import { useOrderManagement, ORDER_STATUS } from '@/hooks/useOrderManagement'
+import { toast } from 'sonner'
 import OrderTracking from '@/components/order/OrderTracking'
 import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import MenuDealsCarousel from '@/components/menu/MenuDealsCarousel'
@@ -1508,10 +1509,11 @@ export default function CustomerMenu() {
                 <div className={`max-h-[36vh] overflow-y-auto px-6 py-4 space-y-3 no-scrollbar divide-y ${
                   theme === 'dark' ? 'divide-zinc-800/80' : 'divide-zinc-100'
                 }`}>
-                  {cart.map(item => {
+                  {cart.map((item, idx) => {
                     const itemImg = item.photo || item.image_url || item.image || item.imageUrl || getCategoryPlateInfo(item.category, []).image;
+                    const uniqueKey = item.cartItemId || `${item._id}-${item.variant || 'full'}-${idx}`;
                     return (
-                      <div key={item._id} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
+                      <div key={uniqueKey} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div className={`w-11 h-11 rounded-xl overflow-hidden shrink-0 border ${
                             theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-100 border-zinc-200/60'

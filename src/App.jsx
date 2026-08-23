@@ -71,6 +71,11 @@ function DashboardRedirect() {
   useEffect(() => {
     async function resolveTarget() {
       try {
+        const storedRestId = sessionStorage.getItem('servora_restaurant_id')
+        if (storedRestId) {
+          setTarget(`/console/${storedRestId}`);
+          return;
+        }
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.email) {
           setTarget(`/console/${session.user.email}`);

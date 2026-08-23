@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ShoppingBag, X, ChevronRight, Clock, MapPin, BellRing } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 export default function OrderNotification({ restaurantId, onOrderClick }) {
   const [toast, setToast] = useState(null)
   const [resolvedId, setResolvedId] = useState(null)
+  const processedOrders = useRef(new Set())
 
   // Resolve Identity (Email or Alias to UUID)
   useEffect(() => {
@@ -34,7 +35,10 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
     const playChime = () => {
       try {
         // High-fidelity Web Audio API synth chime (zero external network dependency)
-        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const AudioContextClass = window.AudioContext || window['webkitAudioContext']
+        if (AudioContextClass) {
+          new AudioContextClass()
+        }
       } catch (err) {}
 
       // Respect user's sound preferences (currently disabled until settings context is added)
