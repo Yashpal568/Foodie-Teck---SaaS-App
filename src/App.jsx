@@ -37,7 +37,8 @@ const AdminAuditPage = lazy(() => import('./pages/admin/AdminAuditPage'))
 const AdminSupportPage = lazy(() => import('./pages/admin/AdminSupportPage'))
 const MaintenanceNode = lazy(() => import('./pages/MaintenanceNode'))
 
-import { Toaster, toast } from 'sonner'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
 if (typeof window !== 'undefined') {
   window['toast'] = toast
 }
@@ -96,7 +97,7 @@ function DashboardRedirect() {
 function App() {
   return (
     <Router>
-      <Toaster position="top-right" richColors closeButton duration={4000} className="z-99999" toastOptions={{ style: { zIndex: 999999 } }} />
+      <Toaster />
       <MaintenanceGuard>
         <Suspense fallback={<PageLoader />}>
           <Routes>

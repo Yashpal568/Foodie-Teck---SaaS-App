@@ -662,6 +662,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
           <TabsContent value="billing" className="mt-0 outline-none">
             <BillingSettings 
+              restaurantId={restaurantId}
               billingData={billingData}
               setShowUpgradeModal={setShowUpgradeModal}
               isAddCardOpen={isAddCardOpen}

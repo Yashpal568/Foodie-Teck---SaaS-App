@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminHeader from '@/components/admin/AdminHeader'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Toaster } from 'sonner'
 
 export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -32,7 +31,6 @@ export default function AdminLayout() {
           </AnimatePresence>
         </main>
       </div>
-      <Toaster position="top-right" richColors />
     </div>
   )
 }

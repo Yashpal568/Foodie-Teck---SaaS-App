@@ -23,6 +23,7 @@ import ModuleLockOverlay from "../components/dashboard/ModuleLockOverlay";
 import SubscriptionLockOverlay from "../components/dashboard/SubscriptionLockOverlay";
 import SuspensionOverlay from "../components/dashboard/SuspensionOverlay";
 import UpgradePlanModal from "../components/dashboard/UpgradePlanModal";
+import POSTerminal from "../components/pos/POSTerminal";
 import { getPlanDetails } from "@/utils/planLimits";
 import { generateTableSignature } from "@/utils/tableSecurity";
 import {
@@ -555,6 +556,16 @@ function Dashboard() {
             setActiveItem={setActiveItem}
             navigate={navigate}
             plan={plan}
+          />
+        );
+
+      case "pos":
+        return (
+          <POSTerminal
+            restaurantId={resolvedId || profile?.id || urlId}
+            activeItem={activeItem}
+            setActiveItem={setActiveItem}
+            navigate={navigate}
           />
         );
 

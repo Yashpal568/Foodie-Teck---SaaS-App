@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import CurrencySelector from '@/components/ui/currency-selector'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import { Badge } from '@/components/ui/badge'
@@ -75,6 +75,7 @@ export default function Navbar({
     const loadProfile = async () => {
       let email = ''
       let name = 'Tiger Bistro'
+      let avatar = ''
 
       // Check KNOWN_RESTAURANTS and Session first
       const storedSession = sessionStorage.getItem('servora_user_session')
@@ -82,74 +83,60 @@ export default function Navbar({
         try {
           const parsed = JSON.parse(storedSession)
           if (parsed.email) email = parsed.email
+          if (parsed.avatar || parsed.logo_url) avatar = parsed.avatar || parsed.logo_url
         } catch (e) {}
       }
 
       const idLower = (restaurantId || '').toLowerCase()
       const emailLower = (email || '').toLowerCase()
 
-      if (idLower === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || emailLower === 'tigerbistro99@gmail.com' || idLower.includes('tiger')) {
-        setUserProfile({
-          name: 'Tiger Bistro',
-          email: 'tigerbistro99@gmail.com',
-          avatar: ''
-        })
-        return
-      }
-
-      if (idLower === 'ac23afc1-1fbf-449f-8cb5-45ca3bef10a8' || emailLower === 'bingo@gmail.com') {
-        setUserProfile({
-          name: 'bingo',
-          email: 'bingo@gmail.com',
-          avatar: ''
-        })
-        return
-      }
-
-      if (idLower === 'demo-merchant' || idLower === 'demo') {
-        setUserProfile({
-          name: 'Tiger Bistro (Demo)',
-          email: 'demo@servora.app',
-          avatar: ''
-        })
-        return
-      }
-
-      // 1. Try Supabase Auth Session
-      try {
-        const { data: { session } } = await getCachedSession()
-        const user = session?.user
-        if (user?.email) {
-          email = user.email
-          name = user.user_metadata?.business_name || user.email.split('@')[0]
-        }
-      } catch (e) {}
-
-      // 2. Query Restaurant Profile by UUID or Email
+      // 1. Query Restaurant Profile by UUID or Email from database
       if (restaurantId && restaurantId !== 'guest' && restaurantId !== 'default') {
         try {
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
           let rest = null
           
           if (isUUID) {
-            const { data } = await supabase.from('restaurants').select('business_name, email').eq('id', restaurantId).maybeSingle()
+            const { data } = await supabase.from('restaurants').select('business_name, email, logo_url, cover_url').eq('id', restaurantId).maybeSingle()
             rest = data
           } else if (restaurantId.includes('@')) {
-            const { data } = await supabase.from('restaurants').select('business_name, email').eq('email', restaurantId.toLowerCase()).maybeSingle()
+            const { data } = await supabase.from('restaurants').select('business_name, email, logo_url, cover_url').eq('email', restaurantId.toLowerCase()).maybeSingle()
             rest = data
           }
 
           if (rest) {
             if (rest.business_name) name = rest.business_name
             if (rest.email) email = rest.email
+            if (rest.logo_url) avatar = rest.logo_url
           }
         } catch (e) {}
+      }
+
+      // 2. Try Supabase Auth Session if still empty
+      if (!email) {
+        try {
+          const { data: { session } } = await getCachedSession()
+          const user = session?.user
+          if (user?.email) {
+            email = user.email
+            name = user.user_metadata?.business_name || user.email.split('@')[0]
+          }
+        } catch (e) {}
+      }
+
+      // Default restaurant avatar for Tiger Bistro if not yet uploaded
+      if (!avatar) {
+        if (idLower === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || emailLower === 'tigerbistro99@gmail.com' || idLower.includes('tiger') || name.toLowerCase().includes('tiger')) {
+          name = 'Tiger Bistro'
+          email = email || 'tigerbistro99@gmail.com'
+          avatar = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=120&auto=format&fit=crop&q=80'
+        }
       }
 
       setUserProfile({
         name: name || 'Tiger Bistro',
         email: email || 'tigerbistro99@gmail.com',
-        avatar: ''
+        avatar: avatar || ''
       })
     }
 
@@ -312,13 +299,23 @@ export default function Navbar({
               </span>
             </div>
 
-            {getPlanDetails(plan?.name).name !== 'Enterprise' && (
+            {getPlanDetails(plan?.name).name === 'Starter' && (
               <button
                 onClick={onUpgradeClick}
-                className="hidden xl:flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+                className="hidden xl:flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+                <span>Upgrade to Pro</span>
+              </button>
+            )}
+
+            {getPlanDetails(plan?.name).name === 'Professional' && (
+              <button
+                onClick={onUpgradeClick}
+                className="hidden xl:flex items-center gap-1 bg-slate-900 hover:bg-black text-white font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
               >
                 <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
-                <span>Upgrade</span>
+                <span>Upgrade to Enterprise</span>
               </button>
             )}
           </div>
@@ -345,12 +342,19 @@ export default function Navbar({
                 className="flex items-center gap-2 p-1 h-9 rounded-xl hover:bg-slate-100/80 border border-transparent hover:border-slate-200/60 transition-all cursor-pointer"
               >
                 <div className="relative">
-                  <Avatar className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-slate-200 shadow-2xs">
-                    <AvatarFallback className="bg-slate-900 text-white font-black text-xs rounded-lg">
-                      {userProfile.name?.charAt(0)?.toUpperCase() || 'M'}
+                  <Avatar className="w-8 h-8 rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                    {userProfile.avatar && (
+                      <AvatarImage 
+                        src={userProfile.avatar} 
+                        alt={userProfile.name} 
+                        className="object-cover w-full h-full" 
+                      />
+                    )}
+                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black text-xs rounded-xl">
+                      {userProfile.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'TB'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
                 </div>
                 {/* Name — desktop only */}
                 <div className="text-left hidden lg:block">
@@ -368,8 +372,12 @@ export default function Navbar({
               {/* User Identity Header Card */}
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2 mb-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                    {userProfile.name?.charAt(0)?.toUpperCase() || 'M'}
+                  <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                    {userProfile.avatar ? (
+                      <img src={userProfile.avatar} alt={userProfile.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="font-black text-xs">{userProfile.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'TB'}</span>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">

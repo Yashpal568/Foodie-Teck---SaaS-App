@@ -16,7 +16,8 @@ import {
   Table,
   LogOut,
   Lock,
-  ChefHat
+  ChefHat,
+  UtensilsCrossed
 } from 'lucide-react'
 import { getPlanDetails } from '@/utils/planLimits'
 import { Badge } from '@/components/ui/badge'
@@ -28,12 +29,13 @@ import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 
 export const menuItems = [
   { icon: Home, label: 'Dashboard', id: 'dashboard', route: '/dashboard' },
-  { icon: ChefHat, label: 'Inventory', id: 'menu', route: '/dashboard' },
+  { icon: UtensilsCrossed, label: 'POS Terminal', id: 'pos', route: '/dashboard' },
+  { icon: ShoppingCart, label: 'Orders & KDS', id: 'orders', route: '/dashboard' },
+  { icon: ChefHat, label: 'Inventory & Menu', id: 'menu', route: '/dashboard' },
   { icon: QrCode, label: 'QR Codes', id: 'qr-codes', route: '/dashboard' },
-  { icon: ShoppingCart, label: 'Orders', id: 'orders', route: '/dashboard' },
   { icon: Table, label: 'Table Sessions', id: 'tables', route: '/dashboard' },
   { icon: Users, label: 'Customer Management', id: 'customers', route: '/dashboard' },
-  { icon: Receipt, label: 'Analytics', id: 'analytics', route: '/dashboard' }
+  { icon: Receipt, label: 'Analytics & Sales', id: 'analytics', route: '/dashboard' }
 ]
 
 export const supportItems = [

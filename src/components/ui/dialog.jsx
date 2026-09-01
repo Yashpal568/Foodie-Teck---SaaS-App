@@ -59,6 +59,10 @@ function DialogContent({
           className
         )}
         {...props}>
+        {/* Hidden Fallback Accessible Description to avoid Radix missing description warnings */}
+        <DialogPrimitive.Description className="sr-only">
+          Modal Dialog window
+        </DialogPrimitive.Description>
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

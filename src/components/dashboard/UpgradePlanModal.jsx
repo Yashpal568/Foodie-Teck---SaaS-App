@@ -192,21 +192,33 @@ export default function UpgradePlanModal({
             {/* Plan Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               {plans.map((p) => {
+                const isCurrentPlan = currentPlan.name === p.key
                 const isSelected = targetUpgradePlan.name === p.key
                 return (
                   <motion.div
                     key={p.key}
                     whileHover={{ y: -2, transition: { duration: 0.15 } }}
                     whileTap={{ scale: 0.985 }}
-                    onClick={() => setTargetUpgradePlan(p.plan)}
+                    onClick={() => {
+                      if (!isCurrentPlan) {
+                        setTargetUpgradePlan(p.plan)
+                      }
+                    }}
                     className={`relative cursor-pointer rounded-2xl border-2 p-4 transition-all duration-200 select-none ${
-                      isSelected
-                        ? `${p.selectedBorder} ${p.selectedBg}`
-                        : `${p.unselectedBorder} ${p.unselectedBg}`
+                      isCurrentPlan
+                        ? 'border-emerald-300 bg-emerald-50/40 cursor-default ring-1 ring-emerald-400/20'
+                        : isSelected
+                          ? `${p.selectedBorder} ${p.selectedBg}`
+                          : `${p.unselectedBorder} ${p.unselectedBg}`
                     }`}
                   >
-                    {/* Selected indicator */}
-                    {isSelected && (
+                    {/* Selected / Current indicator */}
+                    {isCurrentPlan ? (
+                      <div className="absolute top-3.5 right-3.5 flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[9px] font-black uppercase px-2 py-0.5 rounded-md">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Active</span>
+                      </div>
+                    ) : isSelected && (
                       <motion.div
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
@@ -220,8 +232,10 @@ export default function UpgradePlanModal({
                     <div className="flex items-center gap-2 mb-3">
                       {p.icon}
                       <span className="text-[12px] font-black text-slate-800 uppercase tracking-wide">{p.key}</span>
-                      <Badge className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg ml-auto mr-6 ${p.badgeStyle}`}>
-                        {p.badge}
+                      <Badge className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg ml-auto mr-6 ${
+                        isCurrentPlan ? 'bg-emerald-600 text-white border-0' : p.badgeStyle
+                      }`}>
+                        {isCurrentPlan ? 'Current Plan' : p.badge}
                       </Badge>
                     </div>
 
@@ -239,8 +253,12 @@ export default function UpgradePlanModal({
                     <ul className="space-y-2">
                       {p.features.map((feat, i) => (
                         <li key={i} className="flex items-start gap-2">
-                          <CheckCircle2 className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${isSelected ? p.checkColor : 'text-slate-300'}`} />
-                          <span className={`text-[11px] font-semibold leading-tight ${isSelected ? 'text-slate-700' : 'text-slate-400'}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+                            isCurrentPlan ? 'text-emerald-500' : isSelected ? p.checkColor : 'text-slate-300'
+                          }`} />
+                          <span className={`text-[11px] font-semibold leading-tight ${
+                            isCurrentPlan ? 'text-slate-800' : isSelected ? 'text-slate-700' : 'text-slate-400'
+                          }`}>
                             {feat}
                           </span>
                         </li>

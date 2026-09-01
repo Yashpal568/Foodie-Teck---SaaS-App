@@ -455,12 +455,219 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
     })
   }
 
-  // Print Receipt directly
+  // Print Receipt directly via isolated printable iframe
   const handlePrintReceipt = (order) => {
+    if (!order) return
     setReceiptOrder(order)
-    setTimeout(() => {
+
+    try {
+      const printFrame = document.createElement('iframe')
+      printFrame.style.position = 'fixed'
+      printFrame.style.right = '0'
+      printFrame.style.bottom = '0'
+      printFrame.style.width = '0'
+      printFrame.style.height = '0'
+      printFrame.style.border = '0'
+      document.body.appendChild(printFrame)
+
+      const frameDoc = printFrame.contentWindow || printFrame.contentDocument.document || printFrame.contentDocument
+      const doc = frameDoc.document || frameDoc
+
+      const restName = profile?.business_name || profile?.name || 'Tiger Bistro'
+      const restAddress = profile?.address || 'Main Square Mall, Floor 2'
+      const restPhone = profile?.phone || '+91 98765 43210'
+      const restGstin = profile?.gstin || '07AAAAA0000A1Z5'
+
+      const items = order.items || order.order_items || []
+      const itemsHtml = items.map(item => `
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px; align-items:flex-start;">
+          <div style="max-width:260px; word-break:break-word;">
+            <span style="font-weight:bold; color:#0f172a;">${item.name || item.item_name || 'Dish'}</span>
+            ${item.variant && item.variant !== 'full' ? `<span style="font-size:11px; color:#d97706; display:block;">(${item.variant})</span>` : ''}
+          </div>
+          <span style="white-space:nowrap; margin:0 8px; color:#475569;">${item.quantity || 1} x ₹${Number(item.price || 0).toFixed(2)}</span>
+          <span style="font-weight:bold; color:#0f172a; white-space:nowrap; text-align:right;">₹${(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}</span>
+        </div>
+      `).join('')
+
+      const grandTotal = Number(order.total || order.total_amount || 0)
+      const subtotal = grandTotal * 0.95238
+      const cgst = grandTotal * 0.02381
+      const sgst = grandTotal * 0.02381
+
+      const createdAt = new Date(order.createdAt || order.created_at || Date.now())
+      const formattedDate = createdAt.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const formattedTime = createdAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+      const tableNo = order.tableNumber || order.table_number || '1'
+      const orderRef = `#${String(order.id).slice(-6).toUpperCase()}`
+
+      doc.open()
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>${restName} - Receipt ${orderRef}</title>
+            <style>
+              @page {
+                size: auto;
+                margin: 6mm auto;
+              }
+              * {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              html, body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                background: #ffffff;
+                color: #1e293b;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 13px;
+                line-height: 1.45;
+              }
+              .receipt-box {
+                width: 100%;
+                max-width: 480px;
+                margin: 0 auto;
+                padding: 16px 20px;
+                background: #fffdfa;
+                border: 1.5px dashed #cbd5e1;
+                border-radius: 8px;
+              }
+              .text-center { text-align: center; }
+              .text-right { text-align: right; }
+              .font-bold { font-weight: bold; }
+              .uppercase { text-transform: uppercase; }
+              .dashed-border {
+                border-bottom: 1.5px dashed #cbd5e1;
+                padding-bottom: 12px;
+                margin-bottom: 12px;
+              }
+              .grid-2 {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 5px;
+                font-size: 12.5px;
+              }
+              .items-header {
+                display: flex;
+                justify-content: space-between;
+                font-weight: bold;
+                border-bottom: 1.5px solid #0f172a;
+                padding-bottom: 5px;
+                margin-bottom: 10px;
+                font-size: 12.5px;
+                color: #0f172a;
+              }
+              .totals-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 6px;
+                font-size: 12.5px;
+                color: #475569;
+              }
+              .grand-total-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 17px;
+                font-weight: 900;
+                color: #0f172a;
+                border-top: 2px solid #0f172a;
+                border-bottom: 2px solid #0f172a;
+                padding: 8px 0;
+                margin: 10px 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="receipt-box">
+              
+              <!-- Brand Header -->
+              <div class="text-center dashed-border">
+                <h2 style="margin:0; font-size:20px; font-weight:900;" class="uppercase">${restName}</h2>
+                <p style="margin:4px 0 2px; font-size:12px; color:#475569;">${restAddress}</p>
+                <p style="margin:0; font-size:12px; color:#475569;">Ph: <strong>${restPhone}</strong></p>
+                <div style="margin-top:6px;">
+                  <span style="display:inline-block; padding:2px 8px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px; font-size:11px; font-weight:bold; color:#1e293b;">
+                    GSTIN: ${restGstin}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Metadata -->
+              <div class="dashed-border">
+                <div class="grid-2">
+                  <div><span style="color:#64748b;">Table No:</span> <strong style="color:#0f172a; font-size:14px;">Table ${tableNo}</strong></div>
+                  <div class="text-right"><span style="color:#64748b;">Order Ref:</span> <strong style="color:#0f172a;">${orderRef}</strong></div>
+                </div>
+                <div class="grid-2">
+                  <div><span style="color:#64748b;">Date & Time:</span> <span>${formattedDate}, ${formattedTime}</span></div>
+                  <div class="text-right"><span style="color:#64748b;">Server / Mode:</span> <span>POS Dine-In</span></div>
+                </div>
+              </div>
+
+              <!-- Items Table -->
+              <div class="dashed-border" style="padding-bottom:8px;">
+                <div class="items-header">
+                  <span>Item</span>
+                  <span>Qty x Price</span>
+                  <span>Total</span>
+                </div>
+                ${itemsHtml}
+              </div>
+
+              <!-- Totals Breakdown -->
+              <div class="dashed-border" style="padding-bottom:10px;">
+                <div class="totals-row">
+                  <span>Subtotal:</span>
+                  <span style="font-weight:bold; color:#0f172a;">₹${subtotal.toFixed(2)}</span>
+                </div>
+                <div class="totals-row">
+                  <span>CGST (2.5%):</span>
+                  <span>₹${cgst.toFixed(2)}</span>
+                </div>
+                <div class="totals-row">
+                  <span>SGST (2.5%):</span>
+                  <span>₹${sgst.toFixed(2)}</span>
+                </div>
+                <div class="grand-total-row">
+                  <span>Grand Total:</span>
+                  <span>₹${grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="text-center" style="font-size:11.5px; color:#64748b; line-height:1.5; padding-top:2px;">
+                <p style="margin:0; font-weight:bold; color:#0f172a;">Thank you for dining with us!</p>
+                <p style="margin:0;">Please visit again soon.</p>
+                <p style="margin:4px 0 0; font-size:9.5px; color:#94a3b8;">Powered by Servora POS OS</p>
+              </div>
+
+            </div>
+          </body>
+        </html>
+      `)
+      doc.close()
+
+      setTimeout(() => {
+        printFrame.contentWindow.focus()
+        printFrame.contentWindow.print()
+        setTimeout(() => {
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame)
+          }
+        }, 3000)
+      }, 300)
+
+      toast.success('Receipt sent to printer!')
+    } catch (err) {
+      console.error('Print error:', err)
       window.print()
-    }, 300)
+    }
   }
 
   // Export Day Orders to CSV
@@ -1035,8 +1242,8 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
             ) : viewMode === 'grid' ? (
 
-              /* KDS Grid View Mode */
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4.5">
+              /* KDS Grid View Mode - Ultra-Compact & Professional POS Ticket Sizing */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 items-start">
                 <AnimatePresence>
                   {processedOrders.map((order) => {
                     const elapsed = getElapsedInfo(order.createdAt || order.created_at)
@@ -1052,20 +1259,20 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                         initial={{ opacity: 0, scale: 0.96 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
+                        transition={{ duration: 0.12 }}
                       >
-                        <Card className={`overflow-hidden border border-slate-200/90 rounded-2xl shadow-xs hover:shadow-md transition-all flex flex-col bg-white h-full ${
+                        <Card className={`overflow-hidden border border-slate-200/90 rounded-xl shadow-2xs hover:shadow-sm transition-all flex flex-col bg-white ${
                           order.status === ORDER_STATUS.PREPARING 
-                            ? 'ring-2 ring-orange-500/20 border-orange-200' 
+                            ? 'ring-1.5 ring-orange-500/30 border-orange-200' 
                             : order.status === ORDER_STATUS.READY 
-                              ? 'ring-2 ring-emerald-500/20 border-emerald-200' 
+                              ? 'ring-1.5 ring-emerald-500/30 border-emerald-200' 
                               : order.status === ORDER_STATUS.BILL_REQUESTED 
-                                ? 'ring-2 ring-amber-500/20 border-amber-200'
+                                ? 'ring-1.5 ring-amber-500/30 border-amber-200'
                                 : ''
                         }`}>
                           
                           {/* Ticket Header Banner */}
-                          <div className={`p-3.5 border-b flex items-start justify-between gap-2 transition-colors ${
+                          <div className={`p-2 px-2.5 border-b flex items-start justify-between gap-1 transition-colors ${
                             order.status === ORDER_STATUS.PREPARING 
                               ? 'bg-linear-to-r from-orange-50/80 to-amber-50/40 border-orange-100' 
                               : order.status === ORDER_STATUS.READY 
@@ -1079,24 +1286,24 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                             
                             {/* Table Badge & Identity */}
                             <div>
-                              <div className="flex items-center gap-2">
-                                <span className="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-black text-xs tracking-tight shadow-xs">
-                                  Table {order.tableNumber || order.table_number || '1'}
+                              <div className="flex items-center gap-1">
+                                <span className="px-1.5 py-0.5 rounded-md bg-slate-900 text-white font-extrabold text-[11px] tracking-tight shadow-2xs">
+                                  T{order.tableNumber || order.table_number || '1'}
                                 </span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                                  #{String(order.id).slice(-5).toUpperCase()}
+                                <span className="text-[9px] font-bold text-slate-400 font-mono">
+                                  #{String(order.id).slice(-4).toUpperCase()}
                                 </span>
                               </div>
                               
-                              <div className="flex items-center gap-1.5 mt-1 text-[11px] font-semibold text-slate-600">
-                                <Users className="w-3 h-3 text-slate-400" />
-                                <span className="truncate max-w-[120px]">{order.customerName || order.customer_name || 'Dine-in Guest'}</span>
+                              <div className="flex items-center gap-1 mt-0.5 text-[9.5px] font-medium text-slate-500">
+                                <Users className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                <span className="truncate max-w-[85px]">{order.customerName || order.customer_name || 'Guest'}</span>
                               </div>
                             </div>
 
                             {/* Status & Timer Column */}
-                            <div className="flex flex-col items-end gap-1">
-                              <Badge className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 border-none shadow-2xs ${
+                            <div className="flex flex-col items-end gap-0.5">
+                              <Badge className={`text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.2 border-none shadow-2xs ${
                                 order.status === ORDER_STATUS.PREPARING ? 'bg-orange-500 text-white' :
                                 order.status === ORDER_STATUS.READY ? 'bg-emerald-500 text-white' :
                                 order.status === ORDER_STATUS.SERVED ? 'bg-purple-600 text-white' :
@@ -1108,12 +1315,12 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                 {ORDER_STATUS_CONFIG[order.status]?.label || order.status}
                               </Badge>
 
-                              <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                              <div className={`flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.2 rounded ${
                                 elapsed.urgency === 'delayed' ? 'bg-rose-100 text-rose-700 animate-pulse' :
                                 elapsed.urgency === 'warning' ? 'bg-amber-100 text-amber-700' :
                                 'bg-slate-100 text-slate-600'
                               }`}>
-                                <Clock className="w-2.5 h-2.5" />
+                                <Clock className="w-2 h-2" />
                                 <span>{elapsed.text}</span>
                               </div>
                             </div>
@@ -1121,64 +1328,64 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                           </div>
 
                           {/* Items Checklist (KOT Chef View) */}
-                          <div className="p-3.5 flex-1 bg-white flex flex-col justify-between">
+                          <div className="p-2 px-2.5 flex-1 bg-white flex flex-col justify-between">
                             <div>
-                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-dashed border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              <div className="flex items-center justify-between pb-1 mb-1 border-b border-dashed border-slate-200 text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">
                                 <span>KOT Items ({items.length})</span>
                                 {items.length > 0 && !isFinished && (
                                   <span className="text-indigo-600 font-extrabold">{checkedCount}/{items.length} Ready</span>
                                 )}
                               </div>
 
-                              <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                              <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
                                 {items.map((item, idx) => {
                                   const isChecked = checkedItems[`${order.id}-${idx}`]
                                   return (
                                     <div 
                                       key={idx} 
                                       onClick={() => !isFinished && toggleItemChecked(order.id, idx)}
-                                      className={`flex items-start gap-2.5 p-1.5 rounded-xl transition-all select-none ${
+                                      className={`flex items-start gap-1.5 p-0.5 rounded-md transition-all select-none ${
                                         isFinished 
                                           ? 'opacity-80' 
                                           : 'cursor-pointer hover:bg-slate-50 active:scale-[0.99]'
                                       } ${isChecked ? 'bg-emerald-50/50' : ''}`}
                                     >
-                                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 font-black text-xs transition-colors shadow-2xs ${
+                                      <div className={`w-4.5 h-4.5 rounded flex items-center justify-center shrink-0 font-black text-[9px] transition-colors shadow-2xs ${
                                         isChecked 
-                                          ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' 
+                                          ? 'bg-emerald-600 text-white ring-1 ring-emerald-300' 
                                           : 'bg-slate-900 text-white'
                                       }`}>
-                                        {isChecked ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : `${item.quantity || 1}x`}
+                                        {isChecked ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : `${item.quantity || 1}x`}
                                       </div>
 
                                       <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                        <div className="flex items-center gap-1">
+                                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                             item.type === 'NON_VEG' ? 'bg-rose-500' : 'bg-emerald-500'
                                           }`}></span>
                                           
-                                          <h4 className={`text-xs font-bold text-slate-900 leading-snug truncate ${
+                                          <h4 className={`text-[11px] font-semibold text-slate-900 leading-tight truncate ${
                                             isChecked ? 'line-through text-slate-400' : ''
                                           }`}>
                                             {item.name}
                                           </h4>
                                         </div>
 
-                                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                                        <div className="flex flex-wrap items-center gap-1 mt-0.2">
                                           {item.variant && item.variant !== 'full' && (
-                                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded-md">
-                                              Half Plate
+                                            <span className="text-[8px] font-bold text-amber-700 bg-amber-100/80 px-1 rounded">
+                                              Half
                                             </span>
                                           )}
                                           {item.notes && (
-                                            <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded-md border border-rose-100">
-                                              Note: {item.notes}
+                                            <span className="text-[8px] font-medium text-rose-600 bg-rose-50 px-1 rounded border border-rose-100">
+                                              {item.notes}
                                             </span>
                                           )}
                                         </div>
                                       </div>
 
-                                      <span className="text-xs font-bold text-slate-700 shrink-0">
+                                      <span className="text-[10.5px] font-semibold text-slate-600 shrink-0">
                                         ₹{Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}
                                       </span>
                                     </div>
@@ -1188,42 +1395,42 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                             </div>
 
                             {items.length > 1 && !isFinished && (
-                              <div className="mt-3 pt-2 border-t border-slate-100">
-                                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 mb-1">
-                                  <span>Plating Progress</span>
+                              <div className="mt-1.5 pt-1 border-t border-slate-100">
+                                <div className="flex items-center justify-between text-[8.5px] font-bold text-slate-400 mb-0.5">
+                                  <span>Progress</span>
                                   <span className="text-slate-700">{progressPct}%</span>
                                 </div>
-                                <Progress value={progressPct} className="h-1.5 bg-slate-100" />
+                                <Progress value={progressPct} className="h-1 bg-slate-100" />
                               </div>
                             )}
 
                           </div>
 
                           {/* Card Footer Actions */}
-                          <div className="p-3 border-t border-slate-100 bg-slate-50/50 mt-auto">
-                            <div className="flex items-center justify-between mb-2.5">
+                          <div className="p-2 px-2.5 border-t border-slate-100 bg-slate-50/60 mt-auto">
+                            <div className="flex items-center justify-between mb-1.5">
                               <div>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Grand Total</span>
-                                <span className="text-base font-black text-slate-900 tracking-tight">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">Grand Total</span>
+                                <span className="text-xs font-black text-slate-900 tracking-tight">
                                   ₹{Number(order.total || order.total_amount || 0).toFixed(2)}
                                 </span>
                               </div>
 
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-0.5">
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handlePrintReceipt(order)}
-                                  className="w-7 h-7 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                                  className="w-5.5 h-5.5 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
                                   title="Print Thermal Receipt"
                                 >
-                                  <Printer className="w-3.5 h-3.5" />
+                                  <Printer className="w-3 h-3" />
                                 </Button>
 
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="w-7 h-7 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/60">
-                                      <MoreVertical className="w-3.5 h-3.5" />
+                                    <Button variant="ghost" size="icon" className="w-5.5 h-5.5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-200/60">
+                                      <MoreVertical className="w-3 h-3" />
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="w-44 rounded-xl shadow-xl border-slate-200 text-xs font-semibold">
@@ -1252,45 +1459,45 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status) && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.PREPARING)}
-                                  className="w-full h-9 rounded-xl bg-linear-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm shadow-orange-500/20 active:scale-95 transition-all"
+                                  className="w-full h-7 rounded-lg bg-linear-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-[10.5px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer"
                                 >
-                                  <ChefHat className="w-3.5 h-3.5 mr-1.5" /> Start Preparing
+                                  <ChefHat className="w-3 h-3 mr-1" /> Start Preparing
                                 </Button>
                               )}
 
                               {order.status === ORDER_STATUS.PREPARING && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.READY)}
-                                  className="w-full h-9 rounded-xl bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm shadow-emerald-500/20 active:scale-95 transition-all"
+                                  className="w-full h-7 rounded-lg bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-[10.5px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer"
                                 >
-                                  <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Mark as Ready
+                                  <CheckCircle className="w-3 h-3 mr-1" /> Mark Ready
                                 </Button>
                               )}
 
                               {order.status === ORDER_STATUS.READY && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.SERVED)}
-                                  className="w-full h-9 rounded-xl bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm shadow-purple-500/20 active:scale-95 transition-all"
+                                  className="w-full h-7 rounded-lg bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-[10.5px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer"
                                 >
-                                  <Utensils className="w-3.5 h-3.5 mr-1.5" /> Serve to Table
+                                  <Utensils className="w-3 h-3 mr-1" /> Serve to Table
                                 </Button>
                               )}
 
                               {order.status === ORDER_STATUS.SERVED && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.BILL_REQUESTED)}
-                                  className="w-full h-9 rounded-xl bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm shadow-amber-500/20 active:scale-95 transition-all"
+                                  className="w-full h-7 rounded-lg bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-bold text-[10.5px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer"
                                 >
-                                  <DollarSign className="w-3.5 h-3.5 mr-1.5" /> Generate Bill
+                                  <DollarSign className="w-3 h-3 mr-1" /> Generate Bill
                                 </Button>
                               )}
 
                               {order.status === ORDER_STATUS.BILL_REQUESTED && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.FINISHED)}
-                                  className="w-full h-9 rounded-xl bg-linear-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all"
+                                  className="w-full h-7 rounded-lg bg-linear-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white font-bold text-[10.5px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer"
                                 >
-                                  <Check className="w-3.5 h-3.5 mr-1.5" /> Mark Paid & Clear Table
+                                  <Check className="w-3 h-3 mr-1" /> Mark Paid & Clear
                                 </Button>
                               )}
 
@@ -1298,18 +1505,18 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                 <Button
                                   variant="outline"
                                   onClick={() => setReceiptOrder(order)}
-                                  className="w-full h-9 rounded-xl bg-white border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider"
+                                  className="w-full h-7 rounded-lg bg-white border-slate-200 text-slate-600 font-bold text-[10.5px] uppercase tracking-wider cursor-pointer"
                                 >
-                                  <Receipt className="w-3.5 h-3.5 mr-1.5 text-indigo-600" /> Completed (View Receipt)
+                                  <Receipt className="w-3 h-3 mr-1 text-indigo-600" /> Completed
                                 </Button>
                               )}
 
                               {order.status === ORDER_STATUS.CANCELLED && (
                                 <Button
                                   disabled
-                                  className="w-full h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-200/60 font-bold text-xs uppercase tracking-wider opacity-90"
+                                  className="w-full h-7 rounded-lg bg-rose-50 text-rose-600 border border-rose-200/60 font-bold text-[10.5px] uppercase tracking-wider opacity-90"
                                 >
-                                  <X className="w-3.5 h-3.5 mr-1.5" /> Order Cancelled
+                                  <X className="w-3 h-3 mr-1" /> Cancelled
                                 </Button>
                               )}
                             </div>
@@ -1522,21 +1729,33 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
       {/* ── 4. Thermal Receipt Modal (Print Ready) ── */}
       <Dialog open={!!receiptOrder} onOpenChange={(open) => !open && setReceiptOrder(null)}>
-        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-slate-200">
-          <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <DialogContent showCloseButton={false} className="max-w-md p-0 overflow-hidden rounded-3xl border-slate-200 shadow-2xl">
+          <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
               <Receipt className="w-5 h-5 text-indigo-400" />
               <DialogTitle className="text-base font-black tracking-tight text-white">
                 Customer Bill Receipt
               </DialogTitle>
             </div>
-            <Button
-              size="sm"
-              onClick={() => handlePrintReceipt(receiptOrder)}
-              className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5 mr-1" /> Print
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => handlePrintReceipt(receiptOrder)}
+                className="h-8 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setReceiptOrder(null)}
+                className="h-8 w-8 p-0 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer flex items-center justify-center transition-colors"
+                title="Close receipt"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {receiptOrder && (
