@@ -1356,7 +1356,7 @@ export default function POSTerminal({ restaurantId }) {
         <SplitPaymentModal
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
-          restaurantId={restaurantId}
+          restaurantId={restaurantId || profile?.id}
           restaurantProfile={profile}
           tableNumber={orderType === 'TAKEAWAY' ? takeawayToken : selectedTable}
           cartItems={cart}

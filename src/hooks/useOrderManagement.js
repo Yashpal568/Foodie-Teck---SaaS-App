@@ -179,19 +179,31 @@ export const useOrderManagement = (restaurantId) => {
     if (showLoading) setLoading(true)
     try {
       const resp = await fetchOrders(idToUse)
-      const allOrders = (resp || []).map(o => ({
-        ...o,
-        id: o.id,
-        tableNumber: o.table_number || o.tableNumber,
-        customerName: o.customer_name || o.customerName || 'Guest',
-        items: o.order_items || o.items || [],
-        total: o.total || 0,
-        status: o.status || 'PENDING',
-        createdAt: o.created_at,
-        statusHistory: o.status_history || o.statusHistory || [
-          { status: o.status || 'PENDING', timestamp: o.created_at, note: 'Order received' }
-        ]
-      }))
+      const allOrders = (resp || []).map(o => {
+        const cName = String(o.customer_name || o.customerName || '')
+        const oType = String(o.type || o.order_type || o.orderType || '')
+        const isPrepaid = o.payment_status === 'PAID' || 
+                          o.is_prepaid === true || 
+                          cName.includes('PAID') || 
+                          oType.includes('PAID')
+        return {
+          ...o,
+          id: o.id,
+          tableNumber: o.table_number || o.tableNumber || '1',
+          customerName: cName.replace(/\s*•\s*PAID/gi, '').trim() || 'Guest',
+          items: o.order_items || o.items || [],
+          total: o.total || 0,
+          status: o.status || 'PENDING',
+          payment_status: isPrepaid ? 'PAID' : (o.payment_status || 'UNPAID'),
+          is_prepaid: isPrepaid,
+          type: oType.replace(/\s*•\s*PAID/gi, '').trim() || 'DINE-IN',
+          notes: isPrepaid ? 'BILLING DONE / PAID IN ADVANCE ✅' : (o.notes || ''),
+          createdAt: o.created_at,
+          statusHistory: o.status_history || o.statusHistory || [
+            { status: o.status || 'PENDING', timestamp: o.created_at, note: 'Order received' }
+          ]
+        }
+      })
       
       // Separate Active vs History
       const active = allOrders.filter(o => 

@@ -31,10 +31,12 @@ export const createOrder = async (orderData) => {
 
   let order = null
 
+  const isPrepaid = !!orderData.is_prepaid || orderData.payment_status === 'PAID'
+  const rawCustomer = String(orderData.customerName || orderData.customer_name || 'Guest Customer').replace(/\s*•\s*PAID/gi, '').trim() || 'Guest Customer'
+  const customerNameFormatted = isPrepaid ? `${rawCustomer} • PAID` : rawCustomer
+  const rawType = String(orderData.type || orderData.order_type || 'DINE-IN').replace(/\s*•\s*PAID/gi, '').trim() || 'DINE-IN'
+  const typeFormatted = isPrepaid ? `${rawType} • PAID` : rawType
   const orderStatus = orderData.status || 'PENDING'
-  const notes = orderData.notes || orderData.specialInstructions || ''
-  const paymentStatus = orderData.payment_status || (orderData.is_prepaid ? 'PAID' : 'UNPAID')
-  const paymentMethod = orderData.payment_method || ''
 
   if (validRestaurantId) {
     try {
@@ -42,17 +44,15 @@ export const createOrder = async (orderData) => {
         .from('orders')
         .insert({
           restaurant_id: validRestaurantId,
-          table_number: String(orderData.tableNumber || orderData.table_number || 'N/A'),
-          customer_name: String(orderData.customerName || orderData.customer_name || 'Guest Customer').slice(0, 100),
+          table_number: String(orderData.tableNumber || orderData.table_number || '1'),
+          customer_name: customerNameFormatted.slice(0, 100),
           status: orderStatus,
           subtotal: computedSubtotal,
           tax: computedTax,
           total: computedTotal,
           gst_rate: gstRate,
           gst_label: orderData.gstLabel || 'GST',
-          type: orderData.type || orderData.order_type || 'DINE-IN',
-          notes: notes,
-          payment_status: paymentStatus,
+          type: typeFormatted,
           created_at: new Date().toISOString()
         })
         .select()
@@ -74,18 +74,16 @@ export const createOrder = async (orderData) => {
       id: `ord-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       restaurant_id: targetRid || 'demo-merchant',
       table_number: String(orderData.tableNumber || orderData.table_number || '1'),
-      customer_name: String(orderData.customerName || orderData.customer_name || 'Guest Customer').slice(0, 100),
+      customer_name: customerNameFormatted.slice(0, 100),
       status: orderStatus,
       subtotal: computedSubtotal,
       tax: computedTax,
       total: computedTotal,
       gst_rate: gstRate,
       gst_label: orderData.gstLabel || 'GST',
-      type: orderData.type || orderData.order_type || 'DINE-IN',
-      notes: notes,
-      payment_status: paymentStatus,
-      payment_method: paymentMethod,
-      is_prepaid: !!orderData.is_prepaid,
+      type: typeFormatted,
+      payment_status: isPrepaid ? 'PAID' : 'UNPAID',
+      is_prepaid: isPrepaid,
       created_at: new Date().toISOString(),
       order_items: lineItems
     }
