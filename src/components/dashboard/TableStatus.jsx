@@ -183,7 +183,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
   return (
     <div className="space-y-4">
       {/* Compact Table Stats Strip */}
-      <div className="grid grid-cols-4 gap-2 mb-2">
+      <div className="grid grid-cols-4 gap-2 mb-3">
         {['available', 'occupied', 'billing', 'needs-cleaning'].map((status) => {
           const colorMap = {
             'available': 'text-emerald-600',
@@ -192,18 +192,18 @@ const TableStatus = ({ restaurantId = 'default' }) => {
             'needs-cleaning': 'text-amber-600'
           };
           return (
-            <div key={status} className="bg-white border border-zinc-200/80 shadow-sm px-1 py-2.5 rounded-3xl flex flex-col items-center text-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-              <p className={`text-lg font-black leading-none ${colorMap[status]}`}>{stats[status] || 0}</p>
-              <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest mt-1 leading-tight">
-                {statusConfig[status].label.split(' ').map((w, i) => <span key={i} className="block">{w}</span>)}
+            <div key={status} className="bg-white border border-slate-200/80 shadow-2xs px-1.5 py-2.5 rounded-2xl flex flex-col items-center text-center hover:shadow-xs transition-all duration-200">
+              <p className={`text-base sm:text-lg font-black leading-none ${colorMap[status]}`}>{stats[status] || 0}</p>
+              <p className="text-[8.5px] sm:text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-1 text-center truncate w-full">
+                {statusConfig[status].label}
               </p>
             </div>
           )
         })}
       </div>
 
-      {/* Table Cards Grid (2-3 Table Boxes per Row on Tablet & Desktop) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
+      {/* Table Cards Grid (Always Clean 2-Column Responsive Layout) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3.5">
             {displayTables.map((table) => {
               const tableNum = table.table_number || table.tableNumber
               const statusKey = table.status || 'available'
@@ -219,36 +219,36 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                   transition={{ duration: 0.15 }}
                 >
                   <div 
-                    className={`w-full rounded-4xl p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer ${
+                    className={`w-full rounded-3xl p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 cursor-pointer min-h-[160px] ${
                       isOccupied 
-                        ? 'bg-linear-to-br from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-500/30 shadow-[0_8px_30px_rgb(79,70,229,0.25)] hover:shadow-[0_12px_40px_rgb(79,70,229,0.4)]' 
-                        : 'bg-white border border-zinc-200/80 shadow-sm hover:shadow-md hover:border-zinc-300'
+                        ? 'bg-linear-to-br from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-500/30 shadow-[0_8px_25px_rgb(79,70,229,0.2)] hover:shadow-[0_12px_35px_rgb(79,70,229,0.35)]' 
+                        : 'bg-white border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-slate-300'
                     }`}
                     onClick={() => setSelectedTable(table)}
                   >
                     {/* Section 1: Header Row */}
                     <div className="flex items-start justify-between gap-2 relative z-10">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[15px] font-black tracking-tight leading-none ${isOccupied ? 'text-white' : 'text-zinc-900'}`}>Table {tableNum}</span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${isOccupied ? 'text-indigo-200 bg-indigo-500/20 border border-indigo-500/30' : 'text-indigo-500 bg-indigo-50 border border-indigo-100'}`}>T{tableNum}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-sm sm:text-base font-black tracking-tight leading-none ${isOccupied ? 'text-white' : 'text-slate-900'}`}>Table {tableNum}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${isOccupied ? 'text-indigo-200 bg-indigo-500/20 border border-indigo-500/30' : 'text-indigo-600 bg-indigo-50 border border-indigo-100'}`}>T{tableNum}</span>
                         </div>
-                        <p className={`text-[11px] font-semibold truncate mt-0.5 ${isOccupied ? 'text-indigo-200' : 'text-zinc-400'}`}>
+                        <p className={`text-[11px] font-semibold truncate mt-1 ${isOccupied ? 'text-indigo-200' : 'text-slate-400'}`}>
                           {isOccupied ? 'Dine-in Customer' : 'Available'}
                         </p>
                       </div>
 
                       {/* Status Badge */}
                       {isOccupied ? (
-                        <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase shadow-sm shrink-0">
-                          <span className="relative flex h-2 w-2">
+                        <div className="flex items-center gap-1 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 px-2 py-0.5 rounded-full text-[9px] font-black uppercase shadow-xs shrink-0">
+                          <span className="relative flex h-1.5 w-1.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                           </span>
                           <span>ACTIVE</span>
                         </div>
                       ) : (
-                        <Badge className={`${status.color} bg-white shadow-sm border border-emerald-100 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0`}>
+                        <Badge className={`${status.color} bg-white shadow-2xs border border-emerald-100 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0`}>
                           {status.label}
                         </Badge>
                       )}
@@ -261,65 +261,70 @@ const TableStatus = ({ restaurantId = 'default' }) => {
 
                     {/* Section 2: Metrics Strip or Idle Box */}
                     {isOccupied ? (
-                      <div className="space-y-1.5 mt-2.5 relative z-10 flex-1 flex flex-col justify-center">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-white/10 backdrop-blur-md text-white font-mono text-[11px] font-bold px-2 py-1 rounded-xl border border-white/10 flex items-center gap-1.5 min-w-0 truncate shadow-sm">
+                      <div className="space-y-2 my-2.5 relative z-10 flex-1 flex flex-col justify-center">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div className="bg-white/10 backdrop-blur-md text-white font-mono text-[10.5px] font-bold px-2 py-1 rounded-xl border border-white/10 flex items-center gap-1.5 min-w-0 overflow-hidden shadow-xs">
                             <Clock className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
-                            <span className="truncate pt-0.5">{liveServeTime || '0m'}</span>
+                            <span className="truncate">{liveServeTime || '0m'}</span>
                           </div>
-                          <div className="bg-white/10 backdrop-blur-md text-white text-[11px] font-bold px-2 py-1 rounded-xl border border-white/10 flex items-center gap-1.5 justify-center shrink-0 shadow-sm">
+                          <div className="bg-white/10 backdrop-blur-md text-white text-[10.5px] font-bold px-2 py-1 rounded-xl border border-white/10 flex items-center gap-1.5 justify-center shrink-0 shadow-xs">
                             <Users className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
-                            <span className="pt-0.5">{table.customers || 1} Guest</span>
+                            <span className="whitespace-nowrap">{table.customers || 1} {table.customers > 1 ? 'Guests' : 'Guest'}</span>
                           </div>
                         </div>
 
-                        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-2.5 px-3 flex justify-between items-center font-black text-xs shadow-sm mt-1">
+                        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-2 px-3 flex justify-between items-center text-xs font-bold shadow-xs">
                           <span className="text-indigo-300 text-[10px] uppercase tracking-wider">Active Check</span>
-                          <span className="text-white font-sans tracking-tight">Running</span>
+                          <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Running
+                          </span>
                         </div>
                       </div>
                     ) : (
-                      <div className="py-4 mt-2.5 flex-1 flex flex-col items-center justify-center text-center bg-zinc-50/80 rounded-2xl border border-dashed border-zinc-200">
-                        <div className="w-7 h-7 bg-white rounded-full shadow-sm flex items-center justify-center mb-1.5">
-                          <Utensils className="w-3.5 h-3.5 text-zinc-300" />
+                      <div className="py-3 my-2.5 flex-1 flex flex-col items-center justify-center text-center bg-slate-50/80 rounded-2xl border border-dashed border-slate-200">
+                        <div className="w-7 h-7 bg-white rounded-full shadow-2xs flex items-center justify-center mb-1">
+                          <Utensils className="w-3.5 h-3.5 text-slate-300" />
                         </div>
-                        <p className="text-[11px] font-bold text-zinc-600">Ready for Seating</p>
-                        <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">Scan QR code to order</p>
+                        <p className="text-[11px] font-bold text-slate-700">Ready for Seating</p>
+                        <p className="text-[9px] text-slate-400 font-medium mt-0.5">Scan QR code to order</p>
                       </div>
                     )}
 
                     {/* Section 3: Footer Controls */}
-                    <div className="flex items-center gap-2 pt-2.5 mt-1 relative z-10">
+                    <div className="flex items-center gap-2 pt-1 mt-auto relative z-10">
                       <Button 
                         size="sm" 
                         className={`flex-1 ${
                           isOccupied 
-                            ? 'bg-white hover:bg-indigo-50 text-indigo-950 font-black shadow-[0_4px_14px_0_rgb(255,255,255,0.25)]' 
-                            : 'bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 font-bold shadow-sm'
-                        } h-8 rounded-xl text-xs transition-all duration-200 hover:-translate-y-0.5`} 
+                            ? 'bg-white hover:bg-slate-100 text-slate-900 font-black shadow-xs' 
+                            : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold shadow-2xs'
+                        } h-8 rounded-xl text-xs transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5`} 
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedTable(table);
                         }}
                       >
-                        <Receipt className={`w-3.5 h-3.5 mr-1.5 ${isOccupied ? 'text-indigo-600' : 'text-zinc-400'}`} /> VIEW TABLE
+                        <Receipt className={`w-3.5 h-3.5 ${isOccupied ? 'text-indigo-600' : 'text-slate-400'}`} />
+                        <span>VIEW TABLE</span>
                       </Button>
                       
                       {isOccupied && (
                         <Button 
                           size="sm" 
-                          className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-bold h-8 w-8 p-0 rounded-xl shadow-sm shrink-0 flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
+                          className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-bold h-8 w-8 p-0 rounded-xl shadow-xs shrink-0 flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedTable(table);
                           }}
+                          title="Quick Actions"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                         </Button>
                       )}
 
                       {table.status === 'needs-cleaning' && (
-                        <Button size="sm" className="bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-8 rounded-xl text-[9px] font-bold text-white px-2 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5" onClick={(e) => {
+                        <Button size="sm" className="bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 h-8 rounded-xl text-[9px] font-bold text-white px-2 shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 cursor-pointer" onClick={(e) => {
                           e.stopPropagation();
                           handleStatusChange(tableNum, 'available');
                         }}>MARK READY</Button>
