@@ -1248,8 +1248,8 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
             ) : viewMode === 'grid' ? (
 
-              /* KDS Grid View Mode - Compact, Sleek & Professional POS Ticket Sizing */
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
+              /* KDS Grid View Mode - Ultra-Compact, Sleek Low-Profile Ticket Sizing */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
                 <AnimatePresence>
                   {processedOrders.map((order) => {
                     const elapsed = getElapsedInfo(order.createdAt || order.created_at)
@@ -1260,13 +1260,13 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                     // Top status accent color
                     const statusAccentClass = 
-                      order.status === ORDER_STATUS.PREPARING ? 'border-t-3 border-t-orange-500' :
-                      order.status === ORDER_STATUS.READY ? 'border-t-3 border-t-emerald-500' :
-                      order.status === ORDER_STATUS.SERVED ? 'border-t-3 border-t-purple-600' :
-                      order.status === ORDER_STATUS.BILL_REQUESTED ? 'border-t-3 border-t-amber-500' :
-                      order.status === ORDER_STATUS.FINISHED ? 'border-t-3 border-t-slate-300 opacity-80' :
-                      order.status === ORDER_STATUS.CANCELLED ? 'border-t-3 border-t-rose-500 opacity-75' :
-                      'border-t-3 border-t-indigo-600'
+                      order.status === ORDER_STATUS.PREPARING ? 'border-t-[3px] border-t-orange-500' :
+                      order.status === ORDER_STATUS.READY ? 'border-t-[3px] border-t-emerald-500' :
+                      order.status === ORDER_STATUS.SERVED ? 'border-t-[3px] border-t-purple-600' :
+                      order.status === ORDER_STATUS.BILL_REQUESTED ? 'border-t-[3px] border-t-amber-500' :
+                      order.status === ORDER_STATUS.FINISHED ? 'border-t-[3px] border-t-slate-300 opacity-80' :
+                      order.status === ORDER_STATUS.CANCELLED ? 'border-t-[3px] border-t-rose-500 opacity-75' :
+                      'border-t-[3px] border-t-indigo-600'
 
                     return (
                       <motion.div
@@ -1282,20 +1282,20 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                           
                           {/* Ticket Header Banner */}
                           <div>
-                            <div className="p-2 px-2.5 border-b border-slate-100 flex items-start justify-between gap-1 bg-slate-50/60">
+                            <div className="p-1.5 px-2 border-b border-slate-100 flex items-start justify-between gap-1 bg-slate-50/60">
                               
                               {/* Table Badge & Identity */}
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1">
-                                  <span className="px-1.5 py-0.5 rounded-md bg-slate-900 text-white font-black text-[11px] tracking-tight shadow-2xs shrink-0">
+                                  <span className="px-1.5 py-0.2 rounded-md bg-slate-900 text-white font-black text-[10px] tracking-tight shadow-2xs shrink-0">
                                     T{order.tableNumber || order.table_number || '1'}
                                   </span>
-                                  <span className="text-[9px] font-bold text-slate-400 font-mono">
+                                  <span className="text-[8.5px] font-bold text-slate-400 font-mono">
                                     #{String(order.id).slice(-4).toUpperCase()}
                                   </span>
                                 </div>
                                 
-                                <div className="flex items-center gap-1 mt-0.5 text-[10px] font-medium text-slate-600">
+                                <div className="flex items-center gap-1 mt-0.5 text-[9.5px] font-medium text-slate-600">
                                   <Users className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                   <span className="truncate">{order.customerName || order.customer_name || 'Guest'}</span>
                                 </div>
@@ -1303,7 +1303,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                               {/* Status & Timer Column */}
                               <div className="flex flex-col items-end gap-0.5 shrink-0">
-                                <Badge className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 border-none shadow-2xs rounded ${
+                                <Badge className={`text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.2 border-none shadow-2xs rounded ${
                                   order.status === ORDER_STATUS.PREPARING ? 'bg-orange-500 text-white' :
                                   order.status === ORDER_STATUS.READY ? 'bg-emerald-500 text-white' :
                                   order.status === ORDER_STATUS.SERVED ? 'bg-purple-600 text-white' :
@@ -1315,7 +1315,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   {ORDER_STATUS_CONFIG[order.status]?.label || order.status}
                                 </Badge>
 
-                                <div className={`flex items-center gap-0.5 text-[8.5px] font-bold px-1.5 py-0.2 rounded ${
+                                <div className={`flex items-center gap-0.5 text-[8px] font-bold px-1 py-0.2 rounded ${
                                   elapsed.urgency === 'delayed' ? 'bg-rose-100 text-rose-700 font-extrabold' :
                                   elapsed.urgency === 'warning' ? 'bg-amber-100 text-amber-700' :
                                   'bg-slate-100 text-slate-600'
@@ -1328,17 +1328,17 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                             </div>
 
                             {/* Items Checklist (KOT Chef View) */}
-                            <div className="p-2 px-2.5 bg-white">
-                              <div className="flex items-center justify-between pb-1 mb-1 border-b border-dashed border-slate-200 text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">
+                            <div className="p-1.5 px-2 bg-white">
+                              <div className="flex items-center justify-between pb-0.5 mb-0.5 border-b border-dashed border-slate-200 text-[8px] font-bold text-slate-400 uppercase tracking-wider">
                                 <span>KOT Items ({items.length})</span>
                                 {items.length > 0 && !isFinished && (
                                   <span className="text-indigo-600 font-extrabold">{checkedCount}/{items.length} Ready</span>
                                 )}
                               </div>
 
-                              <div className="space-y-1 min-h-[45px] max-h-[90px] overflow-y-auto pr-0.5">
+                              <div className="space-y-0.5 max-h-[75px] overflow-y-auto pr-0.5">
                                 {items.length === 0 ? (
-                                  <div className="h-10 flex items-center justify-center text-[10px] text-slate-400 italic">
+                                  <div className="py-1 text-center text-[9px] text-slate-400 italic">
                                     No items recorded
                                   </div>
                                 ) : (
@@ -1348,18 +1348,18 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                       <div 
                                         key={idx} 
                                         onClick={() => !isFinished && toggleItemChecked(order.id, idx)}
-                                        className={`flex items-start gap-1.5 p-0.5 rounded transition-all select-none ${
+                                        className={`flex items-start gap-1 p-0.5 rounded transition-all select-none ${
                                           isFinished 
                                             ? 'opacity-80' 
                                             : 'cursor-pointer hover:bg-slate-50 active:scale-[0.99]'
                                         } ${isChecked ? 'bg-emerald-50/60' : ''}`}
                                       >
-                                        <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 font-black text-[9px] transition-colors shadow-2xs ${
+                                        <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 font-black text-[8px] transition-colors shadow-2xs ${
                                           isChecked 
                                             ? 'bg-emerald-600 text-white' 
                                             : 'bg-slate-900 text-white'
                                         }`}>
-                                          {isChecked ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : `${item.quantity || 1}x`}
+                                          {isChecked ? <Check className="w-2 h-2 stroke-[3]" /> : `${item.quantity || 1}x`}
                                         </div>
 
                                         <div className="flex-1 min-w-0">
@@ -1368,7 +1368,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                               item.type === 'NON_VEG' ? 'bg-rose-500' : 'bg-emerald-500'
                                             }`}></span>
                                             
-                                            <h4 className={`text-[10.5px] font-semibold text-slate-900 leading-snug truncate ${
+                                            <h4 className={`text-[10px] font-semibold text-slate-900 leading-tight truncate ${
                                               isChecked ? 'line-through text-slate-400' : ''
                                             }`}>
                                               {item.name}
@@ -1377,19 +1377,19 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                                           <div className="flex flex-wrap items-center gap-1 mt-0.2">
                                             {item.variant && item.variant !== 'full' && (
-                                              <span className="text-[7.5px] font-bold text-amber-700 bg-amber-100/80 px-1 py-0.2 rounded">
+                                              <span className="text-[7px] font-bold text-amber-700 bg-amber-100/80 px-1 py-0.2 rounded">
                                                 Half
                                               </span>
                                             )}
                                             {item.notes && (
-                                              <span className="text-[7.5px] font-medium text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-100">
+                                              <span className="text-[7px] font-medium text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-100">
                                                 {item.notes}
                                               </span>
                                             )}
                                           </div>
                                         </div>
 
-                                        <span className="text-[10.5px] font-bold text-slate-700 shrink-0">
+                                        <span className="text-[10px] font-bold text-slate-700 shrink-0">
                                           ₹{Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}
                                         </span>
                                       </div>
@@ -1397,25 +1397,14 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   })
                                 )}
                               </div>
-
-                              {items.length > 1 && !isFinished && (
-                                <div className="mt-1 pt-1 border-t border-slate-100">
-                                  <div className="flex items-center justify-between text-[8px] font-bold text-slate-400 mb-0.5">
-                                    <span>Progress</span>
-                                    <span className="text-slate-700 font-extrabold">{progressPct}%</span>
-                                  </div>
-                                  <Progress value={progressPct} className="h-1 bg-slate-100" />
-                                </div>
-                              )}
                             </div>
                           </div>
 
                           {/* Card Footer Actions (Always Anchored at Bottom) */}
-                          <div className="p-2 px-2.5 border-t border-slate-100 bg-slate-50/70 mt-auto">
-                            <div className="flex items-center justify-between mb-1.5">
+                          <div className="p-1.5 px-2 border-t border-slate-100 bg-slate-50/70 mt-auto">
+                            <div className="flex items-center justify-between mb-1">
                               <div>
-                                <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider block">Grand Total</span>
-                                <span className="text-xs font-black text-slate-900 tracking-tight">
+                                <span className="text-[11.5px] font-black text-slate-900 tracking-tight">
                                   ₹{Number(order.total || order.total_amount || 0).toFixed(2)}
                                 </span>
                               </div>
@@ -1425,7 +1414,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handlePrintReceipt(order)}
-                                  className="w-5.5 h-5.5 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                  className="w-5 h-5 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                                   title="Print Thermal Receipt"
                                 >
                                   <Printer className="w-3 h-3" />
@@ -1433,7 +1422,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="w-5.5 h-5.5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors">
+                                    <Button variant="ghost" size="icon" className="w-5 h-5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors">
                                       <MoreVertical className="w-3 h-3" />
                                     </Button>
                                   </DropdownMenuTrigger>
@@ -1463,9 +1452,9 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status) && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.PREPARING)}
-                                  className="w-full h-7 rounded-lg bg-linear-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-[10px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  className="w-full h-6 rounded-md bg-linear-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-[9px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
                                 >
-                                  <ChefHat className="w-3 h-3" />
+                                  <ChefHat className="w-2.5 h-2.5" />
                                   <span>Start Preparing</span>
                                 </Button>
                               )}
@@ -1473,9 +1462,9 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               {order.status === ORDER_STATUS.PREPARING && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.READY)}
-                                  className="w-full h-7 rounded-lg bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-[10px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  className="w-full h-6 rounded-md bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-[9px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
                                 >
-                                  <CheckCircle className="w-3 h-3" />
+                                  <CheckCircle className="w-2.5 h-2.5" />
                                   <span>Mark Ready</span>
                                 </Button>
                               )}
@@ -1483,9 +1472,9 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               {order.status === ORDER_STATUS.READY && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.SERVED)}
-                                  className="w-full h-7 rounded-lg bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-[10px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  className="w-full h-6 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-[9px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
                                 >
-                                  <Utensils className="w-3 h-3" />
+                                  <Utensils className="w-2.5 h-2.5" />
                                   <span>Serve to Table</span>
                                 </Button>
                               )}
@@ -1493,9 +1482,9 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               {order.status === ORDER_STATUS.SERVED && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.BILL_REQUESTED)}
-                                  className="w-full h-7 rounded-lg bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-bold text-[10px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  className="w-full h-6 rounded-md bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-bold text-[9px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
                                 >
-                                  <DollarSign className="w-3 h-3" />
+                                  <DollarSign className="w-2.5 h-2.5" />
                                   <span>Generate Bill</span>
                                 </Button>
                               )}
@@ -1503,9 +1492,9 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               {order.status === ORDER_STATUS.BILL_REQUESTED && (
                                 <Button
                                   onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.FINISHED)}
-                                  className="w-full h-7 rounded-lg bg-linear-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white font-bold text-[10px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  className="w-full h-6 rounded-md bg-linear-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white font-bold text-[9px] uppercase tracking-wider shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
                                 >
-                                  <Check className="w-3 h-3" />
+                                  <Check className="w-2.5 h-2.5" />
                                   <span>Mark Paid & Clear</span>
                                 </Button>
                               )}
@@ -1514,9 +1503,9 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                 <Button
                                   variant="outline"
                                   onClick={() => setReceiptOrder(order)}
-                                  className="w-full h-7 rounded-lg bg-white border-slate-200 text-slate-600 font-bold text-[10px] uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1"
+                                  className="w-full h-6 rounded-md bg-white border-slate-200 text-slate-600 font-bold text-[9px] uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1"
                                 >
-                                  <Receipt className="w-3 h-3 text-indigo-600" />
+                                  <Receipt className="w-2.5 h-2.5 text-indigo-600" />
                                   <span>Completed</span>
                                 </Button>
                               )}
@@ -1524,9 +1513,9 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               {order.status === ORDER_STATUS.CANCELLED && (
                                 <Button
                                   disabled
-                                  className="w-full h-7 rounded-lg bg-rose-50 text-rose-600 border border-rose-200/60 font-bold text-[10px] uppercase tracking-wider opacity-90 flex items-center justify-center gap-1"
+                                  className="w-full h-6 rounded-md bg-rose-50 text-rose-600 border border-rose-200/60 font-bold text-[9px] uppercase tracking-wider opacity-90 flex items-center justify-center gap-1"
                                 >
-                                  <X className="w-3 h-3" />
+                                  <X className="w-2.5 h-2.5" />
                                   <span>Cancelled</span>
                                 </Button>
                               )}
