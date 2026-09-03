@@ -201,6 +201,17 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
     })
   }, [allAvailableOrders, statusFilter, orderTypeFilter, searchQuery, sortBy])
 
+  // Check if an order was settled/paid in advance
+  const isOrderPrepaid = useCallback((order) => {
+    if (!order) return false
+    return order.payment_status === 'PAID' || 
+           order.is_prepaid === true || 
+           order.paymentStatus === 'PAID' || 
+           order.isPrepaid === true ||
+           (typeof order.notes === 'string' && order.notes.includes('BILLING DONE')) ||
+           (typeof order.specialInstructions === 'string' && order.specialInstructions.includes('BILLING DONE'))
+  }, [])
+
   // ── Date & Day-Wise Grouping for History ──
   const ordersByDate = useMemo(() => {
     const groups = {}
@@ -1287,10 +1298,15 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                               
                               {/* Table Badge & Identity */}
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white font-black text-[11px] tracking-tight shadow-xs shrink-0">
                                     Table {order.tableNumber || order.table_number || '1'}
                                   </span>
+                                  {isOrderPrepaid(order) && (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-black text-[8px] uppercase tracking-wider shadow-2xs shrink-0 flex items-center gap-0.5">
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" /> PAID
+                                    </span>
+                                  )}
                                   <span className="text-[9.5px] font-bold text-slate-400 font-mono">
                                     #{String(order.id).slice(-4).toUpperCase()}
                                   </span>
@@ -1300,6 +1316,12 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   <Users className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                   <span className="truncate">{order.customerName || order.customer_name || 'Guest'}</span>
                                 </div>
+
+                                {order.notes && order.notes.includes('BILLING DONE') && (
+                                  <div className="mt-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[8px] font-bold border border-emerald-200 truncate">
+                                    ✅ {order.notes}
+                                  </div>
+                                )}
                               </div>
 
                               {/* Status & Timer Column */}
@@ -1476,21 +1498,21 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                               {order.status === ORDER_STATUS.READY && (
                                 <Button
-                                  onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.SERVED)}
-                                  className="w-full h-7 rounded-lg bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-[10.5px] uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  onClick={() => handleStatusUpdate(order.id, isOrderPrepaid(order) ? ORDER_STATUS.FINISHED : ORDER_STATUS.SERVED)}
+                                  className={`w-full h-7 rounded-lg bg-linear-to-r ${isOrderPrepaid(order) ? 'from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800' : 'from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'} text-white font-bold text-[10.5px] uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1`}
                                 >
-                                  <Utensils className="w-3 h-3" />
-                                  <span>Serve to Table</span>
+                                  {isOrderPrepaid(order) ? <CheckCircle className="w-3 h-3" /> : <Utensils className="w-3 h-3" />}
+                                  <span>{isOrderPrepaid(order) ? 'Serve & Handover (Paid ✅)' : 'Serve to Table'}</span>
                                 </Button>
                               )}
 
                               {order.status === ORDER_STATUS.SERVED && (
                                 <Button
-                                  onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.BILL_REQUESTED)}
-                                  className="w-full h-7 rounded-lg bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-bold text-[10.5px] uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  onClick={() => handleStatusUpdate(order.id, isOrderPrepaid(order) ? ORDER_STATUS.FINISHED : ORDER_STATUS.BILL_REQUESTED)}
+                                  className={`w-full h-7 rounded-lg bg-linear-to-r ${isOrderPrepaid(order) ? 'from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800' : 'from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700'} text-white font-bold text-[10.5px] uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1`}
                                 >
-                                  <DollarSign className="w-3 h-3" />
-                                  <span>Generate Bill</span>
+                                  {isOrderPrepaid(order) ? <CheckCircle className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
+                                  <span>{isOrderPrepaid(order) ? 'Handover & Clear (Paid ✅)' : 'Generate Bill'}</span>
                                 </Button>
                               )}
 
@@ -1635,10 +1657,15 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   
                                   {/* Top Row: Table + Order ID + Elapsed Time */}
                                   <div className="flex items-center justify-between gap-1 mb-2">
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="bg-slate-900 text-white font-black text-[11px] px-2 py-0.5 rounded-md shadow-2xs">
                                         Table {order.tableNumber || order.table_number || '1'}
                                       </span>
+                                      {isOrderPrepaid(order) && (
+                                        <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-black text-[8px] uppercase tracking-wider shadow-2xs shrink-0 flex items-center gap-0.5">
+                                          <Check className="w-2.5 h-2.5 stroke-[3]" /> PAID
+                                        </span>
+                                      )}
                                       <span className="text-[10px] font-mono font-bold text-slate-400">
                                         #{String(order.id).slice(-4).toUpperCase()}
                                       </span>
@@ -1656,16 +1683,24 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   </div>
 
                                   {/* Customer Info */}
-                                  <div className="flex items-center justify-between text-[11px] text-slate-600 mb-2.5 pb-2 border-b border-slate-100">
-                                    <div className="flex items-center gap-1.5 truncate">
-                                      <User className="w-3 h-3 text-slate-400 shrink-0" />
-                                      <span className="font-bold text-slate-800 truncate">
-                                        {order.customerName || order.customer_name || 'Guest Customer'}
-                                      </span>
+                                  <div className="flex flex-col gap-1 mb-2.5 pb-2 border-b border-slate-100">
+                                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                                      <div className="flex items-center gap-1.5 truncate">
+                                        <User className="w-3 h-3 text-slate-400 shrink-0" />
+                                        <span className="font-bold text-slate-800 truncate">
+                                          {order.customerName || order.customer_name || 'Guest Customer'}
+                                        </span>
+                                      </div>
+                                      <Badge variant="outline" className="text-[9px] font-extrabold text-slate-500 px-1.5 py-0 uppercase">
+                                        {order.order_type || order.orderType || 'DINE-IN'}
+                                      </Badge>
                                     </div>
-                                    <Badge variant="outline" className="text-[9px] font-extrabold text-slate-500 px-1.5 py-0 uppercase">
-                                      {order.order_type || order.orderType || 'DINE-IN'}
-                                    </Badge>
+
+                                    {order.notes && order.notes.includes('BILLING DONE') && (
+                                      <div className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[8px] font-bold border border-emerald-200 truncate">
+                                        ✅ {order.notes}
+                                      </div>
+                                    )}
                                   </div>
 
                                   {/* KOT Items List */}
@@ -1750,11 +1785,26 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                                   {/* Primary Stage Transition Button */}
                                   <Button
-                                    onClick={() => handleStatusUpdate(order.id, isBillReq ? ORDER_STATUS.FINISHED : col.nextStatus)}
-                                    className={`w-full h-7.5 rounded-xl bg-linear-to-r ${col.btnGradient} text-white font-bold text-[11px] uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5`}
+                                    onClick={() => handleStatusUpdate(
+                                      order.id, 
+                                      (isBillReq || (isOrderPrepaid(order) && [ORDER_STATUS.READY, ORDER_STATUS.SERVED].includes(order.status))) 
+                                        ? ORDER_STATUS.FINISHED 
+                                        : col.nextStatus
+                                    )}
+                                    className={`w-full h-7.5 rounded-xl bg-linear-to-r ${
+                                      (isOrderPrepaid(order) && [ORDER_STATUS.READY, ORDER_STATUS.SERVED].includes(order.status))
+                                        ? 'from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800'
+                                        : col.btnGradient
+                                    } text-white font-bold text-[11px] uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5`}
                                   >
                                     <NextIcon className="w-3.5 h-3.5" />
-                                    <span>{isBillReq ? 'Mark Paid & Clear' : col.nextLabel}</span>
+                                    <span>
+                                      {isBillReq 
+                                        ? 'Mark Paid & Clear' 
+                                        : (isOrderPrepaid(order) && [ORDER_STATUS.READY, ORDER_STATUS.SERVED].includes(order.status))
+                                        ? 'Serve & Handover (Paid ✅)'
+                                        : col.nextLabel}
+                                    </span>
                                   </Button>
                                 </div>
 
@@ -1798,9 +1848,16 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                             {/* Table & Type */}
                             <TableCell className="py-3 pl-4">
                               <div className="flex flex-col items-start gap-0.5">
-                                <span className="bg-slate-900 text-white font-black text-xs px-2.5 py-0.5 rounded-lg shadow-2xs whitespace-nowrap">
-                                  Table {order.tableNumber || order.table_number || '1'}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                  <span className="bg-slate-900 text-white font-black text-xs px-2.5 py-0.5 rounded-lg shadow-2xs whitespace-nowrap">
+                                    Table {order.tableNumber || order.table_number || '1'}
+                                  </span>
+                                  {isOrderPrepaid(order) && (
+                                    <span className="bg-emerald-600 text-white font-black text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded shadow-2xs">
+                                      PAID ✅
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
                                   {order.order_type || order.orderType || 'DINE-IN'}
                                 </span>
@@ -1942,22 +1999,22 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                 {order.status === ORDER_STATUS.READY && (
                                   <Button
                                     size="sm"
-                                    onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.SERVED)}
-                                    className="h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                    onClick={() => handleStatusUpdate(order.id, isOrderPrepaid(order) ? ORDER_STATUS.FINISHED : ORDER_STATUS.SERVED)}
+                                    className={`h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r ${isOrderPrepaid(order) ? 'from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800' : 'from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'} text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1`}
                                   >
-                                    <Utensils className="w-3 h-3" />
-                                    <span>Serve</span>
+                                    {isOrderPrepaid(order) ? <CheckCircle className="w-3 h-3" /> : <Utensils className="w-3 h-3" />}
+                                    <span>{isOrderPrepaid(order) ? 'Handover (Paid)' : 'Serve'}</span>
                                   </Button>
                                 )}
 
                                 {order.status === ORDER_STATUS.SERVED && (
                                   <Button
                                     size="sm"
-                                    onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.BILL_REQUESTED)}
-                                    className="h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                    onClick={() => handleStatusUpdate(order.id, isOrderPrepaid(order) ? ORDER_STATUS.FINISHED : ORDER_STATUS.BILL_REQUESTED)}
+                                    className={`h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r ${isOrderPrepaid(order) ? 'from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800' : 'from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'} text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1`}
                                   >
-                                    <DollarSign className="w-3 h-3" />
-                                    <span>Bill</span>
+                                    {isOrderPrepaid(order) ? <CheckCircle className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
+                                    <span>{isOrderPrepaid(order) ? 'Clear (Paid)' : 'Bill'}</span>
                                   </Button>
                                 )}
 

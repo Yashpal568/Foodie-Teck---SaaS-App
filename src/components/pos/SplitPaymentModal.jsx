@@ -34,6 +34,7 @@ import {
 import QRCode from 'qrcode'
 import { toast } from 'sonner'
 import { createServerInvoice, settleInvoicePayment } from '@/services/billing.service'
+import { createOrder } from '@/services/order.service'
 
 export default function SplitPaymentModal({
   isOpen,
@@ -270,8 +271,38 @@ export default function SplitPaymentModal({
         restaurantId
       })
 
+      // 4. Auto-fire Order to Kitchen with Prepaid / Billing Done Remark
+      try {
+        const orderNumberTable = String(tableNumber || '1').replace(/^Table\s*/i, '')
+        const paymentMethodSummary = finalPayments.map(p => p.method).join(' + ') || singleMethod
+        await createOrder({
+          restaurantId,
+          tableNumber: orderNumberTable,
+          customerName: customerName || 'Walk-in Guest',
+          items: cartItems.map(i => ({
+            id: i.id || i._id,
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+            variant: i.variant,
+            notes: i.notes || ''
+          })),
+          subtotal: calculation?.pricing?.subtotal || grandTotal,
+          tax: calculation?.pricing?.taxes?.totalTax || 0,
+          total: grandTotal,
+          status: 'PREPARING',
+          payment_status: 'PAID',
+          payment_method: paymentMethodSummary,
+          is_prepaid: true,
+          notes: `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`,
+          specialInstructions: `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`
+        })
+      } catch (errKOT) {
+        console.warn('Auto-KOT creation notice:', errKOT)
+      }
+
       setSettledInvoice(invoice)
-      toast.success(`🎉 Bill Settled & Invoice ${invoice.invoiceNumber} Generated!`)
+      toast.success(`🎉 Bill Settled & KOT Sent to Kitchen (PAID ✅)!`)
       if (onSuccessSettlement) {
         onSuccessSettlement(invoice)
       }

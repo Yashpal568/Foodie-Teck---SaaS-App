@@ -31,21 +31,28 @@ export const createOrder = async (orderData) => {
 
   let order = null
 
+  const orderStatus = orderData.status || 'PENDING'
+  const notes = orderData.notes || orderData.specialInstructions || ''
+  const paymentStatus = orderData.payment_status || (orderData.is_prepaid ? 'PAID' : 'UNPAID')
+  const paymentMethod = orderData.payment_method || ''
+
   if (validRestaurantId) {
     try {
       const { data, error } = await supabase
         .from('orders')
         .insert({
           restaurant_id: validRestaurantId,
-          table_number: String(orderData.tableNumber || 'N/A'),
-          customer_name: String(orderData.customerName || 'Guest Customer').slice(0, 100),
-          status: 'PENDING',
+          table_number: String(orderData.tableNumber || orderData.table_number || 'N/A'),
+          customer_name: String(orderData.customerName || orderData.customer_name || 'Guest Customer').slice(0, 100),
+          status: orderStatus,
           subtotal: computedSubtotal,
           tax: computedTax,
           total: computedTotal,
           gst_rate: gstRate,
           gst_label: orderData.gstLabel || 'GST',
-          type: orderData.type || 'DINE-IN',
+          type: orderData.type || orderData.order_type || 'DINE-IN',
+          notes: notes,
+          payment_status: paymentStatus,
           created_at: new Date().toISOString()
         })
         .select()
@@ -66,15 +73,19 @@ export const createOrder = async (orderData) => {
     order = {
       id: `ord-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       restaurant_id: targetRid || 'demo-merchant',
-      table_number: String(orderData.tableNumber || '1'),
-      customer_name: String(orderData.customerName || 'Guest Customer').slice(0, 100),
-      status: 'PENDING',
+      table_number: String(orderData.tableNumber || orderData.table_number || '1'),
+      customer_name: String(orderData.customerName || orderData.customer_name || 'Guest Customer').slice(0, 100),
+      status: orderStatus,
       subtotal: computedSubtotal,
       tax: computedTax,
       total: computedTotal,
       gst_rate: gstRate,
       gst_label: orderData.gstLabel || 'GST',
-      type: orderData.type || 'DINE-IN',
+      type: orderData.type || orderData.order_type || 'DINE-IN',
+      notes: notes,
+      payment_status: paymentStatus,
+      payment_method: paymentMethod,
+      is_prepaid: !!orderData.is_prepaid,
       created_at: new Date().toISOString(),
       order_items: lineItems
     }
@@ -149,13 +160,17 @@ export const createOrder = async (orderData) => {
     ...order,
     id: order?.id || `ord-${Date.now()}`,
     restaurant_id: orderData.restaurantId || validRestaurantId || 'demo-merchant',
-    table_number: String(orderData.tableNumber || '1'),
-    tableNumber: String(orderData.tableNumber || '1'),
-    customer_name: orderData.customerName || 'Guest Customer',
-    customerName: orderData.customerName || 'Guest Customer',
+    table_number: String(orderData.tableNumber || orderData.table_number || '1'),
+    tableNumber: String(orderData.tableNumber || orderData.table_number || '1'),
+    customer_name: orderData.customerName || orderData.customer_name || 'Guest Customer',
+    customerName: orderData.customerName || orderData.customer_name || 'Guest Customer',
     items: orderData.items || [],
     items_count: (orderData.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 1), 0),
     total: computedTotal,
+    payment_status: paymentStatus,
+    payment_method: paymentMethod,
+    is_prepaid: !!orderData.is_prepaid,
+    notes: notes,
     created_at: new Date().toISOString(),
     _timestamp: Date.now()
   }
