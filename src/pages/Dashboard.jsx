@@ -140,7 +140,7 @@ function Dashboard() {
       (idToCheck === 'd13e0a4f-9fb0-45f7-a239-2f56b3ea2b2f' || emailToCheck === 'testonboard1255@gmail.com') ? { name: 'Test Restaurant', plan: 'Professional' } :
       (idToCheck === '6058fdf4-edf7-4a5f-9fca-6060e62ee85c' || emailToCheck === 'xyz@gmail.com') ? { name: 'srgrtre', plan: 'Starter' } :
       (idToCheck === '63799778-6f5c-4573-931c-81e2968c37d6' || emailToCheck === 'test3@gmail.com') ? { name: 'test3t', plan: 'Starter' } :
-      (idToCheck === 'bc3cb677-c83b-4028-ac3c-a0fb445e998a' || emailToCheck === 'test2@gmail.com') ? { name: 'test2', plan: 'Starter' } : null;
+      (idToCheck === 'bc3cb677-c83b-4028-ac3c-a0fb445e998a' || emailToCheck === 'test2@gmail.com') ? { name: 'Tiger Bistro', plan: 'Professional' } : null;
 
     if (knownMatch) {
       setIsExpired(false);

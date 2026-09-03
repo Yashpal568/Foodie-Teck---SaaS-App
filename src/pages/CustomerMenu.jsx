@@ -306,9 +306,12 @@ export default function CustomerMenu() {
         // 1. Fetch Restaurant Profile for Dynamic UI
         const profile = await getRestaurantProfile(resId)
         if (profile) {
+           const rawName = (profile.business_name || profile.name || '').trim()
+           const safeName = (!rawName || /^(test|test\s*2|test2|test2@gmail\.com)$/i.test(rawName)) ? 'Tiger Bistro' : rawName
+
            setRestaurantData(prev => ({
              ...prev,
-             name: profile.business_name || profile.name || 'Tiger Bistro',
+             name: safeName,
              logo: profile.logo_url || prev.logo,
              photo: profile.cover_url || profile.photo || prev.photo,
              description: profile.description || prev.description,
@@ -334,9 +337,12 @@ export default function CustomerMenu() {
               // Also fetch actual profile using the rescued UUID
               const actualProfile = await getRestaurantProfile(effectiveId)
               if (actualProfile) {
+                const rescuedRawName = (actualProfile.business_name || actualProfile.name || '').trim()
+                const rescuedSafeName = (!rescuedRawName || /^(test|test\s*2|test2|test2@gmail\.com)$/i.test(rescuedRawName)) ? 'Tiger Bistro' : rescuedRawName
+
                 setRestaurantData(prev => ({
                   ...prev,
-                  name: actualProfile.business_name || actualProfile.name || 'Tiger Bistro',
+                  name: rescuedSafeName,
                   logo: actualProfile.logo_url || prev.logo,
                   photo: actualProfile.cover_url || actualProfile.photo || prev.photo,
                   description: actualProfile.description || prev.description,

@@ -93,10 +93,12 @@ export const getRestaurantProfile = async (restaurantId) => {
 
     const { data } = await q
     if (data && (data.business_name || data.name)) {
+      const rawName = (data.business_name || data.name || '').trim()
+      const cleanName = (!rawName || /^(test|test\s*2|test2|test2@gmail\.com)$/i.test(rawName)) ? 'Tiger Bistro' : rawName
       return {
         ...data,
-        name: data.business_name || data.name || 'Tiger Bistro',
-        business_name: data.business_name || data.name || 'Tiger Bistro'
+        name: cleanName,
+        business_name: cleanName
       }
     }
   } catch (e) {
@@ -124,6 +126,8 @@ export const KNOWN_RESTAURANTS = {
   'test@gmail.com': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
   'tigerbistro99@gmail.com': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
   'test2@gmail.com': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
+  'bc3cb677-c83b-4028-ac3c-a0fb445e998a': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
+  'a3b0c97f-7acb-478b-8b5a-68763af06b5c': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
   'bingo@gmail.com': { id: 'ac23afc1-1fbf-449f-8cb5-45ca3bef10a8', name: 'bingo', plan: 'Professional', status: 'Active' },
   'claudegptuser@gmail.com': { id: '3a10e567-9e10-4c27-aadd-64e84cd8f253', name: 'Servora', plan: 'Enterprise', status: 'Active' },
   'xyz@gmail.com': { id: '6058fdf4-edf7-4a5f-9fca-6060e62ee85c', name: 'srgrtre', plan: 'Starter', status: 'Active' },
