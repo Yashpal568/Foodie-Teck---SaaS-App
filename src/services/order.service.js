@@ -236,7 +236,7 @@ export const fetchOrders = async (restaurantId) => {
   }
 }
 
-export const updateOrderStatus = async (orderId, status) => {
+export const updateOrderStatus = async (orderId, status, extraFields = {}) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
   
   if (!orderId || !isUUID(orderId)) {
@@ -245,9 +245,15 @@ export const updateOrderStatus = async (orderId, status) => {
     return { id: orderId, status, updated_at: new Date().toISOString() }
   }
 
+  const updatePayload = { 
+    status, 
+    ...(status === 'FINISHED' ? { payment_status: 'PAID' } : {}),
+    ...extraFields 
+  }
+
   const { data: order, error } = await supabase
     .from('orders')
-    .update({ status })
+    .update(updatePayload)
     .eq('id', orderId)
     .select()
     .single()
