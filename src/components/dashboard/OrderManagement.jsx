@@ -78,7 +78,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
   const [statusFilter, setStatusFilter] = useState('ACTIVE') // 'ACTIVE' | 'ALL' | 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'BILL_REQUESTED' | 'FINISHED' | 'CANCELLED'
   const [searchQuery, setSearchQuery] = useState('')
   const [orderTypeFilter, setOrderTypeFilter] = useState('ALL') // 'ALL' | 'DINE_IN' | 'TAKEAWAY'
-  const [sortBy, setSortBy] = useState('URGENT') // 'URGENT' | 'NEWEST' | 'AMOUNT_DESC'
+  const [sortBy, setSortBy] = useState('NEWEST') // 'NEWEST' | 'URGENT' | 'AMOUNT_DESC'
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
@@ -894,13 +894,13 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                 {/* Sort selector */}
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="h-9 w-36 bg-white border-slate-200 rounded-xl text-xs font-bold text-slate-700">
+                  <SelectTrigger className="h-9 min-w-[155px] bg-white border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 text-xs font-medium">
-                    <SelectItem value="URGENT">⚡ Oldest (Urgent)</SelectItem>
-                    <SelectItem value="NEWEST">⏱️ Newest First</SelectItem>
-                    <SelectItem value="AMOUNT_DESC">💰 Highest Amount</SelectItem>
+                  <SelectContent className="rounded-xl border-slate-200 text-xs font-medium shadow-xl">
+                    <SelectItem value="NEWEST" className="cursor-pointer font-semibold">⏱️ Newest First</SelectItem>
+                    <SelectItem value="URGENT" className="cursor-pointer font-semibold">⚡ Oldest (Urgent)</SelectItem>
+                    <SelectItem value="AMOUNT_DESC" className="cursor-pointer font-semibold">💰 Highest Amount</SelectItem>
                   </SelectContent>
                 </Select>
 
