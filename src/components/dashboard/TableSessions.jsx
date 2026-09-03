@@ -160,7 +160,7 @@ const TableSessions = ({
         typeof window !== "undefined"
           ? window.location.pathname.split("/console/")[1]
           : null;
-      const targetInput = restaurantId || pathId || "test2@gmail.com";
+      const targetInput = restaurantId || pathId || "tigerbistro99@gmail.com";
       const validId = await ensureValidRestaurantUUID(targetInput);
       const targetRid = validId || targetInput;
 

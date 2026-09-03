@@ -20,13 +20,14 @@ import { supabase } from '@/lib/supabase'
 // ── Registered DB Restaurant Mapping ──
 export const KNOWN_RESTAURANTS = {
   'demo@servora.com': { id: 'demo-merchant', name: 'Demo Kitchen', plan: 'Enterprise', status: 'Active' },
+  'test@gmail.com': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
   'tigerbistro99@gmail.com': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
+  'test2@gmail.com': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' },
   'bingo@gmail.com': { id: 'ac23afc1-1fbf-449f-8cb5-45ca3bef10a8', name: 'bingo', plan: 'Professional', status: 'Active' },
   'claudegptuser@gmail.com': { id: '3a10e567-9e10-4c27-aadd-64e84cd8f253', name: 'Servora', plan: 'Enterprise', status: 'Active' },
   'xyz@gmail.com': { id: '6058fdf4-edf7-4a5f-9fca-6060e62ee85c', name: 'srgrtre', plan: 'Starter', status: 'Active' },
   'test3@gmail.com': { id: '63799778-6f5c-4573-931c-81e2968c37d6', name: 'test3t', plan: 'Starter', status: 'Active' },
   'grandpalace_test@gmail.com': { id: '9e5de80d-95ac-41ac-896c-efb2ba014fe4', name: 'Grand Palace Bistro', plan: 'Professional', status: 'Active' },
-  'test2@gmail.com': { id: 'bc3cb677-c83b-4028-ac3c-a0fb445e998a', name: 'test2', plan: 'Starter', status: 'Active' },
   'merchant-be3543b0@servora.app': { id: 'be3543b0-c9aa-4022-9749-57ece7c94b7e', name: 'Merchant Node', plan: 'Enterprise', status: 'Active' },
   'testonboard1255@gmail.com': { id: 'd13e0a4f-9fb0-45f7-a239-2f56b3ea2b2f', name: 'Test Restaurant', plan: 'Professional', status: 'Active' }
 }

@@ -132,7 +132,7 @@ function Dashboard() {
     const idToCheck = (resolvedId || urlId || dashboardEmail || '').toLowerCase();
     const emailToCheck = (userEmail || dashboardEmail || '').toLowerCase();
     const knownMatch = 
-      (idToCheck === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || emailToCheck === 'tigerbistro99@gmail.com') ? { name: 'Tiger Bistro', plan: 'Professional' } :
+      (idToCheck === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || emailToCheck === 'tigerbistro99@gmail.com' || emailToCheck === 'test@gmail.com' || emailToCheck === 'test2@gmail.com') ? { name: 'Tiger Bistro', plan: 'Professional' } :
       (idToCheck === 'ac23afc1-1fbf-449f-8cb5-45ca3bef10a8' || emailToCheck === 'bingo@gmail.com') ? { name: 'bingo', plan: 'Professional' } :
       (idToCheck === '3a10e567-9e10-4c27-aadd-64e84cd8f253' || emailToCheck === 'claudegptuser@gmail.com') ? { name: 'Servora', plan: 'Enterprise' } :
       (idToCheck === '9e5de80d-95ac-41ac-896c-efb2ba014fe4' || emailToCheck === 'grandpalace_test@gmail.com') ? { name: 'Grand Palace Bistro', plan: 'Professional' } :

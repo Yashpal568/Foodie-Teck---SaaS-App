@@ -228,12 +228,12 @@ export default function CustomerMenu() {
   }
 
   const [restaurantData, setRestaurantData] = useState({
-    name: "Servora",
+    name: "Tiger Bistro",
     rating: 4.8,
-    cuisine: "Multi-Cuisine",
-    photo: "",
+    cuisine: "Multi-Cuisine • Gourmet Dining",
+    photo: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
     logo: "",
-    cover_url: "",
+    cover_url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
     coverImage: "",
     address: ""
   })
@@ -304,17 +304,17 @@ export default function CustomerMenu() {
         }
 
         // 1. Fetch Restaurant Profile for Dynamic UI
-        if (resId && resId !== 'default') {
-          const profile = await getRestaurantProfile(resId)
-          if (profile) {
-             setRestaurantData(prev => ({
-               ...prev,
-               name: profile.business_name || 'Servora',
-               logo: profile.logo_url,
-               photo: profile.cover_url,
-               description: profile.description
-             }))
-          }
+        const profile = await getRestaurantProfile(resId)
+        if (profile) {
+           setRestaurantData(prev => ({
+             ...prev,
+             name: profile.business_name || profile.name || 'Tiger Bistro',
+             logo: profile.logo_url || prev.logo,
+             photo: profile.cover_url || profile.photo || prev.photo,
+             description: profile.description || prev.description,
+             cuisine: profile.cuisine || prev.cuisine,
+             address: profile.address || prev.address
+           }))
         }
 
         // 2. Load menu items from Supabase
@@ -336,10 +336,12 @@ export default function CustomerMenu() {
               if (actualProfile) {
                 setRestaurantData(prev => ({
                   ...prev,
-                  name: actualProfile.business_name || 'Servora',
-                  logo: actualProfile.logo_url,
-                  photo: actualProfile.cover_url,
-                  description: actualProfile.description
+                  name: actualProfile.business_name || actualProfile.name || 'Tiger Bistro',
+                  logo: actualProfile.logo_url || prev.logo,
+                  photo: actualProfile.cover_url || actualProfile.photo || prev.photo,
+                  description: actualProfile.description || prev.description,
+                  cuisine: actualProfile.cuisine || prev.cuisine,
+                  address: actualProfile.address || prev.address
                 }))
               }
               

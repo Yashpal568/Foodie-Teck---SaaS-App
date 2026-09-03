@@ -106,7 +106,7 @@ const loadQRCodesFromStorage = async (restaurantId, limit = 10) => {
 export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan, restaurantId: propRestaurantId }) {
   const planDetails = getPlanDetails(plan?.name)
   const tableLimit = planDetails.tableLimit
-  const initialRid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'test2@gmail.com'
+  const initialRid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'a3b0c97f-7acb-478b-8b5a-68763af06b5c'
   const [restaurantId, setRestaurantId] = useState(initialRid)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [restaurantProfile, setRestaurantProfile] = useState({})
@@ -179,7 +179,7 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     }
     setIsGenerating(true)
     try {
-      const activeRid = restaurantId || (await ensureValidRestaurantUUID(propRestaurantId || 'test2@gmail.com'))
+      const activeRid = restaurantId || (await ensureValidRestaurantUUID(propRestaurantId || 'a3b0c97f-7acb-478b-8b5a-68763af06b5c'))
       const codes = []
       const targetCount = Math.min(tableCount, effectiveLimit)
       for (let i = 1; i <= targetCount; i++) {
