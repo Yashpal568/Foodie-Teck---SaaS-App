@@ -192,15 +192,15 @@ export default function Navbar({
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs select-none">
-      <div className="flex items-center h-14 sm:h-16 px-3 sm:px-4 lg:px-6 gap-2 sm:gap-3">
+    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-2xs select-none transition-all">
+      <div className="flex items-center h-14 px-3 sm:px-5 lg:px-6 gap-2 sm:gap-3">
 
         {/* ── Mobile only (< md): Hamburger sheet + Wordmark ── */}
         <div className="flex items-center gap-2 md:hidden shrink-0">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-600 hover:bg-slate-100 rounded-xl">
-                <Menu className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="h-8.5 w-8.5 text-slate-600 hover:bg-slate-100 rounded-xl">
+                <Menu className="w-4.5 h-4.5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72 bg-white border-r-0">
@@ -229,33 +229,33 @@ export default function Navbar({
           <span className="text-sm font-black text-slate-900 tracking-tight">Servora</span>
         </div>
 
-        {/* ── iPad + Desktop: Sidebar collapse toggle (≥ md) ── */}
+        {/* ── Desktop: Sidebar Collapse Toggle (≥ md) ── */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hidden md:flex items-center justify-center p-0 h-9 w-9 text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 rounded-xl transition-colors cursor-pointer shrink-0"
+          className="hidden md:flex items-center justify-center h-8.5 w-8.5 p-0 bg-slate-50/80 hover:bg-slate-100 border border-slate-200/80 text-slate-500 hover:text-slate-900 rounded-xl transition-all cursor-pointer shrink-0 shadow-2xs"
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
-          <PanelLeft className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
+          <PanelLeft className={`w-3.5 h-3.5 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
         </Button>
 
-        {/* ── iPad + Desktop: Search (≥ md) ── */}
-        <div ref={searchRef} className="relative hidden md:flex flex-1 min-w-0 max-w-xs lg:max-w-md">
+        {/* ── Desktop: Spotlight Search (≥ md) ── */}
+        <div ref={searchRef} className="relative hidden md:flex flex-1 min-w-0 max-w-xs lg:max-w-sm">
           <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             <Input
               type="text"
-              placeholder="Search... (Ctrl+K)"
+              placeholder="Search features, orders... (Ctrl+K)"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
                 setShowResults(true)
               }}
               onFocus={() => setShowResults(true)}
-              className="pl-9 pr-4 lg:pr-10 h-9 bg-slate-50/80 border-slate-200/90 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-2xs w-full"
+              className="pl-8 pr-9 h-8.5 bg-slate-50/80 hover:bg-slate-50 border-slate-200/80 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10 rounded-xl text-xs font-medium placeholder:text-slate-400 transition-all shadow-2xs w-full"
             />
-            <kbd className="hidden lg:inline-flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-white border border-slate-200 rounded">
+            <kbd className="hidden lg:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center px-1.5 py-0.2 text-[9px] font-mono font-bold text-slate-400 bg-white border border-slate-200/80 rounded shadow-2xs">
               ⌘K
             </kbd>
           </div>
@@ -271,7 +271,7 @@ export default function Navbar({
                     className="w-full flex items-center justify-between px-3 py-2 text-left rounded-xl hover:bg-slate-50 transition-colors text-xs cursor-pointer group"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                      <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                         <item.icon className="w-3.5 h-3.5" />
                       </div>
                       <span className="font-bold text-slate-800 group-hover:text-slate-900">{item.label}</span>
@@ -286,15 +286,15 @@ export default function Navbar({
           )}
         </div>
 
-        {/* ── RIGHT: Actions — always pushed to far right ── */}
+        {/* ── RIGHT: Action & Profile Cluster ── */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
 
-          {/* Plan pill — lg+ only (hidden on iPad to save space) */}
+          {/* Plan Pill Badge — lg+ only */}
           <div className="hidden lg:flex items-center gap-1.5">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100/90 border border-slate-200/90 rounded-xl">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-              <span className="text-[10px] font-mono font-bold text-slate-800 uppercase tracking-wider whitespace-nowrap">
-                <span className="hidden xl:inline">{getPlanDetails(plan?.name).name} Plan ({getPlanDetails(plan?.name).formattedPrice})</span>
+            <div className="flex items-center gap-2 h-8.5 px-3 bg-slate-50/80 border border-slate-200/80 rounded-xl shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 ring-2 ring-emerald-100 animate-pulse" />
+              <span className="text-[10.5px] font-bold text-slate-700 tracking-tight uppercase whitespace-nowrap">
+                <span className="hidden xl:inline">{getPlanDetails(plan?.name).name} Plan</span>
                 <span className="inline xl:hidden">{getPlanDetails(plan?.name).name}</span>
               </span>
             </div>
@@ -302,7 +302,7 @@ export default function Navbar({
             {getPlanDetails(plan?.name).name === 'Starter' && (
               <button
                 onClick={onUpgradeClick}
-                className="hidden xl:flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+                className="hidden xl:flex items-center gap-1.5 h-8.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-[10.5px] uppercase tracking-wider px-3 rounded-xl shadow-2xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               >
                 <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
                 <span>Upgrade to Pro</span>
@@ -312,7 +312,7 @@ export default function Navbar({
             {getPlanDetails(plan?.name).name === 'Professional' && (
               <button
                 onClick={onUpgradeClick}
-                className="hidden xl:flex items-center gap-1 bg-slate-900 hover:bg-black text-white font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+                className="hidden xl:flex items-center gap-1.5 h-8.5 bg-slate-900 hover:bg-black text-white font-bold text-[10.5px] uppercase tracking-wider px-3 rounded-xl shadow-2xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               >
                 <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
                 <span>Upgrade to Enterprise</span>
@@ -320,29 +320,31 @@ export default function Navbar({
             )}
           </div>
 
-          <Separator orientation="vertical" className="h-5 opacity-40 hidden lg:block" />
+          <div className="h-4 w-px bg-slate-200 hidden lg:block mx-0.5" />
 
-          {/* Currency — desktop only */}
+          {/* Currency Selector */}
           <div className="hidden lg:block">
             <CurrencySelector 
               value={currency} 
               onChange={onCurrencyChange}
-              className="h-8 border-slate-200/90 bg-slate-50/50 rounded-xl font-bold text-xs shadow-2xs"
+              className="h-8.5 border-slate-200/80 bg-slate-50/80 rounded-xl font-bold text-xs shadow-2xs"
             />
           </div>
 
-          {/* Notifications */}
+          {/* Real-time Notification Dropdown */}
           <NotificationDropdown restaurantId={restaurantId} />
 
-          {/* ── User Profile Dropdown ── */}
+          <div className="h-4 w-px bg-slate-200 hidden sm:block mx-0.5" />
+
+          {/* ── User Profile Dropdown Pill ── */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 
-                className="flex items-center gap-2 p-1 h-9 rounded-xl hover:bg-slate-100/80 border border-transparent hover:border-slate-200/60 transition-all cursor-pointer"
+                className="flex items-center gap-2 h-8.5 pl-1.5 pr-2.5 rounded-xl bg-slate-50/80 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer shadow-2xs"
               >
                 <div className="relative">
-                  <Avatar className="w-8 h-8 rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                  <Avatar className="w-6.5 h-6.5 rounded-lg border border-slate-200 shadow-2xs overflow-hidden">
                     {userProfile.avatar && (
                       <AvatarImage 
                         src={userProfile.avatar} 
@@ -350,29 +352,30 @@ export default function Navbar({
                         className="object-cover w-full h-full" 
                       />
                     )}
-                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black text-xs rounded-xl">
+                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black text-[10px] rounded-lg">
                       {userProfile.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'TB'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border border-white rounded-full" />
                 </div>
-                {/* Name — desktop only */}
+
+                {/* Name & Role — desktop only */}
                 <div className="text-left hidden lg:block">
-                  <p className="text-xs font-bold text-slate-900 tracking-tight leading-none truncate max-w-30">
+                  <p className="text-[11.5px] font-bold text-slate-900 tracking-tight leading-none truncate max-w-28">
                     {userProfile.name}
                   </p>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                  <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5 leading-none">
                     Merchant
                   </p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-72 bg-white border border-slate-200/90 shadow-xl rounded-2xl p-2 font-sans mt-1.5 animate-in fade-in-0 zoom-in-95 duration-150">
+            <DropdownMenuContent align="end" className="w-68 bg-white border border-slate-200/90 shadow-xl rounded-2xl p-1.5 font-sans mt-1.5 animate-in fade-in-0 zoom-in-95 duration-150">
               {/* User Identity Header Card */}
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2 mb-1">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-2 mb-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                  <div className="w-8.5 h-8.5 rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
                     {userProfile.avatar ? (
                       <img src={userProfile.avatar} alt={userProfile.name} className="w-full h-full object-cover" />
                     ) : (
@@ -388,7 +391,7 @@ export default function Navbar({
                         Active
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                    <p className="text-[10.5px] text-slate-500 font-medium truncate mt-0.5">
                       {userProfile.email}
                     </p>
                   </div>
@@ -399,7 +402,7 @@ export default function Navbar({
               <div className="space-y-0.5 py-1">
                 <DropdownMenuItem 
                   onClick={() => setActiveItem('settings')} 
-                  className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
+                  className="cursor-pointer flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
                 >
                   <User className="w-3.5 h-3.5 text-slate-500" />
                   <span>Account & Restaurant Profile</span>
@@ -407,7 +410,7 @@ export default function Navbar({
 
                 <DropdownMenuItem 
                   onClick={() => setActiveItem('settings')} 
-                  className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
+                  className="cursor-pointer flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
                 >
                   <Settings className="w-3.5 h-3.5 text-slate-500" />
                   <span>Store Settings</span>
@@ -415,7 +418,7 @@ export default function Navbar({
 
                 <DropdownMenuItem 
                   onClick={() => setActiveItem('help')} 
-                  className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
+                  className="cursor-pointer flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition-colors"
                 >
                   <LifeBuoy className="w-3.5 h-3.5 text-slate-500" />
                   <span>Help & Support</span>
@@ -427,7 +430,7 @@ export default function Navbar({
               {/* Sign Out */}
               <DropdownMenuItem 
                 onClick={handleSignOut}
-                className="cursor-pointer flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 focus:bg-rose-50 focus:text-rose-700 transition-colors"
+                className="cursor-pointer flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 focus:bg-rose-50 focus:text-rose-700 transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5 text-rose-500" />
                 <span>Sign Out</span>

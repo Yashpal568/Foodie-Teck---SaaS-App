@@ -41,16 +41,15 @@ const NotificationDropdown = ({ restaurantId = 'demo-merchant' }) => {
         variant="outline"
         size="icon"
         onClick={toggleNotifications}
-        className="relative h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-white/80 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-100 hover:bg-blue-50/50 hover:shadow-lg transition-all shadow-sm group"
+        className="relative h-8.5 w-8.5 rounded-xl bg-slate-50/80 border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all shadow-2xs group cursor-pointer"
       >
-        <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
+        <Bell className="w-4 h-4 group-hover:scale-105 transition-transform" />
         {unreadCount > 0 && (
-          <Badge 
-            variant="destructive" 
-            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-black border-2 border-white shadow-lg shadow-red-500/20"
+          <span 
+            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center text-[9px] font-black bg-rose-500 text-white border-2 border-white shadow-xs"
           >
             {unreadCount > 99 ? '99+' : unreadCount}
-          </Badge>
+          </span>
         )}
       </Button>
 
