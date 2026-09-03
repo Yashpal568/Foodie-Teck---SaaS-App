@@ -124,7 +124,7 @@ export const getRestaurantProfile = async (restaurantId) => {
   }
 
   try {
-    let q = supabase.from('restaurants').select('id, business_name, description, logo_url, cover_url, address, phone, plan, status')
+    let q = supabase.from('restaurants').select('*')
     if (validId && isUUID(validId)) {
       q = q.eq('id', validId).maybeSingle()
     } else if (restaurantId && typeof restaurantId === 'string' && restaurantId.includes('@')) {
