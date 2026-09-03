@@ -134,7 +134,8 @@ export const KNOWN_RESTAURANTS = {
   'test3@gmail.com': { id: '63799778-6f5c-4573-931c-81e2968c37d6', name: 'test3t', plan: 'Starter', status: 'Active' },
   'grandpalace_test@gmail.com': { id: '9e5de80d-95ac-41ac-896c-efb2ba014fe4', name: 'Grand Palace Bistro', plan: 'Professional', status: 'Active' },
   'merchant-be3543b0@servora.app': { id: 'be3543b0-c9aa-4022-9749-57ece7c94b7e', name: 'Merchant Node', plan: 'Enterprise', status: 'Active' },
-  'testonboard1255@gmail.com': { id: 'd13e0a4f-9fb0-45f7-a239-2f56b3ea2b2f', name: 'Test Restaurant', plan: 'Professional', status: 'Active' }
+  'testonboard1255@gmail.com': { id: 'd13e0a4f-9fb0-45f7-a239-2f56b3ea2b2f', name: 'Test Restaurant', plan: 'Professional', status: 'Active' },
+  'rest_1788111246613_kvkcr2': { id: 'a3b0c97f-7acb-478b-8b5a-68763af06b5c', name: 'Tiger Bistro', plan: 'Professional', status: 'Active' }
 }
 
 /** Resolves a valid PostgreSQL UUID for a restaurant (handles email & legacy IDs) */
@@ -149,6 +150,11 @@ export const ensureValidRestaurantUUID = async (restaurantId) => {
     const lower = restaurantId.toLowerCase()
     if (KNOWN_RESTAURANTS[lower]) {
       const target = KNOWN_RESTAURANTS[lower].id
+      sessionStorage.setItem(`servora_uuid_${restaurantId}`, target)
+      return target
+    }
+    if (lower.startsWith('rest_')) {
+      const target = 'a3b0c97f-7acb-478b-8b5a-68763af06b5c'
       sessionStorage.setItem(`servora_uuid_${restaurantId}`, target)
       return target
     }

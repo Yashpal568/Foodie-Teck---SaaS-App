@@ -275,10 +275,11 @@ export default function SplitPaymentModal({
       try {
         const orderNumberTable = String(tableNumber || '1').replace(/^Table\s*/i, '')
         const paymentMethodSummary = finalPayments.map(p => p.method).join(' + ') || singleMethod
-        await createOrder({
-          restaurantId,
+        const resolvedRid = restaurantId || restaurantProfile?.id || 'a3b0c97f-7acb-478b-8b5a-68763af06b5c'
+        const createdKOT = await createOrder({
+          restaurantId: resolvedRid,
           tableNumber: orderNumberTable,
-          customerName: customerName || 'Walk-in Guest',
+          customerName: customerName || `Table ${orderNumberTable} Guest`,
           items: cartItems.map(i => ({
             id: i.id || i._id,
             name: i.name,
@@ -297,6 +298,9 @@ export default function SplitPaymentModal({
           notes: `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`,
           specialInstructions: `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`
         })
+
+        // Instantly notify live components
+        window.dispatchEvent(new CustomEvent('newOrderCreated', { detail: createdKOT }))
       } catch (errKOT) {
         console.warn('Auto-KOT creation notice:', errKOT)
       }

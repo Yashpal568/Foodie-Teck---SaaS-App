@@ -257,8 +257,16 @@ export const useOrderManagement = (restaurantId) => {
       )
       .subscribe()
 
+    const handleLocalOrder = () => {
+      refreshOrders(false)
+    }
+    window.addEventListener('newOrderCreated', handleLocalOrder)
+    window.addEventListener('storage', handleLocalOrder)
+
     return () => {
       supabase.removeChannel(channel)
+      window.removeEventListener('newOrderCreated', handleLocalOrder)
+      window.removeEventListener('storage', handleLocalOrder)
     }
   }, [resolvedId, restaurantId, refreshOrders])
 

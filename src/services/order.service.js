@@ -37,6 +37,9 @@ export const createOrder = async (orderData) => {
   const rawType = String(orderData.type || orderData.order_type || 'DINE-IN').replace(/\s*•\s*PAID/gi, '').trim() || 'DINE-IN'
   const typeFormatted = isPrepaid ? `${rawType} • PAID` : rawType
   const orderStatus = orderData.status || 'PENDING'
+  const notes = orderData.notes || orderData.specialInstructions || (isPrepaid ? 'BILLING DONE / PAID IN ADVANCE ✅' : '')
+  const paymentStatus = isPrepaid ? 'PAID' : (orderData.payment_status || 'UNPAID')
+  const paymentMethod = orderData.payment_method || (isPrepaid ? 'SETTLED' : '')
 
   if (validRestaurantId) {
     try {
