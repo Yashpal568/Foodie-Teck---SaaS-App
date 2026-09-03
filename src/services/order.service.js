@@ -237,7 +237,7 @@ export const fetchOrders = async (restaurantId) => {
   }
 }
 
-export const updateOrderStatus = async (orderId, status, extraFields = {}) => {
+export const updateOrderStatus = async (orderId, status) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
   
   if (!orderId || !isUUID(orderId)) {
@@ -246,20 +246,17 @@ export const updateOrderStatus = async (orderId, status, extraFields = {}) => {
     return { id: orderId, status, updated_at: new Date().toISOString() }
   }
 
-  const updatePayload = { 
-    status, 
-    ...(status === 'FINISHED' ? { payment_status: 'PAID' } : {}),
-    ...extraFields 
-  }
-
   const { data: order, error } = await supabase
     .from('orders')
-    .update(updatePayload)
+    .update({ status })
     .eq('id', orderId)
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Supabase status update error:', error)
+    throw error
+  }
 
   if (order) {
     let tableStatus = null;
@@ -269,21 +266,30 @@ export const updateOrderStatus = async (orderId, status, extraFields = {}) => {
     if (status === 'BILL_REQUESTED') tableStatus = 'billing';
     if (status === 'FINISHED') tableStatus = 'available';
 
-    if (tableStatus) {
-       await supabase
-        .from('table_sessions')
-        .update({ 
-           status: tableStatus,
-           last_activity: new Date().toISOString(),
-           ...(status === 'FINISHED' ? { 
-              current_order_id: null, 
-              customers: 0,
-              session_start: null 
-           } : {})
-        })
-        .eq('restaurant_id', order.restaurant_id)
-        .eq('table_number', parseInt(order.table_number))
+    if (tableStatus && order.table_number && order.restaurant_id) {
+       try {
+         const tNum = parseInt(String(order.table_number).replace(/\D/g, '')) || 1
+         await supabase
+          .from('table_sessions')
+          .update({ 
+             status: tableStatus,
+             last_activity: new Date().toISOString(),
+             ...(status === 'FINISHED' ? { 
+                current_order_id: null, 
+                customers: 0,
+                session_start: null 
+             } : {})
+          })
+          .eq('restaurant_id', order.restaurant_id)
+          .eq('table_number', tNum)
+       } catch (tableErr) {
+         console.warn('Table session update notice:', tableErr)
+       }
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: { orderId, status } }))
+    } catch (e) {}
   }
   return order
 }
