@@ -219,7 +219,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
 
   if (showForm) {
     return (
-      <div className="flex justify-center">
+      <div className="bg-[#f8fafc] min-h-screen px-4 sm:px-6 lg:px-8 py-6">
         <MenuItemForm 
           item={editingItem} 
           onSave={handleSaveItem} 

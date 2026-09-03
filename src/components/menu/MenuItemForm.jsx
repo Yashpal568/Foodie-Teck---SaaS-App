@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { 
   ArrowLeft, 
   Upload, 
@@ -16,7 +16,11 @@ import {
   Leaf, 
   Drumstick, 
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Link,
+  Utensils,
+  ChevronRight,
+  Palette
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +31,20 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { currencies } from '@/components/ui/currency-selector'
 import { toast } from 'sonner'
+
+// High-resolution curated culinary food presets (Verified Food Photos)
+const FOOD_IMAGE_PRESETS = [
+  { id: 'tandoori', label: 'Tandoor & Tikka', url: 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?auto=format&fit=crop&w=800&q=80', type: 'VEG' },
+  { id: 'gravy', label: 'Butter Gravy / Dal', url: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=800&q=80', type: 'VEG' },
+  { id: 'burger', label: 'Gourmet Burger', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', type: 'NON_VEG' },
+  { id: 'pizza', label: 'Woodfired Pizza', url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80', type: 'VEG' },
+  { id: 'pasta', label: 'Artisan Pasta', url: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=800&q=80', type: 'VEG' },
+  { id: 'biryani', label: 'Royal Biryani', url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80', type: 'NON_VEG' },
+  { id: 'dessert', label: 'Chocolate Fudge', url: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=800&q=80', type: 'VEG' },
+  { id: 'coffee', label: 'Cold Coffee / Latte', url: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?auto=format&fit=crop&w=800&q=80', type: 'VEG' },
+  { id: 'cooler', label: 'Mojito / Mocktail', url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=800&q=80', type: 'VEG' },
+  { id: 'rolls', label: 'Rolls & Wraps', url: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=800&q=80', type: 'VEG' }
+]
 
 export default function MenuItemForm({ item = null, onSave, onCancel, currency = 'INR', categories = [] }) {
   const defaultCategory = item?.category || (categories && categories.length > 0 ? categories[0] : 'Main Course')
@@ -45,7 +63,8 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
 
   const [imagePreview, setImagePreview] = useState(item?.photo || '')
   const [isUploading, setIsUploading] = useState(false)
-  const [previewMode, setPreviewMode] = useState('customer') // 'customer' | 'pos'
+  const [customImageUrl, setCustomImageUrl] = useState('')
+  const [showUrlInput, setShowUrlInput] = useState(false)
 
   // Get currency symbol
   const currencyConfig = currencies.find(c => c.code === currency) || currencies[0]
@@ -56,6 +75,21 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
       ...prev,
       [field]: value
     }))
+  }
+
+  const handleSelectPresetImage = (url) => {
+    setImagePreview(url)
+    setFormData(prev => ({ ...prev, photo: url }))
+    toast.success('✨ Preset culinary background applied!')
+  }
+
+  const handleApplyCustomUrl = () => {
+    if (customImageUrl.trim()) {
+      setImagePreview(customImageUrl.trim())
+      setFormData(prev => ({ ...prev, photo: customImageUrl.trim() }))
+      toast.success('🌐 Image URL applied successfully!')
+      setShowUrlInput(false)
+    }
   }
 
   const handleImageUpload = (e) => {
@@ -94,7 +128,6 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
           const ctx = canvas.getContext('2d')
           ctx.drawImage(img, 0, 0, width, height)
           
-          // High quality web compression
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75)
           setImagePreview(compressedDataUrl)
           setFormData(prev => ({ ...prev, photo: compressedDataUrl }))
@@ -112,6 +145,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
   const removeImage = () => {
     setImagePreview('')
     setFormData(prev => ({ ...prev, photo: '' }))
+    setCustomImageUrl('')
   }
 
   const handleSubmit = (e) => {
@@ -150,38 +184,43 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
   const isFormValid = Boolean(formData.name.trim() && formData.price && Number(formData.price) > 0)
 
   return (
-    <div className="w-full max-w-6xl mx-auto pb-12 font-['Roboto',sans-serif] select-none animate-in fade-in duration-200">
+    <div className="w-full max-w-6xl mx-auto pb-16 font-['Roboto',sans-serif] select-none animate-in fade-in duration-200">
       
-      {/* ── 1. Minimal Executive Header Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-slate-200/80 mb-6">
+      {/* ── 1. Executive Glassmorphic Top Navbar / Breadcrumb Bar ── */}
+      <div className="sticky top-0 z-30 mb-6 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3.5 bg-white/85 backdrop-blur-md border-b border-slate-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
+        
+        {/* Left: Breadcrumbs & Page Identity */}
         <div className="flex items-center gap-3">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={onCancel}
-            className="h-9 w-9 p-0 rounded-xl border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer shrink-0"
-            title="Back to menu"
+            className="h-9 w-9 p-0 rounded-xl border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer shrink-0 transition-transform active:scale-95"
+            title="Back to Inventory & Menu"
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-slate-950 tracking-tight">
-                {item ? 'Edit Menu Dish' : 'Create New Menu Dish'}
-              </h2>
-              <Badge className={`${formData.isInStock ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'} font-bold text-[10px] py-0.5 px-2 rounded-md`}>
-                {formData.isInStock ? '● Active in Menu' : '○ Out of Stock'}
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+              <span>Inventory & Menu</span>
+              <ChevronRight className="w-3 h-3 text-slate-400" />
+              <span className="text-indigo-600 font-extrabold">{item ? 'Edit Dish' : 'Dish Studio'}</span>
+            </div>
+
+            <div className="flex items-center gap-2 mt-0.5">
+              <h1 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight leading-tight">
+                {item ? `Edit "${item.name}"` : 'Create New Menu Dish'}
+              </h1>
+              <Badge className={`${formData.isInStock ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'} font-bold text-[10px] py-0.5 px-2 rounded-md hidden sm:inline-flex`}>
+                {formData.isInStock ? '● Live on Menu' : '○ Out of Stock'}
               </Badge>
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Configure dish identity, dietary classifications, multi-portion pricing, and photos.
-            </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Right: Quick Action Controls */}
         <div className="flex items-center gap-2.5 self-end sm:self-center">
           <Button
             type="button"
@@ -196,12 +235,13 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
             type="button"
             onClick={handleSubmit}
             disabled={!isFormValid || isUploading}
-            className="h-9 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50"
+            className="h-9 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50"
           >
             <Check className="w-3.5 h-3.5" />
             <span>{item ? 'Update Dish' : 'Save & Publish Dish'}</span>
           </Button>
         </div>
+
       </div>
 
       {/* ── 2. Asymmetric Form Studio (70% Form / 30% Live Card Preview) ── */}
@@ -398,67 +438,153 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
             </div>
           </div>
 
-          {/* Section 3: Dish Media & Photography */}
+          {/* Section 3: Dish Photography & Background Presets */}
           <div className="p-5.5 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <ImageIcon className="w-4 h-4 text-blue-600" />
-                <span>3. Dish Photography</span>
-              </span>
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                  3. Dish Background Photography
+                </span>
+              </div>
               <span className="text-[11px] font-semibold text-slate-400">
-                Recommended 800x600px • Max 5MB
+                1-Tap Food Presets or Upload
               </span>
             </div>
 
-            {imagePreview ? (
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 group">
-                <img
-                  src={imagePreview}
-                  alt={formData.name || 'Menu preview'}
-                  className="w-full h-48 sm:h-56 object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end justify-between p-4">
-                  <div className="text-white text-xs font-bold">
-                    <span>{formData.name || 'Dish Photo'}</span>
+            {/* Curated Background Preset Gallery */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Choose from Ready-to-Use Culinary Background Presets:</span>
+                </Label>
+                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                  1-Tap Instant Apply
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-1">
+                {FOOD_IMAGE_PRESETS.map((preset) => {
+                  const isSelected = imagePreview === preset.url
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectPresetImage(preset.url)}
+                      className={`relative group rounded-xl overflow-hidden border-2 transition-all aspect-video cursor-pointer shadow-2xs ${
+                        isSelected 
+                          ? 'border-indigo-600 ring-2 ring-indigo-500/30 scale-102' 
+                          : 'border-slate-200 hover:border-indigo-300'
+                      }`}
+                      title={`Apply ${preset.label}`}
+                    >
+                      <img
+                        src={preset.url}
+                        alt={preset.label}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-1.5">
+                        <span className="text-[9px] font-black text-white truncate leading-none">
+                          {preset.label}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5" />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Custom Photo Preview or Upload Box */}
+            <div className="pt-2 border-t border-slate-100 space-y-3">
+              {imagePreview ? (
+                <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 group">
+                  <img
+                    src={imagePreview}
+                    alt={formData.name || 'Menu preview'}
+                    className="w-full h-48 sm:h-56 object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-4">
+                    <div className="text-white">
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Active Photo</span>
+                      <span className="text-xs font-black">{formData.name || 'Dish Image'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setShowUrlInput(!showUrlInput)}
+                        className="h-8 px-2.5 rounded-xl font-bold text-xs bg-white/90 text-slate-800 hover:bg-white cursor-pointer"
+                      >
+                        <Link className="w-3.5 h-3.5 mr-1" /> Change URL
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={removeImage}
+                        className="h-8 px-3 rounded-xl font-bold text-xs shadow-md cursor-pointer active:scale-95"
+                      >
+                        <X className="w-3.5 h-3.5 mr-1" /> Remove
+                      </Button>
+                    </div>
                   </div>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/60 hover:bg-indigo-50/30 rounded-2xl p-6 text-center transition-all relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={isUploading}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center mx-auto mb-2 text-indigo-600">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <h5 className="font-extrabold text-xs text-slate-900">
+                    {isUploading ? 'Compressing & uploading image...' : 'Or upload your own custom dish photograph'}
+                  </h5>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Drag & drop file here or click to browse. Max 5MB (PNG, JPG, WebP).
+                  </p>
+                </div>
+              )}
+
+              {/* Web Image URL Option */}
+              {showUrlInput && (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-2 animate-in fade-in">
+                  <Input
+                    placeholder="Paste web image URL (e.g. https://...)..."
+                    value={customImageUrl}
+                    onChange={(e) => setCustomImageUrl(e.target.value)}
+                    className="h-9 text-xs bg-white border-slate-200 rounded-xl"
+                  />
                   <Button
                     type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={removeImage}
-                    className="h-8 px-3 rounded-xl font-bold text-xs shadow-md cursor-pointer active:scale-95"
+                    onClick={handleApplyCustomUrl}
+                    className="h-9 px-4 rounded-xl bg-indigo-600 text-white font-bold text-xs"
                   >
-                    <X className="w-3.5 h-3.5 mr-1" /> Remove Photo
+                    Apply URL
                   </Button>
                 </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/60 hover:bg-indigo-50/30 rounded-2xl p-6 text-center transition-all relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  disabled={isUploading}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center mx-auto mb-2 text-indigo-600">
-                  <Upload className="w-5 h-5" />
-                </div>
-                <h5 className="font-extrabold text-xs text-slate-900">
-                  {isUploading ? 'Compressing & uploading image...' : 'Click or drag photo here to upload'}
-                </h5>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Supports PNG, JPG, WebP. High-density photos boost customer orders by 28%.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
+
           </div>
 
         </div>
 
         {/* Right Side: Sticky Live Interactive Preview (4 Cols) */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="sticky top-4 space-y-4">
+          <div className="sticky top-20 space-y-4">
             
             {/* Live Preview Header Card */}
             <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between shadow-md">
@@ -471,32 +597,34 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
               </span>
             </div>
 
-            {/* Mobile QR Menu Card Mockup */}
-            <div className="rounded-3xl border border-slate-200/90 bg-white overflow-hidden shadow-md hover:shadow-lg transition-all">
+            {/* Mobile QR Menu Card Mockup with Background Visuals */}
+            <div className="rounded-3xl border border-slate-200/90 bg-white overflow-hidden shadow-md hover:shadow-lg transition-all group">
               
-              {/* Image or Placeholder */}
-              <div className="w-full h-44 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+              {/* Image or Placeholder with High-Gloss Presentation */}
+              <div className="w-full h-48 bg-slate-950 relative overflow-hidden flex items-center justify-center">
                 {imagePreview ? (
                   <img
                     src={imagePreview}
                     alt="Preview"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
-                  <div className="text-center text-slate-400 p-4">
-                    <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider block">Dish Photo Preview</span>
+                  <div className="text-center text-slate-400 p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 w-full h-full flex flex-col items-center justify-center">
+                    <ImageIcon className="w-10 h-10 mx-auto mb-1 text-slate-500 opacity-60" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Select a Preset Above
+                    </span>
                   </div>
                 )}
 
                 {/* Dietary Badge */}
                 <div className="absolute top-3 left-3">
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider uppercase shadow-xs flex items-center gap-1 ${
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase shadow-md flex items-center gap-1.5 ${
                     formData.type === 'VEG' 
                       ? 'bg-emerald-600 text-white' 
                       : 'bg-rose-600 text-white'
                   }`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                     {formData.type === 'VEG' ? 'VEG' : 'NON-VEG'}
                   </span>
                 </div>
@@ -504,7 +632,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
                 {/* Stock Status Tag */}
                 {!formData.isInStock && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center">
-                    <span className="px-3 py-1 bg-rose-600 text-white text-xs font-black rounded-lg uppercase tracking-wider">
+                    <span className="px-3 py-1 bg-rose-600 text-white text-xs font-black rounded-lg uppercase tracking-wider shadow-lg">
                       Sold Out / Out of Stock
                     </span>
                   </div>
@@ -512,7 +640,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
               </div>
 
               {/* Card Details */}
-              <div className="p-4 space-y-2">
+              <div className="p-4.5 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
@@ -539,22 +667,25 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
                   {formData.description || 'Appetizing dish description will appear here on customer phones and digital menus.'}
                 </p>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
                   <span>POS Terminal: Ready</span>
-                  <span className="text-emerald-600">● 1-Tap Ordering</span>
+                  <span className="text-emerald-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    1-Tap Ordering
+                  </span>
                 </div>
               </div>
 
             </div>
 
-            {/* Quick Tips Box */}
-            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100/90 text-indigo-950 space-y-1.5 text-xs">
+            {/* Pro Tip Box */}
+            <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 text-indigo-950 space-y-1.5 text-xs">
               <div className="flex items-center gap-1.5 font-bold text-indigo-800">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Executive Menu Pro Tip:</span>
               </div>
               <p className="text-[11px] text-indigo-900/80 leading-relaxed">
-                Add both Full and Half pricing for high-value curries and starters to allow guests flexible single-portion choices!
+                Dishes with high-resolution food photography receive up to <strong>35% more customer selections</strong> on digital QR menus!
               </p>
             </div>
 
@@ -570,7 +701,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
             {isFormValid ? (
               <span className="text-emerald-700 flex items-center gap-1 font-bold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Ready to save dish "{formData.name}" ({currencySymbol}{formData.price})
+                Ready to publish "{formData.name}" ({currencySymbol}{formData.price})
               </span>
             ) : (
               <span className="text-slate-400 flex items-center gap-1">
