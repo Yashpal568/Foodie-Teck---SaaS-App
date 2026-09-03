@@ -1770,68 +1770,161 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
             ) : (
 
-              /* POS Table List Mode */
-              <Card className="rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden bg-white">
+              /* High-End POS Table List Mode */
+              <Card className="rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-white">
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="bg-slate-50 border-b border-slate-200">
-                      <TableRow>
-                        <TableHead className="font-black text-xs text-slate-700">Table</TableHead>
-                        <TableHead className="font-black text-xs text-slate-700">Order ID</TableHead>
-                        <TableHead className="font-black text-xs text-slate-700">Time</TableHead>
-                        <TableHead className="font-black text-xs text-slate-700">Customer</TableHead>
-                        <TableHead className="font-black text-xs text-slate-700">Items Summary</TableHead>
-                        <TableHead className="font-black text-xs text-slate-700">Amount</TableHead>
-                        <TableHead className="font-black text-xs text-slate-700">Status</TableHead>
-                        <TableHead className="font-black text-xs text-slate-700 text-right">Actions</TableHead>
+                    <TableHeader className="bg-slate-50/90 border-b border-slate-200/80">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider py-3.5 pl-4">Table / Mode</TableHead>
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider">Order ID</TableHead>
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider">Time & Age</TableHead>
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider">Customer</TableHead>
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider">Ordered Items</TableHead>
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider">Amount</TableHead>
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider">Status</TableHead>
+                        <TableHead className="font-black text-[10.5px] text-slate-500 uppercase tracking-wider text-right pr-4">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {processedOrders.map((order) => {
                         const items = order.items || order.order_items || []
+                        const elapsed = getElapsedInfo(order.createdAt || order.created_at)
+                        const totalItemsCount = items.reduce((sum, i) => sum + (Number(i.quantity) || 1), 0)
+
                         return (
-                          <TableRow key={order.id} className="hover:bg-slate-50/80 transition-colors">
-                            <TableCell className="font-black text-sm text-slate-900">
-                              Table {order.tableNumber || order.table_number || '1'}
+                          <TableRow key={order.id} className="hover:bg-slate-50/70 transition-colors border-b border-slate-100 group">
+                            
+                            {/* Table & Type */}
+                            <TableCell className="py-3 pl-4">
+                              <div className="flex flex-col items-start gap-0.5">
+                                <span className="bg-slate-900 text-white font-black text-xs px-2.5 py-0.5 rounded-lg shadow-2xs whitespace-nowrap">
+                                  Table {order.tableNumber || order.table_number || '1'}
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                                  {order.order_type || order.orderType || 'DINE-IN'}
+                                </span>
+                              </div>
                             </TableCell>
-                            <TableCell className="font-mono text-xs text-slate-500 font-bold">
-                              #{String(order.id).slice(-6).toUpperCase()}
+
+                            {/* Order ID */}
+                            <TableCell className="py-3">
+                              <span className="font-mono text-xs text-slate-600 font-bold bg-slate-100 border border-slate-200/70 px-2 py-0.5 rounded-md">
+                                #{String(order.id).slice(-6).toUpperCase()}
+                              </span>
                             </TableCell>
-                            <TableCell className="text-xs text-slate-600 font-medium">
-                              {new Date(order.createdAt || order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+                            {/* Time & Elapsed */}
+                            <TableCell className="py-3">
+                              <div className="flex flex-col">
+                                <span className="text-xs text-slate-800 font-bold">
+                                  {new Date(order.createdAt || order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-2.5 h-2.5 text-slate-400" />
+                                  <span className={`text-[10px] font-bold ${
+                                    elapsed.urgency === 'delayed' ? 'text-rose-600 font-black' : 
+                                    elapsed.urgency === 'warning' ? 'text-amber-600 font-bold' : 'text-slate-400 font-medium'
+                                  }`}>
+                                    {elapsed.text}
+                                  </span>
+                                </div>
+                              </div>
                             </TableCell>
-                            <TableCell className="text-xs font-semibold text-slate-800">
-                              {order.customerName || order.customer_name || 'Guest'}
+
+                            {/* Customer */}
+                            <TableCell className="py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6.5 h-6.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] flex items-center justify-center shrink-0 border border-slate-200">
+                                  <User className="w-3.5 h-3.5" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-800 truncate max-w-32">
+                                  {order.customerName || order.customer_name || 'Guest Customer'}
+                                </span>
+                              </div>
                             </TableCell>
-                            <TableCell className="text-xs text-slate-600 max-w-xs truncate">
-                              {items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+
+                            {/* Ordered Items Breakdown */}
+                            <TableCell className="py-3 max-w-xs">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-100 shrink-0">
+                                    {totalItemsCount} {totalItemsCount === 1 ? 'Dish' : 'Dishes'}
+                                  </span>
+                                  <span className="text-xs text-slate-700 font-medium truncate max-w-56">
+                                    {items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                                  </span>
+                                </div>
+                              </div>
                             </TableCell>
-                            <TableCell className="font-black text-sm text-slate-900">
-                              ₹{Number(order.total || 0).toFixed(2)}
+
+                            {/* Amount */}
+                            <TableCell className="py-3">
+                              <span className="font-black text-sm text-slate-900 tracking-tight">
+                                ₹{Number(order.total || order.total_amount || 0).toFixed(2)}
+                              </span>
                             </TableCell>
-                            <TableCell>
-                              <Badge className={`${ORDER_STATUS_CONFIG[order.status]?.color} border-none font-bold text-[10px] uppercase`}>
-                                {ORDER_STATUS_CONFIG[order.status]?.label || order.status}
+
+                            {/* Status */}
+                            <TableCell className="py-3">
+                              <Badge className={`border-none font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1.5 w-fit ${
+                                [ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status)
+                                  ? 'bg-blue-100/90 text-blue-700'
+                                  : order.status === ORDER_STATUS.PREPARING
+                                  ? 'bg-orange-100/90 text-orange-700'
+                                  : order.status === ORDER_STATUS.READY
+                                  ? 'bg-emerald-100/90 text-emerald-700'
+                                  : order.status === ORDER_STATUS.SERVED
+                                  ? 'bg-indigo-100/90 text-indigo-700'
+                                  : order.status === ORDER_STATUS.BILL_REQUESTED
+                                  ? 'bg-amber-100/90 text-amber-700 ring-1 ring-amber-300 animate-pulse'
+                                  : order.status === ORDER_STATUS.FINISHED
+                                  ? 'bg-slate-100 text-slate-600'
+                                  : 'bg-rose-100/90 text-rose-700'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  [ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status)
+                                    ? 'bg-blue-500'
+                                    : order.status === ORDER_STATUS.PREPARING
+                                    ? 'bg-orange-500'
+                                    : order.status === ORDER_STATUS.READY
+                                    ? 'bg-emerald-500'
+                                    : order.status === ORDER_STATUS.SERVED
+                                    ? 'bg-indigo-500'
+                                    : order.status === ORDER_STATUS.BILL_REQUESTED
+                                    ? 'bg-amber-500'
+                                    : order.status === ORDER_STATUS.FINISHED
+                                    ? 'bg-slate-400'
+                                    : 'bg-rose-500'
+                                }`} />
+                                <span>{ORDER_STATUS_CONFIG[order.status]?.label || order.status}</span>
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">
+
+                            {/* Action Buttons */}
+                            <TableCell className="py-3 pr-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setReceiptOrder(order)}
-                                  className="h-7 px-2.5 rounded-lg text-xs font-bold"
-                                >
-                                  <Receipt className="w-3 h-3 mr-1 text-indigo-600" /> Receipt
-                                </Button>
                                 
+                                {/* Thermal Print Button */}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handlePrintReceipt(order)}
+                                  className="w-7 h-7 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                  title="Print Receipt"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </Button>
+
+                                {/* Stage Action Button */}
                                 {[ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(order.status) && (
                                   <Button
                                     size="sm"
                                     onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.PREPARING)}
-                                    className="h-7 px-2.5 rounded-lg text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white"
+                                    className="h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                                   >
-                                    Cook
+                                    <ChefHat className="w-3 h-3" />
+                                    <span>Cook</span>
                                   </Button>
                                 )}
 
@@ -1839,9 +1932,10 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   <Button
                                     size="sm"
                                     onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.READY)}
-                                    className="h-7 px-2.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white"
+                                    className="h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                                   >
-                                    Ready
+                                    <Check className="w-3 h-3" />
+                                    <span>Ready</span>
                                   </Button>
                                 )}
 
@@ -1849,11 +1943,64 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                   <Button
                                     size="sm"
                                     onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.SERVED)}
-                                    className="h-7 px-2.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white"
+                                    className="h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                                   >
-                                    Serve
+                                    <Utensils className="w-3 h-3" />
+                                    <span>Serve</span>
                                   </Button>
                                 )}
+
+                                {order.status === ORDER_STATUS.SERVED && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.BILL_REQUESTED)}
+                                    className="h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                  >
+                                    <DollarSign className="w-3 h-3" />
+                                    <span>Bill</span>
+                                  </Button>
+                                )}
+
+                                {order.status === ORDER_STATUS.BILL_REQUESTED && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.FINISHED)}
+                                    className="h-7 px-2.5 rounded-lg text-[10.5px] font-bold uppercase tracking-wider bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>Settle</span>
+                                  </Button>
+                                )}
+
+                                {/* 3-Dots Menu */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="w-7 h-7 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors">
+                                      <MoreVertical className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="min-w-[175px] rounded-xl shadow-xl border border-slate-200/90 bg-white p-1 text-xs font-semibold z-50">
+                                    <DropdownMenuItem onClick={() => setReceiptOrder(order)} className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/70 whitespace-nowrap">
+                                      <Receipt className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                      <span>View Bill Receipt</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setTimelineOrder(order)} className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 whitespace-nowrap">
+                                      <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                      <span>Order Timeline</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="my-1 bg-slate-100" />
+                                    {order.status !== ORDER_STATUS.FINISHED && order.status !== ORDER_STATUS.CANCELLED && (
+                                      <DropdownMenuItem 
+                                        onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.CANCELLED)}
+                                        className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-rose-600 hover:bg-rose-50/70 focus:text-rose-700 whitespace-nowrap"
+                                      >
+                                        <X className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                        <span>Cancel Order</span>
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+
                               </div>
                             </TableCell>
                           </TableRow>
