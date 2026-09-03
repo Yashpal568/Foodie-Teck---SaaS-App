@@ -42,7 +42,8 @@ import {
   getRestaurantProfile,
   getTableSessions,
   updateTableStatus as updateTableAPI,
-  requestWaiter
+  requestWaiter,
+  supabase
 } from '@/lib/api'
 
 // 🥗 Swiggy / Zomato Signature Veg / Non-Veg Indicator Symbol
@@ -305,15 +306,26 @@ export default function CustomerMenu() {
 
         // 1. Fetch Restaurant Profile for Dynamic UI
         const profile = await getRestaurantProfile(resId)
+        
+        let localLogo = ''
+        let localCover = ''
+        try {
+          localLogo = localStorage.getItem(`servora_restaurant_logo_${resId}`) || localStorage.getItem('servora_restaurant_logo') || ''
+          localCover = localStorage.getItem(`servora_restaurant_cover_${resId}`) || localStorage.getItem('servora_restaurant_cover') || ''
+        } catch (e) {}
+
         if (profile) {
            const rawName = (profile.business_name || profile.name || '').trim()
            const safeName = (!rawName || /^(test|test\s*2|test2|test2@gmail\.com)$/i.test(rawName)) ? 'Tiger Bistro' : rawName
+           const activeLogo = profile.logo_url || localLogo || ''
+           const activeCover = profile.cover_url || localCover || ''
 
            setRestaurantData(prev => ({
              ...prev,
              name: safeName,
-             logo: profile.logo_url || prev.logo,
-             photo: profile.cover_url || profile.photo || prev.photo,
+             logo: activeLogo || prev.logo,
+             photo: activeCover || prev.photo,
+             cover_url: activeCover || prev.cover_url,
              description: profile.description || prev.description,
              cuisine: profile.cuisine || prev.cuisine,
              address: profile.address || prev.address
@@ -339,12 +351,15 @@ export default function CustomerMenu() {
               if (actualProfile) {
                 const rescuedRawName = (actualProfile.business_name || actualProfile.name || '').trim()
                 const rescuedSafeName = (!rescuedRawName || /^(test|test\s*2|test2|test2@gmail\.com)$/i.test(rescuedRawName)) ? 'Tiger Bistro' : rescuedRawName
+                const rescuedLogo = actualProfile.logo_url || localLogo || ''
+                const rescuedCover = actualProfile.cover_url || localCover || ''
 
                 setRestaurantData(prev => ({
                   ...prev,
                   name: rescuedSafeName,
-                  logo: actualProfile.logo_url || prev.logo,
-                  photo: actualProfile.cover_url || actualProfile.photo || prev.photo,
+                  logo: rescuedLogo || prev.logo,
+                  photo: rescuedCover || prev.photo,
+                  cover_url: rescuedCover || prev.cover_url,
                   description: actualProfile.description || prev.description,
                   cuisine: actualProfile.cuisine || prev.cuisine,
                   address: actualProfile.address || prev.address
@@ -383,6 +398,90 @@ export default function CustomerMenu() {
 
     loadInitialData()
   }, [])
+
+  // 🔄 Real-time synchronization for Restaurant Profile updates (Logo, Cover, Name)
+  useEffect(() => {
+    if (!restaurantId || restaurantId === 'default') return
+
+    // 1. Listen to Supabase Realtime changes on restaurants table
+    const channel = supabase
+      .channel(`customer_menu_profile_${restaurantId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'restaurants',
+        filter: `id=eq.${restaurantId}`
+      }, (payload) => {
+        if (payload?.new) {
+          const updated = payload.new
+          const rawName = (updated.business_name || updated.name || '').trim()
+          const safeName = (!rawName || /^(test|test\s*2|test2|test2@gmail\.com)$/i.test(rawName)) ? 'Tiger Bistro' : rawName
+          setRestaurantData(prev => ({
+            ...prev,
+            name: safeName,
+            logo: updated.logo_url || prev.logo,
+            photo: updated.cover_url || prev.photo,
+            cover_url: updated.cover_url || prev.cover_url,
+            description: updated.description || prev.description,
+            address: updated.address || prev.address
+          }))
+        }
+      })
+      .subscribe()
+
+    // 2. Cross-Tab BroadcastChannel for instant zero-latency sync
+    let bc = null
+    try {
+      if (typeof window !== 'undefined' && window.BroadcastChannel) {
+        bc = new BroadcastChannel('servora_profile_sync')
+        bc.onmessage = (e) => {
+          if (e.data) {
+            const { business_name, logo_url, cover_url } = e.data
+            setRestaurantData(prev => ({
+              ...prev,
+              name: business_name || prev.name,
+              logo: logo_url || prev.logo,
+              photo: cover_url || prev.photo,
+              cover_url: cover_url || prev.cover_url
+            }))
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 3. Storage event listener (across browser tabs)
+    const handleStorage = (e) => {
+      if (e.key && e.key.startsWith('servora_restaurant_logo')) {
+        if (e.newValue) setRestaurantData(prev => ({ ...prev, logo: e.newValue }))
+      }
+      if (e.key && e.key.startsWith('servora_restaurant_cover')) {
+        if (e.newValue) setRestaurantData(prev => ({ ...prev, photo: e.newValue, cover_url: e.newValue }))
+      }
+    }
+
+    // 4. In-window custom event
+    const handleProfileUpdate = (e) => {
+      if (e.detail) {
+        setRestaurantData(prev => ({
+          ...prev,
+          name: e.detail.business_name || prev.name,
+          logo: e.detail.logo_url || prev.logo,
+          photo: e.detail.cover_url || prev.photo,
+          cover_url: e.detail.cover_url || prev.cover_url
+        }))
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('restaurantProfileUpdated', handleProfileUpdate)
+
+    return () => {
+      supabase.removeChannel(channel)
+      if (bc) bc.close()
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('restaurantProfileUpdated', handleProfileUpdate)
+    }
+  }, [restaurantId])
 
   // Emit table session start event when customer scans QR code
   useEffect(() => {
@@ -879,17 +978,24 @@ export default function CustomerMenu() {
             <div className="p-4 sm:p-6 pt-0 relative">
               {/* Overlapping Restaurant Logo Avatar */}
               <div className="flex items-end justify-between -mt-10 sm:-mt-12 mb-3">
-                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-xl border-2 border-white overflow-hidden shrink-0 group-hover:scale-105 group-hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all duration-300">
-                  {restaurantData.logo || restaurantData.photo ? (
+                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-xl border-2 border-white overflow-hidden shrink-0 group-hover:scale-105 group-hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all duration-300 flex items-center justify-center">
+                  {restaurantData.logo ? (
                     <img 
-                      src={restaurantData.logo || restaurantData.photo} 
+                      src={restaurantData.logo} 
+                      alt={restaurantData.name} 
+                      className="w-full h-full object-cover rounded-full group-hover:rotate-2 transition-transform duration-500" 
+                      crossOrigin="anonymous" 
+                    />
+                  ) : restaurantData.photo ? (
+                    <img 
+                      src={restaurantData.photo} 
                       alt={restaurantData.name} 
                       className="w-full h-full object-cover rounded-full group-hover:rotate-2 transition-transform duration-500" 
                       crossOrigin="anonymous" 
                     />
                   ) : (
-                    <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-amber-400">
-                      <Utensils className="h-8 w-8" />
+                    <div className="w-full h-full rounded-full bg-linear-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-black text-2xl shadow-inner">
+                      {(restaurantData.name || 'T').charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
