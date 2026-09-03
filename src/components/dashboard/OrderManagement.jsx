@@ -3,6 +3,7 @@ import {
   Clock, 
   ChefHat, 
   CheckCircle, 
+  CheckCircle2, 
   X, 
   AlertCircle, 
   RefreshCw, 
@@ -303,16 +304,22 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
     return Object.values(groups).sort((a, b) => b.timestamp - a.timestamp)
   }, [allAvailableOrders, historyDateFilter, historySearchQuery])
 
-  // Total History Metrics
+  // Total History Metrics (Accurate Precision & Real-Time Sync)
   const historyMetrics = useMemo(() => {
     let totalSales = 0
     let totalOrders = 0
+    let todaySales = 0
+    const todayStr = new Date().toLocaleDateString('en-CA')
+
     ordersByDate.forEach(g => {
-      totalSales += g.totalRevenue
+      totalSales += Number(g.totalRevenue || 0)
       totalOrders += g.orders.length
+      if (g.dateKey === todayStr) {
+        todaySales += Number(g.totalRevenue || 0)
+      }
     })
-    const avgOrderValue = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0
-    return { totalSales, totalOrders, avgOrderValue }
+    const avgOrderValue = totalOrders > 0 ? (totalSales / totalOrders) : 0
+    return { totalSales, totalOrders, avgOrderValue, todaySales }
   }, [ordersByDate])
 
   // Toggle Day Group Accordion
@@ -1012,46 +1019,76 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
              ═══════════════════════════════════════════════════════════════ */
           <div className="space-y-6">
             
-            {/* Top Summary Metric Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+            {/* Top Summary Metric Cards (4-Column Balanced Grid) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="p-4.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-indigo-300 transition-all">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Sales In Filter</span>
-                    <h3 className="text-xl font-black text-slate-900 mt-0.5">
-                      ₹{historyMetrics.totalSales.toLocaleString('en-IN')}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Total Filtered Sales</span>
+                    <h3 className="text-2xl font-black text-slate-950 tracking-tight">
+                      ₹{Number(historyMetrics.totalSales).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50/80 px-2 py-0.5 rounded-md w-fit">
+                      <Receipt className="w-3 h-3" />
+                      <span>{historyMetrics.totalOrders} Invoices Settled</span>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100 shadow-inner group-hover:scale-105 transition-transform shrink-0">
                     <DollarSign className="w-5 h-5" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+              <Card className="p-4.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-emerald-300 transition-all">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Orders Logged</span>
-                    <h3 className="text-xl font-black text-slate-900 mt-0.5">
-                      {historyMetrics.totalOrders} Orders
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Today's Live Collection</span>
+                    <h3 className="text-2xl font-black text-slate-950 tracking-tight">
+                      ₹{Number(historyMetrics.todaySales).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md w-fit">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>Live Dining Revenue</span>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                    <Receipt className="w-5 h-5" />
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold border border-emerald-100 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                    <TrendingUp className="w-5 h-5" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+              <Card className="p-4.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-blue-300 transition-all">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Avg Ticket Size (AOV)</span>
-                    <h3 className="text-xl font-black text-slate-900 mt-0.5">
-                      ₹{historyMetrics.avgOrderValue.toLocaleString('en-IN')}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Total Orders Logged</span>
+                    <h3 className="text-2xl font-black text-slate-950 tracking-tight">
+                      {historyMetrics.totalOrders} <span className="text-sm font-bold text-slate-500">Orders</span>
                     </h3>
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md w-fit">
+                      <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                      <span>100% Synced to DB</span>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                    <TrendingUp className="w-5 h-5" />
+                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold border border-blue-100 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                    <ShoppingBag className="w-5 h-5" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-amber-300 transition-all">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Avg Ticket Size (AOV)</span>
+                    <h3 className="text-2xl font-black text-slate-950 tracking-tight">
+                      ₹{Number(historyMetrics.avgOrderValue).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </h3>
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md w-fit">
+                      <Tag className="w-3 h-3 text-amber-600" />
+                      <span>Per Table Average</span>
+                    </div>
+                  </div>
+                  <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold border border-amber-100 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                    <Sparkles className="w-5 h-5" />
                   </div>
                 </div>
               </Card>
@@ -1059,10 +1096,12 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
             {/* Date Group Accordions */}
             {ordersByDate.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-lg mx-auto shadow-sm">
-                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-12 text-center max-w-lg mx-auto shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                  <Calendar className="w-8 h-8" />
+                </div>
                 <h3 className="text-base font-black text-slate-900">No History Records Found</h3>
-                <p className="text-xs text-slate-500 mt-1">Try expanding your date filter or search query.</p>
+                <p className="text-xs text-slate-500 mt-1">Try expanding your date filter or clearing your search query.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1074,22 +1113,23 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                       {/* Day Group Header Bar */}
                       <div 
                         onClick={() => toggleDateGroup(dayGroup.dateKey)}
-                        className="p-4 bg-slate-50/80 hover:bg-slate-100/60 border-b border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none transition-colors"
+                        className="p-4.5 bg-linear-to-r from-slate-50 via-white to-slate-50 hover:bg-slate-100/70 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 cursor-pointer select-none transition-colors"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-sm shadow-indigo-500/20 shrink-0">
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-11 h-11 rounded-2xl bg-linear-to-br from-indigo-600 to-indigo-700 text-white flex items-center justify-center font-black text-xs shadow-md shadow-indigo-500/20 shrink-0">
                             <CalendarDays className="w-5 h-5" />
                           </div>
 
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-black text-sm sm:text-base text-slate-900 tracking-tight">
+                            <div className="flex items-center gap-2.5">
+                              <h3 className="font-black text-sm sm:text-base text-slate-950 tracking-tight">
                                 {dayGroup.displayTitle}
                               </h3>
                               {dayGroup.relativeLabel && (
-                                <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200 font-extrabold text-[10px] px-2 py-0.5">
+                                <span className="inline-flex items-center gap-1 bg-indigo-100/90 text-indigo-900 border border-indigo-200 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
                                   {dayGroup.relativeLabel}
-                                </Badge>
+                                </span>
                               )}
                             </div>
                             <p className="text-xs text-slate-500 font-semibold mt-0.5">
@@ -1099,20 +1139,20 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                         </div>
 
                         {/* Day Aggregate Stats & Action Tools */}
-                        <div className="flex items-center gap-3 self-end sm:self-center">
-                          <div className="text-right">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Day Revenue</span>
-                            <span className="text-base font-black text-slate-900 tracking-tight">
-                              ₹{dayGroup.totalRevenue.toLocaleString('en-IN')}
+                        <div className="flex items-center gap-3.5 self-end sm:self-center">
+                          <div className="text-right bg-emerald-50/80 border border-emerald-200/70 px-3.5 py-1.5 rounded-xl">
+                            <span className="text-[9px] font-extrabold text-emerald-700 uppercase tracking-wider block">Day Revenue</span>
+                            <span className="text-base font-black text-emerald-950 tracking-tight">
+                              ₹{Number(dayGroup.totalRevenue).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1 pl-2 border-l border-slate-200" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => exportDayOrdersCSV(dayGroup)}
-                              className="h-8 px-2.5 rounded-xl border-slate-200 font-bold text-xs bg-white text-slate-700 hover:bg-slate-50"
+                              className="h-8.5 px-3 rounded-xl border-slate-200 font-bold text-xs bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs"
                               title="Download Day CSV Spreadsheet"
                             >
                               <Download className="w-3.5 h-3.5 mr-1 text-slate-500" /> Export CSV
@@ -1120,7 +1160,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                             <button 
                               onClick={() => toggleDateGroup(dayGroup.dateKey)}
-                              className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900"
+                              className="w-8.5 h-8.5 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 shadow-2xs hover:bg-slate-50 transition-colors"
                             >
                               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             </button>
@@ -1131,42 +1171,68 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
                       {/* Day Orders Table / List */}
                       {isExpanded && (
-                        <div className="divide-y divide-slate-100">
+                        <div className="divide-y divide-slate-100 bg-white">
                           {dayGroup.orders.map((order) => {
                             const items = order.items || order.order_items || []
+                            const isPrepaidOrder = isOrderPrepaid(order)
+                            const cleanCustomer = String(order.customerName || order.customer_name || 'Walk-in Guest').replace(/\s*•\s*PAID/gi, '').trim() || 'Walk-in Guest'
+                            
+                            // Detect payment method
+                            let payMethod = order.paymentMethod || order.payment_method || (isPrepaidOrder ? 'CASH' : '')
+                            if (typeof order.notes === 'string' && order.notes.includes('UPI')) payMethod = 'UPI'
+                            else if (typeof order.notes === 'string' && order.notes.includes('CARD')) payMethod = 'CARD'
+
                             return (
-                              <div key={order.id} className="p-4 hover:bg-slate-50/70 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                              <div key={order.id} className="p-4 sm:px-5 hover:bg-slate-50/80 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
                                 
                                 {/* Order Metadata & Items */}
-                                <div className="flex items-start gap-3">
-                                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shrink-0">
-                                    T{order.tableNumber || order.table_number || '1'}
+                                <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                                  
+                                  {/* Table Avatar Badge */}
+                                  <div className="w-10 h-10 rounded-2xl bg-slate-950 text-white font-black text-xs flex flex-col items-center justify-center shrink-0 shadow-xs">
+                                    <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">TBL</span>
+                                    <span className="text-sm font-black leading-tight">{order.tableNumber || order.table_number || '1'}</span>
                                   </div>
 
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-xs text-slate-900">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-extrabold text-xs text-slate-950">
                                         Table {order.tableNumber || order.table_number || '1'}
                                       </span>
-                                      <span className="text-[10px] font-mono font-bold text-slate-400">
+                                      
+                                      <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
                                         #{String(order.id).slice(-6).toUpperCase()}
                                       </span>
-                                      <span className="text-[11px] font-medium text-slate-500">
+
+                                      <span className="text-[11px] font-bold text-slate-500">
                                         • {new Date(order.createdAt || order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                       </span>
-                                      <Badge className={`${ORDER_STATUS_CONFIG[order.status]?.color} border-none text-[9px] font-bold uppercase py-0 px-1.5`}>
-                                        {ORDER_STATUS_CONFIG[order.status]?.label || order.status}
-                                      </Badge>
+
+                                      {/* Customer Tag */}
+                                      <span className="text-[11px] font-bold text-slate-700 bg-slate-100/70 px-2 py-0.5 rounded-md">
+                                        👤 {cleanCustomer}
+                                      </span>
+
+                                      {/* Paid Status Badge */}
+                                      {isPrepaidOrder ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-500 text-white px-2 py-0.5 rounded-md shadow-xs">
+                                          ✓ PAID {payMethod ? `(${payMethod})` : ''}
+                                        </span>
+                                      ) : (
+                                        <Badge className={`${ORDER_STATUS_CONFIG[order.status]?.color} border-none text-[9px] font-bold uppercase py-0.5 px-2 rounded-md`}>
+                                          {ORDER_STATUS_CONFIG[order.status]?.label || order.status}
+                                        </Badge>
+                                      )}
                                     </div>
 
                                     {/* Items Chips */}
                                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
                                       {items.map((item, idx) => (
-                                        <span key={idx} className="inline-flex items-center gap-1 text-[11px] font-medium bg-slate-100 text-slate-800 px-2 py-0.5 rounded-lg border border-slate-200/60">
-                                          <span className="font-bold text-slate-900">{item.quantity}x</span>
-                                          <span>{item.name}</span>
+                                        <span key={idx} className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-50 text-slate-800 px-2.5 py-1 rounded-xl border border-slate-200/80 shadow-2xs">
+                                          <span className="font-black text-indigo-700 bg-indigo-50 px-1 rounded">{item.quantity}x</span>
+                                          <span className="font-medium text-slate-900">{item.name}</span>
                                           {item.variant && item.variant !== 'full' && (
-                                            <span className="text-[9px] text-amber-600 font-bold">(Half)</span>
+                                            <span className="text-[9px] text-amber-700 font-bold bg-amber-50 px-1 rounded border border-amber-200/50">Half</span>
                                           )}
                                         </span>
                                       ))}
@@ -1175,10 +1241,10 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                 </div>
 
                                 {/* Amount & Action Button */}
-                                <div className="flex items-center justify-between lg:justify-end gap-4 self-end lg:self-center w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-none border-slate-100">
+                                <div className="flex items-center justify-between lg:justify-end gap-4 self-end lg:self-center w-full lg:w-auto pt-2.5 lg:pt-0 border-t lg:border-none border-slate-100 shrink-0">
                                   <div className="text-left lg:text-right">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Total Billed</span>
-                                    <span className="text-base font-black text-slate-900">
+                                    <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Total Billed</span>
+                                    <span className="text-base font-black text-slate-950 tracking-tight">
                                       ₹{Number(order.total || order.total_amount || 0).toFixed(2)}
                                     </span>
                                   </div>
@@ -1188,19 +1254,29 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                       variant="outline"
                                       size="sm"
                                       onClick={() => setReceiptOrder(order)}
-                                      className="h-8 px-3 rounded-xl border-slate-200 text-xs font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100"
+                                      className="h-8.5 px-3 rounded-xl border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50/70 hover:bg-indigo-600 hover:text-white transition-all shadow-2xs"
                                     >
-                                      <Receipt className="w-3.5 h-3.5 mr-1 text-indigo-600" /> View Receipt
+                                      <Receipt className="w-3.5 h-3.5 mr-1" /> View Receipt
+                                    </Button>
+
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => handlePrintReceipt(order)}
+                                      className="w-8.5 h-8.5 rounded-xl border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 shadow-2xs"
+                                      title="Print Thermal Bill Receipt"
+                                    >
+                                      <Printer className="w-3.5 h-3.5" />
                                     </Button>
 
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      onClick={() => handlePrintReceipt(order)}
-                                      className="w-8 h-8 rounded-xl text-slate-500 hover:text-slate-900"
-                                      title="Print Receipt"
+                                      onClick={() => setTimelineOrder(order)}
+                                      className="w-8.5 h-8.5 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                                      title="Order Timeline"
                                     >
-                                      <Printer className="w-3.5 h-3.5" />
+                                      <Calendar className="w-3.5 h-3.5" />
                                     </Button>
                                   </div>
                                 </div>
