@@ -68,6 +68,7 @@ import {
   getCachedRestaurantId,
   getMyRestaurant,
   updateRestaurantProfile,
+  ensureValidRestaurantUUID,
   supabase
 } from '@/lib/api'
 
@@ -158,6 +159,16 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             .eq('email', restaurantId.toLowerCase())
             .maybeSingle()
           restaurant = data
+        } else {
+          const uuid = await ensureValidRestaurantUUID(restaurantId)
+          if (uuid) {
+            const { data } = await supabase
+              .from('restaurants')
+              .select('*')
+              .eq('id', uuid)
+              .maybeSingle()
+            restaurant = data
+          }
         }
       }
 
@@ -318,10 +329,13 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
   const handleSave = async () => {
     setIsSaving(true)
-    const targetRid = restaurantId || getCachedRestaurantId()
+    const rawRid = restaurantId || getCachedRestaurantId()
     
     try {
-      if (targetRid) {
+      if (rawRid) {
+        const targetRid = await ensureValidRestaurantUUID(rawRid)
+        if (!targetRid) throw new Error("Could not resolve valid restaurant account.")
+
         await updateRestaurantProfile(targetRid, {
           name: profileData.name,
           phone: profileData.phone,
@@ -331,9 +345,20 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           cover: profileData.cover
         })
 
-        await saveGstSettings(targetRid, gstData)
+        if (gstData) {
+          await saveGstSettings(targetRid, gstData)
+        }
 
-        showToast('Settings successfully synchronized to cloud.', 'success')
+        // Broadcast profile update event so Navbar, Sidebar & Header immediately update with new photo
+        window.dispatchEvent(new CustomEvent('restaurantProfileUpdated', {
+          detail: {
+            business_name: profileData.name,
+            logo_url: profileData.avatar,
+            cover_url: profileData.cover
+          }
+        }))
+
+        showToast('Settings & Profile successfully synchronized to cloud.', 'success')
       }
     } catch (err) {
       console.error('Save failed:', err)

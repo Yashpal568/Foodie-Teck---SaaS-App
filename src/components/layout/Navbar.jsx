@@ -30,7 +30,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import Sidebar, { menuItems, supportItems } from './Sidebar'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
-import { supabase } from '@/lib/api'
+import { supabase, ensureValidRestaurantUUID } from '@/lib/api'
 import { getCachedSession } from '@/lib/supabase'
 import { getPlanDetails } from '@/utils/planLimits'
 
@@ -93,11 +93,11 @@ export default function Navbar({
       // 1. Query Restaurant Profile by UUID or Email from database
       if (restaurantId && restaurantId !== 'guest' && restaurantId !== 'default') {
         try {
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
+          const uuid = await ensureValidRestaurantUUID(restaurantId)
           let rest = null
           
-          if (isUUID) {
-            const { data } = await supabase.from('restaurants').select('business_name, email, logo_url, cover_url').eq('id', restaurantId).maybeSingle()
+          if (uuid) {
+            const { data } = await supabase.from('restaurants').select('business_name, email, logo_url, cover_url').eq('id', uuid).maybeSingle()
             rest = data
           } else if (restaurantId.includes('@')) {
             const { data } = await supabase.from('restaurants').select('business_name, email, logo_url, cover_url').eq('email', restaurantId.toLowerCase()).maybeSingle()
@@ -141,6 +141,19 @@ export default function Navbar({
     }
 
     loadProfile()
+
+    const handleProfileUpdate = (e) => {
+      if (e.detail) {
+        setUserProfile(prev => ({
+          ...prev,
+          name: e.detail.business_name || prev.name,
+          avatar: e.detail.logo_url || prev.avatar
+        }))
+      }
+    }
+
+    window.addEventListener('restaurantProfileUpdated', handleProfileUpdate)
+    return () => window.removeEventListener('restaurantProfileUpdated', handleProfileUpdate)
   }, [restaurantId])
 
   // Combined searchable items

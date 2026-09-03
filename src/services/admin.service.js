@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { ensureValidRestaurantUUID } from './restaurant.service'
 
 /** Record a manual price change to audit_logs for real-time history tracking */
 export const recordPriceChange = async (restaurantId, itemName, oldPrice, newPrice, itemId) => {
@@ -76,15 +77,14 @@ export const fetchPriceHistory = async (restaurantId) => {
 }
 
 export const fetchGstSettings = async (restaurantId) => {
-  const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-  if (!restaurantId || !isUUID(restaurantId)) {
-    return { enabled: false, rate: 0, label: 'GST' }
-  }
   try {
+    const uuid = await ensureValidRestaurantUUID(restaurantId)
+    if (!uuid) return { enabled: false, rate: 0, label: 'GST' }
+
     const { data } = await supabase
       .from('gst_settings')
       .select('*')
-      .eq('restaurant_id', restaurantId)
+      .eq('restaurant_id', uuid)
       .maybeSingle()
     return data || { enabled: false, rate: 0, label: 'GST' }
   } catch (e) {
@@ -93,11 +93,14 @@ export const fetchGstSettings = async (restaurantId) => {
 }
 
 export const saveGstSettings = async (restaurantId, gstData) => {
+  const uuid = await ensureValidRestaurantUUID(restaurantId)
+  if (!uuid) throw new Error("Could not resolve a valid UUID for this restaurant.")
+
   const { error } = await supabase
     .from('gst_settings')
     .upsert({
-      restaurant_id: restaurantId,
-      enabled: gstData.enabled,
+      restaurant_id: uuid,
+      enabled: Boolean(gstData.enabled),
       rate: Number(gstData.rate) || 0,
       label: gstData.label || 'GST',
       updated_at: new Date().toISOString(),
