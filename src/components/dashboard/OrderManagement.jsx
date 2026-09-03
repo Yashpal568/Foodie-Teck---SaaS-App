@@ -1424,23 +1424,26 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="w-6 h-6 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors">
-                                      <MoreVertical className="w-3 h-3" />
+                                      <MoreVertical className="w-3.5 h-3.5" />
                                     </Button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-44 rounded-xl shadow-xl border-slate-200 text-xs font-semibold">
-                                    <DropdownMenuItem onClick={() => setReceiptOrder(order)} className="cursor-pointer">
-                                      <Receipt className="w-3.5 h-3.5 mr-2 text-indigo-600" /> View Bill Receipt
+                                  <DropdownMenuContent align="end" className="min-w-[175px] rounded-xl shadow-xl border border-slate-200/90 bg-white p-1 text-xs font-semibold z-50">
+                                    <DropdownMenuItem onClick={() => setReceiptOrder(order)} className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/70 whitespace-nowrap">
+                                      <Receipt className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                      <span>View Bill Receipt</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setTimelineOrder(order)} className="cursor-pointer">
-                                      <Calendar className="w-3.5 h-3.5 mr-2 text-blue-600" /> Order Timeline
+                                    <DropdownMenuItem onClick={() => setTimelineOrder(order)} className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 whitespace-nowrap">
+                                      <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                      <span>Order Timeline</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
+                                    <DropdownMenuSeparator className="my-1 bg-slate-100" />
                                     {!isFinished && (
                                       <DropdownMenuItem 
                                         onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.CANCELLED)}
-                                        className="cursor-pointer text-rose-600 focus:text-rose-700"
+                                        className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-rose-600 hover:bg-rose-50/70 focus:text-rose-700 whitespace-nowrap"
                                       >
-                                        <X className="w-3.5 h-3.5 mr-2" /> Cancel Order
+                                        <X className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                        <span>Cancel Order</span>
                                       </DropdownMenuItem>
                                     )}
                                   </DropdownMenuContent>
