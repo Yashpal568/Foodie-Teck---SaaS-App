@@ -8,6 +8,7 @@ import {
   RefreshCw, 
   Filter, 
   Users, 
+  User, 
   DollarSign, 
   TrendingUp, 
   Calendar, 
@@ -1536,95 +1537,235 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
 
             ) : viewMode === 'kanban' ? (
 
-              /* Kanban Pipeline Board Mode */
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+              /* Executive Kanban Pipeline Board Mode */
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
                 {[
                   { 
                     statusKey: ORDER_STATUS.ORDERED, 
                     title: 'New Incoming', 
-                    color: 'border-blue-500 bg-blue-50/40 text-blue-900',
+                    subtitle: 'Awaiting Kitchen',
+                    dotColor: 'bg-blue-500',
+                    topBorder: 'border-t-blue-500',
+                    accentBg: 'bg-blue-50/50',
                     orders: processedOrders.filter(o => [ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(o.status)),
                     nextStatus: ORDER_STATUS.PREPARING,
-                    nextLabel: 'Start Cooking'
+                    nextLabel: 'Start Cooking',
+                    nextIcon: ChefHat,
+                    btnGradient: 'from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700'
                   },
                   { 
                     statusKey: ORDER_STATUS.PREPARING, 
                     title: 'Kitchen Cooking', 
-                    color: 'border-orange-500 bg-orange-50/40 text-orange-900',
+                    subtitle: 'Chef on the Pass',
+                    dotColor: 'bg-orange-500',
+                    topBorder: 'border-t-orange-500',
+                    accentBg: 'bg-orange-50/50',
                     orders: processedOrders.filter(o => o.status === ORDER_STATUS.PREPARING),
                     nextStatus: ORDER_STATUS.READY,
-                    nextLabel: 'Ready for Pickup'
+                    nextLabel: 'Plated & Ready',
+                    nextIcon: Check,
+                    btnGradient: 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
                   },
                   { 
                     statusKey: ORDER_STATUS.READY, 
                     title: 'Ready for Service', 
-                    color: 'border-emerald-500 bg-emerald-50/40 text-emerald-900',
+                    subtitle: 'Hot & Plated',
+                    dotColor: 'bg-emerald-500',
+                    topBorder: 'border-t-emerald-500',
+                    accentBg: 'bg-emerald-50/50',
                     orders: processedOrders.filter(o => o.status === ORDER_STATUS.READY),
                     nextStatus: ORDER_STATUS.SERVED,
-                    nextLabel: 'Serve to Table'
+                    nextLabel: 'Serve to Table',
+                    nextIcon: Utensils,
+                    btnGradient: 'from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
                   },
                   { 
                     statusKey: ORDER_STATUS.SERVED, 
                     title: 'Active / Billing', 
-                    color: 'border-amber-500 bg-amber-50/40 text-amber-900',
+                    subtitle: 'Served & Settle',
+                    dotColor: 'bg-amber-500',
+                    topBorder: 'border-t-amber-500',
+                    accentBg: 'bg-amber-50/50',
                     orders: processedOrders.filter(o => [ORDER_STATUS.SERVED, ORDER_STATUS.BILL_REQUESTED].includes(o.status)),
                     nextStatus: ORDER_STATUS.FINISHED,
-                    nextLabel: 'Settle Bill'
+                    nextLabel: 'Settle & Clear',
+                    nextIcon: DollarSign,
+                    btnGradient: 'from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
                   }
-                ].map(col => (
-                  <div key={col.title} className="bg-slate-100/60 rounded-3xl p-4 border border-slate-200/80 flex flex-col h-[calc(100vh-250px)] min-h-[500px]">
-                    <div className={`p-3 rounded-2xl border-l-4 mb-3 flex items-center justify-between shadow-2xs bg-white ${col.color}`}>
-                      <h3 className="font-black text-sm tracking-tight">{col.title}</h3>
-                      <Badge className="bg-slate-900 text-white font-extrabold text-xs px-2 py-0.5 rounded-lg">
-                        {col.orders.length}
-                      </Badge>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                      {col.orders.length === 0 ? (
-                        <div className="h-40 rounded-2xl border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 font-medium">
-                          No tickets in stage
+                ].map(col => {
+                  const NextIcon = col.nextIcon
+                  return (
+                    <div key={col.title} className="bg-slate-100/70 rounded-3xl p-3 sm:p-4 border border-slate-200/80 flex flex-col h-[calc(100vh-250px)] min-h-[520px]">
+                      
+                      {/* Column Header */}
+                      <div className="p-3 rounded-2xl bg-white border border-slate-200/80 mb-3 flex items-center justify-between shadow-2xs">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor} ring-4 ring-slate-100 animate-pulse`} />
+                          <div>
+                            <h3 className="font-black text-xs sm:text-sm text-slate-900 tracking-tight leading-none">{col.title}</h3>
+                            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{col.subtitle}</p>
+                          </div>
                         </div>
-                      ) : (
-                        col.orders.map(order => {
-                          const items = order.items || order.order_items || []
-                          return (
-                            <Card key={order.id} className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="font-black text-xs text-slate-900 bg-slate-100 px-2 py-1 rounded-lg">
-                                  Table {order.tableNumber || order.table_number || '1'}
-                                </span>
-                                <span className="text-xs font-black text-slate-900">
-                                  ₹{Number(order.total || 0).toFixed(2)}
-                                </span>
-                              </div>
+                        <span className="text-xs font-black text-slate-800 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-full shadow-2xs">
+                          {col.orders.length}
+                        </span>
+                      </div>
 
-                              <div className="text-xs text-slate-600 space-y-1 mb-3">
-                                {items.slice(0, 3).map((item, idx) => (
-                                  <div key={idx} className="flex justify-between text-[11px] truncate">
-                                    <span>{item.quantity}x {item.name}</span>
+                      {/* Card Column Body */}
+                      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                        {col.orders.length === 0 ? (
+                          <div className="h-44 rounded-2xl border border-dashed border-slate-300 bg-white/40 flex flex-col items-center justify-center text-center p-4">
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mb-2">
+                              <CheckCircle className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-700">No Tickets in Stage</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">Pipeline stage is currently clear</span>
+                          </div>
+                        ) : (
+                          col.orders.map(order => {
+                            const items = order.items || order.order_items || []
+                            const elapsed = getElapsedInfo(order.createdAt || order.created_at)
+                            const isBillReq = order.status === ORDER_STATUS.BILL_REQUESTED
+
+                            return (
+                              <Card key={order.id} className={`bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden border-t-3 ${col.topBorder}`}>
+                                
+                                {/* Card Body */}
+                                <div className="p-3 pb-2">
+                                  
+                                  {/* Top Row: Table + Order ID + Elapsed Time */}
+                                  <div className="flex items-center justify-between gap-1 mb-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="bg-slate-900 text-white font-black text-[11px] px-2 py-0.5 rounded-md shadow-2xs">
+                                        Table {order.tableNumber || order.table_number || '1'}
+                                      </span>
+                                      <span className="text-[10px] font-mono font-bold text-slate-400">
+                                        #{String(order.id).slice(-4).toUpperCase()}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3 text-slate-400" />
+                                      <span className={`text-[10px] font-bold ${
+                                        elapsed.urgency === 'delayed' ? 'text-rose-600 font-extrabold' : 
+                                        elapsed.urgency === 'warning' ? 'text-amber-600' : 'text-slate-500'
+                                      }`}>
+                                        {elapsed.text}
+                                      </span>
+                                    </div>
                                   </div>
-                                ))}
-                                {items.length > 3 && (
-                                  <span className="text-[10px] font-bold text-slate-400">+{items.length - 3} more items</span>
-                                )}
-                              </div>
 
-                              <Button
-                                size="sm"
-                                onClick={() => handleStatusUpdate(order.id, col.nextStatus)}
-                                className="w-full h-8 rounded-xl font-bold text-[11px] bg-slate-900 hover:bg-black text-white"
-                              >
-                                <span>{col.nextLabel}</span>
-                                <ArrowRight className="w-3 h-3 ml-1.5" />
-                              </Button>
-                            </Card>
-                          )
-                        })
-                      )}
+                                  {/* Customer Info */}
+                                  <div className="flex items-center justify-between text-[11px] text-slate-600 mb-2.5 pb-2 border-b border-slate-100">
+                                    <div className="flex items-center gap-1.5 truncate">
+                                      <User className="w-3 h-3 text-slate-400 shrink-0" />
+                                      <span className="font-bold text-slate-800 truncate">
+                                        {order.customerName || order.customer_name || 'Guest Customer'}
+                                      </span>
+                                    </div>
+                                    <Badge variant="outline" className="text-[9px] font-extrabold text-slate-500 px-1.5 py-0 uppercase">
+                                      {order.order_type || order.orderType || 'DINE-IN'}
+                                    </Badge>
+                                  </div>
+
+                                  {/* KOT Items List */}
+                                  <div className="space-y-1.5 mb-2">
+                                    {items.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-1.5 truncate">
+                                          <span className="w-4 h-4 rounded bg-slate-900 text-white text-[9px] font-black flex items-center justify-center shrink-0">
+                                            {item.quantity}x
+                                          </span>
+                                          <span className="text-[11.5px] font-bold text-slate-800 truncate">
+                                            {item.name}
+                                          </span>
+                                          {item.variant && item.variant !== 'full' && (
+                                            <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">
+                                              {item.variant}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="text-[11px] font-bold text-slate-700 shrink-0">
+                                          ₹{Number(item.price || 0) * Number(item.quantity || 1)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {items.length > 3 && (
+                                      <span className="text-[10px] font-bold text-indigo-600 block pt-0.5">
+                                        +{items.length - 3} more items in ticket
+                                      </span>
+                                    )}
+                                  </div>
+
+                                </div>
+
+                                {/* Card Footer Actions */}
+                                <div className="p-2.5 px-3 border-t border-slate-100 bg-slate-50/70 mt-auto">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">Total Amount</span>
+                                      <span className="text-xs font-black text-slate-900 tracking-tight">
+                                        ₹{Number(order.total || order.total_amount || 0).toFixed(2)}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-0.5">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handlePrintReceipt(order)}
+                                        className="w-6.5 h-6.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                        title="Print Thermal Receipt"
+                                      >
+                                        <Printer className="w-3.5 h-3.5" />
+                                      </Button>
+
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="w-6.5 h-6.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors">
+                                            <MoreVertical className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="min-w-[175px] rounded-xl shadow-xl border border-slate-200/90 bg-white p-1 text-xs font-semibold z-50">
+                                          <DropdownMenuItem onClick={() => setReceiptOrder(order)} className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/70 whitespace-nowrap">
+                                            <Receipt className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                            <span>View Bill Receipt</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => setTimelineOrder(order)} className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 whitespace-nowrap">
+                                            <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                            <span>Order Timeline</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator className="my-1 bg-slate-100" />
+                                          <DropdownMenuItem 
+                                            onClick={() => handleStatusUpdate(order.id, ORDER_STATUS.CANCELLED)}
+                                            className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-rose-600 hover:bg-rose-50/70 focus:text-rose-700 whitespace-nowrap"
+                                          >
+                                            <X className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                            <span>Cancel Order</span>
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </div>
+
+                                  {/* Primary Stage Transition Button */}
+                                  <Button
+                                    onClick={() => handleStatusUpdate(order.id, isBillReq ? ORDER_STATUS.FINISHED : col.nextStatus)}
+                                    className={`w-full h-7.5 rounded-xl bg-linear-to-r ${col.btnGradient} text-white font-bold text-[11px] uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5`}
+                                  >
+                                    <NextIcon className="w-3.5 h-3.5" />
+                                    <span>{isBillReq ? 'Mark Paid & Clear' : col.nextLabel}</span>
+                                  </Button>
+                                </div>
+
+                              </Card>
+                            )
+                          })
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
             ) : (
