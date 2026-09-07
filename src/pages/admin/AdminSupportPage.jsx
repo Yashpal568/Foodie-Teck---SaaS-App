@@ -84,7 +84,7 @@ export default function AdminSupportPage() {
 
   useEffect(() => {
     loadTickets()
-    const interval = setInterval(() => loadTickets(true), 10000)
+    const interval = setInterval(() => loadTickets(true), 60000)
     return () => clearInterval(interval)
   }, [])
 

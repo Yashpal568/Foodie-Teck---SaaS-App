@@ -1,52 +1,25 @@
 import { supabase } from '../lib/supabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
+import { uploadToCloudinary, isBase64Image } from './cloudinary.service'
 
-/** Uploads base64 image to Supabase Storage and returns public URL */
+/** Uploads base64 image or File directly to Cloudinary CDN */
 async function uploadPhotoIfBase64(photoVal, itemId, restaurantId) {
-  if (photoVal && typeof photoVal === 'string' && photoVal.startsWith('data:image/')) {
-    try {
-      const res = await fetch(photoVal)
-      const blob = await res.blob()
-      const ext = photoVal.split(';')[0].match(/jpeg|png|gif|webp/)?.[0] || 'jpeg'
-      const filename = `${restaurantId || 'shared'}/${itemId}-${Date.now()}.${ext}`
-      
-      // OPTION 1: CLOUDINARY (If configured in .env)
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-      
-      if (cloudName && uploadPreset) {
-        const formData = new FormData()
-        formData.append('file', blob)
-        formData.append('upload_preset', uploadPreset)
-        
-        try {
-          const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-            method: 'POST',
-            body: formData
-          })
-          if (cloudRes.ok) {
-            const cloudData = await cloudRes.json()
-            return cloudData.secure_url
-          }
-        } catch (cloudErr) {
-          console.warn('Cloudinary upload notice:', cloudErr)
-        }
-      }
-
-      // OPTION 2: SUPABASE STORAGE (Default)
-      const { error } = await supabase.storage.from('menu-images').upload(filename, blob, {
-        cacheControl: '3600',
-        upsert: false
-      })
-      if (!error) {
-         const { data: { publicUrl } } = supabase.storage.from('menu-images').getPublicUrl(filename)
-         return publicUrl
-      }
-    } catch (e) {
-      console.warn('Image upload notice:', e)
-    }
+  if (!photoVal) return ''
+  if (typeof photoVal === 'string' && !isBase64Image(photoVal)) {
+    return photoVal // Already a hosted CDN URL
   }
-  return photoVal
+
+  try {
+    const cdnUrl = await uploadToCloudinary(photoVal, 'servora_menu')
+    if (cdnUrl && !isBase64Image(cdnUrl)) {
+      return cdnUrl
+    }
+  } catch (e) {
+    console.warn('Dish photo Cloudinary upload notice:', e)
+  }
+
+  // Safety: never return raw multi-MB base64 string to be saved in DB
+  return typeof photoVal === 'string' && photoVal.length < 500 ? photoVal : ''
 }
 
 export const normalizeMenuItem = (item) => {
@@ -150,7 +123,7 @@ export const DEFAULT_SAMPLE_MENU = [
   }
 ]
 
-/** Fetch menu items 100% dynamically from Supabase DB */
+/** Fetch menu items dynamically from Supabase DB with lightweight columns */
 export const fetchMenuItems = async (restaurantId) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
 
@@ -158,7 +131,7 @@ export const fetchMenuItems = async (restaurantId) => {
     if (uuid) {
       const { data, error } = await supabase
         .from('menu_items')
-        .select('*')
+        .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
         .eq('restaurant_id', uuid)
         .order('created_at', { ascending: true })
 
@@ -193,13 +166,13 @@ export const createMenuItem = async (restaurantId, itemData) => {
         is_in_stock: itemData.isInStock ?? true,
         quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
         half_price: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
-        photo_url: photoVal,
+        photo_url: isBase64Image(photoVal) ? null : (photoVal || null),
       }
 
       const { data, error } = await supabase
         .from('menu_items')
         .insert(payload)
-        .select()
+        .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
         .single()
 
       if (!error && data) {
@@ -242,7 +215,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
         is_in_stock: itemData.isInStock ?? true,
         quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
         half_price: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
-        photo_url: photoVal,
+        photo_url: isBase64Image(photoVal) ? null : (photoVal || null),
         updated_at: new Date().toISOString(),
       }
 
@@ -250,7 +223,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
         .from('menu_items')
         .update(payload)
         .eq('id', itemId)
-        .select()
+        .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
         .single()
 
       if (!error && data) {
@@ -273,13 +246,13 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
           is_in_stock: itemData.isInStock ?? true,
           quantity: itemData.quantity !== '' && itemData.quantity !== undefined && itemData.quantity !== null ? Number(itemData.quantity) : null,
           half_price: itemData.halfPrice !== '' && itemData.halfPrice !== undefined && itemData.halfPrice !== null ? Math.max(0, Number(itemData.halfPrice)) : null,
-          photo_url: photoVal,
+          photo_url: isBase64Image(photoVal) ? null : (photoVal || null),
         }
 
         const { data, error } = await supabase
           .from('menu_items')
           .insert(payload)
-          .select()
+          .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
           .single()
 
         if (!error && data) {
@@ -348,8 +321,15 @@ export const bulkAddMenuItems = async (restaurantId, items) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) return items.map(normalizeMenuItem)
 
-  const formattedItems = items.map(item => {
+  const formattedItems = await Promise.all(items.map(async (item) => {
     const norm = normalizeMenuItem(item)
+    let photoUrl = norm.photo || norm.photo_url || ''
+    if (photoUrl && isBase64Image(photoUrl)) {
+      try {
+        const cdnUrl = await uploadToCloudinary(photoUrl, 'servora_menu')
+        if (cdnUrl) photoUrl = cdnUrl
+      } catch (e) {}
+    }
     return {
       restaurant_id: uuid,
       name: norm.name,
@@ -360,15 +340,15 @@ export const bulkAddMenuItems = async (restaurantId, items) => {
       category: norm.category || 'Main Course',
       type: norm.type || 'VEG',
       is_in_stock: norm.isInStock ?? true,
-      photo_url: norm.photo || null
+      photo_url: isBase64Image(photoUrl) ? null : (photoUrl || null)
     }
-  })
+  }))
 
   try {
     const { data, error } = await supabase
       .from('menu_items')
       .insert(formattedItems)
-      .select()
+      .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
 
     if (!error && data) {
       return data.map(normalizeMenuItem)
@@ -385,24 +365,31 @@ export const bulkReplaceMenuItems = async (restaurantId, items) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) return []
 
-  const formattedItems = items.map(item => {
+  const formattedItems = await Promise.all(items.map(async (item) => {
     const norm = normalizeMenuItem(item)
+    let photoUrl = norm.photo || norm.photo_url || ''
+    if (photoUrl && isBase64Image(photoUrl)) {
+      try {
+        const cdnUrl = await uploadToCloudinary(photoUrl, 'servora_menu')
+        if (cdnUrl) photoUrl = cdnUrl
+      } catch (e) {}
+    }
     return {
       restaurant_id: uuid,
       name: norm.name,
-      description: norm.description,
-      price: norm.price,
-      category: norm.category,
-      type: norm.type,
-      is_in_stock: norm.isInStock,
-      photo_url: norm.photo
+      description: norm.description || '',
+      price: norm.price || 0,
+      category: norm.category || 'Main Course',
+      type: norm.type || 'VEG',
+      is_in_stock: norm.isInStock ?? true,
+      photo_url: isBase64Image(photoUrl) ? null : (photoUrl || null)
     }
-  })
+  }))
 
   const { data, error } = await supabase
     .from('menu_items')
     .insert(formattedItems)
-    .select()
+    .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
 
   if (error) {
     console.error('bulkReplaceMenuItems error:', error)

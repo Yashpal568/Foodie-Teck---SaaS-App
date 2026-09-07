@@ -1,4 +1,5 @@
 import { supabase, getCachedSession } from '../lib/supabase'
+import { uploadToCloudinary, isBase64Image } from './cloudinary.service'
 
 /** Get the current logged-in user's restaurant ID from Supabase session */
 export const getMyRestaurant = async () => {
@@ -9,7 +10,7 @@ export const getMyRestaurant = async () => {
 
   const { data } = await supabase
     .from('restaurants')
-    .select('*')
+    .select('id, business_name, email, phone, address, description, logo_url, cover_url, owner_id, updated_at, created_at')
     .eq('owner_id', user.id)
     .maybeSingle()
 
@@ -25,11 +26,33 @@ export const updateRestaurantProfile = async (restaurantId, profileData) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) throw new Error("Could not resolve a valid UUID for this restaurant.")
 
-  const logo = profileData.logo_url || profileData.avatar || ''
-  const cover = profileData.cover_url || profileData.cover || ''
+  let rawLogo = profileData.logo_url || profileData.avatar || ''
+  let rawCover = profileData.cover_url || profileData.cover || ''
   const name = profileData.business_name || profileData.name || ''
 
-  // 1. Instant local persistence & cache
+  // 1. Upload Base64 / File to Cloudinary CDN to prevent DB egress bloat
+  let logo = rawLogo
+  let cover = rawCover
+
+  if (rawLogo && (isBase64Image(rawLogo) || rawLogo.length > 500)) {
+    try {
+      const cdnUrl = await uploadToCloudinary(rawLogo, 'servora_logos')
+      if (cdnUrl) logo = cdnUrl
+    } catch (e) {
+      console.warn('Cloudinary logo upload notice:', e)
+    }
+  }
+
+  if (rawCover && (isBase64Image(rawCover) || rawCover.length > 500)) {
+    try {
+      const cdnUrl = await uploadToCloudinary(rawCover, 'servora_covers')
+      if (cdnUrl) cover = cdnUrl
+    } catch (e) {
+      console.warn('Cloudinary cover upload notice:', e)
+    }
+  }
+
+  // 2. Instant local persistence & cache
   try {
     if (logo) {
       localStorage.setItem(`servora_restaurant_logo_${uuid}`, logo)
@@ -47,7 +70,7 @@ export const updateRestaurantProfile = async (restaurantId, profileData) => {
     }
   } catch (e) {}
 
-  // 2. Instant Cross-Tab Broadcast via BroadcastChannel
+  // 3. Instant Cross-Tab Broadcast via BroadcastChannel
   try {
     if (typeof window !== 'undefined' && window.BroadcastChannel) {
       const bc = new BroadcastChannel('servora_profile_sync')
@@ -63,7 +86,7 @@ export const updateRestaurantProfile = async (restaurantId, profileData) => {
     }
   } catch (e) {}
 
-  // 3. Dispatch in current window
+  // 4. Dispatch in current window
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('restaurantProfileUpdated', {
       detail: {
@@ -75,20 +98,27 @@ export const updateRestaurantProfile = async (restaurantId, profileData) => {
     }))
   }
 
-  // 4. Update Supabase Cloud Database
+  // 5. Update Supabase Cloud Database (Only clean CDN URLs, never multi-MB base64)
+  const updatePayload = {
+    business_name: name || undefined,
+    address: profileData.address,
+    phone: profileData.phone,
+    description: profileData.description,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (logo && !isBase64Image(logo)) {
+    updatePayload.logo_url = logo
+  }
+  if (cover && !isBase64Image(cover)) {
+    updatePayload.cover_url = cover
+  }
+
   const { data, error } = await supabase
     .from('restaurants')
-    .update({
-      business_name: name || undefined,
-      address: profileData.address,
-      phone: profileData.phone,
-      description: profileData.description,
-      logo_url: logo || undefined,
-      cover_url: cover || undefined,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', uuid)
-    .select()
+    .select('id, business_name, email, phone, address, description, logo_url, cover_url, updated_at')
     .maybeSingle()
 
   if (error) {
@@ -124,7 +154,7 @@ export const getRestaurantProfile = async (restaurantId) => {
   }
 
   try {
-    let q = supabase.from('restaurants').select('*')
+    let q = supabase.from('restaurants').select('id, business_name, email, phone, address, description, logo_url, cover_url')
     if (validId && isUUID(validId)) {
       q = q.eq('id', validId).maybeSingle()
     } else if (restaurantId && typeof restaurantId === 'string' && restaurantId.includes('@')) {

@@ -53,7 +53,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
   useEffect(() => {
     fetchStats()
 
-    const interval = setInterval(fetchStats, 4000)
+    const interval = setInterval(fetchStats, 60000)
     window.addEventListener('platformConfigUpdated', fetchStats)
     window.addEventListener('storage', fetchStats)
 

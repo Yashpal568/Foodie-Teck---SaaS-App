@@ -320,7 +320,7 @@ export default function AdminRevenuePage() {
       ensureAdminSession()
       fetchRevenueData()
 
-      const interval = setInterval(fetchRevenueData, 5000)
+      const interval = setInterval(fetchRevenueData, 60000)
       window.addEventListener('platformConfigUpdated', fetchRevenueData)
       window.addEventListener('storage', fetchRevenueData)
 

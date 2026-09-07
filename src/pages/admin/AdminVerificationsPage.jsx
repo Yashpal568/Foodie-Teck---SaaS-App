@@ -98,7 +98,7 @@ export default function AdminVerificationsPage() {
     ensureAdminSession()
     fetchData()
 
-    const interval = setInterval(fetchData, 4000)
+    const interval = setInterval(fetchData, 60000)
     window.addEventListener('platformConfigUpdated', fetchData)
     window.addEventListener('storage', fetchData)
 

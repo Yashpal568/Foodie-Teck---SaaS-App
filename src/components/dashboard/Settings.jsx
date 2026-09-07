@@ -336,7 +336,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         const targetRid = await ensureValidRestaurantUUID(rawRid)
         if (!targetRid) throw new Error("Could not resolve valid restaurant account.")
 
-        await updateRestaurantProfile(targetRid, {
+        const updatedProfile = await updateRestaurantProfile(targetRid, {
           name: profileData.name,
           phone: profileData.phone,
           address: profileData.address,
@@ -344,6 +344,14 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           avatar: profileData.avatar,
           cover: profileData.cover
         })
+
+        if (updatedProfile) {
+          setProfileData(prev => ({
+            ...prev,
+            avatar: updatedProfile.logo_url || prev.avatar,
+            cover: updatedProfile.cover_url || prev.cover
+          }))
+        }
 
         if (gstData) {
           await saveGstSettings(targetRid, gstData)
@@ -353,8 +361,8 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
         window.dispatchEvent(new CustomEvent('restaurantProfileUpdated', {
           detail: {
             business_name: profileData.name,
-            logo_url: profileData.avatar,
-            cover_url: profileData.cover
+            logo_url: updatedProfile?.logo_url || profileData.avatar,
+            cover_url: updatedProfile?.cover_url || profileData.cover
           }
         }))
 

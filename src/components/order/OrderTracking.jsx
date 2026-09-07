@@ -98,7 +98,7 @@ export default function OrderTracking({
       })
       .subscribe()
 
-    const safetyInterval = setInterval(fetchSingleOrder, 4000)
+    const safetyInterval = setInterval(fetchSingleOrder, 30000)
 
     return () => {
       clearInterval(safetyInterval)

@@ -238,8 +238,8 @@ export default function AdminHeader({ onMenuClick }) {
     window.addEventListener('platformConfigUpdated', loadNotifications)
     window.addEventListener('storage', handleStorage)
 
-    // Regular 4-second polling to ensure 100% telemetry freshness even if Realtime is offline
-    const interval = setInterval(loadNotifications, 4000)
+    // Quiet 60-second fallback polling while Realtime handles live instant push notifications
+    const interval = setInterval(loadNotifications, 60000)
 
     const channel = supabase
       .channel('public:admin_header_notifs')

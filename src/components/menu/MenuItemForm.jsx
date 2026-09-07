@@ -31,6 +31,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { currencies } from '@/components/ui/currency-selector'
 import { toast } from 'sonner'
+import { uploadToCloudinary } from '@/services/cloudinary.service'
 
 // High-resolution curated culinary food presets (Verified Food Photos)
 const FOOD_IMAGE_PRESETS = [
@@ -95,8 +96,8 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
   const handleImageUpload = (e) => {
     const file = e.target.files[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size must be under 5MB')
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size exceeds 10MB limit')
         return
       }
 
@@ -104,7 +105,7 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
       const reader = new FileReader()
       reader.onload = (event) => {
         const img = new Image()
-        img.onload = () => {
+        img.onload = async () => {
           const canvas = document.createElement('canvas')
           const MAX_WIDTH = 800
           const MAX_HEIGHT = 800
@@ -130,9 +131,22 @@ export default function MenuItemForm({ item = null, onSave, onCancel, currency =
           
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75)
           setImagePreview(compressedDataUrl)
-          setFormData(prev => ({ ...prev, photo: compressedDataUrl }))
-          setIsUploading(false)
-          toast.success('📷 Dish photo uploaded successfully!')
+
+          // Upload directly to Cloudinary CDN
+          try {
+            const cdnUrl = await uploadToCloudinary(compressedDataUrl, 'servora_menu')
+            if (cdnUrl) {
+              setFormData(prev => ({ ...prev, photo: cdnUrl }))
+              setImagePreview(cdnUrl)
+            } else {
+              setFormData(prev => ({ ...prev, photo: compressedDataUrl }))
+            }
+          } catch (err) {
+            setFormData(prev => ({ ...prev, photo: compressedDataUrl }))
+          } finally {
+            setIsUploading(false)
+            toast.success('📷 Dish photo uploaded to CDN!')
+          }
         }
         if (typeof event.target?.result === 'string') {
           img.src = event.target.result
