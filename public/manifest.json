@@ -1,0 +1,17 @@
+{
+  "short_name": "Servora",
+  "name": "Servora — Next-Gen Restaurant Management System & QR Dining",
+  "description": "Contactless QR dining menu, live kitchen display (KDS), smart POS billing, and 0% commission direct ordering for modern restaurants.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0B0F19",
+  "theme_color": "#6366F1",
+  "display": "standalone",
+  "orientation": "portrait"
+}

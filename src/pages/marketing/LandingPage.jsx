@@ -153,9 +153,15 @@ export default function HomePage() {
   return (
     <div className="overflow-hidden">
       <Helmet>
-        <title>Servora | Ultimate Restaurant POS & QR Menu System</title>
-        <meta name="description" content="Streamline your restaurant operations with Servora's intelligent Kitchen Display System (KDS), seamless digital QR menus, and AI-powered analytics." />
-        <meta name="keywords" content="restaurant pos system, digital qr menu, kitchen display system, restaurant analytics, table management software, cafe management, smart menu, hospitality software" />
+        <title>Servora | #1 Restaurant Management, QR Code Menu & Direct Food Ordering System</title>
+        <meta name="title" content="Servora | #1 Restaurant Management, QR Code Menu & Direct Food Ordering System" />
+        <meta name="description" content="Servora is the all-in-one restaurant management system and digital QR dining menu. Real-time Kitchen Display System (KDS), POS billing, and 0% commission direct ordering — keep 100% of your profits instead of paying 30% to Swiggy and Zomato." />
+        <meta name="keywords" content="restaurant management system, qr code menu, dining qr code, restaurant food ordering, restaurant pos system, contactless dining, digital menu card, swiggy alternative, zomato alternative, blinkit direct food delivery, kitchen display system, gst restaurant billing, restaurant billing software, table qr standee maker, cafe pos, cloud kitchen pos, online restaurant ordering system, servora" />
+        <link rel="canonical" href="https://servora.quantumesh.in/" />
+        <meta property="og:title" content="Servora | #1 Restaurant Management & Contactless QR Menu System" />
+        <meta property="og:description" content="Transform your restaurant with contactless QR code menus, real-time kitchen sync, and 0% commission direct food ordering. The profitable alternative to Swiggy & Zomato." />
+        <meta property="og:url" content="https://servora.quantumesh.in/" />
+        <meta property="og:image" content="https://servora.quantumesh.in/servora_hero_premium_1773899069963.png" />
       </Helmet>
       {/* ─── Hero Section ───────────────────────────────────────────────── */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-40 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-blue-50/20 via-white to-white">
@@ -534,6 +540,114 @@ export default function HomePage() {
                   </div>
                </div>
              ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 0% Commission vs Aggregators (Swiggy / Zomato / Blinkit) ── */}
+      <section className="py-24 bg-white relative">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center space-y-4 mb-16">
+            <Badge className="bg-emerald-600 text-white rounded-full px-4 py-1.5 font-bold uppercase tracking-widest text-[10px]">
+              Maximum Profit Retention
+            </Badge>
+            <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter leading-tight">
+              Keep 100% of Your Revenue. <br />
+              <span className="text-blue-600 italic">Say Goodbye to 30% Aggregator Cuts.</span>
+            </h2>
+            <p className="text-slate-600 max-w-2xl mx-auto text-base sm:text-lg font-medium">
+              Traditional food delivery platforms take 25% to 35% of your hard-earned revenue. Servora empowers restaurants with 0% commission direct table QR ordering and takeaway.
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto bg-slate-50 border border-slate-200/80 rounded-3xl overflow-hidden shadow-xl shadow-slate-100">
+            <div className="grid grid-cols-3 bg-slate-900 text-white p-5 sm:p-6 text-xs sm:text-sm font-black uppercase tracking-wider">
+              <div>Feature & Economics</div>
+              <div className="text-center text-emerald-400 font-extrabold flex items-center justify-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" /> Servora (Direct)
+              </div>
+              <div className="text-center text-rose-300 font-extrabold">Swiggy / Zomato / Blinkit</div>
+            </div>
+
+            <div className="divide-y divide-slate-200/70 text-xs sm:text-sm font-medium text-slate-800">
+              <div className="grid grid-cols-3 p-4 sm:p-5 items-center hover:bg-slate-100/60 transition-colors">
+                <span className="font-bold text-slate-950">Order Commission</span>
+                <span className="text-center font-black text-emerald-600">0% Commission (Flat SaaS)</span>
+                <span className="text-center font-bold text-rose-600">25% – 35% Per Order</span>
+              </div>
+              <div className="grid grid-cols-3 p-4 sm:p-5 items-center hover:bg-slate-100/60 transition-colors">
+                <span className="font-bold text-slate-950">Payment Settlement</span>
+                <span className="text-center font-black text-emerald-600">Instant Direct to Bank / UPI</span>
+                <span className="text-center text-slate-600">Weekly Payout Cycles</span>
+              </div>
+              <div className="grid grid-cols-3 p-4 sm:p-5 items-center hover:bg-slate-100/60 transition-colors">
+                <span className="font-bold text-slate-950">Customer Data & CRM</span>
+                <span className="text-center font-black text-emerald-600">100% Owned by Restaurant</span>
+                <span className="text-center text-rose-600">Locked / Hidden by Platform</span>
+              </div>
+              <div className="grid grid-cols-3 p-4 sm:p-5 items-center hover:bg-slate-100/60 transition-colors">
+                <span className="font-bold text-slate-950">Dine-In QR & Live KDS</span>
+                <span className="text-center font-black text-emerald-600">Integrated Floor & Kitchen OS</span>
+                <span className="text-center text-slate-600">Delivery Only / Extra Add-on</span>
+              </div>
+              <div className="grid grid-cols-3 p-4 sm:p-5 items-center hover:bg-slate-100/60 transition-colors">
+                <span className="font-bold text-slate-950">Thermal GST Bill Printing</span>
+                <span className="text-center font-black text-emerald-600">Built-in (80mm & 58mm)</span>
+                <span className="text-center text-slate-600">Requires External Hardware</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Frequently Asked Questions (SEO Rich Content) ──────────── */}
+      <section className="py-24 bg-slate-50 relative border-t border-slate-200/60">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center space-y-4 mb-16">
+            <Badge className="bg-indigo-600 text-white rounded-full px-4 py-1.5 font-bold uppercase tracking-widest text-[10px]">
+              Got Questions?
+            </Badge>
+            <h2 className="text-4xl lg:text-5xl font-black text-slate-950 tracking-tighter">
+              Frequently Asked <span className="text-indigo-600 italic">Questions.</span>
+            </h2>
+            <p className="text-slate-600 max-w-xl mx-auto text-base font-medium">
+              Everything you need to know about setting up Servora for your restaurant, cafe, or cloud kitchen.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              {
+                q: "What is Servora and how does contactless QR dining work?",
+                a: "Servora is an autonomous restaurant operating system. You place high-resolution QR standees at each table. Diners simply scan the QR code using any mobile browser to view your live visual menu, customize dishes, and place orders directly to the kitchen in under 1 second without downloading any app."
+              },
+              {
+                q: "How does Servora help restaurants avoid high Swiggy & Zomato commissions?",
+                a: "Unlike food delivery aggregators that charge 25% to 35% commission on every order, Servora operates on a flat, transparent monthly SaaS plan with 0% commission. Customers pay you directly via instant UPI or cash, allowing you to retain 100% of your profits."
+              },
+              {
+                q: "Does Servora include a Kitchen Display System (KDS)?",
+                a: "Yes! When an order is placed from a table QR or POS terminal, it instantly appears on your kitchen display with audio chimes and color-coded status tracking (Pending, Cooking, Ready, Served). This eliminates lost paper tickets and speeds up preparation."
+              },
+              {
+                q: "Can I generate GST tax invoices and print thermal receipts?",
+                a: "Yes. Servora includes an automated GST billing engine that handles 5% food GST, 18% beverage taxes, split-payments (by person, item, or amount), and 1-click thermal printing for standard 80mm and 58mm POS receipt printers."
+              },
+              {
+                q: "What hardware or devices do I need to run Servora?",
+                a: "No expensive proprietary hardware is required! Servora runs in any modern web browser on smartphones, tablets (iPads/Android), laptops, and desktop POS terminals."
+              }
+            ].map((faq, i) => (
+              <details key={i} className="group bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs transition-all hover:border-indigo-300">
+                <summary className="font-black text-base sm:text-lg text-slate-900 cursor-pointer list-none flex items-center justify-between gap-4">
+                  <span>{faq.q}</span>
+                  <span className="text-indigo-600 font-black text-xl transition-transform group-open:rotate-45 shrink-0">+</span>
+                </summary>
+                <p className="mt-4 text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
+                  {faq.a}
+                </p>
+              </details>
+            ))}
           </div>
         </div>
       </section>

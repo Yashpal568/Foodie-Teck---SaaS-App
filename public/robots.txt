@@ -1,4 +1,23 @@
+# Servora Restaurant Management & QR Ordering Platform - Robots.txt
 User-agent: *
 Allow: /
+Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /docs
+Allow: /releases
+Allow: /tutorials
+Allow: /login
+Allow: /register
+Allow: /menu
 
+# Disallow internal protected dashboards and admin paths
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /console/*
+Disallow: /dashboard
+Disallow: /preview/*
+
+# Host & Sitemap
+Host: https://servora.quantumesh.in
 Sitemap: https://servora.quantumesh.in/sitemap.xml

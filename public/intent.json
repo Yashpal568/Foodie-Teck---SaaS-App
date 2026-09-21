@@ -1,0 +1,35 @@
+{
+  "application": "Servora Restaurant Cloud OS",
+  "domain": "https://servora.quantumesh.in",
+  "category": "Restaurant Management System & Contactless QR POS",
+  "primary_search_intents": [
+    "restaurant management system",
+    "qr code menu for restaurants",
+    "dining qr code contactless ordering",
+    "restaurant food ordering software",
+    "best restaurant pos system india",
+    "swiggy alternative 0 commission",
+    "zomato alternative direct restaurant ordering",
+    "blinkit quick delivery direct ordering",
+    "kitchen display system kds software",
+    "restaurant gst billing and thermal invoice generator",
+    "table qr standee maker online",
+    "cloud kitchen management software",
+    "cafe billing and order management"
+  ],
+  "competitor_differentiator": {
+    "aggregators": ["Swiggy", "Zomato", "Blinkit", "Petpooja", "UrbanPiper"],
+    "servora_advantage": "0% commission on orders. 100% direct revenue retention. Instant customer payments via direct UPI QR code. High-resolution QR Standee Studio. Sub-100ms real-time kitchen display synchronization."
+  },
+  "features": [
+    "Contactless Dining QR Code Menu",
+    "Real-time Kitchen Display System (KDS)",
+    "Table Occupancy & Session Tracking Grid",
+    "GST Tax Invoice & 80mm/58mm Thermal Print Receipts",
+    "Multi-Payer Split Bill Engine (By Person, By Amount, By Item)",
+    "Dynamic UPI QR Generation (upi://pay)",
+    "Acrylic QR Standee & Branding Designer Studio",
+    "Inventory & Real-Time Stock Management",
+    "Multi-Branch & SaaS Tenant Isolation"
+  ]
+}
