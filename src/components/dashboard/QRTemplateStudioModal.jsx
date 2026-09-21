@@ -845,8 +845,8 @@ export default function QRTemplateStudioModal({
   const targetQRs = selectedSingleQR ? [selectedSingleQR] : qrCodes
   const currentPreviewQR = targetQRs[previewTableIndex] || targetQRs[0] || {
     tableNumber: 1,
-    url: `${window.location.origin}/menu?table=1`,
-    qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://servora-kappa.vercel.app'
+    url: `${typeof window !== 'undefined' ? window.location.origin : (import.meta.env.VITE_APP_URL || 'https://servora.quantumesh.in')}/menu?table=1`,
+    qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(import.meta.env.VITE_APP_URL || 'https://servora.quantumesh.in')}`
   }
 
   const restaurantName = profile?.name || profile?.business_name || restaurantProfile?.name || restaurantProfile?.business_name || 'Tiger Bistro'
