@@ -17,7 +17,7 @@ Servora is currently a Vite + React SPA using the Supabase JavaScript SDK direct
 - **Frontend:** Keep the existing React/Vite web application. Do not rewrite it during backend introduction.
 - **Backend:** Add a separate Node.js + Express API, preferably TypeScript for new backend code, behind a versioned REST API.
 - **Data ownership (confirmed):** MongoDB owns Servora operational/business data, including restaurants/branches, menus, QR/table sessions, orders/order items, inventory, kitchen workflow and future delivery operations. Supabase remains the system of record for payment records, payment verification and subscription/billing records. Clerk owns authentication identity and sessions. Keep legacy Supabase operational tables available only during the controlled migration; do not leave two databases as permanent sources of truth for the same domain.
-- **Authentication:** Clerk is the sole target identity provider for new and steady-state login/OTP flows. The Node API must verify Clerk session/JWT tokens on every protected request. Supabase Auth is legacy-only during migration and is not the target login provider.
+- **Authentication (deferred):** OTP provider and final identity-provider choice are deliberately out of scope for the backend foundation. Keep the existing frontend authentication/data path working during initial backend work. Design an authentication adapter boundary, and do not expose protected business routes until token verification and tenant authorization are implemented for the selected provider.
 - **Migration:** Use a **strangler pattern**: migrate one domain at a time behind adapters, with feature flags and rollback. Do not flip all frontend calls from Supabase to MongoDB in one release.
 - **Realtime:** Preserve current Supabase Realtime channels while existing pages depend on them. For new Node/Mongo domains, add an explicit realtime channel later (e.g. Socket.IO/SSE or a managed realtime service) only after requirements are measured.
 - **Mobile app:** Phase 2 only. It will consume the same Node API and Clerk identity; do not build mobile-only business logic or a separate database.
@@ -139,7 +139,7 @@ The confirmed target architecture uses a deliberate hybrid data split. MongoDB i
 
 - **Supabase/PostgreSQL (temporary legacy):** existing client data and tables until each migration is complete; keep available to old code during rollout.
 - **MongoDB (operational source of truth):** restaurants/branches/settings, menus/categories/items, QR codes and table sessions, orders/order items, inventory, operational customer/order history, kitchen statuses and notifications, idempotency records, integration events, and Phase 2 delivery entities. Migrate domain-by-domain with schema mapping, reconciliation and rollback.
-- **Clerk:** sole target identity provider for OTP, sessions and identity. Store Clerk `userId` references in Servora domain records as appropriate. Clerk does not replace restaurant membership, tenant authorization, business records or audit requirements.
+- **Identity provider:** to be finalized later. The backend must enforce authentication and restaurant membership regardless of provider; keep provider-specific token verification behind an adapter.
 
 Supabase remains authoritative for payment/subscription records, while MongoDB is authoritative for operational restaurant/order data. Do not permanently dual-write the same business entity to both stores. The API must coordinate cross-store workflows using verified payment-provider webhooks, idempotency keys, explicit state transitions and reconciliation; neither database alone can provide a cross-database transaction.
 
@@ -179,7 +179,7 @@ One owner may eventually have multiple outlets or staff memberships. The identit
 - Apply rate limits and abuse controls; do not expose whether an arbitrary phone/email belongs to an account.
 - Test OTP expiry, resend rate limits, wrong OTP, replay, session expiry, sign-out and compromised-session revocation.
 - OTP service availability/costs and supported flows must be verified in Clerk's current plan/docs before launch.
-- Existing Supabase-authenticated users require a controlled migration to Clerk. Do not assume password hashes can be transferred. Use verified email/phone account linking, invitation or controlled reset/reverification; preserve the legacy login only as a temporary migration fallback and remove it after cohort validation.
+- If the final provider differs from the existing Supabase Auth, existing users require a controlled migration and account-linking/reverification process. Do not assume password hashes can be transferred. Keep the current login flow working until the new flow is proven.
 - Preserve admin separation. Super-admin status must be stored in trusted backend role/membership data; never accept `user_metadata.role`, localStorage, or frontend env variables as proof of super-admin access.
 
 ### First identity rollout
@@ -468,12 +468,12 @@ Exit gate: backend deploys independently; existing frontend continues to build a
 ### Phase 2 — Clerk proof of concept
 
 Deliverables:
-- Add Clerk SDK only behind a feature flag to the frontend.
-- Configure OTP in staging.
-- `GET /v1/me` endpoint validates Clerk token and returns Servora profile/memberships.
+- Defer frontend auth SDK changes. First establish backend foundation and keep the current frontend login working.
+- Defer OTP configuration until the backend foundation is ready.
+- Add a `/v1/me` endpoint only after the identity provider is selected and token verification plus membership authorization are implemented.
 - Create `users` and `restaurantMemberships` mapping in the chosen authoritative backend store.
 - Test owner, staff, admin, multi-outlet and no-membership users.
-- Preserve Supabase auth for all non-migrated users.
+- Keep the existing Supabase Auth flow unchanged during backend foundation work; decide later whether it remains the target provider or is replaced.
 
 Exit gate: login, logout, OTP, expired session, unauthorized console, wrong tenant and refresh flows pass in staging.
 
@@ -576,7 +576,7 @@ Do not migrate all tenants on the same day.
 Start only after backend/auth contracts are stable.
 
 Mobile app reuses:
-- Clerk identity/OTP
+- Authentication identity and OTP via the selected provider (deferred)
 - Node API `/v1`
 - Restaurant, menu, cart, order and customer contracts
 - Universal order IDs
@@ -605,7 +605,7 @@ Phase 2 is explicitly out of the current web cutover.
 
 ### First mobile MVP candidate
 
-- Phone/email OTP via Clerk
+- Phone/email OTP via the selected provider (deferred)
 - Browse restaurants
 - Browse dynamic menus
 - Add to cart
@@ -645,7 +645,7 @@ Every migration phase must check:
 
 ### Security tests
 
-- Invalid/expired Clerk token rejected.
+- Invalid/expired token from the selected provider is rejected before protected routes are enabled.
 - User with no restaurant membership cannot access console data.
 - Restaurant A cannot access Restaurant B data.
 - Staff cannot perform owner/admin operations without permission.
@@ -745,7 +745,7 @@ Important: the frontend publishable key is public by design; Clerk secret keys, 
 These need explicit answers in the implementation issue, but do not block building the skeleton:
 
 1. **Data ownership (decided):** MongoDB owns operational restaurant/order data; Supabase owns payment/subscription records; Clerk owns identity. Migrate domain-by-domain and avoid permanent dual sources of truth.
-2. **Clerk OTP channel:** Decide phone SMS OTP, email OTP, or both based on customer needs and confirm current Clerk plan/pricing before launch.
+2. **Authentication provider and OTP:** intentionally deferred; prioritize backend foundation, data ownership, API security boundaries and compatibility first.
 3. **Deployment:** Is the live frontend on Vercel or Cloudflare Pages? Confirm before configuring CORS/domains.
 4. **Realtime:** Keep Supabase Realtime through the initial migration; define whether Node Socket.IO/SSE is eventually needed.
 5. **Mobile delivery model:** restaurant-managed, third-party delivery/aggregator, or Servora-managed driver fleet?
@@ -779,7 +779,7 @@ These need explicit answers in the implementation issue, but do not block buildi
 The backend/auth migration is complete only when:
 
 - Existing web clients work without forced downtime.
-- Clerk OTP login and account recovery work reliably.
+- Authentication-provider integration is tested, but the provider and OTP work are scheduled after the backend foundation.
 - Tenant membership and role checks happen on the server.
 - Node API owns the migrated business workflows.
 - Supabase RLS remains correctly configured for any still-live Supabase data.
