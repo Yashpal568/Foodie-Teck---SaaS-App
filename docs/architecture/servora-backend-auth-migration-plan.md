@@ -228,7 +228,7 @@ server/
     server.ts
     config/
       env.ts
-      clerk.ts
+      auth-provider.ts
       mongo.ts
       legacySupabase.ts
     middleware/
@@ -699,7 +699,7 @@ Frontend:
 ```dotenv
 VITE_API_BASE_URL=https://api-staging.example.com
 VITE_AUTH_PROVIDER_PUBLISHABLE_KEY=replace_after_provider_choice
-VITE_FEATURE_CLERK_AUTH=false
+VITE_FEATURE_NEW_AUTH=false
 VITE_FEATURE_MENU_API=false
 VITE_FEATURE_ORDER_API=false
 ```
@@ -710,7 +710,7 @@ NODE_ENV=development
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/servora_dev
 AUTH_PROVIDER_SECRET_KEY=replace_after_provider_choice
-CLERK_PUBLISHABLE_KEY=pk_test_...
+AUTH_PROVIDER_PUBLISHABLE_KEY=replace_after_provider_choice
 AUTH_PROVIDER_ISSUER=replace_after_provider_choice
 LEGACY_SUPABASE_URL=...
 LEGACY_SUPABASE_ANON_KEY=...
