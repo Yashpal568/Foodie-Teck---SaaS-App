@@ -10,14 +10,14 @@
 
 ## 0. Executive decision
 
-Servora is currently a Vite + React SPA using Supabase JavaScript SDK directly from the frontend. Supabase currently provides PostgreSQL, Auth, RLS, and Realtime. The repository does not currently contain a dedicated Node.js backend package; `src/services/billing.service.js` calls a presumed `VITE_API_URL` but implements local fallback behavior if the API is unavailable.
+Servora is currently a Vite + React SPA using the Supabase JavaScript SDK directly from the frontend. The existing app uses Supabase Auth/PostgreSQL/RLS/Realtime today, but the **target identity provider is Clerk**. During migration, legacy Supabase-authenticated sessions may be supported temporarily for compatibility; new and final login flows use Clerk. The repository does not currently contain a dedicated Node.js backend package; `src/services/billing.service.js` calls a presumed `VITE_API_URL` but implements local fallback behavior if the API is unavailable.
 
 ### Target architecture
 
 - **Frontend:** Keep the existing React/Vite web application. Do not rewrite it during backend introduction.
 - **Backend:** Add a separate Node.js + Express API, preferably TypeScript for new backend code, behind a versioned REST API.
-- **Database:** Use MongoDB for new backend-owned application domains, once the migration strategy and data ownership are agreed. Keep the existing Supabase/PostgreSQL project available for the legacy web application during the transition.
-- **Authentication:** Adopt Clerk for new identity and OTP flows. The Node API must verify Clerk session/JWT tokens on every protected request.
+- **Data ownership (confirmed):** MongoDB owns Servora operational/business data, including restaurants/branches, menus, QR/table sessions, orders/order items, inventory, kitchen workflow and future delivery operations. Supabase remains the system of record for payment records, payment verification and subscription/billing records. Clerk owns authentication identity and sessions. Keep legacy Supabase operational tables available only during the controlled migration; do not leave two databases as permanent sources of truth for the same domain.
+- **Authentication:** Clerk is the sole target identity provider for new and steady-state login/OTP flows. The Node API must verify Clerk session/JWT tokens on every protected request. Supabase Auth is legacy-only during migration and is not the target login provider.
 - **Migration:** Use a **strangler pattern**: migrate one domain at a time behind adapters, with feature flags and rollback. Do not flip all frontend calls from Supabase to MongoDB in one release.
 - **Realtime:** Preserve current Supabase Realtime channels while existing pages depend on them. For new Node/Mongo domains, add an explicit realtime channel later (e.g. Socket.IO/SSE or a managed realtime service) only after requirements are measured.
 - **Mobile app:** Phase 2 only. It will consume the same Node API and Clerk identity; do not build mobile-only business logic or a separate database.
@@ -73,7 +73,7 @@ The repository has 231 entries in the recursive tree at the time it was inspecte
 - Current package scripts include `dev`, `build`, `lint`, and `preview`; no `test` script was present in the inspected `package.json`.
 - Frontend service modules directly read/write Supabase tables.
 - Customer menus use public restaurant/menu reads and Supabase Realtime for order updates.
-- Merchant/admin login and registration rely on Supabase Auth and direct database reads.
+- Current merchant/admin login and registration rely on Supabase Auth and direct database reads; migrate these to Clerk + the Node API in staged cohorts.
 - Existing merchant route guard includes local/session-storage authorization shortcuts that must not be treated as server-side security.
 - Order creation inserts the order and order items in separate requests, then independently adjusts table state, inventory, notifications, customer CRM and broadcasts. A server-side transactional service should eventually own this critical workflow.
 - Supabase SQL schema contains 16 main tables: restaurants, subscriptions, payment_verifications, payment_methods, menu_categories, menu_items, table_sessions, qr_codes, orders, order_items, gst_settings, customers, support_tickets, ticket_replies, notifications, waiter_calls and audit_logs.
@@ -135,13 +135,13 @@ Realtime:
 
 ### Clarify database responsibility before coding
 
-The user requested MongoDB support. MongoDB should not be introduced merely as a second database with no defined ownership. Recommended allocation:
+The confirmed target architecture uses a deliberate hybrid data split. MongoDB is not just a second database with no ownership boundary. Allocation:
 
 - **Supabase/PostgreSQL (temporary legacy):** existing client data and tables until each migration is complete; keep available to old code during rollout.
-- **MongoDB (new backend-owned domains):** begin with integration connections/events, API idempotency records, background jobs, and new mobile-specific delivery domain later. For core restaurant/menu/order data, choose a deliberate cutover per domain after a schema mapping and rollback plan.
-- **Clerk:** identity provider only. Clerk does not replace Servora's restaurant membership, tenant authorization, business records, or audit requirements.
+- **MongoDB (operational source of truth):** restaurants/branches/settings, menus/categories/items, QR codes and table sessions, orders/order items, inventory, operational customer/order history, kitchen statuses and notifications, idempotency records, integration events, and Phase 2 delivery entities. Migrate domain-by-domain with schema mapping, reconciliation and rollback.
+- **Clerk:** sole target identity provider for OTP, sessions and identity. Store Clerk `userId` references in Servora domain records as appropriate. Clerk does not replace restaurant membership, tenant authorization, business records or audit requirements.
 
-Because the existing data is relational and already protected (though some policies are overly permissive), there is a real cost to migrating everything to MongoDB. Before moving all domain data, compare the operational benefits with keeping PostgreSQL for transactional restaurant order data. If MongoDB is a firm product requirement, use it for the new backend domain model and migrate domain-by-domain; do not retain PostgreSQL and MongoDB as permanent competing sources for the same data.
+Supabase remains authoritative for payment/subscription records, while MongoDB is authoritative for operational restaurant/order data. Do not permanently dual-write the same business entity to both stores. The API must coordinate cross-store workflows using verified payment-provider webhooks, idempotency keys, explicit state transitions and reconciliation; neither database alone can provide a cross-database transaction.
 
 ---
 
@@ -179,7 +179,7 @@ One owner may eventually have multiple outlets or staff memberships. The identit
 - Apply rate limits and abuse controls; do not expose whether an arbitrary phone/email belongs to an account.
 - Test OTP expiry, resend rate limits, wrong OTP, replay, session expiry, sign-out and compromised-session revocation.
 - OTP service availability/costs and supported flows must be verified in Clerk's current plan/docs before launch.
-- Existing Supabase-authenticated users require an account-linking/migration process. Do not assume their password hashes can be transferred into Clerk. Use an invitation/verified-email-or-phone linking flow, or a controlled reset/reverification.
+- Existing Supabase-authenticated users require a controlled migration to Clerk. Do not assume password hashes can be transferred. Use verified email/phone account linking, invitation or controlled reset/reverification; preserve the legacy login only as a temporary migration fallback and remove it after cohort validation.
 - Preserve admin separation. Super-admin status must be stored in trusted backend role/membership data; never accept `user_metadata.role`, localStorage, or frontend env variables as proof of super-admin access.
 
 ### First identity rollout
@@ -191,7 +191,7 @@ One owner may eventually have multiple outlets or staff memberships. The identit
 5. Test the full existing merchant workflows.
 6. Pilot with an internal/demo account.
 7. Only then invite one consenting existing client.
-8. Keep the existing Supabase-auth flow available to non-migrated clients until completion.
+8. Keep Supabase-auth compatibility only for non-migrated users during the approved transition window; Clerk is the target provider and the fallback must have a retirement date.
 
 ---
 
@@ -301,7 +301,7 @@ The checked-in SQL file is not sufficient proof of the live database schema.
 | Domain | Current owner | Migration approach | Risk |
 |---|---|---|---|
 | Public restaurant/menu reads | Supabase | Preserve first; add API reads behind feature flag | Medium |
-| Authentication | Supabase Auth | Clerk migration by cohort; explicit account linking | High |
+| Authentication | Supabase Auth (legacy) | Clerk as sole target identity provider; staged account linking and retirement of legacy auth | High |
 | Restaurant profile | Supabase | API façade, then migrate with ID mapping if chosen | High |
 | Menu/categories | Supabase | Read-through API first; writes behind API after parity | High |
 | Tables/QR/table sessions | Supabase + public QR URLs | Keep IDs/URLs stable; migrate only after session parity | High |
@@ -498,7 +498,7 @@ Exit gate: old vs API results match; latency/error rate are acceptable; rollback
 
 ### Phase 5 — Low-risk writes through Node
 
-Select one low-risk write domain after audit, e.g. restaurant profile or menu metadata. Node verifies Clerk identity + membership, validates input and then writes to the existing Supabase table using a controlled server pattern. Maintain RLS where possible; if a privileged key is used, enforce full backend ownership and authorization and never expose it.
+Select one low-risk operational write domain after audit, e.g. restaurant profile or menu metadata. Node verifies the Clerk identity + restaurant membership, validates input and writes to MongoDB. For payment/subscription endpoints, Node validates authorization and writes payment-related records to Supabase only after trusted provider confirmation. Maintain least privilege and never expose privileged keys.
 
 Do not migrate orders yet.
 
@@ -508,7 +508,7 @@ Exit gate: tenant isolation tests pass and data comparison is clean.
 
 Before moving core domains:
 - Produce source-to-target mapping.
-- Decide which domains truly need MongoDB and whether order transactions/analytics remain better in Postgres.
+- Confirm schema mapping and migration sequencing for the agreed ownership: MongoDB for operational orders/restaurant data; Supabase for payment and subscription records. Do not make the two stores competing sources of truth.
 - Create migration scripts that are repeatable and idempotent.
 - Map legacy UUIDs.
 - Validate row counts, relationships, amounts, dates and status distributions.
@@ -744,8 +744,8 @@ Important: the frontend publishable key is public by design; Clerk secret keys, 
 
 These need explicit answers in the implementation issue, but do not block building the skeleton:
 
-1. **MongoDB ownership:** Is MongoDB mandatory for all core data or only new backend domains? Recommendation: migrate domain-by-domain; avoid permanent double sources.
-2. **Clerk OTP:** Phone SMS, email OTP, or both? Recommendation: choose the primary channel from client needs and confirm current Clerk plan/pricing.
+1. **Data ownership (decided):** MongoDB owns operational restaurant/order data; Supabase owns payment/subscription records; Clerk owns identity. Migrate domain-by-domain and avoid permanent dual sources of truth.
+2. **Clerk OTP channel:** Decide phone SMS OTP, email OTP, or both based on customer needs and confirm current Clerk plan/pricing before launch.
 3. **Deployment:** Is the live frontend on Vercel or Cloudflare Pages? Confirm before configuring CORS/domains.
 4. **Realtime:** Keep Supabase Realtime through the initial migration; define whether Node Socket.IO/SSE is eventually needed.
 5. **Mobile delivery model:** restaurant-managed, third-party delivery/aggregator, or Servora-managed driver fleet?
