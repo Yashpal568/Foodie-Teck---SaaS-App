@@ -609,8 +609,8 @@ export default function AdminDashboardPage() {
             </Badge>
           </div>
 
-          <div className="h-72 w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+          <div className="h-72 w-full min-w-0" style={{ height: 288, minHeight: 288, minWidth: 0 }}>
+            <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={200}>
               <AreaChart data={throughputHistory}>
                 <defs>
                   <linearGradient id="colorVelocity" x1="0" y1="0" x2="0" y2="1">

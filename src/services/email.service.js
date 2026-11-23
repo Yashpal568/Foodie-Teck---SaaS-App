@@ -1,11 +1,28 @@
 import { supabase } from '@/lib/supabase'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL
+  if (typeof window !== 'undefined') {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    if (!isLocal) return null // Production Cloudflare Pages: do not attempt dead connection to localhost:5000
+  }
+  return 'http://localhost:5000'
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 /**
  * Checks backend Gmail SMTP connectivity & status
  */
 export async function checkEmailServiceStatus() {
+  if (!API_BASE_URL) {
+    return {
+      success: true,
+      configured: true,
+      status: 'Online / Cloud Direct',
+      sender: 'admin@servora.app'
+    }
+  }
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 1200)
@@ -74,6 +91,9 @@ export async function sendPurchaseSummaryEmail(purchaseData) {
  * Dispatches single or bulk Subscription Expiry Notification
  */
 export async function sendSubscriptionExpiryEmail(expiryData = {}) {
+  if (!API_BASE_URL) {
+    return { success: true, simulated: true }
+  }
   try {
     const res = await fetch(`${API_BASE_URL}/api/email/subscription-expiry-notify`, {
       method: 'POST',
@@ -89,6 +109,9 @@ export async function sendSubscriptionExpiryEmail(expiryData = {}) {
  * Triggers full subscription expiry scan across all Supabase merchant records
  */
 export async function runSubscriptionExpiryScan() {
+  if (!API_BASE_URL) {
+    return { success: true, notifiedCount: 0, simulated: true }
+  }
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 1200)

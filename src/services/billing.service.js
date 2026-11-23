@@ -5,25 +5,36 @@
  * Includes local fallback simulation for offline resilience.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL
+  if (typeof window !== 'undefined') {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    if (!isLocal) return null
+  }
+  return 'http://localhost:5000'
+}
+
+const API_BASE = getApiBaseUrl()
 
 /**
  * Server-authoritative bill calculation
  */
 export async function calculateServerBill({ items, discount = null, restaurantId = 'default', isInterState = false }) {
-  try {
-    const response = await fetch(`${API_BASE}/api/billing/calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items, discount, restaurantId, isInterState })
-    })
+  if (API_BASE) {
+    try {
+      const response = await fetch(`${API_BASE}/api/billing/calculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, discount, restaurantId, isInterState })
+      })
 
-    if (response.ok) {
-      const data = await response.json()
-      if (data.success) return data.data
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) return data.data
+      }
+    } catch (err) {
+      console.warn('Backend billing engine unreachable, using local fallback:', err.message)
     }
-  } catch (err) {
-    console.warn('Backend billing engine unreachable, using local fallback:', err.message)
   }
 
   // ── Resilient Local Fallback Engine ──

@@ -983,8 +983,8 @@ export default function AdminRevenuePage() {
             </Badge>
           </div>
           
-          <div className="h-72 w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+          <div className="h-72 w-full min-w-0" style={{ height: 288, minHeight: 288, minWidth: 0 }}>
+            <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={200}>
               {calendarMode === 'MONTHLY' ? (
                 <AreaChart data={metrics.history}>
                   <defs>
@@ -1056,8 +1056,8 @@ export default function AdminRevenuePage() {
             <p className="text-xs text-slate-500 mt-0.5">Active tier distribution across stores</p>
           </div>
 
-          <div className="h-52 w-full min-w-0 relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
+          <div className="h-52 w-full min-w-0 relative flex items-center justify-center" style={{ height: 208, minHeight: 208, minWidth: 0 }}>
+            <ResponsiveContainer width="100%" height={200} minWidth={0} minHeight={180}>
               <PieChart>
                 <Pie
                   data={metrics.planDistribution}
