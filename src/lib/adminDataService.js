@@ -238,7 +238,7 @@ export const recordPendingPayment = async (paymentObj) => {
 
 export const approveMerchantPayment = async (item) => {
   const now = new Date()
-  const daysToGrant = item.daysToGrant || 30
+  const daysToGrant = item.daysToGrant || 90
   const endDate = new Date(now.getTime() + daysToGrant * 24 * 60 * 60 * 1000).toISOString()
 
   try {

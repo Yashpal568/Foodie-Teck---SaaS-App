@@ -198,12 +198,12 @@ export default function BillingSettings({
     return () => clearInterval(timer)
   }, [subscriptionEndDate])
 
-  const planName = restaurantProfile?.plan || billingData.plan || 'Professional'
-  const planPrice = billingData.price || (planName === 'Starter' ? '999' : planName === 'Enterprise' ? '4999' : '2499')
+  const planName = restaurantProfile?.plan || billingData.plan || 'All-in-One Unlimited'
+  const planPrice = billingData.price || '2,100'
   
-  // Real Cycle Progress
-  const cycleDaysTotal = 30
-  const daysUsed = Math.max(1, Math.min(30, 30 - timeLeft.days))
+  // Real Cycle Progress (3 Months = 90 Days)
+  const cycleDaysTotal = 90
+  const daysUsed = Math.max(1, Math.min(90, 90 - timeLeft.days))
   const usagePercentage = Math.round((daysUsed / cycleDaysTotal) * 100)
 
   // Real Formatted Expiry Date

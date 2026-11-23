@@ -79,31 +79,23 @@ const features = [
 
 const defaultPlans = [
   {
-    name: "Starter",
-    price: "₹999",
-    billing: "per month",
-    desc: "Perfect for boutique cafes and small eateries.",
-    features: ["Up to 10 Tables", "Digital QR Menu", "Basic Analytics", "Kitchen Display System", "Email Support"],
-    cta: "Purchase Starter",
-    popular: false
-  },
-  {
-    name: "Professional",
-    price: "₹2,499",
-    billing: "per month",
-    desc: "Ideal for growing restaurants and bustling bars.",
-    features: ["Up to 30 Tables", "Advanced CRM", "Real-time AI Analytics", "Staff Management", "Priority Support (24/7)"],
-    cta: "Purchase Professional",
+    name: "All-in-One Unlimited",
+    price: "₹2,100",
+    billing: "for 3 Months (₹700/mo)",
+    desc: "Complete restaurant operating system with unlimited tables, unlimited menu items, and 0% commission direct ordering for 3 full months.",
+    features: [
+      "Unlimited Tables & QR Standees",
+      "Unlimited Menu Items & Categories",
+      "3 Full Months Access (₹700/mo effective)",
+      "0% Commission Direct UPI Ordering",
+      "Sub-100ms Kitchen Display System (KDS)",
+      "Automated GST Billing & Thermal Receipts",
+      "Multi-Payer Split Bills Engine",
+      "High-Resolution QR Standee Studio",
+      "Priority 24/7 Phone & WhatsApp Support"
+    ],
+    cta: "Start 3 Months Access for ₹2,100",
     popular: true
-  },
-  {
-    name: "Enterprise",
-    price: "₹4,999",
-    billing: "per month",
-    desc: "Bespoke solutions for large dining chains and hotels.",
-    features: ["Unlimited Tables", "Full CRM Suite", "Dedicated Account Manager", "Custom API Integration", "White-label Branding"],
-    cta: "Purchase Enterprise",
-    popular: false
   }
 ]
 
@@ -447,7 +439,7 @@ export default function HomePage() {
              </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+          <div className="max-w-xl mx-auto w-full items-stretch">
             {livePlans.map((p, idx) => (
               <motion.div
                 key={p.name}

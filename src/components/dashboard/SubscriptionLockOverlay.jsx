@@ -620,7 +620,7 @@ export default function SubscriptionLockOverlay({
               </div>
 
               {/* 3-Tier Grid: Center Card Elevated & Enlarged */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-center text-left w-full pt-4">
+              <div className="max-w-xl mx-auto text-left w-full pt-4">
                 {availablePlans.map((plan) => {
                   const isSelected = selectedPlan?.id === plan.id || selectedPlan?.name?.toLowerCase() === plan.name.toLowerCase()
                   const isFeatured = plan.popular

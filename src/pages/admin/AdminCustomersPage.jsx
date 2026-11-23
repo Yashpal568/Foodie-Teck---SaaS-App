@@ -189,16 +189,16 @@ export default function AdminCustomersPage() {
     toast.success(newStatus === 'Active' ? 'Merchant Activated' : 'Merchant Suspended')
   }
 
-  const morphMerchantPlan = async (email, id, newPlan) => {
+  const morphMerchantPlan = async (email, id, newPlan = 'All-in-One Unlimited') => {
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 30)
+    expiresAt.setDate(expiresAt.getDate() + 90)
 
     const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('restaurant_id', id)
     if (existingSub && existingSub.length > 0) {
       await supabase.from('subscriptions').update({
         plan_name: newPlan,
         status: 'Active',
-        price: newPlan === 'Enterprise' || newPlan === 'PREMIUM' ? 4999 : newPlan === 'Professional' || newPlan === 'PRO' ? 2499 : 999,
+        price: 2100,
         start_date: new Date().toISOString(),
         end_date: expiresAt.toISOString()
       }).eq('restaurant_id', id)
@@ -207,7 +207,7 @@ export default function AdminCustomersPage() {
         restaurant_id: id,
         plan_name: newPlan,
         status: 'Active',
-        price: newPlan === 'Enterprise' || newPlan === 'PREMIUM' ? 4999 : newPlan === 'Professional' || newPlan === 'PRO' ? 2499 : 999,
+        price: 2100,
         start_date: new Date().toISOString(),
         end_date: expiresAt.toISOString()
       })
@@ -461,8 +461,8 @@ export default function AdminCustomersPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
         {/* Filter Pills */}
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-1">
-          {['All', 'Starter', 'Professional', 'Enterprise'].map(plan => {
-            const count = plan === 'All' ? realMapped.length : realMapped.filter(m => m.plan === plan).length
+          {['All', 'All-in-One Unlimited'].map(plan => {
+            const count = plan === 'All' ? realMapped.length : realMapped.filter(m => m.plan === plan || m.plan.toLowerCase().includes('unlimited')).length
             return (
               <button
                 key={plan}
@@ -616,14 +616,8 @@ export default function AdminCustomersPage() {
                           <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
                             Modify Plan
                           </DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Starter')} className="cursor-pointer rounded-lg font-medium">
-                            Switch to Starter (₹999)
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Professional')} className="cursor-pointer rounded-lg font-medium">
-                            Switch to Professional (₹2,499)
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Enterprise')} className="cursor-pointer rounded-lg font-medium">
-                            Switch to Enterprise (₹4,999)
+                          <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'All-in-One Unlimited')} className="cursor-pointer rounded-lg font-medium">
+                            Switch to All-in-One Unlimited (₹2,100 / 3mo)
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="my-1 bg-slate-100" />
                           <DropdownMenuItem 

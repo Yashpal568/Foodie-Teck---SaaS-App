@@ -10,27 +10,47 @@ import { Separator } from '@/components/ui/separator'
 import { supabase, getCachedSession } from '@/lib/supabase'
 
 const defaultPlans = [
-  { id: 'PLN-1', name: "Starter", price: 999, tableLimit: 10, color: "slate", popular: false, desc: "Essential features for smaller venues." },
-  { id: 'PLN-2', name: "Professional", price: 2499, tableLimit: 30, color: "blue", popular: true, desc: "The sweet spot for active dining rooms." },
-  { id: 'PLN-3', name: "Enterprise", price: 4999, tableLimit: 9999, color: "indigo", popular: false, desc: "Maximum control for high-volume chains." },
+  {
+    id: 'PLN-UNLIMITED',
+    name: "All-in-One Unlimited",
+    price: 2100,
+    tableLimit: 9999,
+    color: "blue",
+    popular: true,
+    billingPeriod: "3 Months",
+    monthlyEquivalent: "₹700/mo effective",
+    desc: "Complete 3-month operating system with unlimited dining tables, unlimited menu items, and 0% commission direct ordering.",
+    features: [
+      "Unlimited Tables & High-Res QR Standees",
+      "Unlimited Menu Items & Categories",
+      "3 Full Months Access (Only ₹700/mo)",
+      "0% Commission Direct UPI Payments",
+      "Sub-100ms Kitchen Display System (KDS)",
+      "Automated GST Invoicing & 80mm/58mm Printing",
+      "Multi-Payer Split Bills Engine",
+      "Live Table Status & Waiter Call Telemetry",
+      "Full Sales, CRM & Margin Analytics",
+      "Priority 24/7 Phone & WhatsApp Support"
+    ]
+  }
 ]
 
 const faqs = [
   {
-    q: "How many QR codes can I generate?",
-    a: "Starter supports up to 10 tables. Professional allows up to 30 tables, and Enterprise provides unlimited table generation and management."
+    q: "How many tables and QR codes can I generate?",
+    a: "You get completely UNLIMITED tables and QR codes! Generate as many table standees, counter QRs, and takeaway QR codes as your restaurant needs without extra charges."
   },
   {
-    q: "Is there a setup fee?",
-    a: "Absolutely not. Servora is designed to be self-serve. You can sign up, create your menu, and generate QR codes in under 15 minutes without any hardware setup costs."
+    q: "How many menu items can I add?",
+    a: "Unlimited! Add all your appetizers, main courses, beverages, combos, and custom variations with photos and descriptions without any limit."
   },
   {
-    q: "Can I cancel my subscription anytime?",
-    a: "Yes. All our plans are month-to-month by default. You can cancel, upgrade, or downgrade your plan at any point from your dashboard settings."
+    q: "What is the duration of this ₹2,100 plan?",
+    a: "This plan gives you 3 full months (90 days) of full access, which works out to just ₹700 per month. After 3 months, you can easily renew to keep services active."
   },
   {
-    q: "Does Servora handle payments?",
-    a: "We provide the ordering and billing interface. You can integrate with your existing payment processors or use our built-in support for popular gateways like Razorpay and Stripe."
+    q: "Is there any commission on orders?",
+    a: "0% commission! Every rupee your customers pay via UPI (GPay, PhonePe, Paytm, etc.) or cash goes directly to your bank account."
   }
 ]
 
@@ -116,7 +136,7 @@ export default function PricingPage() {
             price: plan.price,
             status: 'PENDING_APPROVAL',
             start_date: new Date().toISOString(),
-            end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
          }
 
          if (existingSub?.id) {
@@ -157,7 +177,7 @@ export default function PricingPage() {
 
       {/* ─── Pricing Grid ─────────────────────────────────────────── */}
       <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 mb-20 lg:mb-40">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-10 items-stretch">
+        <div className="max-w-2xl mx-auto w-full items-stretch">
           {plans.map((p, idx) => (
             <motion.div
               key={p.name}
@@ -187,10 +207,10 @@ export default function PricingPage() {
                 <div className="flex items-baseline gap-1 mb-4">
                   <span className="text-2xl font-bold opacity-60 text-slate-400">₹</span>
                   <span className="text-4xl font-black tracking-tight">{String(p.price).replace('₹', '')}</span>
-                  <span className={cn(
-                    "text-xs font-medium opacity-60",
-                    p.popular ? "text-slate-400" : "text-slate-500"
-                  )}>per month</span>
+                  <div className="flex flex-col ml-1">
+                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">/ 3 Months</span>
+                    <span className="text-[10px] font-semibold text-emerald-400">₹700/mo effective</span>
+                  </div>
                 </div>
                 <p className={cn(
                   "text-sm font-medium leading-relaxed max-w-60",

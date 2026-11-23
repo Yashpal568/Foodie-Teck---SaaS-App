@@ -215,7 +215,7 @@ export default function AdminVerificationsPage() {
   }
 
   // Approve Handler
-  const handleApprove = async (item, days = 30) => {
+  const handleApprove = async (item, days = 90) => {
     try {
       setProcessingId(item.id)
 

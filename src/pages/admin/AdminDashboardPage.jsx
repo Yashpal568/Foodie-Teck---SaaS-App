@@ -134,17 +134,20 @@ export default function AdminDashboardPage() {
               let price = 0
               if (sub.price) {
                  price = parseInt(sub.price || 0)
+              } else if (plan.includes('UNLIMITED') || plan.includes('ALL-IN-ONE')) {
+                 price = 2100
               } else if (plan === 'PREMIUM' || plan === 'ENTERPRISE') {
                  price = 4999
               } else if (plan === 'PRO' || plan === 'PROFESSIONAL') {
                  price = 2499
               } else {
-                 price = 999
+                 price = 2100
               }
 
-              if (plan === 'PREMIUM' || plan === 'ENTERPRISE') planMap.Enterprise++
-              else if (plan === 'PRO' || plan === 'PROFESSIONAL') planMap.Professional++
-              else planMap.Starter++
+              if (plan.includes('UNLIMITED') || plan.includes('ALL-IN-ONE')) planMap['All-in-One Unlimited'] = (planMap['All-in-One Unlimited'] || 0) + 1
+              else if (plan === 'PREMIUM' || plan === 'ENTERPRISE') planMap.Enterprise = (planMap.Enterprise || 0) + 1
+              else if (plan === 'PRO' || plan === 'PROFESSIONAL') planMap.Professional = (planMap.Professional || 0) + 1
+              else planMap['All-in-One Unlimited'] = (planMap['All-in-One Unlimited'] || 0) + 1
 
               const subDate = new Date(sub.created_at || sub.start_date || now).getTime()
 
@@ -199,9 +202,7 @@ export default function AdminDashboardPage() {
         setMomGrowth(calculatedGrowth)
 
         setPlanDistribution([
-          { name: 'Starter', count: planMap.Starter, price: '₹999/mo', color: 'bg-blue-500' },
-          { name: 'Professional', count: planMap.Professional, price: '₹2,499/mo', color: 'bg-indigo-500' },
-          { name: 'Enterprise', count: planMap.Enterprise, price: '₹4,999/mo', color: 'bg-emerald-500' }
+          { name: 'All-in-One Unlimited', count: realSubscriptions?.length || 0, price: '₹2,100 (3mo)', color: 'bg-indigo-600' }
         ])
 
         setMrr(new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(monthRevAcc))

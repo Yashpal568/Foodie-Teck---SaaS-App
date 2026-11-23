@@ -23,20 +23,23 @@ import { toast } from 'sonner'
 
 const defaultPlans = [
   { 
-    id: 'PLN-1', name: "Starter", price: 999, tableLimit: 10, color: "slate", popular: false,
-    desc: "Essential features for smaller cafes & fast-service dining.",
-    features: ["Up to 10 Dining Tables", "Instant QR Code Menus", "Live Order Notifications", "Basic Sales Analytics", "Email Support"]
-  },
-  { 
-    id: 'PLN-2', name: "Professional", price: 2499, tableLimit: 30, color: "indigo", popular: true,
-    desc: "The complete operating system for active restaurants.",
-    features: ["Up to 30 Dining Tables", "Dynamic QR Menus & Sessions", "Realtime Kitchen Display", "Customer CRM & History", "Financial & MRR Tracking", "Priority WhatsApp & Phone Support"]
-  },
-  { 
-    id: 'PLN-3', name: "Enterprise", price: 4999, tableLimit: 9999, color: "purple", popular: false,
-    desc: "Maximum control for high-volume dining & restaurant chains.",
-    features: ["Unlimited Tables & Outlets", "Multi-Branch Management", "Full Analytics & AI Forecast", "Customer Loyalty & Promotions", "Dedicated Account Manager", "24/7 Priority SLA Support"]
-  },
+    id: 'PLN-UNLIMITED', 
+    name: "All-in-One Unlimited", 
+    price: 2100, 
+    tableLimit: 9999, 
+    color: "indigo", 
+    popular: true,
+    desc: "Complete 3-month operating system for restaurants with unlimited tables, unlimited menu items, and 0% commission direct ordering.",
+    features: [
+      "Unlimited Dining Tables & QR Menus",
+      "Unlimited Menu Items & Categories",
+      "3 Months Full Access (₹700/mo effective)",
+      "0% Commission Direct UPI Settlements",
+      "Sub-100ms Kitchen Display System (KDS)",
+      "Automated GST Invoicing & Thermal Printing",
+      "Priority 24/7 Phone & WhatsApp Support"
+    ]
+  }
 ]
 
 export default function AdminPlansPage() {

@@ -255,13 +255,13 @@ export default function AdminRevenuePage() {
         setProcessingId('extend')
         const restId = company.restaurantId || company.id
         const nowTime = new Date()
-        const extEnd = new Date(nowTime.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        const extEnd = new Date(nowTime.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString()
 
         const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('restaurant_id', restId)
         if (existingSub && existingSub.length > 0) {
           await supabase.from('subscriptions').update({
-            plan_name: company.plan || 'Professional',
-            price: company.amount || 2499,
+            plan_name: company.plan || 'All-in-One Unlimited',
+            price: company.amount || 2100,
             status: 'Active',
             start_date: nowTime.toISOString(),
             end_date: extEnd
@@ -269,8 +269,8 @@ export default function AdminRevenuePage() {
         } else {
           await supabase.from('subscriptions').insert({
             restaurant_id: restId,
-            plan_name: company.plan || 'Professional',
-            price: company.amount || 2499,
+            plan_name: company.plan || 'All-in-One Unlimited',
+            price: company.amount || 2100,
             status: 'Active',
             start_date: nowTime.toISOString(),
             end_date: extEnd

@@ -41,7 +41,7 @@ export default function UpgradePlanModal({
   const [showUPIModal, setShowUPIModal] = useState(false)
   const currentPlan = getPlanDetails(currentPlanName)
   const [targetUpgradePlan, setTargetUpgradePlan] = useState(
-    currentPlan.name === 'Starter' ? PLAN_TIERS.Professional : PLAN_TIERS.Enterprise
+    PLAN_TIERS.Unlimited
   )
 
   const getLimitDetails = () => {
@@ -93,41 +93,24 @@ export default function UpgradePlanModal({
 
   const plans = [
     {
-      key: 'Professional',
-      plan: PLAN_TIERS.Professional,
-      badge: 'Most Popular',
-      badgeStyle: 'bg-indigo-600 text-white border-0',
-      selectedBorder: 'border-indigo-500 ring-2 ring-indigo-500/20',
-      unselectedBorder: 'border-slate-200 hover:border-indigo-300',
-      selectedBg: 'bg-gradient-to-br from-indigo-50/80 to-white',
+      key: 'Unlimited',
+      plan: PLAN_TIERS.Unlimited,
+      badge: 'Founder Launch • 3 Months',
+      badgeStyle: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0',
+      selectedBorder: 'border-blue-500 ring-2 ring-blue-500/20',
+      unselectedBorder: 'border-slate-200 hover:border-blue-300',
+      selectedBg: 'bg-gradient-to-br from-blue-50/80 to-white',
       unselectedBg: 'bg-white',
-      checkColor: 'text-indigo-500',
-      priceColor: 'text-indigo-700',
-      icon: <Zap className="w-4 h-4 text-indigo-500" />,
+      checkColor: 'text-blue-500',
+      priceColor: 'text-blue-700',
+      icon: <Crown className="w-4 h-4 text-blue-500" />,
       features: [
-        'Up to 30 Tables & QR Codes',
-        'Up to 100 Menu Items',
-        'Full CRM & Customer Management',
-        'Revenue & Sales Analytics',
-      ]
-    },
-    {
-      key: 'Enterprise',
-      plan: PLAN_TIERS.Enterprise,
-      badge: 'Unlimited',
-      badgeStyle: 'bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0',
-      selectedBorder: 'border-violet-500 ring-2 ring-violet-500/20',
-      unselectedBorder: 'border-slate-200 hover:border-violet-300',
-      selectedBg: 'bg-gradient-to-br from-violet-50/80 to-white',
-      unselectedBg: 'bg-white',
-      checkColor: 'text-violet-500',
-      priceColor: 'text-violet-700',
-      icon: <Crown className="w-4 h-4 text-violet-500" />,
-      features: [
-        'Unlimited Tables & QR Codes',
-        'Unlimited Menu Items',
-        'Full CRM & Marketing Engine',
-        'Custom Hardware & API Webhooks',
+        'Unlimited Dining Tables & QR Codes',
+        'Unlimited Menu Items & Categories',
+        '3 Full Months Access @ ₹2,100 (₹700/mo)',
+        '0% Commission Direct UPI Ordering',
+        'Kitchen Display System (KDS) & GST Invoicing',
+        'Priority 24/7 Phone & WhatsApp Support'
       ]
     }
   ]
@@ -190,7 +173,7 @@ export default function UpgradePlanModal({
             )}
 
             {/* Plan Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            <div className="grid grid-cols-1 gap-3 mb-5 max-w-md mx-auto w-full">
               {plans.map((p) => {
                 const isCurrentPlan = currentPlan.name === p.key
                 const isSelected = targetUpgradePlan.name === p.key
@@ -244,7 +227,7 @@ export default function UpgradePlanModal({
                       <span className={`text-[28px] font-black tracking-tight ${isSelected ? p.priceColor : 'text-slate-800'}`}>
                         ₹{p.plan.price.toLocaleString('en-IN')}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-semibold">/mo</span>
+                      <span className="text-[11px] text-blue-600 font-bold ml-1">/ 3 Months (₹700/mo effective)</span>
                     </div>
 
                     <Separator className="mb-3" />
