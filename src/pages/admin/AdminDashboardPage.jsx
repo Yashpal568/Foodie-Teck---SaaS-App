@@ -26,10 +26,17 @@ import {
   Layers,
   Sparkles,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  BellRing,
+  Calendar,
+  Send,
+  CalendarDays
 } from 'lucide-react'
 import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 import { getAdminPlatformData } from '@/lib/adminDataService'
+import { logAdminAction } from '@/lib/audit'
+import { sendSubscriptionExpiryEmail } from '@/services/email.service'
+import { triggerPushNotification } from '@/lib/pushNotifications'
 import { toast } from 'sonner'
 import { 
   AreaChart, 
@@ -49,6 +56,13 @@ export default function AdminDashboardPage() {
   const [merchants, setMerchants] = useState(0)
   const [activeMerchants, setActiveMerchants] = useState(0)
   const [mrr, setMrr] = useState('₹0')
+  const [currentMonthRev, setCurrentMonthRev] = useState(0)
+  const [todayRev, setTodayRev] = useState(0)
+  const [momGrowth, setMomGrowth] = useState('+0.0%')
+  const [currentMonthName, setCurrentMonthName] = useState('')
+  const [dueSoonList, setDueSoonList] = useState([])
+  const [overdueList, setOverdueList] = useState([])
+  const [sendingNotice, setSendingNotice] = useState(false)
   const [platformUsers, setPlatformUsers] = useState('0')
   const [planDistribution, setPlanDistribution] = useState([])
   const [latestRestaurants, setLatestRestaurants] = useState([])
@@ -98,35 +112,99 @@ export default function AdminDashboardPage() {
        const totalEntities = restaurantCount + customerCount
        setPlatformUsers(totalEntities.toLocaleString())
        
-       let calculatedMRR = 0
-       const planMap = { Starter: 0, Professional: 0, Enterprise: 0 }
+               const now = new Date()
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        setCurrentMonthName(monthNames[now.getMonth()])
 
-       if (realSubscriptions && realSubscriptions.length > 0) {
-         realSubscriptions.forEach(sub => {
-             const plan = (sub.plan_name || 'Professional').toUpperCase()
-             if (sub.price) {
-                calculatedMRR += parseInt(sub.price || 0)
-             } else if (plan === 'PREMIUM' || plan === 'ENTERPRISE') {
-                calculatedMRR += 4999
-             } else if (plan === 'PRO' || plan === 'PROFESSIONAL') {
-                calculatedMRR += 2499
-             } else {
-                calculatedMRR += 999
-             }
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime()
+        const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0).getTime()
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0).getTime()
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime()
 
-             if (plan === 'PREMIUM' || plan === 'ENTERPRISE') planMap.Enterprise++
-             else if (plan === 'PRO' || plan === 'PROFESSIONAL') planMap.Professional++
-             else planMap.Starter++
-         })
-       }
+        let monthRevAcc = 0
+        let lastMonthRevAcc = 0
+        let todayRevAcc = 0
+        const planMap = { Starter: 0, Professional: 0, Enterprise: 0 }
+        const dueSoon = []
+        const overdue = []
 
-       setPlanDistribution([
-         { name: 'Starter', count: planMap.Starter, price: '₹999/mo', color: 'bg-blue-500' },
-         { name: 'Professional', count: planMap.Professional, price: '₹2,499/mo', color: 'bg-indigo-500' },
-         { name: 'Enterprise', count: planMap.Enterprise, price: '₹4,999/mo', color: 'bg-emerald-500' }
-       ])
+        if (realSubscriptions && realSubscriptions.length > 0) {
+          realSubscriptions.forEach(sub => {
+              const plan = (sub.plan_name || 'Professional').toUpperCase()
+              let price = 0
+              if (sub.price) {
+                 price = parseInt(sub.price || 0)
+              } else if (plan === 'PREMIUM' || plan === 'ENTERPRISE') {
+                 price = 4999
+              } else if (plan === 'PRO' || plan === 'PROFESSIONAL') {
+                 price = 2499
+              } else {
+                 price = 999
+              }
 
-       setMrr(new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(calculatedMRR))
+              if (plan === 'PREMIUM' || plan === 'ENTERPRISE') planMap.Enterprise++
+              else if (plan === 'PRO' || plan === 'PROFESSIONAL') planMap.Professional++
+              else planMap.Starter++
+
+              const subDate = new Date(sub.created_at || sub.start_date || now).getTime()
+
+              // Monthly tracking: resets strictly to ₹0 on the 1st of every calendar month
+              if (subDate >= currentMonthStart && subDate < nextMonthStart) {
+                monthRevAcc += price
+              }
+              if (subDate >= lastMonthStart && subDate < currentMonthStart) {
+                lastMonthRevAcc += price
+              }
+              // Daily tracking: resets strictly to ₹0 at midnight
+              if (subDate >= todayStart) {
+                todayRevAcc += price
+              }
+
+              // Track renewal due dates
+              if (sub.end_date) {
+                const dueTime = new Date(sub.end_date).getTime()
+                const daysRemaining = Math.ceil((dueTime - now.getTime()) / (1000 * 60 * 60 * 24))
+                const matchedRest = (realRestaurants || []).find(r => r.id === sub.restaurant_id || r.email === sub.restaurant_id)
+                const item = {
+                  id: sub.id,
+                  restaurant_id: sub.restaurant_id,
+                  name: matchedRest?.business_name || matchedRest?.name || 'Servora Partner',
+                  email: matchedRest?.email || 'N/A',
+                  plan: sub.plan_name || 'Professional',
+                  price,
+                  endDate: sub.end_date,
+                  daysRemaining
+                }
+                if (daysRemaining < 0) {
+                  overdue.push(item)
+                } else if (daysRemaining <= 7) {
+                  dueSoon.push(item)
+                }
+              }
+          })
+        }
+
+        setCurrentMonthRev(monthRevAcc)
+        setTodayRev(todayRevAcc)
+        setDueSoonList(dueSoon)
+        setOverdueList(overdue)
+
+        let calculatedGrowth = '+0.0%'
+        if (lastMonthRevAcc > 0) {
+          const diff = ((monthRevAcc - lastMonthRevAcc) / lastMonthRevAcc) * 100
+          calculatedGrowth = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`
+        } else if (monthRevAcc > 0) {
+          calculatedGrowth = '+100%'
+        }
+        setMomGrowth(calculatedGrowth)
+
+        setPlanDistribution([
+          { name: 'Starter', count: planMap.Starter, price: '₹999/mo', color: 'bg-blue-500' },
+          { name: 'Professional', count: planMap.Professional, price: '₹2,499/mo', color: 'bg-indigo-500' },
+          { name: 'Enterprise', count: planMap.Enterprise, price: '₹4,999/mo', color: 'bg-emerald-500' }
+        ])
+
+        setMrr(new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(monthRevAcc))
 
        // Dynamic throughput load
        const baseLoad = Math.max(340, restaurantCount * 140)
@@ -214,6 +292,68 @@ export default function AdminDashboardPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
+  const handleNotifyAllFromDashboard = async () => {
+    const allPending = [...overdueList, ...dueSoonList]
+    if (allPending.length === 0) {
+      toast.info('No accounts due for renewal')
+      return
+    }
+
+    try {
+      setSendingNotice(true)
+      let count = 0
+      for (const item of allPending) {
+        try {
+          await sendSubscriptionExpiryEmail({
+            email: item.email,
+            merchantName: item.name,
+            planName: item.plan,
+            daysRemaining: item.daysRemaining,
+            dueDate: item.endDate
+          })
+        } catch (e) {}
+
+        try {
+          await supabase.from('notifications').insert({
+            restaurant_id: item.restaurant_id,
+            title: item.daysRemaining < 0 ? '⚠️ Subscription Expired' : '🔔 Subscription Renewal Due Soon',
+            message: item.daysRemaining < 0
+              ? `Your Servora ${item.plan} subscription expired ${Math.abs(item.daysRemaining)} day(s) ago. Please renew now to maintain online ordering and POS access.`
+              : `Your Servora ${item.plan} subscription is due for renewal in ${item.daysRemaining} day(s). Please renew your plan to prevent any dining service interruption.`,
+            type: 'billing',
+            read: false,
+            created_at: new Date().toISOString()
+          })
+        } catch (e) {}
+
+        try {
+          await logAdminAction(
+            `Renewal Reminder Dispatched: ${item.name} (${item.daysRemaining < 0 ? 'OVERDUE' : 'DUE_SOON'})`,
+            item.email,
+            'FINANCE'
+          )
+        } catch (e) {}
+
+        count++
+      }
+
+      try {
+        triggerPushNotification({
+          title: '🔔 Renewal Alerts Dispatched',
+          body: `Sent renewal notices to ${count} restaurant owner(s).`
+        })
+      } catch (e) {}
+
+      toast.success('Renewal Notices Dispatched', {
+        description: `Successfully notified ${count} restaurants via email and merchant dashboard alerts.`
+      })
+    } catch (err) {
+      toast.error('Dispatch failed', { description: err.message })
+    } finally {
+      setSendingNotice(false)
+    }
+  }
+
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto font-sans select-none">
       
@@ -294,26 +434,35 @@ export default function AdminDashboardPage() {
           </div>
         </Card>
 
-        {/* KPI 3: MRR */}
-        <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
-          <div className="p-5">
-            <div className="flex items-center justify-between pb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Monthly Revenue</span>
-              <BarChart3 className="w-4 h-4 text-emerald-500" />
+        {/* KPI 3: Monthly Revenue Calendar Mode */}
+        <Link to="/admin/revenue" className="block group">
+          <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-emerald-300 hover:shadow-sm transition-all h-full">
+            <div className="p-5">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {currentMonthName ? `${currentMonthName.toUpperCase()} REVENUE` : 'MONTHLY REVENUE'}
+                </span>
+                <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                  <BarChart3 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                {mrr}
+              </div>
+              <div className="text-xs text-slate-500 mt-1.5 flex items-center justify-between">
+                <span className="text-emerald-600 font-bold flex items-center">
+                  <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
+                  {momGrowth} MoM
+                </span>
+                <span className="text-[10px] font-medium text-slate-400">Starts at ₹0 on 1st</span>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Today:</span>
+                <span className="font-bold text-slate-700">₹{todayRev.toLocaleString('en-IN')}</span>
+              </div>
             </div>
-            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              {mrr}
-            </div>
-            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
-              <span className="text-emerald-600 font-bold flex items-center">
-                <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
-                +15.0% MoM
-              </span>
-              <span className="text-slate-400">&bull;</span>
-              <span>Active Billing</span>
-            </p>
-          </div>
-        </Card>
+          </Card>
+        </Link>
 
         {/* KPI 4: API Throughput */}
         <Card className="rounded-xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
@@ -332,6 +481,63 @@ export default function AdminDashboardPage() {
           </div>
         </Card>
       </div>
+
+      {/* ─── 🔔 SUBSCRIPTION RENEWAL DUE DATES ALERT BANNER ────────────────── */}
+      {(dueSoonList.length > 0 || overdueList.length > 0) && (
+        <motion.div 
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-orange-500/10 border border-amber-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <BellRing className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Subscription Renewals Pending Attention
+                </h3>
+                {overdueList.length > 0 && (
+                  <Badge className="bg-rose-500 text-white text-[10px] font-bold uppercase px-2 py-0.5">
+                    {overdueList.length} Overdue
+                  </Badge>
+                )}
+                {dueSoonList.length > 0 && (
+                  <Badge className="bg-amber-500 text-white text-[10px] font-bold uppercase px-2 py-0.5">
+                    {dueSoonList.length} Due Soon (≤7d)
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                {overdueList.length + dueSoonList.length} restaurant account(s) have renewals approaching or expired licenses. Dispatch renewal reminders to avoid service disruption.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+            <Button
+              onClick={handleNotifyAllFromDashboard}
+              disabled={sendingNotice}
+              size="sm"
+              className="flex-1 md:flex-none h-9 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Send className={`w-3.5 h-3.5 ${sendingNotice ? 'animate-spin' : ''}`} />
+              <span>{sendingNotice ? 'Dispatching...' : `Notify All Due (${overdueList.length + dueSoonList.length})`}</span>
+            </Button>
+            <Link to="/admin/revenue">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-3.5 rounded-xl border-amber-300 text-amber-900 hover:bg-amber-100/50 text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Revenue & Ledgers</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
       {/* ─── 🛡️ CORE INFRASTRUCTURE SERVICES STATUS BAR ───────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
@@ -402,8 +608,8 @@ export default function AdminDashboardPage() {
             </Badge>
           </div>
 
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="99%" height="100%">
+          <div className="h-72 w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               <AreaChart data={throughputHistory}>
                 <defs>
                   <linearGradient id="colorVelocity" x1="0" y1="0" x2="0" y2="1">

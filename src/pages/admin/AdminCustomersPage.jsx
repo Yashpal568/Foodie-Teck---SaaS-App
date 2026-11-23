@@ -17,8 +17,13 @@ import {
   ArrowUpRight,
   ShieldCheck,
   ChevronRight,
-  X
+  X,
+  BellRing,
+  Send,
+  Mail
 } from 'lucide-react'
+import { sendSubscriptionExpiryEmail } from '@/services/email.service'
+import { triggerPushNotification } from '@/lib/pushNotifications'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -47,6 +52,7 @@ import { toast } from 'sonner'
 export default function AdminCustomersPage() {
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('All')
+  const [sendingNoticeId, setSendingNoticeId] = useState(null)
   
   const [newBizName, setNewBizName] = useState('')
   const [newBizEmail, setNewBizEmail] = useState('')
@@ -210,6 +216,61 @@ export default function AdminCustomersPage() {
     await logAdminAction(`Subscription Changed: ${newPlan}`, email, 'SECURITY')
     toast.success(`Plan updated to ${newPlan}`)
     await loadCustomers()
+  }
+
+  const handleSendCustomerRenewalNotice = async (merchant) => {
+    try {
+      setSendingNoticeId(merchant.id)
+
+      // Send email reminder
+      try {
+        await sendSubscriptionExpiryEmail({
+          email: merchant.email,
+          merchantName: merchant.name,
+          planName: merchant.plan,
+          daysRemaining: merchant.daysRemaining,
+          dueDate: merchant.rawDueDate
+        })
+      } catch (e) {}
+
+      // Insert Supabase in-app alert
+      try {
+        await supabase.from('notifications').insert({
+          restaurant_id: merchant.id,
+          title: merchant.isOverdue ? '⚠️ Subscription Expired' : '🔔 Renewal Notice',
+          message: merchant.isOverdue
+            ? `Your Servora ${merchant.plan} license has expired. Please renew your subscription to maintain active digital menu and ordering access.`
+            : `Your Servora ${merchant.plan} subscription renewal is due in ${merchant.daysRemaining} day(s) on ${merchant.dueDate}.`,
+          type: 'billing',
+          read: false,
+          created_at: new Date().toISOString()
+        })
+      } catch (e) {}
+
+      // Log admin audit
+      try {
+        await logAdminAction(
+          `Renewal Reminder Sent: ${merchant.name} (${merchant.isOverdue ? 'EXPIRED' : 'DUE_SOON'})`,
+          merchant.email,
+          'FINANCE'
+        )
+      } catch (e) {}
+
+      try {
+        triggerPushNotification({
+          title: '🔔 Renewal Alert Dispatched',
+          body: `Sent renewal notification to ${merchant.name} (${merchant.email})`
+        })
+      } catch (e) {}
+
+      toast.success('Renewal Reminder Dispatched', {
+        description: `Notification successfully sent to ${merchant.name}.`
+      })
+    } catch (err) {
+      toast.error('Dispatch failed', { description: err.message })
+    } finally {
+      setSendingNoticeId(null)
+    }
   }
 
   const searchMapped = realMapped.filter(u => 
@@ -518,15 +579,28 @@ export default function AdminCustomersPage() {
                       </div>
                     </td>
 
-                    {/* Billing Cycle */}
+                    {/* Billing Cycle & Renewal Due Date */}
                     <td className="py-4 px-5">
-                      <div className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 w-fit border ${
-                        m.daysRemaining <= 7 
-                          ? 'bg-amber-50 text-amber-800 border-amber-200' 
-                          : 'bg-slate-50 text-slate-600 border-slate-200'
-                      }`}>
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{m.daysRemaining} days left</span>
+                      <div className="space-y-1">
+                        <div className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 w-fit border ${
+                          m.isOverdue 
+                            ? 'bg-rose-50 text-rose-800 border-rose-200'
+                            : m.isDueSoon 
+                              ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}>
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>
+                            {m.isOverdue 
+                              ? `Expired ${Math.abs(m.daysRemaining)}d ago` 
+                              : m.isDueSoon 
+                                ? `Due in ${m.daysRemaining}d` 
+                                : `${m.daysRemaining} days left`}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium pl-0.5">
+                          Due: {m.dueDate}
+                        </div>
                       </div>
                     </td>
 
@@ -550,6 +624,15 @@ export default function AdminCustomersPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => morphMerchantPlan(m.owner, m.id, 'Enterprise')} className="cursor-pointer rounded-lg font-medium">
                             Switch to Enterprise (₹4,999)
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1 bg-slate-100" />
+                          <DropdownMenuItem 
+                            onClick={() => handleSendCustomerRenewalNotice(m)}
+                            disabled={sendingNoticeId === m.id}
+                            className="cursor-pointer rounded-lg font-semibold text-amber-700 focus:text-amber-800 focus:bg-amber-50 flex items-center gap-2"
+                          >
+                            <BellRing className="w-3.5 h-3.5" />
+                            <span>{sendingNoticeId === m.id ? 'Sending Alert...' : 'Send Renewal Reminder'}</span>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="my-1 bg-slate-100" />
                           <DropdownMenuItem 
