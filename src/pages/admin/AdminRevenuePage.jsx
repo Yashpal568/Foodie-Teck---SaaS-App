@@ -984,7 +984,7 @@ export default function AdminRevenuePage() {
           </div>
           
           <div className="h-72 w-full min-w-0" style={{ height: 288, minHeight: 288, minWidth: 0 }}>
-            <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={200}>
+            <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={200} debounce={50}>
               {calendarMode === 'MONTHLY' ? (
                 <AreaChart data={metrics.history}>
                   <defs>
@@ -1057,7 +1057,7 @@ export default function AdminRevenuePage() {
           </div>
 
           <div className="h-52 w-full min-w-0 relative flex items-center justify-center" style={{ height: 208, minHeight: 208, minWidth: 0 }}>
-            <ResponsiveContainer width="100%" height={200} minWidth={0} minHeight={180}>
+            <ResponsiveContainer width="100%" height={200} minWidth={0} minHeight={180} debounce={50}>
               <PieChart>
                 <Pie
                   data={metrics.planDistribution}

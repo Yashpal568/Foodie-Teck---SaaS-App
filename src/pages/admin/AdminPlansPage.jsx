@@ -110,30 +110,47 @@ export default function AdminPlansPage() {
         ])
 
         const activeRests = (rests || []).filter(r => r.status !== 'Suspended')
-        setActiveMerchantsCount(activeRests.length || 9)
+        setActiveMerchantsCount(activeRests.length)
 
-        const activeSubs = (subs || []).filter(s => !['Cancelled', 'CANCELLED', 'cancelled', 'Rejected'].includes(s.status))
+        const nowTime = Date.now()
+        // Truly active subscriptions are:
+        // 1. Not cancelled or rejected
+        // 2. Status is Active or Approved (not EXPIRED)
+        // 3. end_date is in the FUTURE (end_date > now)
+        const trulyActiveSubs = (subs || []).filter(s => {
+          const isStatusActive = s.status === 'Active' || s.status === 'Approved'
+          const notCancelled = !['Cancelled', 'CANCELLED', 'cancelled', 'Rejected', 'EXPIRED', 'Expired'].includes(s.status)
+          const isUnexpired = s.end_date ? new Date(s.end_date).getTime() > nowTime : false
+          return isStatusActive && notCancelled && isUnexpired
+        })
+
+        // Expired subscriptions awaiting renewal
+        const expiredSubs = (subs || []).filter(s => {
+          if (['Cancelled', 'CANCELLED', 'cancelled', 'Rejected'].includes(s.status)) return false
+          return !s.end_date || new Date(s.end_date).getTime() <= nowTime || s.status === 'EXPIRED' || s.status === 'Expired'
+        })
+
         const metrics = {}
 
         activePlans.forEach(p => {
-          let matchingSubs = activeSubs.filter(s => 
-            (s.plan_name || '').toUpperCase() === p.name.toUpperCase() ||
-            (activePlans.length === 1 && (
-              (s.plan_name || '').toUpperCase().includes('UNLIMITED') ||
-              (s.plan_name || '').toUpperCase().includes('ALL-IN-ONE')
-            ))
+          // Strictly match unexpired active subscribers to this plan
+          const matchingActive = trulyActiveSubs.filter(s => 
+            (s.plan_name || '').trim().toUpperCase() === p.name.trim().toUpperCase()
           )
-          
-          if (activePlans.length === 1 || (activePlans[0].id === p.id && matchingSubs.length === 0)) {
-            matchingSubs = activeSubs.length > 0 ? activeSubs : (activeRests.length > 0 ? activeRests : [])
-          }
 
-          const count = matchingSubs.length
-          const mrr = matchingSubs.reduce((acc, sub) => acc + parseInt(sub.price || p.price || 2100), 0)
+          // Expired subscribers awaiting renewal for this tier
+          const matchingExpired = expiredSubs.filter(s => 
+            (s.plan_name || '').trim().toUpperCase() === p.name.trim().toUpperCase() ||
+            (activePlans.length === 1)
+          )
+
+          const activeCount = matchingActive.length
+          const activeMRR = matchingActive.reduce((acc, sub) => acc + parseInt(sub.price || 0), 0)
 
           metrics[p.id] = { 
-            subscribers: count, 
-            mrr: mrr > 0 ? mrr : (count * p.price) 
+            subscribers: activeCount, 
+            mrr: activeMRR,
+            expiredCount: matchingExpired.length
           }
         })
         setLiveMetrics(metrics)
@@ -160,8 +177,9 @@ export default function AdminPlansPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const totalMRR = Object.values(liveMetrics).reduce((a, m) => a + (m.mrr || 0), 0) || 16492
-  const totalSubs = activeMerchantsCount || Object.values(liveMetrics).reduce((a, m) => a + (m.subscribers || 0), 0) || 9
+  const totalMRR = Object.values(liveMetrics).reduce((a, m) => a + (m.mrr || 0), 0)
+  const totalActiveSubs = Object.values(liveMetrics).reduce((a, m) => a + (m.subscribers || 0), 0)
+  const totalExpiredSubs = Object.values(liveMetrics).reduce((a, m) => a + (m.expiredCount || 0), 0)
 
   const openNewPlan = () => {
     setEditMode(false)
@@ -379,12 +397,12 @@ export default function AdminPlansPage() {
 
       {/* ─── 📊 SHADCN STUDIO KPI BENTO MATRIX ──────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Total Subscribers */}
+        {/* Metric 1: Total Active Subscribers */}
         <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
           <div className="p-5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Merchant Subscribers
+                Active Subscribers
               </span>
               <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Store className="w-4 h-4" />
@@ -392,13 +410,13 @@ export default function AdminPlansPage() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black text-slate-900 tracking-tight">
-                {totalSubs}
+                {totalActiveSubs}
               </span>
               <span className="text-xs font-bold text-slate-400">active stores</span>
             </div>
-            <p className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5 pt-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Live Onboarded Merchants</span>
+            <p className="text-[11px] font-medium text-amber-600 flex items-center gap-1.5 pt-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span>{totalExpiredSubs > 0 ? `${totalExpiredSubs} Expired (Awaiting Renewal)` : `${activeMerchantsCount} Stores Provisioned`}</span>
             </p>
           </div>
         </Card>
@@ -419,9 +437,9 @@ export default function AdminPlansPage() {
                 ₹{totalMRR.toLocaleString('en-IN')}
               </span>
             </div>
-            <p className="text-[11px] font-medium text-emerald-600 flex items-center gap-1 pt-1 font-semibold">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>Active Billing Run-Rate</span>
+            <p className="text-[11px] font-medium text-slate-500 flex items-center gap-1 pt-1 font-semibold">
+              <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+              <span>{totalActiveSubs === 0 ? 'Awaiting renewals to accrue yield' : 'Active Billing Run-Rate'}</span>
             </p>
           </div>
         </Card>
@@ -497,7 +515,11 @@ export default function AdminPlansPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+        <div className={`grid gap-6 items-stretch ${
+          plans.length === 1 
+            ? 'grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto' 
+            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+        }`}>
           <AnimatePresence>
             {plans.map((p, idx) => {
               const metrics = liveMetrics[p.id] || { subscribers: 0, mrr: 0 }
@@ -585,10 +607,18 @@ export default function AdminPlansPage() {
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                           <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Subscribers</span>
                           <p className="text-base font-black text-slate-900 mt-0.5">{metrics.subscribers} Stores</p>
+                          {metrics.expiredCount > 0 && (
+                            <span className="text-[9px] font-bold text-amber-600 block mt-0.5">
+                              {metrics.expiredCount} Expired / Due
+                            </span>
+                          )}
                         </div>
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                           <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Live Yield</span>
                           <p className="text-base font-black text-indigo-600 mt-0.5">₹{metrics.mrr.toLocaleString('en-IN')}</p>
+                          <span className="text-[9px] font-semibold text-slate-400 block mt-0.5">
+                            {metrics.subscribers === 0 ? '₹0 Active MRR' : `${metrics.subscribers} Paid`}
+                          </span>
                         </div>
                       </div>
 
