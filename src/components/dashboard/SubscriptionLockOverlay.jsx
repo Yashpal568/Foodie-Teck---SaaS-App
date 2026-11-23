@@ -43,6 +43,7 @@ import { toast } from 'sonner'
 import Logo, { LogoIcon } from '../ui/Logo'
 import UPIPaymentModal from './UPIPaymentModal'
 import { supabase } from '@/lib/supabase'
+import { parsePlanCycle } from '@/utils/planCycles'
 
 const availablePlans = [
   {
@@ -91,11 +92,51 @@ export default function SubscriptionLockOverlay({
   
   // View mode state: 'WAITING_WINDOW' vs 'SELECT_PLAN'
   const [viewMode, setViewMode] = useState(pendingApproval ? 'WAITING_WINDOW' : 'SELECT_PLAN')
+  const [plans, setPlans] = useState(availablePlans)
 
   // Selected Plan state (Defaults to All-in-One Unlimited)
   const [selectedPlan, setSelectedPlan] = useState(() => {
     return availablePlans[0]
   })
+
+  // Dynamically load active plans from Supabase
+  useEffect(() => {
+    async function loadDynamicPlans() {
+      try {
+        const { data } = await supabase.from('subscription_plans').select('*').order('price', { ascending: true })
+        if (data && data.length > 0) {
+          const mapped = data.map(p => {
+            const parsed = parsePlanCycle(p)
+            return {
+              id: p.id,
+              name: p.name,
+              price: parseInt(p.price || 2100),
+              durationDays: parsed.durationDays,
+              cycleId: parsed.cycleId,
+              cycle: parsed.cycle,
+              unitText: parsed.unitText,
+              monthlyEquivalent: parsed.monthlyEquivalent,
+              tableLimit: p.table_limit || 9999,
+              desc: parsed.cleanDescription || 'Full restaurant operating system.',
+              features: p.features || availablePlans[0].features,
+              highlights: [`⚡ ${parsed.durationDays} Days Full Access`, `🚀 ₹${parsed.monthlyEquivalent}/mo Effective`, '💎 Unlimited Tables & Menu'],
+              popular: p.popular || false,
+              icon: Rocket,
+              color: 'indigo',
+              tag: parsed.cycle.label,
+              badgeStyle: parsed.cycle.badgeColor
+            }
+          })
+          setPlans(mapped)
+          const def = mapped.find(p => p.popular) || mapped[0]
+          setSelectedPlan(def)
+        }
+      } catch (e) {
+        console.warn('Could not load dynamic plans for lock overlay:', e)
+      }
+    }
+    loadDynamicPlans()
+  }, [])
 
   const upiId = 'yash38687-1@oksbi'
 
@@ -572,19 +613,25 @@ export default function SubscriptionLockOverlay({
               <div className="text-center space-y-3 max-w-2xl mx-auto">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-rose-50 border border-rose-200/80 text-rose-700 text-[10px] font-bold uppercase tracking-wider shadow-2xs">
                   <Lock className="w-3 h-3 text-rose-600" />
-                  <span>3-Month Subscription Expired • Dashboard Locked</span>
+                  <span>Subscription Expired • Dashboard Locked</span>
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-                  Renew Your 3-Month Access
+                  Renew Your Restaurant Access
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                  Your 3-month subscription cycle for <span className="font-semibold text-slate-800">{merchantName || 'your restaurant'}</span> has expired. Renew below for ₹2,100 to restore full digital dining, POS, QR ordering, and kitchen display operations.
+                  Your access cycle for <span className="font-semibold text-slate-800">{merchantName || 'your restaurant'}</span> has expired. Choose a renewal plan below to restore full digital dining, POS, QR ordering, and kitchen display operations.
                 </p>
               </div>
 
-              {/* 3-Month Plan Card */}
-              <div className="max-w-xl mx-auto text-left w-full pt-4">
-                {availablePlans.map((plan) => {
+              {/* Dynamic Subscription Plan Cards */}
+              <div className={`mx-auto text-left w-full pt-4 ${
+                plans.length === 1 
+                  ? 'max-w-xl' 
+                  : plans.length === 2 
+                    ? 'max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6' 
+                    : 'max-w-6xl grid grid-cols-1 md:grid-cols-3 gap-6'
+              }`}>
+                {plans.map((plan) => {
                   const isSelected = selectedPlan?.id === plan.id || selectedPlan?.name?.toLowerCase() === plan.name.toLowerCase()
                   const isFeatured = plan.popular
                   const Icon = plan.icon || Rocket
@@ -597,13 +644,19 @@ export default function SubscriptionLockOverlay({
                       onClick={() => {
                         setSelectedPlan(plan)
                       }}
-                      className="rounded-3xl border transition-all duration-200 flex flex-col justify-between cursor-pointer relative bg-white/95 backdrop-blur-xl group p-8 lg:py-10 border-2 border-indigo-600 ring-4 ring-indigo-500/20 shadow-2xl shadow-indigo-500/25 z-10"
+                      className={`rounded-3xl border transition-all duration-200 flex flex-col justify-between cursor-pointer relative bg-white/95 backdrop-blur-xl group p-8 lg:py-10 z-10 ${
+                        isSelected 
+                          ? 'border-2 border-indigo-600 ring-4 ring-indigo-500/20 shadow-2xl shadow-indigo-500/25' 
+                          : 'border border-slate-200 hover:border-slate-300 shadow-sm'
+                      }`}
                     >
                       {/* Featured Center Card Top Floating Ribbon */}
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-linear-to-r from-indigo-600 via-blue-600 to-indigo-600 text-white font-extrabold text-[10px] rounded-full uppercase tracking-wider shadow-md shadow-indigo-500/30 flex items-center gap-1.5">
-                        <Flame className="w-3.5 h-3.5 fill-current text-amber-300" />
-                        <span>FOUNDER LAUNCH OFFER &bull; BEST VALUE</span>
-                      </div>
+                      {isFeatured && (
+                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-linear-to-r from-indigo-600 via-blue-600 to-indigo-600 text-white font-extrabold text-[10px] rounded-full uppercase tracking-wider shadow-md shadow-indigo-500/30 flex items-center gap-1.5 whitespace-nowrap">
+                          <Flame className="w-3.5 h-3.5 fill-current text-amber-300" />
+                          <span>MOST POPULAR &bull; BEST VALUE</span>
+                        </div>
+                      )}
 
                       <div className="space-y-5">
                         {/* Plan Header */}
@@ -616,13 +669,17 @@ export default function SubscriptionLockOverlay({
                               <h3 className="text-base sm:text-lg font-extrabold text-slate-950">
                                 {plan.name}
                               </h3>
-                              <Badge variant="outline" className={`text-[9px] font-bold tracking-wider px-2.5 py-0.5 mt-0.5 ${plan.badgeStyle}`}>
-                                {plan.tag}
+                              <Badge variant="outline" className={`text-[9px] font-bold tracking-wider px-2.5 py-0.5 mt-0.5 ${plan.badgeStyle || 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                                {plan.tag || 'Unlimited Access'}
                               </Badge>
                             </div>
                           </div>
                           
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center border transition-all bg-indigo-600 border-indigo-600 text-white scale-110 shadow-xs">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${
+                            isSelected 
+                              ? 'bg-indigo-600 border-indigo-600 text-white scale-110 shadow-xs' 
+                              : 'bg-slate-100 border-slate-300 text-transparent'
+                          }`}>
                             <Check className="w-3.5 h-3.5 stroke-[3px]" />
                           </div>
                         </div>
@@ -634,14 +691,18 @@ export default function SubscriptionLockOverlay({
                             <span className="font-black tracking-tight text-4xl sm:text-5xl text-indigo-950">
                               {plan.price.toLocaleString('en-IN')}
                             </span>
-                            <span className="text-xs font-semibold text-slate-500">/ 3 Months</span>
+                            <span className="text-xs font-semibold text-slate-500">
+                              {plan.unitText || '/ 3 Months'}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5">₹700 / month effective &bull; 90 Days Full Unlimited Access</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            ₹{plan.monthlyEquivalent || Math.round(plan.price / Math.max(1, (plan.durationDays || 90) / 30))}/mo effective &bull; {plan.durationDays || 90} Days Unlimited Access
+                          </p>
                         </div>
 
                         {/* Highlight Tag Strip */}
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                          {plan.highlights.map((h, i) => (
+                          {plan.highlights?.map((h, i) => (
                             <span 
                               key={i} 
                               className="text-[10px] font-bold px-2.5 py-0.5 rounded-md border transition-colors bg-indigo-50 border-indigo-200 text-indigo-900"
@@ -658,7 +719,7 @@ export default function SubscriptionLockOverlay({
 
                         {/* Features with Hover Transition */}
                         <div className="space-y-2.5 pt-1">
-                          {plan.features.map((f, fi) => (
+                          {plan.features?.map((f, fi) => (
                             <div 
                               key={fi} 
                               className="flex items-center gap-2 text-xs font-medium text-slate-700 group/item hover:translate-x-1 transition-transform"
@@ -684,7 +745,7 @@ export default function SubscriptionLockOverlay({
                           className="w-full rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 h-12 bg-linear-to-r from-indigo-600 via-blue-600 to-indigo-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg shadow-indigo-600/30"
                         >
                           <QrCode className="w-4 h-4" />
-                          <span>Pay ₹{plan.price.toLocaleString('en-IN')} & Renew 3 Months</span>
+                          <span>Pay ₹{plan.price.toLocaleString('en-IN')} & Renew</span>
                         </Button>
                       </div>
                     </motion.div>

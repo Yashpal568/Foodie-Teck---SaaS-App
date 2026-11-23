@@ -189,16 +189,24 @@ export default function AdminCustomersPage() {
     toast.success(newStatus === 'Active' ? 'Merchant Activated' : 'Merchant Suspended')
   }
 
-  const morphMerchantPlan = async (email, id, newPlan = 'All-in-One Unlimited') => {
+  const morphMerchantPlan = async (email, id, newPlan = 'All-in-One Unlimited', days = 90, price = 2100) => {
+    let grantDays = days
+    if (!days || days === 90) {
+      const lower = newPlan.toLowerCase()
+      if (lower.includes('month') && !lower.includes('3') && !lower.includes('6')) grantDays = 30
+      else if (lower.includes('year') || lower.includes('annual')) grantDays = 365
+      else if (lower.includes('6 month') || lower.includes('semi')) grantDays = 180
+      else grantDays = 90
+    }
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 90)
+    expiresAt.setDate(expiresAt.getDate() + grantDays)
 
     const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('restaurant_id', id)
     if (existingSub && existingSub.length > 0) {
       await supabase.from('subscriptions').update({
         plan_name: newPlan,
         status: 'Active',
-        price: 2100,
+        price: price,
         start_date: new Date().toISOString(),
         end_date: expiresAt.toISOString()
       }).eq('restaurant_id', id)
@@ -207,14 +215,14 @@ export default function AdminCustomersPage() {
         restaurant_id: id,
         plan_name: newPlan,
         status: 'Active',
-        price: 2100,
+        price: price,
         start_date: new Date().toISOString(),
         end_date: expiresAt.toISOString()
       })
     }
     
     await logAdminAction(`Subscription Changed: ${newPlan}`, email, 'SECURITY')
-    toast.success(`Plan updated to ${newPlan}`)
+    toast.success(`Plan updated to ${newPlan} (${grantDays} days)`)
     await loadCustomers()
   }
 

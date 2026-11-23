@@ -238,7 +238,19 @@ export const recordPendingPayment = async (paymentObj) => {
 
 export const approveMerchantPayment = async (item) => {
   const now = new Date()
-  const daysToGrant = item.daysToGrant || 90
+  let daysToGrant = item.daysToGrant
+  if (!daysToGrant) {
+    const pName = (item.plan || item.planName || '').toLowerCase()
+    if (pName.includes('month') && !pName.includes('3') && !pName.includes('6')) {
+      daysToGrant = 30
+    } else if (pName.includes('year') || pName.includes('annual')) {
+      daysToGrant = 365
+    } else if (pName.includes('6 month') || pName.includes('semi')) {
+      daysToGrant = 180
+    } else {
+      daysToGrant = 90
+    }
+  }
   const endDate = new Date(now.getTime() + daysToGrant * 24 * 60 * 60 * 1000).toISOString()
 
   try {

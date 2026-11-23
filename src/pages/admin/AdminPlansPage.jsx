@@ -6,7 +6,7 @@ import {
   ArrowUpRight, Sparkles, Package, X, Save, Layers, Lock, 
   IndianRupee, Store, FileCheck, ExternalLink, RefreshCw,
   QrCode, UtensilsCrossed, ChefHat, Receipt, AlertCircle,
-  Clock, ShieldCheck
+  Clock, ShieldCheck, Calendar
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,7 @@ import {
 import { supabase, ensureAdminSession } from '@/lib/adminSupabase'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
+import { BILLING_CYCLES, parsePlanCycle, encodePlanDescription } from '@/utils/planCycles'
 
 const defaultPlans = [
   { 
@@ -29,6 +30,7 @@ const defaultPlans = [
     name: "All-in-One Unlimited", 
     price: 2100, 
     durationDays: 90,
+    cycleId: '3_MONTHS',
     tableLimit: 9999, 
     menuItemLimit: 9999,
     color: "indigo", 
@@ -54,11 +56,17 @@ export default function AdminPlansPage() {
   const [liveMetrics, setLiveMetrics] = useState({})
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
+  
+  // Plan form fields
   const [planId, setPlanId] = useState('')
   const [planName, setPlanName] = useState('')
-  const [planPrice, setPlanPrice] = useState('')
-  const [planLimit, setPlanLimit] = useState('')
+  const [planPrice, setPlanPrice] = useState('2100')
+  const [billingCycle, setBillingCycle] = useState('3_MONTHS')
+  const [durationDays, setDurationDays] = useState(90)
+  const [planLimit, setPlanLimit] = useState('9999')
   const [planDesc, setPlanDesc] = useState('')
+  const [isPopular, setIsPopular] = useState(false)
+  
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [activeMerchantsCount, setActiveMerchantsCount] = useState(0)
@@ -68,20 +76,27 @@ export default function AdminPlansPage() {
       setLoading(true)
       let activePlans = defaultPlans
       try {
-        const { data: dbPlans } = await supabase.from('subscription_plans').select('*')
+        const { data: dbPlans } = await supabase.from('subscription_plans').select('*').order('created_at', { ascending: true })
         if (dbPlans && dbPlans.length > 0) {
-          activePlans = dbPlans.map(p => ({
-            id: p.id || `PLN-${p.name}`,
-            name: p.name,
-            price: parseInt(p.price || 2100),
-            durationDays: parseInt(p.duration_days || 90),
-            tableLimit: parseInt(p.table_limit || p.tableLimit || 9999),
-            menuItemLimit: parseInt(p.menu_item_limit || 9999),
-            color: p.color || 'indigo',
-            popular: p.popular !== undefined ? p.popular : true,
-            desc: p.description || p.desc || 'Complete feature access for venues.',
-            features: p.features || defaultPlans[0].features
-          }))
+          activePlans = dbPlans.map(p => {
+            const parsed = parsePlanCycle(p)
+            return {
+              id: p.id || `PLN-${p.name}`,
+              name: p.name,
+              price: parseInt(p.price || 2100),
+              durationDays: parsed.durationDays,
+              cycleId: parsed.cycleId,
+              cycle: parsed.cycle,
+              unitText: parsed.unitText,
+              monthlyEquivalent: parsed.monthlyEquivalent,
+              tableLimit: parseInt(p.table_limit || p.tableLimit || 9999),
+              menuItemLimit: 9999,
+              color: p.color || 'indigo',
+              popular: p.popular !== undefined ? p.popular : true,
+              desc: parsed.cleanDescription || 'Complete feature access for venues.',
+              features: p.features || defaultPlans[0].features
+            }
+          })
         }
       } catch (err) {
         console.warn('Using default plans:', err)
@@ -103,21 +118,22 @@ export default function AdminPlansPage() {
         activePlans.forEach(p => {
           let matchingSubs = activeSubs.filter(s => 
             (s.plan_name || '').toUpperCase() === p.name.toUpperCase() ||
-            (s.plan_name || '').toUpperCase().includes('UNLIMITED') ||
-            (s.plan_name || '').toUpperCase().includes('ALL-IN-ONE')
+            (activePlans.length === 1 && (
+              (s.plan_name || '').toUpperCase().includes('UNLIMITED') ||
+              (s.plan_name || '').toUpperCase().includes('ALL-IN-ONE')
+            ))
           )
           
-          // If only 1 plan is active, all active stores belong to this flagship tier
-          if (activePlans.length === 1 || matchingSubs.length === 0) {
+          if (activePlans.length === 1 || (activePlans[0].id === p.id && matchingSubs.length === 0)) {
             matchingSubs = activeSubs.length > 0 ? activeSubs : (activeRests.length > 0 ? activeRests : [])
           }
 
-          const count = matchingSubs.length || activeRests.length || 8
-          const mrr = activeSubs.reduce((acc, sub) => acc + parseInt(sub.price || p.price || 2100), 0) || (count * 2100)
+          const count = matchingSubs.length
+          const mrr = matchingSubs.reduce((acc, sub) => acc + parseInt(sub.price || p.price || 2100), 0)
 
           metrics[p.id] = { 
             subscribers: count, 
-            mrr: mrr > 0 ? mrr : (count * 2100) 
+            mrr: mrr > 0 ? mrr : (count * p.price) 
           }
         })
         setLiveMetrics(metrics)
@@ -136,6 +152,7 @@ export default function AdminPlansPage() {
 
     const channel = supabase
       .channel('public:admin_plans_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, fetchPlansAndMetrics)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions' }, fetchPlansAndMetrics)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, fetchPlansAndMetrics)
       .subscribe()
@@ -150,10 +167,60 @@ export default function AdminPlansPage() {
     setEditMode(false)
     setPlanId(`PLN-${Date.now().toString().slice(-4)}`)
     setPlanName('')
+    setBillingCycle('3_MONTHS')
+    setDurationDays(90)
     setPlanPrice('2100')
     setPlanLimit('9999')
-    setPlanDesc('')
+    setPlanDesc('Complete operating system with unlimited tables, QR menus, and 0% commission direct ordering.')
+    setIsPopular(plans.length === 0)
     setDialogOpen(true)
+  }
+
+  const applyPreset = (presetKey) => {
+    switch (presetKey) {
+      case 'MONTHLY':
+        setBillingCycle('MONTHLY')
+        setDurationDays(30)
+        setPlanName('All-in-One Monthly')
+        setPlanPrice('799')
+        setPlanLimit('9999')
+        setPlanDesc('Monthly recurring access for agile restaurants with unlimited tables and menu items.')
+        break
+      case '3_MONTHS':
+        setBillingCycle('3_MONTHS')
+        setDurationDays(90)
+        setPlanName('All-in-One Unlimited (Quarterly)')
+        setPlanPrice('2100')
+        setPlanLimit('9999')
+        setPlanDesc('Complete 3-month operating system with unlimited dining tables, unlimited menu items, and 0% commission.')
+        break
+      case '6_MONTHS':
+        setBillingCycle('6_MONTHS')
+        setDurationDays(180)
+        setPlanName('All-in-One Growth (6 Months)')
+        setPlanPrice('3900')
+        setPlanLimit('9999')
+        setPlanDesc('6-month high-growth package with priority setup, live kitchen KDS, and WhatsApp marketing.')
+        break
+      case 'ANNUALLY':
+        setBillingCycle('ANNUALLY')
+        setDurationDays(365)
+        setPlanName('All-in-One Enterprise (Annual)')
+        setPlanPrice('6999')
+        setPlanLimit('9999')
+        setPlanDesc('Full 1-year comprehensive license with dedicated operational support and custom branding.')
+        break
+      default:
+        break
+    }
+  }
+
+  const handleCycleChange = (cycleKey) => {
+    setBillingCycle(cycleKey)
+    const meta = BILLING_CYCLES[cycleKey]
+    if (meta && cycleKey !== 'CUSTOM') {
+      setDurationDays(meta.durationDays)
+    }
   }
 
   const openModifyPlan = (p) => {
@@ -161,8 +228,11 @@ export default function AdminPlansPage() {
     setPlanId(p.id)
     setPlanName(p.name)
     setPlanPrice(p.price)
+    setBillingCycle(p.cycleId || '3_MONTHS')
+    setDurationDays(p.durationDays || 90)
     setPlanLimit(p.tableLimit)
     setPlanDesc(p.desc || '')
+    setIsPopular(Boolean(p.popular))
     setDialogOpen(true)
   }
 
@@ -183,36 +253,50 @@ export default function AdminPlansPage() {
 
   const handleSave = async () => {
     if (!planName || !planPrice || !planLimit) {
-      toast.error('Missing Required Fields', { description: 'Please fill in Name, 3-Month Price, and Table Limit.' })
+      toast.error('Missing Required Fields', { description: 'Please fill in Name, Price, and Table Limit.' })
       return
     }
-    let updated = [...plans]
+
+    const priceNum = parseInt(planPrice)
+    const durationNum = parseInt(durationDays) || 90
+    const encodedDescription = encodePlanDescription(planDesc, billingCycle, durationNum)
+
+    const cycleMeta = BILLING_CYCLES[billingCycle] || BILLING_CYCLES['3_MONTHS']
     const newObj = {
       id: planId,
       name: planName,
-      price: parseInt(planPrice),
-      durationDays: 90,
+      price: priceNum,
+      durationDays: durationNum,
+      cycleId: billingCycle,
+      cycle: cycleMeta,
+      unitText: cycleMeta.unitText,
+      monthlyEquivalent: Math.round(priceNum / Math.max(1, durationNum / 30)),
       tableLimit: parseInt(planLimit),
       menuItemLimit: 9999,
-      color: editMode ? updated.find(p => p.id === planId)?.color || 'indigo' : 'indigo',
-      desc: planDesc || 'Complete 3-month operating system with unlimited tables and menu items.',
-      popular: editMode ? updated.find(p => p.id === planId)?.popular || false : true,
-      features: editMode ? updated.find(p => p.id === planId)?.features || defaultPlans[0].features : defaultPlans[0].features
+      color: 'indigo',
+      desc: planDesc || 'Complete operating system with unlimited tables and menu items.',
+      popular: isPopular,
+      features: defaultPlans[0].features
     }
-    if (editMode) updated = updated.map(p => p.id === planId ? { ...p, ...newObj } : p)
-    else updated.push(newObj)
+
+    let updated = [...plans]
+    if (editMode) {
+      updated = updated.map(p => p.id === planId ? { ...p, ...newObj } : p)
+    } else {
+      updated.push(newObj)
+    }
     setPlans(updated)
 
     try {
       await supabase.from('subscription_plans').upsert({
         id: planId,
         name: planName,
-        price: parseInt(planPrice),
+        price: priceNum,
         table_limit: parseInt(planLimit),
-        description: planDesc,
+        description: encodedDescription,
         features: newObj.features,
         color: newObj.color,
-        popular: newObj.popular
+        popular: isPopular
       })
     } catch (err) {
       console.warn('Supabase plan save fallback:', err)
@@ -220,12 +304,12 @@ export default function AdminPlansPage() {
 
     setDialogOpen(false)
     toast.success(editMode ? 'Tier Architecture Updated' : 'New Subscription Tier Provisioned', {
-      description: `${planName} (₹${planPrice} / 3 Months) saved globally.`
+      description: `${planName} (₹${priceNum} ${cycleMeta.unitText}) saved globally.`
     })
   }
 
-  const flagshipPlan = plans[0] || defaultPlans[0]
-  const flagshipMetrics = liveMetrics[flagshipPlan.id] || { subscribers: totalSubs, mrr: totalMRR }
+  const activeCycleMeta = BILLING_CYCLES[billingCycle] || BILLING_CYCLES['3_MONTHS']
+  const effectiveMonthly = Math.round((parseInt(planPrice) || 0) / Math.max(1, durationDays / 30))
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-8 max-w-7xl mx-auto font-sans select-none">
@@ -240,14 +324,14 @@ export default function AdminPlansPage() {
             <span className="text-slate-300">•</span>
             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 px-2.5 py-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Plan Engine Active
+              Multi-Cadence Plan Engine Active
             </Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Subscription Plans & Pricing Architecture
           </h1>
           <p className="text-xs sm:text-sm font-medium text-slate-500 max-w-2xl">
-            Configure SaaS commercial pricing tiers, customize 90-day subscription cycles, and monitor live merchant plan adoption.
+            Configure SaaS commercial pricing tiers across Monthly, 3-Month, 6-Month, and Annual cycles. Changes sync in real-time to public checkout and merchant dashboard locks.
           </p>
         </div>
 
@@ -314,7 +398,7 @@ export default function AdminPlansPage() {
             </div>
             <p className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5 pt-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>100% on All-in-One Unlimited</span>
+              <span>Live Onboarded Merchants</span>
             </p>
           </div>
         </Card>
@@ -342,31 +426,30 @@ export default function AdminPlansPage() {
           </div>
         </Card>
 
-        {/* Metric 3: Standard Contract ACV */}
+        {/* Metric 3: Active Cadence Diversity */}
         <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
           <div className="p-5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Contract Unit Value
+                Billing Cycles Supported
               </span>
               <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4" />
+                <Calendar className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 tracking-tight">
-                ₹2,100
+              <span className="text-2xl font-black text-slate-900 tracking-tight">
+                4 Cycles
               </span>
-              <span className="text-xs font-bold text-slate-400">/ 3 Months</span>
             </div>
             <p className="text-[11px] font-medium text-indigo-600 flex items-center gap-1 pt-1 font-semibold">
               <Sparkles className="w-3 h-3" />
-              <span>Effective ₹700 / mo per venue</span>
+              <span>1mo &bull; 3mo &bull; 6mo &bull; Annual</span>
             </p>
           </div>
         </Card>
 
-        {/* Metric 4: Active Tiers */}
+        {/* Metric 4: Active Tiers Deployed */}
         <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all">
           <div className="p-5 space-y-2">
             <div className="flex items-center justify-between">
@@ -385,321 +468,362 @@ export default function AdminPlansPage() {
             </div>
             <p className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5 pt-1">
               <Check className="w-3 h-3 text-emerald-600 stroke-[3px]" />
-              <span>Single Launch Focus Active</span>
+              <span>Configured & Synced</span>
             </p>
           </div>
         </Card>
       </div>
 
-      {/* ─── 🚀 FLAGSHIP PLAN SPOTLIGHT & ARCHITECTURE SHOWCASE ────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* LEFT: Flagship Hero Tier Showcase (lg:col-span-8) */}
-        <div className="lg:col-span-8 space-y-6">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+      {/* ─── 📦 MULTI-CYCLE SUBSCRIPTION PLANS GRID ─────────────────── */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 tracking-tight">
+              Configured Commercial Plans ({plans.length})
+            </h2>
+            <p className="text-xs text-slate-500">
+              Each plan automatically calculates merchant license expiry upon payment verification based on its cycle days.
+            </p>
+          </div>
+
+          <Button 
+            onClick={openNewPlan}
+            size="sm"
+            variant="outline"
+            className="h-8.5 px-3 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold cursor-pointer flex items-center gap-1.5"
           >
-            <Card className="rounded-3xl bg-white border-2 border-indigo-500/80 ring-4 ring-indigo-500/10 shadow-xl shadow-indigo-500/10 relative overflow-hidden">
-              
-              {/* Premium Floating Header Banner */}
-              <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-600 text-white text-[10.5px] font-extrabold uppercase tracking-widest text-center py-2 flex items-center justify-center gap-2 shadow-xs">
-                <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
-                <span>OFFICIAL FLAGSHIP LAUNCH OFFER &bull; ACTIVE COMMERCIAL ARCHITECTURE</span>
-                <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
-              </div>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Plan</span>
+          </Button>
+        </div>
 
-              <div className="p-6 sm:p-8 space-y-6">
-                
-                {/* Title & Tier Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
-                        {flagshipPlan.name}
-                      </h2>
-                      <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 font-mono text-[10px] font-bold px-2.5 py-0.5">
-                        {flagshipPlan.id}
-                      </Badge>
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold uppercase tracking-wider">
-                        Production Tier
-                      </Badge>
-                    </div>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1 leading-relaxed">
-                      {flagshipPlan.desc}
-                    </p>
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+          <AnimatePresence>
+            {plans.map((p, idx) => {
+              const metrics = liveMetrics[p.id] || { subscribers: 0, mrr: 0 }
+              const isPop = p.popular
+              const cycleMeta = BILLING_CYCLES[p.cycleId] || BILLING_CYCLES['3_MONTHS']
 
-                {/* Hero Pricing & Quota Bento Strip */}
-                <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/80 border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                      Commercial Price & Cadence
-                    </span>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-bold text-slate-400">₹</span>
-                      <span className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">
-                        {flagshipPlan.price.toLocaleString('en-IN')}
-                      </span>
-                      <span className="text-xs sm:text-sm font-bold text-slate-600">/ 3 Months (90 Days)</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className="text-[11px] font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-200">
-                        ₹700 / Month Effective
-                      </span>
-                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                        ⚡ Save 65% vs Aggregator 30% Fees
-                      </span>
-                    </div>
-                  </div>
+              return (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, delay: idx * 0.05 }}
+                  className="flex flex-col h-full"
+                >
+                  <Card className={`rounded-3xl bg-white shadow-xs flex flex-col justify-between h-full hover:shadow-lg transition-all relative overflow-hidden group ${
+                    isPop 
+                      ? 'border-2 border-indigo-500/80 ring-4 ring-indigo-500/10' 
+                      : 'border border-slate-200/90 hover:border-slate-300'
+                  }`}>
+                    
+                    {/* Top Popular Ribbon */}
+                    {isPop && (
+                      <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-600 text-white text-[10px] font-extrabold uppercase tracking-widest text-center py-1.5 flex items-center justify-center gap-1.5 shadow-xs">
+                        <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
+                        <span>MOST POPULAR CHOICE</span>
+                      </div>
+                    )}
 
-                  <div className="grid grid-cols-2 gap-3 text-left shrink-0">
-                    <div className="p-3 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block">Dining Tables</span>
-                      <span className="text-base font-black text-slate-900 flex items-center gap-1 mt-0.5">
-                        <span className="text-indigo-600 text-lg">∞</span> Unlimited
-                      </span>
-                      <span className="text-[10px] text-slate-500">9,999+ QR Standees</span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block">Menu Catalog</span>
-                      <span className="text-base font-black text-slate-900 flex items-center gap-1 mt-0.5">
-                        <span className="text-indigo-600 text-lg">∞</span> Unlimited
-                      </span>
-                      <span className="text-[10px] text-slate-500">Dishes & Variants</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Subscriber & Yield Telemetry Ribbon */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100 text-left">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Active Merchants</span>
-                    <p className="text-xl font-black text-slate-900 mt-1">{flagshipMetrics.subscribers} Stores</p>
-                    <span className="text-[10px] text-slate-500">Live floor accounts</span>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100 text-left">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Platform Yield</span>
-                    <p className="text-xl font-black text-indigo-600 mt-1">₹{flagshipMetrics.mrr.toLocaleString('en-IN')}</p>
-                    <span className="text-[10px] text-slate-500">Current quarter revenue</span>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100 text-left">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Lockout Policy</span>
-                    <p className="text-xl font-black text-rose-600 mt-1">Strict</p>
-                    <span className="text-[10px] text-slate-500">Auto-lock on day 91</span>
-                  </div>
-                </div>
-
-                {/* Included Features Matrix */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Standardized Launch Feature Matrix (10 Modules)
-                    </span>
-                    <Badge variant="outline" className="text-[10px] text-slate-500 font-semibold">
-                      Full Access
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {flagshipPlan.features.map((feature, fi) => (
-                      <div 
-                        key={fi} 
-                        className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-50/70 hover:bg-slate-50 border border-slate-100 transition-colors"
-                      >
-                        <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0 mt-0.5">
-                          <Check className="w-3 h-3 stroke-[3px]" />
+                    <div className="p-6 space-y-5 flex-1">
+                      
+                      {/* Header with Badges */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
+                              {p.name}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge className="bg-slate-100 text-slate-700 border-slate-200 font-mono text-[9px] font-bold">
+                              {p.id}
+                            </Badge>
+                            <Badge className={`text-[10px] font-bold border ${cycleMeta.badgeColor}`}>
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {cycleMeta.label} ({p.durationDays}d)
+                            </Badge>
+                          </div>
                         </div>
-                        <span className="text-xs font-medium text-slate-700 leading-snug">
-                          {feature}
+
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                          {p.tableLimit >= 9999 ? '∞ Tables' : `${p.tableLimit} Tbls`}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Actions Footer */}
-                <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Real-time Supabase Database Sync Enabled</span>
-                  </div>
+                      {/* Description */}
+                      <p className="text-xs text-slate-500 font-medium line-clamp-2 leading-relaxed">
+                        {p.desc}
+                      </p>
 
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      onClick={() => openModifyPlan(flagshipPlan)}
-                      size="sm"
-                      className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit Plan Pricing & Quota</span>
-                    </Button>
-                  </div>
-                </div>
-
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Secondary Tiers (Rendered if admin provisions more tiers) */}
-          {plans.length > 1 && (
-            <div className="space-y-4 pt-4">
-              <h3 className="text-base font-bold text-slate-900">Additional Configured Tiers</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {plans.slice(1).map((p) => {
-                  const m = liveMetrics[p.id] || { subscribers: 0, mrr: 0 }
-                  return (
-                    <Card key={p.id} className="rounded-2xl border border-slate-200 p-5 space-y-4 bg-white shadow-xs">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-bold text-slate-900">{p.name}</h4>
-                          <span className="font-mono text-[10px] text-slate-400">{p.id}</span>
+                      {/* Price & Cadence Box */}
+                      <div className="p-4 rounded-2xl bg-slate-50/90 border border-slate-100 space-y-1.5">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-lg font-bold text-slate-400">₹</span>
+                          <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                            {p.price.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-xs font-bold text-slate-500 ml-1">
+                            {p.unitText || cycleMeta.unitText}
+                          </span>
                         </div>
-                        <span className="text-lg font-black text-slate-900">₹{p.price}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 line-clamp-2">{p.desc}</p>
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                        <span className="text-slate-500">{m.subscribers} subscribers</span>
-                        <div className="flex items-center gap-1.5">
-                          <Button size="sm" variant="ghost" onClick={() => openModifyPlan(p)} className="h-8 text-xs font-semibold">Edit</Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)} className="h-8 text-rose-600 hover:bg-rose-50"><Trash2 className="w-3.5 h-3.5" /></Button>
+                        
+                        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
+                          <span className="font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/60">
+                            ₹{p.monthlyEquivalent || Math.round(p.price / Math.max(1, p.durationDays / 30))}/mo effective
+                          </span>
+                          <span className="font-semibold text-slate-400">
+                            {p.durationDays} Days License
+                          </span>
                         </div>
                       </div>
-                    </Card>
-                  )
-                })}
-              </div>
+
+                      {/* Live Telemetry Stats */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Subscribers</span>
+                          <p className="text-base font-black text-slate-900 mt-0.5">{metrics.subscribers} Stores</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Live Yield</span>
+                          <p className="text-base font-black text-indigo-600 mt-0.5">₹{metrics.mrr.toLocaleString('en-IN')}</p>
+                        </div>
+                      </div>
+
+                      {/* Features Matrix Preview */}
+                      <div className="space-y-2 pt-1 border-t border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                          Included Modules ({p.features?.length || 10})
+                        </span>
+                        <div className="space-y-1.5">
+                          {(p.features || defaultPlans[0].features).slice(0, 5).map((f, fi) => (
+                            <div key={fi} className="flex items-center gap-2 text-xs text-slate-700">
+                              <div className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
+                                <Check className="w-2.5 h-2.5 stroke-[3px]" />
+                              </div>
+                              <span className="font-medium truncate">{f}</span>
+                            </div>
+                          ))}
+                          {(p.features?.length || 10) > 5 && (
+                            <p className="text-[10px] font-bold text-indigo-600 pl-6">
+                              + {p.features.length - 5} more capabilities included
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Actions Footer */}
+                    <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+                      <Button 
+                        onClick={() => openModifyPlan(p)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-9 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Edit Tier</span>
+                      </Button>
+
+                      <Button 
+                        onClick={() => handleDelete(p.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0 rounded-xl text-rose-600 hover:bg-rose-50 cursor-pointer"
+                        title="Delete Plan"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+
+                  </Card>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+
+          {/* Quick Add Plan Card Slot */}
+          <button 
+            onClick={openNewPlan}
+            className="rounded-3xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-white to-slate-50/40 hover:bg-white hover:border-indigo-400 hover:shadow-md transition-all p-8 flex flex-col items-center justify-center gap-3.5 text-center cursor-pointer min-h-[380px] group"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all flex items-center justify-center shadow-xs">
+              <Plus className="w-7 h-7 stroke-[2.5px]" />
             </div>
-          )}
-
-        </div>
-
-        {/* RIGHT: Architecture Telemetry & Expansion Slot (lg:col-span-4) */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Bento Card: Commercial Architecture Telemetry */}
-          <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs p-6 space-y-5">
-            <div>
-              <div className="flex items-center justify-between pb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Business Model
-                </span>
-                <Badge className="bg-slate-100 text-slate-700 text-[9px] font-bold">
-                  SaaS Standard
-                </Badge>
-              </div>
-              <h3 className="text-base font-extrabold text-slate-900">
-                Quarterly Pricing Strategy
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Why standardizing on a single 3-month launch plan delivers maximum restaurant acquisition velocity:
+            <div className="space-y-1">
+              <p className="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                Provision New Tier
+              </p>
+              <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+                Add Monthly (30d), Quarterly (90d), Semi-Annual (180d), or Annual (365d) plans to your commercial catalog.
               </p>
             </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <Zap className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Zero Decision Paralysis</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Restaurants don't waste time choosing between plans. 1 simple plan means instant closes on sales calls.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <Clock className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">90-Day Retention Window</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    3 months upfront guarantees merchant commitment and gives them enough time to see massive ROI before renewal.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <Lock className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Strict Lockout Enforcement</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Dashboard auto-locks on day 91 with a direct UPI renewal QR code. Zero manual chasing needed.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Next Renewal Cycle:</span>
-              <span className="font-bold text-slate-900">90-Day Cadence</span>
-            </div>
-          </Card>
-
-          {/* Bento Card: Expansion & New Tiers Slot */}
-          <Card className="rounded-3xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-white to-slate-50/50 p-6 space-y-4 hover:border-indigo-400 hover:shadow-md transition-all group">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition-all flex items-center justify-center shadow-xs">
-              <Plus className="w-6 h-6 stroke-[2.5px]" />
-            </div>
-
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                Provision Expansion Tier
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Currently running 1 flagship launch offer. As sales scale, provision multi-chain, enterprise POS, or annual franchise packages here.
-              </p>
-            </div>
-
-            <Button 
-              onClick={openNewPlan}
-              className="w-full h-10 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Configure Additional Tier</span>
-            </Button>
-          </Card>
-
+            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 group-hover:bg-indigo-100 px-3 py-1 rounded-full transition-colors">
+              + Launch Tier
+            </span>
+          </button>
         </div>
-
       </div>
 
-      {/* ─── 🛡️ SHADCN STUDIO PROVISION / EDIT PLAN DIALOG ─────────── */}
+      {/* ─── 🛡️ SHADCN STUDIO MULTI-CYCLE PROVISION / EDIT PLAN DIALOG ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg rounded-3xl p-6 sm:p-7 border-slate-200 bg-white font-sans space-y-5">
+        <DialogContent className="sm:max-w-xl rounded-3xl p-6 sm:p-7 border-slate-200 bg-white font-sans space-y-5 max-h-[90vh] overflow-y-auto">
           <DialogHeader className="space-y-1.5">
-            <DialogTitle className="text-xl font-black text-slate-950 tracking-tight flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              <span>{editMode ? 'Modify Plan Architecture' : 'Provision New Subscription Tier'}</span>
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-black text-slate-950 tracking-tight flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-600" />
+                <span>{editMode ? 'Modify Plan Architecture' : 'Provision Subscription Tier'}</span>
+              </DialogTitle>
+              <Badge className={`text-[10px] font-bold border ${activeCycleMeta.badgeColor}`}>
+                {activeCycleMeta.label}
+              </Badge>
+            </div>
             <p className="text-xs text-slate-500 font-medium">
-              Configure global commercial pricing, table capacity, and checkout terms.
+              Select billing duration, configure commercial pricing, table capacity, and checkout terms.
             </p>
           </DialogHeader>
 
-          <div className="space-y-4">
+          {/* Quick Presets Strip */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Quick Presets (1-Click Fill)
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => applyPreset('MONTHLY')}
+                className={`p-2 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                  billingCycle === 'MONTHLY' 
+                    ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-2xs' 
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1 font-bold">
+                  <span>⚡ Monthly</span>
+                </div>
+                <span className="text-[10px] text-slate-500 block">30d &bull; ₹799</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => applyPreset('3_MONTHS')}
+                className={`p-2 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                  billingCycle === '3_MONTHS' 
+                    ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-2xs' 
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1 font-bold">
+                  <span>🚀 3 Months</span>
+                </div>
+                <span className="text-[10px] text-slate-500 block">90d &bull; ₹2,100</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => applyPreset('6_MONTHS')}
+                className={`p-2 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                  billingCycle === '6_MONTHS' 
+                    ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-2xs' 
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1 font-bold">
+                  <span>💎 6 Months</span>
+                </div>
+                <span className="text-[10px] text-slate-500 block">180d &bull; ₹3,900</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => applyPreset('ANNUALLY')}
+                className={`p-2 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                  billingCycle === 'ANNUALLY' 
+                    ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-2xs' 
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1 font-bold">
+                  <span>👑 Annual</span>
+                </div>
+                <span className="text-[10px] text-slate-500 block">365d &bull; ₹6,999</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-1">
+            
+            {/* 1. Billing Cycle Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
+                <span>Billing Cycle & Duration</span>
+                <span className="text-indigo-600 font-semibold lowercase">
+                  license duration: {durationDays} days
+                </span>
+              </label>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                {[
+                  { key: 'MONTHLY', label: 'Monthly', days: '30d' },
+                  { key: '3_MONTHS', label: '3 Months', days: '90d' },
+                  { key: '6_MONTHS', label: '6 Months', days: '180d' },
+                  { key: 'ANNUALLY', label: 'Annual', days: '365d' },
+                  { key: 'CUSTOM', label: 'Custom', days: 'Days' }
+                ].map(c => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => handleCycleChange(c.key)}
+                    className={`h-10 rounded-xl border font-bold text-xs flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      billingCycle === c.key
+                        ? 'border-indigo-600 bg-indigo-600 text-white shadow-xs'
+                        : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <span>{c.label}</span>
+                    <span className={`text-[9px] font-normal ${billingCycle === c.key ? 'text-indigo-100' : 'text-slate-400'}`}>
+                      {c.days}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {billingCycle === 'CUSTOM' && (
+                <div className="pt-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Custom Duration in Days:</span>
+                    <Input 
+                      type="number"
+                      value={durationDays}
+                      onChange={e => setDurationDays(Math.max(1, parseInt(e.target.value) || 1))}
+                      placeholder="e.g. 45 or 120"
+                      className="h-8 w-28 text-xs font-mono font-bold rounded-lg border-slate-200"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Plan Name */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-700">Plan Name</label>
               <Input 
                 value={planName}
                 onChange={e => setPlanName(e.target.value)}
-                placeholder="e.g. All-in-One Unlimited, Multi-Outlet Chain"
+                placeholder="e.g. All-in-One Unlimited, Growth Plan"
                 className="h-10 text-xs rounded-xl border-slate-200 font-semibold"
               />
             </div>
 
+            {/* 3. Dynamic Price & Quota Grid */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">3-Month Price (₹)</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Price for {activeCycleMeta.label} (₹)
+                </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
                   <Input 
@@ -710,11 +834,13 @@ export default function AdminPlansPage() {
                     className="h-10 pl-7 text-xs font-mono font-bold rounded-xl border-slate-200"
                   />
                 </div>
-                <span className="text-[10px] text-slate-400 block">Full 90 days upfront</span>
+                <span className="text-[10px] text-slate-500 font-medium block">
+                  Effective: <span className="font-bold text-indigo-700">₹{effectiveMonthly}/mo</span> ({durationDays} days upfront)
+                </span>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">Max Tables Limit</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">Table Limit</label>
                 <Input 
                   type="number"
                   value={planLimit}
@@ -722,19 +848,38 @@ export default function AdminPlansPage() {
                   placeholder="9999 for unlimited"
                   className="h-10 text-xs font-mono font-bold rounded-xl border-slate-200"
                 />
-                <span className="text-[10px] text-slate-400 block">Use 9999 for unlimited</span>
+                <span className="text-[10px] text-slate-400 block">Use 9999 for unlimited tables</span>
               </div>
             </div>
 
+            {/* 4. Marketing Description */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-700">Marketing Description</label>
               <Input 
                 value={planDesc}
                 onChange={e => setPlanDesc(e.target.value)}
-                placeholder="Brief summary for merchant checkout..."
+                placeholder="Short tagline shown to merchants during checkout..."
                 className="h-10 text-xs rounded-xl border-slate-200"
               />
             </div>
+
+            {/* 5. Highlight as Most Popular Toggle */}
+            <div className="pt-2 flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  <span>Highlight as "Most Popular"</span>
+                </span>
+                <span className="text-[11px] text-slate-500">Shows ribbon badge on public pricing and lock overlay</span>
+              </div>
+              <input 
+                type="checkbox"
+                checked={isPopular}
+                onChange={e => setIsPopular(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+              />
+            </div>
+
           </div>
 
           <DialogFooter className="pt-3 border-t border-slate-100 flex items-center gap-2.5">
@@ -751,7 +896,7 @@ export default function AdminPlansPage() {
               size="sm"
               className="w-1/2 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 cursor-pointer active:scale-95 transition-all"
             >
-              {editMode ? 'Save Architecture' : 'Launch Tier Globally'}
+              {editMode ? 'Save Architecture' : `Launch ${activeCycleMeta.label} Tier`}
             </Button>
           </DialogFooter>
         </DialogContent>

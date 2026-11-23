@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import { supabase, getCachedSession } from '@/lib/supabase'
+import { parsePlanCycle } from '@/utils/planCycles'
 
 const defaultPlans = [
   {
@@ -65,16 +66,24 @@ export default function PricingPage() {
         try {
            const { data: dbPlans } = await supabase.from('subscription_plans').select('*').order('price', { ascending: true })
            if (dbPlans && dbPlans.length > 0) {
-              setPlans(dbPlans.map(p => ({
-                 id: p.id || `PLN-${p.name}`,
-                 name: p.name,
-                 price: parseInt(p.price || 999),
-                 tableLimit: parseInt(p.table_limit || p.tableLimit || 30),
-                 color: p.color || 'blue',
-                 popular: p.popular || false,
-                 desc: p.description || p.desc || 'Complete feature access for venues.',
-                 features: p.features || null
-              })))
+              setPlans(dbPlans.map(p => {
+                 const parsed = parsePlanCycle(p)
+                 return {
+                    id: p.id || `PLN-${p.name}`,
+                    name: p.name,
+                    price: parseInt(p.price || 2100),
+                    durationDays: parsed.durationDays,
+                    cycleId: parsed.cycleId,
+                    cycle: parsed.cycle,
+                    unitText: parsed.unitText,
+                    monthlyEquivalent: parsed.monthlyEquivalent,
+                    tableLimit: parseInt(p.table_limit || p.tableLimit || 9999),
+                    color: p.color || 'blue',
+                    popular: p.popular || false,
+                    desc: parsed.cleanDescription || 'Complete feature access for venues.',
+                    features: p.features || null
+                 }
+              }))
            }
         } catch (err) {
            console.warn('Fallback to default plans:', err)
@@ -130,13 +139,14 @@ export default function PricingPage() {
             .eq('restaurant_id', restId)
             .maybeSingle()
 
+         const planDurationDays = plan.durationDays || 90
          const subPayload = {
             restaurant_id: restId,
             plan_name: plan.name,
             price: plan.price,
             status: 'PENDING_APPROVAL',
             start_date: new Date().toISOString(),
-            end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+            end_date: new Date(Date.now() + planDurationDays * 24 * 60 * 60 * 1000).toISOString()
          }
 
          if (existingSub?.id) {
@@ -177,7 +187,10 @@ export default function PricingPage() {
 
       {/* ─── Pricing Grid ─────────────────────────────────────────── */}
       <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 mb-20 lg:mb-40">
-        <div className="max-w-2xl mx-auto w-full items-stretch">
+        <div className={cn(
+          "mx-auto w-full items-stretch",
+          plans.length === 1 ? "max-w-2xl" : plans.length === 2 ? "max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8" : "max-w-6xl grid grid-cols-1 md:grid-cols-3 gap-8"
+        )}>
           {plans.map((p, idx) => (
             <motion.div
               key={p.name}
@@ -195,7 +208,7 @@ export default function PricingPage() {
               {p.popular && (
                 <div className="absolute top-0 right-0 px-6 sm:px-10 py-2 sm:py-3 bg-blue-600 text-white font-black text-[10px] sm:text-xs rounded-bl-2xl sm:rounded-bl-[2.5rem] uppercase tracking-widest shadow-xl flex items-center gap-2">
                   <Star className="w-3.5 h-3.5 fill-white" />
-                  Most Elite
+                  Most Popular
                 </div>
               )}
               
@@ -208,8 +221,10 @@ export default function PricingPage() {
                   <span className="text-2xl font-bold opacity-60 text-slate-400">₹</span>
                   <span className="text-4xl font-black tracking-tight">{String(p.price).replace('₹', '')}</span>
                   <div className="flex flex-col ml-1">
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">/ 3 Months</span>
-                    <span className="text-[10px] font-semibold text-emerald-400">₹700/mo effective</span>
+                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">{p.unitText || '/ 3 Months'}</span>
+                    <span className="text-[10px] font-semibold text-emerald-400">
+                      ₹{p.monthlyEquivalent || Math.round(p.price / Math.max(1, (p.durationDays || 90) / 30))}/mo effective
+                    </span>
                   </div>
                 </div>
                 <p className={cn(
