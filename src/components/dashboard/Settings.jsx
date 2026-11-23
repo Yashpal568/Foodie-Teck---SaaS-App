@@ -101,8 +101,8 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
   const [billingData, setBillingData] = useState({
     paymentMethods: [],
-    plan: 'Starter',
-    price: '999'
+    plan: 'All-in-One Unlimited',
+    price: '2100'
   })
 
   const [gstData, setGstData] = useState({
@@ -196,8 +196,8 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           })
         }
 
-        let planName = 'Starter'
-        let planPrice = '999'
+        let planName = 'All-in-One Unlimited'
+        let planPrice = '2100'
         try {
           const joinedSubs = restaurant.subscriptions
           const activeSub = Array.isArray(joinedSubs)
@@ -210,7 +210,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             planName = activeSub.plan_name
             planPrice = activeSub.price
               ? activeSub.price.toString()
-              : (activeSub.plan_name === 'Professional' ? '2499' : activeSub.plan_name === 'Enterprise' ? '4999' : '999')
+              : '2100'
           } else {
             const { data: sub } = await supabase
               .from('subscriptions')
@@ -225,7 +225,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
               planName = sub.plan_name
               planPrice = sub.price
                 ? sub.price.toString()
-                : (sub.plan_name === 'Professional' ? '2499' : sub.plan_name === 'Enterprise' ? '4999' : '999')
+                : '2100'
             } else {
               const { data: verif } = await supabase
                 .from('payment_verifications')
@@ -237,7 +237,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
               if (verif?.plan_name) {
                 planName = verif.plan_name
-                planPrice = planName === 'Professional' ? '2499' : planName === 'Enterprise' ? '4999' : '999'
+                planPrice = '2100'
               }
             }
           }

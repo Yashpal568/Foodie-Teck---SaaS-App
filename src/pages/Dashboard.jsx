@@ -123,29 +123,7 @@ function Dashboard() {
     if (isDemo) {
       setIsExpired(false);
       setSubDetails({ pendingApproval: false, utrNumber: "DEMO-LIVE-PREVIEW", status: "Active" });
-      setPlan({ name: "Enterprise", purchaseDate: new Date().toISOString() });
-      setIsLoading(false);
-      return;
-    }
-
-    // ── Known Registered Database Restaurants Bypass (Tiger Bistro, etc.) ──
-    const idToCheck = (resolvedId || urlId || dashboardEmail || '').toLowerCase();
-    const emailToCheck = (userEmail || dashboardEmail || '').toLowerCase();
-    const knownMatch = 
-      (idToCheck === 'a3b0c97f-7acb-478b-8b5a-68763af06b5c' || emailToCheck === 'tigerbistro99@gmail.com' || emailToCheck === 'test@gmail.com' || emailToCheck === 'test2@gmail.com') ? { name: 'Tiger Bistro', plan: 'Professional' } :
-      (idToCheck === 'ac23afc1-1fbf-449f-8cb5-45ca3bef10a8' || emailToCheck === 'bingo@gmail.com') ? { name: 'bingo', plan: 'Professional' } :
-      (idToCheck === '3a10e567-9e10-4c27-aadd-64e84cd8f253' || emailToCheck === 'claudegptuser@gmail.com') ? { name: 'Servora', plan: 'Enterprise' } :
-      (idToCheck === '9e5de80d-95ac-41ac-896c-efb2ba014fe4' || emailToCheck === 'grandpalace_test@gmail.com') ? { name: 'Grand Palace Bistro', plan: 'Professional' } :
-      (idToCheck === 'be3543b0-c9aa-4022-9749-57ece7c94b7e' || emailToCheck === 'merchant-be3543b0@servora.app') ? { name: 'Merchant Node', plan: 'Enterprise' } :
-      (idToCheck === 'd13e0a4f-9fb0-45f7-a239-2f56b3ea2b2f' || emailToCheck === 'testonboard1255@gmail.com') ? { name: 'Test Restaurant', plan: 'Professional' } :
-      (idToCheck === '6058fdf4-edf7-4a5f-9fca-6060e62ee85c' || emailToCheck === 'xyz@gmail.com') ? { name: 'srgrtre', plan: 'Starter' } :
-      (idToCheck === '63799778-6f5c-4573-931c-81e2968c37d6' || emailToCheck === 'test3@gmail.com') ? { name: 'test3t', plan: 'Starter' } :
-      (idToCheck === 'bc3cb677-c83b-4028-ac3c-a0fb445e998a' || emailToCheck === 'test2@gmail.com') ? { name: 'Tiger Bistro', plan: 'Professional' } : null;
-
-    if (knownMatch) {
-      setIsExpired(false);
-      setSubDetails({ pendingApproval: false, utrNumber: "ACTIVE-SUBSCRIPTION", status: "Active" });
-      setPlan({ name: knownMatch.plan || "Professional", purchaseDate: new Date().toISOString() });
+      setPlan({ name: "All-in-One Unlimited", purchaseDate: new Date().toISOString() });
       setIsLoading(false);
       return;
     }
@@ -218,7 +196,7 @@ function Dashboard() {
         });
 
         setPlan({
-          name: subscription.plan_name || "Starter",
+          name: subscription.plan_name || "All-in-One Unlimited",
           purchaseDate: subscription.start_date || subscription.created_at,
         });
 
@@ -227,7 +205,7 @@ function Dashboard() {
         );
         const expiryDate = new Date(
           subscription.end_date ||
-            purchaseDate.getTime() + 30 * 24 * 60 * 60 * 1000,
+            purchaseDate.getTime() + 90 * 24 * 60 * 60 * 1000,
         );
         const now = new Date();
 
@@ -241,22 +219,15 @@ function Dashboard() {
           setIsExpired(false);
         }
       } else {
-        // If restaurant is registered in DB or has an active session, grant active Professional access
-        const isRegistered = Boolean(profile?.id || resolvedId || urlId);
-        if (isRegistered) {
-          setPlan({ name: "Professional", purchaseDate: new Date().toISOString() });
-          setSubDetails({ pendingApproval: false, utrNumber: 'ACTIVE-PLAN', status: 'Active' });
-          setIsExpired(false);
-        } else {
-          setPlan(null);
-          setSubDetails({ pendingApproval: false, utrNumber: '', status: 'NO_SUBSCRIPTION' });
-          setIsExpired(true);
-        }
+        // No active subscription record in database: lock dashboard and prompt subscription
+        setPlan(null);
+        setSubDetails({ pendingApproval: false, utrNumber: '', status: 'NO_SUBSCRIPTION' });
+        setIsExpired(true);
       }
     } catch (err) {
       console.warn("verifyAuthAndPlan notice:", err);
       // On network timeout or error, keep running plan active
-      setPlan({ name: "Professional", purchaseDate: new Date().toISOString() });
+      setPlan({ name: "All-in-One Unlimited", purchaseDate: new Date().toISOString() });
       setSubDetails({ pendingApproval: false, utrNumber: 'ACTIVE-FALLBACK', status: 'Active' });
       setIsExpired(false);
     } finally {
@@ -313,7 +284,7 @@ function Dashboard() {
   if (!plan || isExpired) {
     return (
       <SubscriptionLockOverlay
-        planName={plan?.name || "Professional"}
+        planName={plan?.name || "All-in-One Unlimited"}
         expiredSince={plan?.purchaseDate || new Date()}
         pendingApproval={subDetails.pendingApproval}
         utrNumber={subDetails.utrNumber}
@@ -775,7 +746,7 @@ function Dashboard() {
       <UpgradePlanModal
         open={showUpgradeModal}
         onOpenChange={setShowUpgradeModal}
-        currentPlanName={plan?.name || "Starter"}
+        currentPlanName={plan?.name || "All-in-One Unlimited"}
         limitType={upgradeLimitType}
         restaurantId={resolvedId || profile?.id || urlId}
         merchantEmail={userEmail || (profile ? profile["email"] : "")}

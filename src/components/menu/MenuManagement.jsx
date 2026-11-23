@@ -235,7 +235,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
     if (menuItems.length >= planDetails.menuItemLimit) {
       setShowUpgradeModal(true)
       toast.error(`⚠️ Menu Item Limit Reached (${menuItems.length}/${planDetails.menuItemLimit})`, {
-        description: `Upgrade to ${planDetails.name === 'Starter' ? 'Professional' : 'Enterprise'} to add more dishes!`
+        description: `Please renew your ${planDetails.name || 'All-in-One Unlimited'} plan to add more dishes!`
       })
       return
     }

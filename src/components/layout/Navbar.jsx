@@ -312,23 +312,13 @@ export default function Navbar({
               </span>
             </div>
 
-            {getPlanDetails(plan?.name).name === 'Starter' && (
+            {getPlanDetails(plan?.name).name === 'All-in-One Unlimited' && (
               <button
                 onClick={onUpgradeClick}
                 className="hidden xl:flex items-center gap-1.5 h-8.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-[10.5px] uppercase tracking-wider px-3 rounded-xl shadow-2xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               >
                 <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
-                <span>Upgrade to Pro</span>
-              </button>
-            )}
-
-            {getPlanDetails(plan?.name).name === 'Professional' && (
-              <button
-                onClick={onUpgradeClick}
-                className="hidden xl:flex items-center gap-1.5 h-8.5 bg-slate-900 hover:bg-black text-white font-bold text-[10.5px] uppercase tracking-wider px-3 rounded-xl shadow-2xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
-              >
-                <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
-                <span>Upgrade to Enterprise</span>
+                <span>Subscription Details</span>
               </button>
             )}
           </div>

@@ -26,8 +26,8 @@ import { recordPendingPayment } from '@/lib/adminDataService'
 export default function UPIPaymentModal({ 
   open, 
   onOpenChange, 
-  planName = 'PRO', 
-  amount = 2499, 
+  planName = 'All-in-One Unlimited', 
+  amount = 2100, 
   restaurantId, 
   merchantEmail, 
   merchantName,

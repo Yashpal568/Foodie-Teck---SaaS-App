@@ -44,18 +44,18 @@ export default function MenuNavbar({
               <span className="text-slate-400 font-normal">/ {maxLimit >= 9999 ? '∞' : maxLimit}</span>
             </Badge>
 
-            {planDetails && planDetails.name === 'Starter' && (
+            {planDetails && planDetails.tableLimit < 9999 && (
               <button 
                 onClick={onUpgradeClick}
                 className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-black uppercase px-2 py-0.5 rounded-md transition-all cursor-pointer flex items-center gap-1"
               >
-                <span>⚡ Upgrade</span>
+                <span>⚡ Renew</span>
               </button>
             )}
           </div>
         </div>
         <p className="text-xs lg:text-[11px] xl:text-xs text-gray-500 font-medium mt-1.5 max-w-50 lg:max-w-62.5 xl:max-w-lg line-clamp-1">
-          {planDetails?.name || 'Starter'} Plan: {itemsCount} of {maxLimit >= 9999 ? 'Unlimited' : maxLimit} items configured.
+          {planDetails?.name || 'All-in-One Unlimited'} Plan: {itemsCount} of {maxLimit >= 9999 ? 'Unlimited' : maxLimit} items configured.
         </p>
       </div>
 

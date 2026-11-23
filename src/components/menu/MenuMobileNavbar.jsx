@@ -118,12 +118,12 @@ export default function MenuMobileNavbar({
              <span className="text-slate-400 font-normal">/{maxLimit >= 9999 ? '∞' : maxLimit}</span>
            </div>
 
-           {planDetails?.name === 'Starter' && (
+           {planDetails?.tableLimit < 9999 && (
              <button
                onClick={onUpgradeClick}
                className="h-8 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold"
              >
-               Upgrade
+               Renew
              </button>
            )}
 

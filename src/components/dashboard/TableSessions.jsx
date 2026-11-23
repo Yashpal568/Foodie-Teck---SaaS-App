@@ -523,12 +523,12 @@ const TableSessions = ({
                   </span>
                 </Badge>
 
-                {planDetails?.name === "Starter" && (
+                {planDetails?.tableLimit < 9999 && (
                   <button
                     onClick={() => setShowUpgradeModal(true)}
                     className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow-sm"
                   >
-                    <span>⚡ Upgrade</span>
+                    <span>⚡ Renew</span>
                   </button>
                 )}
               </div>
