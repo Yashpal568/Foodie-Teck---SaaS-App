@@ -96,10 +96,13 @@ const TableStatus = ({ restaurantId = 'default' }) => {
     resolve()
   }, [restaurantId])
 
-  // Fallback to 10 default tables if 0 configured
+  const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo'
+
+  // Never invent 10 fake tables for a real merchant with 0 configured tables
   const displayTables = useMemo(() => {
     if (rawTables && rawTables.length > 0) return rawTables
-    return Array.from({ length: 10 }, (_, i) => ({
+    if (!isDemo) return []
+    return Array.from({ length: 8 }, (_, i) => ({
       id: i + 1,
       table_number: i + 1,
       tableNumber: i + 1,
@@ -107,7 +110,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
       customers: 0,
       session_start: null
     }))
-  }, [rawTables])
+  }, [rawTables, isDemo])
 
   // Fetch Order for View Table POS Modal
   useEffect(() => {
@@ -203,6 +206,13 @@ const TableStatus = ({ restaurantId = 'default' }) => {
       </div>
 
       {/* Table Cards Grid (Always Clean 2-Column Responsive Layout) */}
+      {displayTables.length === 0 ? (
+        <div className="py-10 px-4 text-center bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center">
+          <Utensils className="w-6 h-6 text-slate-300 mb-2" />
+          <p className="text-xs font-bold text-slate-600">No dining tables configured yet</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Open Table Sessions to create tables for your floor.</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3.5">
             {displayTables.map((table) => {
               const tableNum = table.table_number || table.tableNumber
@@ -335,6 +345,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
               )
             })}
           </div>
+      )}
 
       {/* 🧾 PREMIUM VIEW TABLE & POS CHECK MODAL */}
       <Dialog open={!!selectedTable} onOpenChange={(open) => !open && setSelectedTable(null)}>

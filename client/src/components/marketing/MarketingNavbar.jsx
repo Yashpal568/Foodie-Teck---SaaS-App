@@ -98,13 +98,15 @@ export default function MarketingNavbar() {
           {/* CTA Buttons */}
           <div className="hidden lg:flex items-center gap-4">
             {hasPlan ? (
-              <Button 
-                className="bg-slate-900 hover:bg-black text-white h-11 px-7 rounded-2xl font-bold text-sm shadow-xl shadow-slate-950/20 active:scale-95 transition-all flex items-center gap-2 group"
-                onClick={handleDashboardRedirect}
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                Go to Dashboard
-              </Button>
+              location.pathname !== '/pricing' && (
+                <Button 
+                  className="bg-slate-900 hover:bg-black text-white h-11 px-7 rounded-2xl font-bold text-sm shadow-xl shadow-slate-950/20 active:scale-95 transition-all flex items-center gap-2 group"
+                  onClick={handleDashboardRedirect}
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Go to Dashboard
+                </Button>
+              )
             ) : (
               <>
                 <Button 
@@ -188,13 +190,15 @@ export default function MarketingNavbar() {
         {/* Action Bottom Section */}
         <div className="p-6 border-t border-slate-100 bg-slate-50/80 shrink-0 space-y-3">
           {hasPlan ? (
-            <Button 
-              className="w-full h-14 rounded-2xl font-black bg-slate-900 text-white text-base shadow-xl shadow-slate-950/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
-              onClick={handleDashboardRedirect}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              Go to Dashboard
-            </Button>
+            location.pathname !== '/pricing' && (
+              <Button 
+                className="w-full h-14 rounded-2xl font-black bg-slate-900 text-white text-base shadow-xl shadow-slate-950/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                onClick={handleDashboardRedirect}
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                Go to Dashboard
+              </Button>
+            )
           ) : (
             <>
               <Button 

@@ -40,6 +40,28 @@ CREATE INDEX IF NOT EXISTS idx_menu_items_restaurant ON public.menu_items (resta
 CREATE INDEX IF NOT EXISTS idx_table_sessions_rest_table ON public.table_sessions (restaurant_id, table_number);
 CREATE INDEX IF NOT EXISTS idx_waiter_calls_rest_unhandled ON public.waiter_calls (restaurant_id, is_handled, created_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_rest_created ON public.notifications (restaurant_id, created_at DESC);
+-- Non-destructively quarantine historical duplicate non-REJECTED UTRs before creating unique index
+-- Keeps the winning row (APPROVED first, else earliest created_at) and marks later duplicates REJECTED
+WITH ranked_utrs AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY UPPER(TRIM(utr_number))
+      ORDER BY
+        CASE WHEN UPPER(COALESCE(status, '')) = 'APPROVED' THEN 0 ELSE 1 END ASC,
+        created_at ASC NULLS LAST,
+        id ASC
+    ) AS rn
+  FROM public.payment_verifications
+  WHERE UPPER(COALESCE(status, '')) <> 'REJECTED'
+    AND NULLIF(TRIM(utr_number), '') IS NOT NULL
+)
+UPDATE public.payment_verifications pv
+SET status = 'REJECTED'
+FROM ranked_utrs r
+WHERE pv.id = r.id
+  AND r.rn > 1;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_verifications_utr_unique
   ON public.payment_verifications (UPPER(TRIM(utr_number)))
   WHERE UPPER(COALESCE(status, '')) <> 'REJECTED' AND NULLIF(TRIM(utr_number), '') IS NOT NULL;
@@ -71,6 +93,7 @@ CREATE TRIGGER trg_guard_subscription_status
   EXECUTE FUNCTION private.guard_subscription_status_transition();
 
 -- 3. Narrow Public Menu Read RPCs (Zero merchant PII exposed)
+DROP FUNCTION IF EXISTS public.get_public_restaurant_profile(UUID);
 CREATE OR REPLACE FUNCTION public.get_public_restaurant_profile(p_restaurant_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -94,6 +117,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.get_public_restaurant_profile(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_restaurant_profile(UUID) TO anon, authenticated;
 
+DROP FUNCTION IF EXISTS public.get_public_table_numbers(UUID);
 CREATE OR REPLACE FUNCTION public.get_public_table_numbers(p_restaurant_id UUID)
 RETURNS TABLE (table_number INT)
 LANGUAGE SQL
@@ -109,7 +133,39 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.get_public_table_numbers(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_table_numbers(UUID) TO anon, authenticated;
 
+-- 3b. Safe Public Table Claim RPC (allows QR guests to claim an existing available table without exposing table_sessions writes)
+DROP FUNCTION IF EXISTS public.claim_public_table_session(UUID, INT);
+CREATE OR REPLACE FUNCTION public.claim_public_table_session(
+  p_restaurant_id UUID,
+  p_table_number INT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF p_restaurant_id IS NULL OR p_table_number IS NULL OR p_table_number < 1 OR p_table_number > 9999 THEN
+    RETURN FALSE;
+  END IF;
+
+  UPDATE public.table_sessions ts
+  SET status = 'occupied',
+      customers = GREATEST(1, COALESCE(ts.customers, 0)),
+      session_start = COALESCE(ts.session_start, NOW()),
+      last_activity = NOW()
+  WHERE ts.restaurant_id = p_restaurant_id
+    AND ts.table_number = p_table_number
+    AND LOWER(COALESCE(ts.status, 'available')) IN ('available', 'needs-cleaning');
+
+  RETURN FOUND;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.claim_public_table_session(UUID, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.claim_public_table_session(UUID, INT) TO anon, authenticated;
+
 -- 4. Guest Waiter Call RPC (validates active restaurant & persists notification atomically)
+DROP FUNCTION IF EXISTS public.request_waiter_assistance(UUID, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.request_waiter_assistance(
   p_restaurant_id UUID,
   p_table_number TEXT,
@@ -164,6 +220,7 @@ GRANT EXECUTE ON FUNCTION public.request_waiter_assistance(UUID, TEXT, TEXT) TO 
 
 -- 5. Atomic Idempotent Order Placement RPC (Authoritative DB Prices + Stock Lock)
 -- Expects p_items JSONB array: [{ "menu_item_id": "uuid", "quantity": 2, "variant": "full"|"half" }]
+DROP FUNCTION IF EXISTS public.create_validated_order(UUID, TEXT, TEXT, TEXT, JSONB, INT, TEXT, TEXT, TEXT, BOOLEAN, TEXT);
 CREATE OR REPLACE FUNCTION public.create_validated_order(
   p_restaurant_id UUID,
   p_table_number TEXT,
@@ -395,6 +452,7 @@ REVOKE EXECUTE ON FUNCTION public.create_validated_order(UUID, TEXT, TEXT, TEXT,
 GRANT EXECUTE ON FUNCTION public.create_validated_order(UUID, TEXT, TEXT, TEXT, JSONB, INT, TEXT, TEXT, TEXT, BOOLEAN, TEXT) TO anon, authenticated;
 
 -- 6. Public Order Status Lookup (for Guest Order Tracking without exposing full orders table)
+DROP FUNCTION IF EXISTS public.get_public_order_status(UUID, UUID);
 CREATE OR REPLACE FUNCTION public.get_public_order_status(p_order_id UUID, p_restaurant_id UUID)
 RETURNS TABLE (
   id UUID,

@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import { supabase, getCachedSession } from '@/lib/supabase'
 import { parsePlanCycle } from '@/utils/planCycles'
+import { toast } from 'sonner'
+import UPIPaymentModal from '@/components/dashboard/UPIPaymentModal'
 
 const defaultPlans = [
   {
@@ -60,8 +62,28 @@ export default function PricingPage() {
   const [plans, setPlans] = useState(defaultPlans)
   const [isProcessing, setIsProcessing] = useState(false)
   const [targetPlan, setTargetPlan] = useState(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentSubmitted, setPaymentSubmitted] = useState(false)
+  const [checkoutRestaurant, setCheckoutRestaurant] = useState(null)
+  const [hasActiveSession, setHasActiveSession] = useState(false)
+  const [intendedPlanName, setIntendedPlanName] = useState('')
 
   useEffect(() => {
+     const initSessionState = async () => {
+        try {
+           const { data: { session } } = await getCachedSession()
+           setHasActiveSession(Boolean(session?.user))
+           const saved = sessionStorage.getItem('intended_plan')
+           if (saved) {
+              const parsed = JSON.parse(saved)
+              if (parsed?.name) setIntendedPlanName(parsed.name)
+           }
+        } catch {
+           // ignore storage parse failure
+        }
+     }
+     initSessionState()
+
      const fetchPlans = async () => {
         try {
            const { data: dbPlans } = await supabase.from('subscription_plans').select('*').order('price', { ascending: true })
@@ -108,58 +130,79 @@ export default function PricingPage() {
       setIsProcessing(true)
       setTargetPlan(plan)
 
-      const { data: { session } } = await getCachedSession()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-      if (!session || !session.user) {
-        sessionStorage.setItem('intended_plan', JSON.stringify(plan))
+      if (userError || !user) {
+        try {
+          sessionStorage.setItem('intended_plan', JSON.stringify(plan))
+        } catch {
+          // ignore storage quota error
+        }
         navigate('/register')
         return
       }
 
-      const userEmail = session.user.email
+      const userEmail = (user.email || '').toLowerCase()
       let rest = null
 
-      const { data: restByOwner } = await supabase.from('restaurants').select('*').eq('owner_id', session.user.id).maybeSingle()
+      const { data: restByOwner } = await supabase
+        .from('restaurants')
+        .select('id, business_name, email, owner_id')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+
       if (restByOwner) {
         rest = restByOwner
       } else if (userEmail) {
-        const { data: restByEmail } = await supabase.from('restaurants').select('*').eq('email', userEmail.toLowerCase()).maybeSingle()
-        rest = restByEmail
+        const { data: restByEmail } = await supabase
+          .from('restaurants')
+          .select('id, business_name, email, owner_id')
+          .eq('email', userEmail)
+          .maybeSingle()
+        if (restByEmail) {
+          if (!restByEmail.owner_id) {
+            await supabase.from('restaurants').update({ owner_id: user.id }).eq('id', restByEmail.id)
+          }
+          rest = restByEmail
+        }
       }
 
-      const restId = rest?.id || sessionStorage.getItem('servora_restaurant_id') || session.user.id
+      if (!rest?.id) {
+        const fallbackName = (user.user_metadata?.business_name || '').trim() || userEmail.split('@')[0] || 'Servora Merchant'
+        const { data: createdRest, error: insertErr } = await supabase
+          .from('restaurants')
+          .insert({
+            owner_id: user.id,
+            business_name: fallbackName,
+            email: userEmail,
+            status: 'Pending',
+            created_at: new Date().toISOString()
+          })
+          .select('id, business_name, email, owner_id')
+          .maybeSingle()
 
-      if (restId) {
-         sessionStorage.setItem('servora_restaurant_id', restId)
-
-         // Check if subscription already exists
-         const { data: existingSub } = await supabase
-            .from('subscriptions')
-            .select('id')
-            .eq('restaurant_id', restId)
-            .maybeSingle()
-
-         const planDurationDays = plan.durationDays || 90
-         const subPayload = {
-            restaurant_id: restId,
-            plan_name: plan.name,
-            price: plan.price,
-            status: 'PENDING_APPROVAL',
-            start_date: new Date().toISOString(),
-            end_date: new Date(Date.now() + planDurationDays * 24 * 60 * 60 * 1000).toISOString()
-         }
-
-         if (existingSub?.id) {
-            await supabase.from('subscriptions').update(subPayload).eq('id', existingSub.id)
-         } else {
-            await supabase.from('subscriptions').insert(subPayload)
-         }
-         navigate(`/console/${restId}`)
-      } else {
-         navigate(`/console/${userEmail}`)
+        if (insertErr || !createdRest?.id) {
+          toast.error('Workspace Setup Required', {
+            description: insertErr?.message || 'Unable to locate your restaurant workspace. Please sign in again.'
+          })
+          return
+        }
+        rest = createdRest
       }
+
+      try {
+        sessionStorage.setItem('servora_restaurant_id', rest.id)
+        sessionStorage.removeItem('intended_plan')
+      } catch {
+        // ignore storage error
+      }
+
+      setCheckoutRestaurant(rest)
+      setPaymentSubmitted(false)
+      setShowPaymentModal(true)
     } catch (err) {
       console.error('Plan selection failed:', err)
+      toast.error('Checkout Failed', { description: err?.message || 'Unable to open payment modal. Please try again.' })
     } finally {
       setIsProcessing(false)
     }
@@ -173,173 +216,280 @@ export default function PricingPage() {
         <meta name="keywords" content="restaurant software pricing, pos system cost, qr menu price, servora pricing, digital menu subscription" />
       </Helmet>
       
-      {/* ─── Header Section ─────────────────────────────────────────────── */}
-      <section className="relative px-4 sm:px-6 text-center space-y-4 sm:space-y-8 mb-12 sm:mb-24 mt-24 sm:mt-32">
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-150 bg-linear-to-b from-blue-50/50 to-transparent -z-10 blur-3xl opacity-50 pointer-events-none" />
-         <Badge variant="outline" className="px-4 sm:px-6 py-1.5 sm:py-2 rounded-full border-blue-500 text-blue-600 font-bold uppercase tracking-[0.2em] text-[10px]">Investment Options</Badge>
-         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-950 tracking-tight leading-tight">
-            Scale with <span className="text-blue-600">Precision.</span>
-         </h1>
-         <p className="text-base sm:text-xl lg:text-2xl text-slate-500 font-medium leading-relaxed max-w-3xl mx-auto">
-            Transparent pricing designed for culinary growth. From small cafes to global dining chains, choose the plan that fuels your kitchen's ambition.
-         </p>
+      {/* ─── Hero + Onboarding Stepper ───────────────────────────────────── */}
+      <section className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-8 text-center">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-96 bg-linear-to-b from-blue-50/70 to-transparent -z-10 blur-3xl opacity-70 pointer-events-none" />
+
+        <div className="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 rounded-full bg-slate-100/80 border border-slate-200/80 text-[11px] font-bold text-slate-600 mb-4">
+          <span className={cn("inline-flex items-center gap-1.5", hasActiveSession ? "text-emerald-600" : "text-slate-900")}>
+            <span className={cn("w-4 h-4 rounded-full text-[10px] font-black flex items-center justify-center", hasActiveSession ? "bg-emerald-100 text-emerald-700" : "bg-slate-900 text-white")}>
+              {hasActiveSession ? '✓' : '1'}
+            </span>
+            Account Setup
+          </span>
+          <span className="text-slate-300">→</span>
+          <span className="inline-flex items-center gap-1.5 text-blue-600 font-black">
+            <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center">2</span>
+            Select Plan
+          </span>
+          <span className="text-slate-300">→</span>
+          <span className="inline-flex items-center gap-1.5 text-slate-500">
+            <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black flex items-center justify-center">3</span>
+            UPI Payment &amp; Verification
+          </span>
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-950 tracking-tight leading-tight">
+          Choose Your <span className="text-blue-600">Restaurant Plan.</span>
+        </h1>
+        <p className="mt-2.5 text-sm sm:text-base lg:text-lg text-slate-500 font-medium max-w-2xl mx-auto leading-relaxed">
+          Transparent 0%-commission pricing built for dining rooms, cafes, and quick-service kitchens.
+        </p>
+
+        {hasActiveSession && (
+          <div className="max-w-xl mx-auto mt-4 rounded-2xl bg-indigo-50 border border-indigo-200 px-4 py-2.5 text-xs sm:text-sm font-bold text-indigo-900">
+            Account ready — pick a plan below to open instant UPI Payment &amp; UTR Verification
+            {intendedPlanName ? ` (Selected: ${intendedPlanName})` : ''}.
+          </div>
+        )}
       </section>
 
-      {/* ─── Pricing Grid ─────────────────────────────────────────── */}
-      <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 mb-20 lg:mb-40">
-        <div className={cn(
-          "mx-auto w-full items-stretch",
-          plans.length === 1 ? "max-w-2xl" : plans.length === 2 ? "max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8" : "max-w-6xl grid grid-cols-1 md:grid-cols-3 gap-8"
-        )}>
-          {plans.map((p, idx) => (
+      {/* ─── Responsive Pricing Grid ─────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 sm:pb-24">
+        {plans.length === 1 ? (
+          plans.map((p) => (
             <motion.div
               key={p.name}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1, duration: 0.6 }}
-              className={cn(
-                "p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border transition-all duration-500 flex flex-col relative group overflow-hidden",
-                p.popular 
-                  ? "bg-slate-950 text-white border-blue-900 shadow-xl shadow-blue-950/20 lg:scale-105 z-10" 
-                  : "bg-white text-slate-900 border-slate-100 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-100"
-              )}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="rounded-3xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/5 overflow-hidden grid grid-cols-1 lg:grid-cols-12"
             >
-              {p.popular && (
-                <div className="absolute top-0 right-0 px-6 sm:px-10 py-2 sm:py-3 bg-blue-600 text-white font-black text-[10px] sm:text-xs rounded-bl-2xl sm:rounded-bl-[2.5rem] uppercase tracking-widest shadow-xl flex items-center gap-2">
-                  <Star className="w-3.5 h-3.5 fill-white" />
-                  Most Popular
-                </div>
-              )}
-              
-              <div className="mb-8">
-                <h3 className={cn(
-                  "text-lg font-bold uppercase tracking-wider mb-2",
-                  p.popular ? "text-blue-400" : "text-slate-500"
-                )}>{p.name}</h3>
-                <div className="flex items-baseline gap-1 mb-4">
-                  <span className="text-2xl font-bold opacity-60 text-slate-400">₹</span>
-                  <span className="text-4xl font-black tracking-tight">{String(p.price).replace('₹', '')}</span>
-                  <div className="flex flex-col ml-1">
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">{p.unitText || '/ 3 Months'}</span>
-                    <span className="text-[10px] font-semibold text-emerald-400">
-                      ₹{p.monthlyEquivalent || Math.round(p.price / Math.max(1, (p.durationDays || 90) / 30))}/mo effective
-                    </span>
+              {/* Left Summary & Primary Action */}
+              <div className="lg:col-span-5 bg-slate-950 text-white p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
+                <div className="absolute -top-20 -right-20 w-56 h-56 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
+                <div className="relative z-10 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-black uppercase tracking-widest text-blue-400">{p.name}</span>
+                    {p.popular && (
+                      <Badge className="bg-blue-600 text-white border-none text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 flex items-center gap-1">
+                        <Star className="w-3 h-3 fill-white" />
+                        Most Popular
+                      </Badge>
+                    )}
                   </div>
-                </div>
-                <p className={cn(
-                  "text-sm font-medium leading-relaxed max-w-60",
-                  p.popular ? "text-slate-400" : "text-slate-500"
-                )}>{p.desc}</p>
-              </div>
 
-              <Separator className={cn(
-                "my-6",
-                p.popular ? "bg-white/10" : "bg-slate-100"
-              )} />
-
-              <div className="space-y-4 mb-8 flex-1">
-                {(p.features || [
-                  `Up to ${p.tableLimit === 9999 ? 'Unlimited' : p.tableLimit} Tables`,
-                  "Digital Menu with QR",
-                  "Real-time Order Feed",
-                  "Basic Sales Reports",
-                  p.price > 2000 ? "Priority 24/7 Support" : "Email Support",
-                  p.tableLimit > 50 ? "Multi-Location Hub" : "Manual Table Status",
-                  "Daily Backups"
-                ]).map(f => (
-                  <div key={f} className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
-                      p.popular ? "bg-blue-600/20" : "bg-slate-100"
-                    )}>
-                      <CheckCircle className={cn(
-                        "w-4 h-4",
-                        p.popular ? "text-blue-500" : "text-slate-900"
-                      )} />
+                  <div className="flex items-baseline gap-1.5 pt-1">
+                    <span className="text-xl sm:text-2xl font-bold text-slate-400">₹</span>
+                    <span className="text-4xl sm:text-5xl font-black tracking-tight">{String(p.price).replace('₹', '')}</span>
+                    <div className="ml-1.5">
+                      <p className="text-xs font-bold text-blue-400 uppercase tracking-wider">{p.unitText || '/ 3 Months'}</p>
+                      <p className="text-[11px] font-semibold text-emerald-400">
+                        ₹{p.monthlyEquivalent || Math.round(p.price / Math.max(1, (p.durationDays || 90) / 30))}/mo effective
+                      </p>
                     </div>
-                    <span className="text-sm font-bold opacity-90">{f}</span>
                   </div>
-                ))}
+
+                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+                    {p.desc}
+                  </p>
+                </div>
+
+                <div className="relative z-10 mt-6 pt-5 border-t border-white/10 space-y-3">
+                  <Button
+                    className="w-full h-12 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-blue-600 hover:bg-blue-500 text-white transition-all active:scale-98 shadow-lg shadow-blue-600/30 group cursor-pointer"
+                    disabled={isProcessing}
+                    onClick={() => selectPlan(p)}
+                  >
+                    {isProcessing && targetPlan?.name === p.name ? 'Opening Payment...' : `Purchase ${p.name}`}
+                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                  <p className="text-[11px] text-slate-400 font-semibold text-center">
+                    Instant UPI QR + UTR verification · 0% order commission
+                  </p>
+                </div>
               </div>
 
-              <Button 
-                className={cn(
-                  "w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wide transition-all active:scale-95 shadow-md group cursor-pointer",
-                  p.popular 
-                    ? "bg-blue-600 text-white hover:bg-white hover:text-blue-600" 
-                    : "bg-slate-950 text-white hover:bg-black"
-                )}
-                disabled={isProcessing}
-                onClick={() => selectPlan(p)}
-              >
-                {isProcessing && targetPlan?.name === p.name ? 'Processing...' : `Purchase ${p.name}`}
-                <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
-              </Button>
+              {/* Right 2-Column Features */}
+              <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-center bg-white">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">
+                  Everything Included
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  {(p.features || defaultPlans[0].features).map((f) => (
+                    <div key={f} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-50/80 border border-slate-100">
+                      <div className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-slate-800 leading-snug">{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
-          ))}
-        </div>
+          ))
+        ) : (
+          <div className={cn(
+            "grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch",
+            plans.length >= 3 && "lg:grid-cols-3"
+          )}>
+            {plans.map((p, idx) => (
+              <motion.div
+                key={p.name}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.08, duration: 0.4 }}
+                className={cn(
+                  "p-6 sm:p-7 rounded-3xl border transition-all duration-300 flex flex-col relative overflow-hidden",
+                  p.popular
+                    ? "bg-slate-950 text-white border-blue-800 shadow-xl shadow-blue-950/15"
+                    : "bg-white text-slate-900 border-slate-200 hover:border-slate-300 hover:shadow-lg"
+                )}
+              >
+                {p.popular && (
+                  <div className="absolute top-0 right-0 px-4 py-1.5 bg-blue-600 text-white font-black text-[10px] rounded-bl-2xl uppercase tracking-widest flex items-center gap-1.5">
+                    <Star className="w-3 h-3 fill-white" />
+                    Most Popular
+                  </div>
+                )}
+
+                <div className="mb-5">
+                  <h3 className={cn(
+                    "text-sm font-black uppercase tracking-wider mb-2",
+                    p.popular ? "text-blue-400" : "text-slate-500"
+                  )}>{p.name}</h3>
+                  <div className="flex items-baseline gap-1 mb-3">
+                    <span className="text-xl font-bold text-slate-400">₹</span>
+                    <span className="text-4xl font-black tracking-tight">{String(p.price).replace('₹', '')}</span>
+                    <div className="flex flex-col ml-1.5">
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">{p.unitText || '/ 3 Months'}</span>
+                      <span className="text-[10px] font-semibold text-emerald-400">
+                        ₹{p.monthlyEquivalent || Math.round(p.price / Math.max(1, (p.durationDays || 90) / 30))}/mo effective
+                      </span>
+                    </div>
+                  </div>
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium leading-relaxed",
+                    p.popular ? "text-slate-400" : "text-slate-500"
+                  )}>{p.desc}</p>
+                </div>
+
+                <Separator className={cn("my-4", p.popular ? "bg-white/10" : "bg-slate-100")} />
+
+                <div className="space-y-2.5 mb-6 flex-1">
+                  {(p.features || [
+                    `Up to ${p.tableLimit === 9999 ? 'Unlimited' : p.tableLimit} Tables`,
+                    "Digital Menu with QR",
+                    "Real-time Order Feed",
+                    "Basic Sales Reports",
+                    p.price > 2000 ? "Priority 24/7 Support" : "Email Support",
+                  ]).map((f) => (
+                    <div key={f} className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
+                        p.popular ? "bg-blue-600/20" : "bg-slate-100"
+                      )}>
+                        <CheckCircle className={cn("w-3.5 h-3.5", p.popular ? "text-blue-400" : "text-slate-900")} />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold opacity-90">{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  className={cn(
+                    "w-full h-11 rounded-xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all active:scale-95 shadow-md group cursor-pointer",
+                    p.popular
+                      ? "bg-blue-600 text-white hover:bg-blue-500"
+                      : "bg-slate-950 text-white hover:bg-black"
+                  )}
+                  disabled={isProcessing}
+                  onClick={() => selectPlan(p)}
+                >
+                  {isProcessing && targetPlan?.name === p.name ? 'Opening Payment...' : `Purchase ${p.name}`}
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* ─── Frequently Asked Questions ───────────────────────────── */}
-      <section className="py-32 bg-slate-50 relative">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
-             <div className="lg:col-span-4 space-y-8">
-               <Badge className="bg-slate-950 text-white px-5 py-2 font-black uppercase tracking-widest text-[10px]">The FAQ</Badge>
-               <h2 className="text-4xl font-black text-slate-950 tracking-tighter leading-none">
-                  Commonly Discussed <br className="hidden lg:block"/> with Our <span className="text-indigo-600">Architects.</span>
-               </h2>
-               <p className="text-slate-500 font-medium leading-relaxed">
-                  Have a specific question about our infrastructure or deployment flow? Our team is available 24/7 for a deep dive.
-               </p>
-               <Button variant="outline" className="h-14 px-8 rounded-2xl border-slate-200 text-slate-900 font-black text-xs uppercase tracking-widest bg-white flex items-center gap-3">
-                  <MessageCircle className="w-5 h-5" />
-                  Support Hub
-               </Button>
-             </div>
+      {/* ─── Responsive FAQ Section ──────────────────────────────────────── */}
+      <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
+            <div className="space-y-3">
+              <Badge className="bg-slate-950 text-white px-4 py-1.5 font-black uppercase tracking-widest text-[10px]">FAQ</Badge>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-950 tracking-tight">
+                Frequently Asked <span className="text-blue-600">Questions.</span>
+              </h2>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/contact')}
+              className="h-11 px-6 rounded-xl border-slate-200 text-slate-900 font-bold text-xs uppercase tracking-wider bg-white self-start lg:self-auto flex items-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Contact Support
+            </Button>
+          </div>
 
-             <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                {faqs.map((faq, idx) => (
-                  <div key={idx} className="p-10 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group">
-                     <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-900 border border-slate-100 mb-6 group-hover:bg-slate-950 group-hover:text-white transition-colors">
-                        <span className="font-black">Q</span>
-                     </div>
-                     <h4 className="text-xl font-black text-slate-950 mb-4 tracking-tight leading-tight">{faq.q}</h4>
-                     <p className="text-slate-500 font-medium leading-relaxed text-sm">{faq.a}</p>
-                  </div>
-                ))}
-             </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="p-6 sm:p-7 bg-white rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md transition-all">
+                <h4 className="text-base sm:text-lg font-black text-slate-950 mb-2 tracking-tight leading-snug">{faq.q}</h4>
+                <p className="text-slate-600 font-medium leading-relaxed text-xs sm:text-sm">{faq.a}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ─── Branding Guarantee ───────────────────────────────────── */}
-      <section className="py-24 border-t border-slate-100">
-        <div className="max-w-7xl mx-auto px-6 flex flex-wrap items-center justify-center gap-16 lg:gap-32 opacity-30 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-1000">
-           <div className="flex items-center gap-3">
-              <ShieldCheck className="w-8 h-8 text-blue-600" />
+      {/* ─── Trust Strip ─────────────────────────────────────────────────── */}
+      <section className="py-10 sm:py-14 border-t border-slate-100 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-8 sm:gap-16 opacity-75">
+           <div className="flex items-center gap-2.5">
+              <ShieldCheck className="w-6 h-6 text-blue-600" />
               <div className="text-left">
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Security Standard</p>
-                <p className="text-sm font-black text-slate-900 tracking-tighter">PCI-DSS COMPLIANT</p>
+                <p className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">TENANT-ISOLATED RLS</p>
               </div>
            </div>
-           <div className="flex items-center gap-3">
-              <Zap className="w-8 h-8 text-amber-500" />
+           <div className="flex items-center gap-2.5">
+              <Zap className="w-6 h-6 text-amber-500" />
               <div className="text-left">
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Response Speed</p>
-                <p className="text-sm font-black text-slate-900 tracking-tighter">99.9% UPTIME SLG</p>
+                <p className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">REAL-TIME KDS SYNC</p>
               </div>
            </div>
-           <div className="flex items-center gap-3">
-              <Smartphone className="w-8 h-8 text-indigo-500" />
+           <div className="flex items-center gap-2.5">
+              <Smartphone className="w-6 h-6 text-indigo-500" />
               <div className="text-left">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Platform Reach</p>
-                <p className="text-sm font-black text-slate-900 tracking-tighter">2.4M+ MONTHLY ACTIVE SCAN</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">QR Commerce</p>
+                <p className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">0% ORDER COMMISSION</p>
               </div>
            </div>
         </div>
       </section>
+
+      {targetPlan && checkoutRestaurant?.id && (
+        <UPIPaymentModal
+          open={showPaymentModal}
+          onOpenChange={(isOpen) => {
+            setShowPaymentModal(isOpen)
+            if (!isOpen && paymentSubmitted && checkoutRestaurant?.id) {
+              navigate(`/console/${checkoutRestaurant.id}`)
+            }
+          }}
+          planName={targetPlan.name}
+          amount={Number(targetPlan.price || 2100)}
+          restaurantId={checkoutRestaurant.id}
+          merchantEmail={checkoutRestaurant.email}
+          merchantName={checkoutRestaurant.business_name}
+          onPaymentSubmitted={() => setPaymentSubmitted(true)}
+        />
+      )}
     </div>
   )
 }

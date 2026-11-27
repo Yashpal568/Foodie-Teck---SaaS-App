@@ -213,7 +213,7 @@ export const useOrderManagement = (restaurantId) => {
         ['FINISHED', 'CANCELLED'].includes(o.status)
       )
       
-      if (isDemo || allOrders.length === 0) {
+      if (isDemo) {
         const mockActive = MOCK_DEMO_ORDERS.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
         const mockHistory = MOCK_DEMO_ORDERS.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status))
         setOrders(active.length > 0 ? active : mockActive)

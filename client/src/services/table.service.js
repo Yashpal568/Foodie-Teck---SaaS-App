@@ -1,18 +1,56 @@
 import { supabase } from '../lib/supabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
-import { generateRestaurantSignature, generateTableSignature } from '@/utils/tableSecurity'
+import { generateRestaurantSignature, getPublicMenuOrigin } from '@/utils/tableSecurity'
 
-/** Get floor plan (tables) directly from Supabase (uses public table-number RPC for guest menu when unauthenticated) */
-export const getTableSessions = async (restaurantId) => {
-  if (restaurantId === 'demo-merchant' || restaurantId === 'demo') {
-    return [1, 2, 3, 4, 5, 6, 7, 8].map(n => ({
+const DEMO_TABLES_STORAGE_KEY = 'servora_demo_table_sessions_v1'
+
+const createDefaultDemoTables = (count = 8) =>
+  Array.from({ length: count }, (_, idx) => {
+    const n = idx + 1
+    return {
       id: `t-${n}`,
       restaurant_id: 'demo-merchant',
       table_number: n,
       status: n === 1 || n === 3 ? 'occupied' : 'available',
+      customers: n === 1 || n === 3 ? 2 : 0,
       current_order_id: null,
-      total_amount: n === 1 ? 320 : n === 3 ? 550 : 0
-    }))
+      session_start: n === 1 || n === 3 ? new Date(Date.now() - 12 * 60000).toISOString() : null,
+      last_activity: new Date().toISOString(),
+      total_amount: n === 1 ? 320 : n === 3 ? 550 : 0,
+    }
+  })
+
+const readDemoTableSessions = () => {
+  try {
+    if (typeof window !== 'undefined') {
+      const raw = window.localStorage.getItem(DEMO_TABLES_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    }
+  } catch {
+    // ignore storage parse failure
+  }
+  return createDefaultDemoTables(8)
+}
+
+const writeDemoTableSessions = (sessions) => {
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(DEMO_TABLES_STORAGE_KEY, JSON.stringify(sessions))
+      window.dispatchEvent(new CustomEvent('tableSessionsUpdated', { detail: { restaurantId: 'demo-merchant', sessions } }))
+      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { restaurantId: 'demo-merchant', count: sessions.length } }))
+    }
+  } catch {
+    // ignore storage quota failure
+  }
+}
+
+/** Get floor plan (tables) directly from Supabase (uses public table-number RPC for guest menu when unauthenticated) */
+export const getTableSessions = async (restaurantId) => {
+  if (restaurantId === 'demo-merchant' || restaurantId === 'demo') {
+    return readDemoTableSessions()
   }
 
   const validId = await ensureValidRestaurantUUID(restaurantId)
@@ -48,8 +86,37 @@ export const getTableSessions = async (restaurantId) => {
   return []
 }
 
-/** Update Table Status (Resilient Upsert) */
+/** Update Table Status (supports Supabase UUID tenants, demo mode, and public QR table claim RPC) */
 export const updateTableStatus = async (restaurantId, tableNumber, updates) => {
+  const cleanTableNum = parseInt(tableNumber, 10)
+  if (!Number.isInteger(cleanTableNum) || cleanTableNum < 1) return null
+
+  if (restaurantId === 'demo-merchant' || restaurantId === 'demo') {
+    const current = readDemoTableSessions()
+    const exists = current.some((s) => Number(s.table_number) === cleanTableNum)
+    const next = exists
+      ? current.map((s) =>
+          Number(s.table_number) === cleanTableNum
+            ? { ...s, ...updates, table_number: cleanTableNum, last_activity: new Date().toISOString() }
+            : s
+        )
+      : [
+          ...current,
+          {
+            id: `t-${cleanTableNum}`,
+            restaurant_id: 'demo-merchant',
+            table_number: cleanTableNum,
+            status: updates?.status || 'available',
+            customers: updates?.customers || 0,
+            current_order_id: updates?.current_order_id || null,
+            session_start: updates?.session_start || null,
+            last_activity: new Date().toISOString(),
+          },
+        ]
+    writeDemoTableSessions(next)
+    return next.find((s) => Number(s.table_number) === cleanTableNum) || null
+  }
+
   const validId = await ensureValidRestaurantUUID(restaurantId)
   if (!validId) return null
 
@@ -57,14 +124,26 @@ export const updateTableStatus = async (restaurantId, tableNumber, updates) => {
     .from('table_sessions')
     .upsert({
       restaurant_id: validId,
-      table_number: parseInt(tableNumber),
+      table_number: cleanTableNum,
       ...updates,
       last_activity: new Date().toISOString()
     }, { onConflict: 'restaurant_id, table_number' })
     .select()
     .single()
-  
-  if (error) throw error
+
+  if (error) {
+    // When anonymous QR customers claim an available table, route through the safe RPC
+    if (String(updates?.status || '').toLowerCase() === 'occupied') {
+      const { error: rpcErr } = await supabase.rpc('claim_public_table_session', {
+        p_restaurant_id: validId,
+        p_table_number: cleanTableNum,
+      })
+      if (!rpcErr) {
+        return { restaurant_id: validId, table_number: cleanTableNum, status: 'occupied' }
+      }
+    }
+    throw error
+  }
   return data
 }
 
@@ -341,70 +420,122 @@ export const getQRCodes = async (restaurantId) => {
   return []
 }
 
-/** Bulk Save QR Codes directly to Supabase */
-export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
-  if (!qrCodes || qrCodes.length === 0) return true
-  const validId = (await ensureValidRestaurantUUID(restaurantId)) || restaurantId
-  if (!validId) return true
+/**
+ * Create/resize dining tables for a restaurant AND connect them non-destructively to `table_sessions` + `qr_codes`.
+ * Preserves existing active (`occupied` / `billing` / `needs-cleaning` / `reserved`) table sessions!
+ */
+export const configureRestaurantTables = async (restaurantId, targetCount) => {
+  const count = Math.max(1, Math.min(999, parseInt(targetCount, 10) || 1))
+  const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo'
 
-  try {
-    const validQrCodes = qrCodes.filter(qr => qr.tableNumber !== undefined && qr.tableNumber !== null && !isNaN(Number(qr.tableNumber)))
-    if (validQrCodes.length === 0) return true
-
-    const masterSig = generateRestaurantSignature(validId)
-    const qrPayloads = validQrCodes.map(qr => {
-      const sig = qr.isUniversal ? masterSig : generateTableSignature(validId, qr.tableNumber)
-      const url = qr.isUniversal
-        ? `${window.location.origin}/menu?restaurant=${validId}&sig=${sig}`
-        : `${window.location.origin}/menu?restaurant=${validId}&table=${qr.tableNumber}&sig=${sig}`
+  if (isDemo) {
+    const existing = readDemoTableSessions()
+    const byNum = new Map(existing.map((s) => [Number(s.table_number), s]))
+    const next = Array.from({ length: count }, (_, idx) => {
+      const n = idx + 1
+      const prev = byNum.get(n)
+      if (prev) return prev
       return {
-        restaurant_id: validId,
-        table_number: Number(qr.tableNumber),
-        url: qr.url || url,
-        created_at: qr.generatedAt || new Date().toISOString()
+        id: `t-${n}`,
+        restaurant_id: 'demo-merchant',
+        table_number: n,
+        status: 'available',
+        customers: 0,
+        current_order_id: null,
+        session_start: null,
+        last_activity: new Date().toISOString(),
+        total_amount: 0,
       }
     })
-
-    const validTableNumbers = validQrCodes.map(q => Number(q.tableNumber)).join(',')
-
-    if (validTableNumbers) {
-      await supabase
-        .from('qr_codes')
-        .delete()
-        .eq('restaurant_id', validId)
-        .not('table_number', 'in', `(${validTableNumbers})`)
-    }
-
-    const { error: qrError } = await supabase
-      .from('qr_codes')
-      .upsert(qrPayloads, { onConflict: 'restaurant_id, table_number' })
-
-    if (qrError) console.warn('QR code cloud upsert warning:', qrError)
-
-    const sessionPayloads = validQrCodes.map(qr => ({
-      restaurant_id: validId,
-      table_number: Number(qr.tableNumber),
-      status: 'available',
-      customers: 0,
-      last_activity: new Date().toISOString()
-    }))
-
-    if (validTableNumbers) {
-      await supabase
-        .from('table_sessions')
-        .delete()
-        .eq('restaurant_id', validId)
-        .not('table_number', 'in', `(${validTableNumbers})`)
-    }
-
-    const { error: sessionError } = await supabase
-      .from('table_sessions')
-      .upsert(sessionPayloads, { onConflict: 'restaurant_id, table_number' })
-
-    if (sessionError) console.warn('Table session cloud upsert warning:', sessionError)
-  } catch (err) {
-    console.error('bulkSaveQRCodes error:', err)
+    writeDemoTableSessions(next)
+    return next
   }
 
+  const validId = (await ensureValidRestaurantUUID(restaurantId)) || restaurantId
+  if (!isValidUUID(validId)) {
+    throw new Error('Could not resolve restaurant UUID to configure floor tables.')
+  }
+
+  const origin = getPublicMenuOrigin()
+  const masterSig = generateRestaurantSignature(validId)
+  const masterUrl = `${origin}/menu?restaurant=${validId}&sig=${masterSig}`
+  const tableNumbers = Array.from({ length: count }, (_, idx) => idx + 1)
+
+  // 1. Sync qr_codes (Universal Restaurant QR URL per configured table slot 1..N)
+  const qrPayloads = tableNumbers.map((n) => ({
+    restaurant_id: validId,
+    table_number: n,
+    url: masterUrl,
+    created_at: new Date().toISOString(),
+  }))
+
+  await supabase
+    .from('qr_codes')
+    .delete()
+    .eq('restaurant_id', validId)
+    .gt('table_number', count)
+
+  const { error: qrError } = await supabase
+    .from('qr_codes')
+    .upsert(qrPayloads, { onConflict: 'restaurant_id, table_number' })
+  if (qrError) throw qrError
+
+  // 2. Fetch existing table_sessions so active occupied/billing tables are NEVER wiped
+  const { data: existingSessions, error: fetchSessErr } = await supabase
+    .from('table_sessions')
+    .select('*')
+    .eq('restaurant_id', validId)
+  if (fetchSessErr) throw fetchSessErr
+
+  const existingNums = new Set((existingSessions || []).map((s) => Number(s.table_number)))
+  const missingPayloads = tableNumbers
+    .filter((n) => !existingNums.has(n))
+    .map((n) => ({
+      restaurant_id: validId,
+      table_number: n,
+      status: 'available',
+      customers: 0,
+      last_activity: new Date().toISOString(),
+    }))
+
+  if (missingPayloads.length > 0) {
+    const { error: insertErr } = await supabase
+      .from('table_sessions')
+      .upsert(missingPayloads, { onConflict: 'restaurant_id, table_number' })
+    if (insertErr) throw insertErr
+  }
+
+  // Only remove excess idle/available tables above `count`
+  await supabase
+    .from('table_sessions')
+    .delete()
+    .eq('restaurant_id', validId)
+    .gt('table_number', count)
+    .eq('status', 'available')
+
+  const { data: syncedSessions, error: finalErr } = await supabase
+    .from('table_sessions')
+    .select('*')
+    .eq('restaurant_id', validId)
+    .order('table_number', { ascending: true })
+
+  if (finalErr) throw finalErr
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tableSessionsUpdated', { detail: { restaurantId: validId, sessions: syncedSessions || [] } }))
+    window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { restaurantId: validId, count: (syncedSessions || []).length } }))
+  }
+
+  return syncedSessions || []
+}
+
+/** Bulk Save QR Codes directly to Supabase without wiping active Table Sessions */
+export const bulkSaveQRCodes = async (restaurantId, qrCodes) => {
+  if (!qrCodes || qrCodes.length === 0) return true
+  const validQrCodes = qrCodes.filter(qr => qr.tableNumber !== undefined && qr.tableNumber !== null && !isNaN(Number(qr.tableNumber)))
+  if (validQrCodes.length === 0) return true
+
+  const maxCount = Math.max(...validQrCodes.map((q) => Number(q.tableNumber)))
+  await configureRestaurantTables(restaurantId, maxCount)
   return true
 }

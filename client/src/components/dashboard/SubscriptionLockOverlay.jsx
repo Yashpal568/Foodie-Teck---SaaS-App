@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { 
   Lock, 
   RefreshCw, 
@@ -180,12 +181,12 @@ export default function SubscriptionLockOverlay({
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle()
-          if (pv && (pv.status === 'Approved' || pv.status === 'Active')) {
+          if (pv && ['APPROVED', 'ACTIVE'].includes(String(pv.status || '').toUpperCase())) {
             subData = pv
           }
         }
 
-        if (subData && (subData.status === 'Approved' || subData.status === 'Active')) {
+        if (subData && ['APPROVED', 'ACTIVE'].includes(String(subData.status || '').toUpperCase())) {
           setIsApproved(true)
           if (onCheckStatus) onCheckStatus()
           toast.success('🎉 Payment Verified & Approved!', {
@@ -211,7 +212,7 @@ export default function SubscriptionLockOverlay({
           filter: `restaurant_id=eq.${restaurantId}`
         }, (payload) => {
           const status = payload?.new ? payload.new['status'] : undefined
-          if (status === 'Approved' || status === 'Active') {
+          if (['APPROVED', 'ACTIVE'].includes(String(status || '').toUpperCase())) {
             setIsApproved(true)
             if (onCheckStatus) onCheckStatus()
             toast.success('🎉 Payment Verified & Approved!', {
@@ -257,7 +258,7 @@ export default function SubscriptionLockOverlay({
           .eq('restaurant_id', restaurantId)
           .maybeSingle()
 
-        if (sub && (sub.status === 'Approved' || sub.status === 'Active')) {
+        if (sub && ['APPROVED', 'ACTIVE'].includes(String(sub.status || '').toUpperCase())) {
           setIsApproved(true)
           toast.success('Subscription Verified & Active!', { description: 'Opening restaurant dashboard...' })
           setTimeout(() => window.location.reload(), 800)
@@ -281,7 +282,7 @@ export default function SubscriptionLockOverlay({
           .eq('restaurant_id', restaurantId)
           .maybeSingle()
 
-        if (sub && (sub.status === 'Approved' || sub.status === 'Active')) {
+        if (sub && ['APPROVED', 'ACTIVE'].includes(String(sub.status || '').toUpperCase())) {
           setIsApproved(true)
           toast.success('Subscription Verified & Active!', { description: 'Opening restaurant dashboard...' })
           setTimeout(() => window.location.reload(), 600)
@@ -297,7 +298,7 @@ export default function SubscriptionLockOverlay({
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
-        if (pv && (pv.status === 'Approved' || pv.status === 'Active')) {
+        if (pv && ['APPROVED', 'ACTIVE'].includes(String(pv.status || '').toUpperCase())) {
           setIsApproved(true)
           toast.success('Subscription Verified & Active!', { description: 'Opening restaurant dashboard...' })
           setTimeout(() => window.location.reload(), 600)

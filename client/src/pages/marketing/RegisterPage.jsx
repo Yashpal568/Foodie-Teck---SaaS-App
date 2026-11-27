@@ -18,7 +18,6 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import Logo from '@/components/ui/Logo'
 import { supabase } from '@/lib/supabase'
-import { recordNewMerchant } from '@/lib/adminDataService'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -33,6 +32,7 @@ export default function RegisterPage() {
   const [isInitializing, setIsInitializing] = useState(false)
   const [initStatus, setInitStatus] = useState('')
   const [error, setError] = useState(null)
+  const [confirmationEmail, setConfirmationEmail] = useState('')
 
   const calculateStrength = (pass) => {
     let score = 0;
@@ -88,10 +88,15 @@ export default function RegisterPage() {
       return
     }
 
-    // Wait a brief moment for the DB trigger to finish creating the restaurant
-    await new Promise(r => setTimeout(r, 1000))
+    // If Supabase Email Confirmation is enabled, signUp returns a user with session=null.
+    // Do not attempt anon DB inserts under hardened RLS; prompt user to confirm their email first.
+    if (!data?.session || !data?.user) {
+      setIsInitializing(false)
+      setConfirmationEmail(formData.email.trim().toLowerCase())
+      return
+    }
 
-    // Fetch the auto-created restaurant
+    // Ensure the merchant restaurant row exists under the authenticated user's owner_id
     let { data: restaurant } = await supabase
       .from('restaurants')
       .select('*')
@@ -107,40 +112,44 @@ export default function RegisterPage() {
       restaurant = restByEmail
     }
 
-    const restId = restaurant?.id || data.user.id
-    sessionStorage.setItem('servora_restaurant_id', restId)
-    sessionStorage.setItem(`servora_uuid_${formData.email.toLowerCase()}`, restId)
+    if (!restaurant?.id) {
+      const { data: insertedRest, error: insertRestErr } = await supabase
+        .from('restaurants')
+        .insert({
+          owner_id: data.user.id,
+          business_name: formData.businessName.trim() || 'Servora Merchant',
+          email: formData.email.trim().toLowerCase(),
+          status: 'Pending',
+          created_at: new Date().toISOString()
+        })
+        .select('*')
+        .maybeSingle()
 
-    await recordNewMerchant({
-       id: restId,
-       owner_id: data.user.id,
-       business_name: formData.businessName || 'Servora Merchant',
-       email: formData.email.toLowerCase(),
-       status: 'Pending',
-       created_at: new Date().toISOString()
-    })
-
-    const intendedPlanStr = sessionStorage.getItem('intended_plan')
-    if (intendedPlanStr && restId) {
-       try {
-          const planObj = JSON.parse(intendedPlanStr)
-          await supabase.from('subscriptions').upsert({
-             restaurant_id: restId,
-             plan_name: planObj.name,
-             price: planObj.price,
-             status: 'PENDING_APPROVAL',
-             start_date: new Date().toISOString()
-          }, { onConflict: 'restaurant_id' })
-          sessionStorage.removeItem('intended_plan')
-       } catch (err) {
-          console.warn('Failed to save intended plan on register:', err)
-       }
-       // Redirect to merchant console if plan was already chosen
-       navigate(`/console/${restId}`)
-    } else {
-       // If no plan was chosen, direct them to select a plan immediately
-       navigate('/pricing')
+      if (insertRestErr || !insertedRest?.id) {
+        setIsInitializing(false)
+        setError(insertRestErr?.message || 'Account created, but workspace provisioning failed. Please sign in to continue.')
+        return
+      }
+      restaurant = insertedRest
+    } else if (!restaurant.owner_id) {
+      await supabase
+        .from('restaurants')
+        .update({ owner_id: data.user.id })
+        .eq('id', restaurant.id)
     }
+
+    const restId = restaurant.id
+    try {
+      sessionStorage.setItem('servora_restaurant_id', restId)
+      sessionStorage.setItem(`servora_uuid_${formData.email.toLowerCase()}`, restId)
+    } catch {
+      // ignore storage failure
+    }
+
+    setIsInitializing(false)
+    // Always move newly registered merchants to Plan Selection (/pricing),
+    // where selecting a plan opens the UPI Payment & UTR Verification flow directly.
+    navigate('/pricing')
   }
 
 
@@ -256,9 +265,35 @@ export default function RegisterPage() {
          >
             <div className="space-y-2">
                <h2 className="text-4xl font-black text-slate-950 tracking-tightest">Initialize Merchant.</h2>
-               <p className="text-slate-500 font-medium">Step {step} of 2: Create your restaurant environment</p>
+               <p className="text-slate-500 font-medium">
+                  {confirmationEmail
+                    ? 'Email Verification Required'
+                    : `Step ${step} of 2: Create your restaurant environment`}
+               </p>
             </div>
 
+            {confirmationEmail ? (
+               <div className="p-6 rounded-3xl bg-blue-50/70 border border-blue-100 space-y-5">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/20">
+                     <Mail className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-2">
+                     <h3 className="text-xl font-black text-slate-950 tracking-tight">Check your inbox to confirm your email</h3>
+                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                        We sent a verification link to <span className="font-bold text-slate-950">{confirmationEmail}</span>. Click the confirmation link in that email first, then sign in to finish selecting your plan and launching your restaurant dashboard.
+                     </p>
+                  </div>
+                  <Button
+                     type="button"
+                     onClick={() => navigate('/login')}
+                     className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-black uppercase tracking-widest text-xs shadow-xl flex items-center justify-center gap-2"
+                  >
+                     Continue to Sign In
+                     <ArrowRight className="w-4 h-4" />
+                  </Button>
+               </div>
+            ) : (
+            <>
             {error && (
                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100/50 text-rose-600 flex items-start gap-3">
                   <span className="w-5 h-5 mt-0.5.5 flex items-center justify-center rounded-full bg-rose-100 text-[10px] font-black shrink-0">!</span>
@@ -384,6 +419,8 @@ export default function RegisterPage() {
                   </div>
                )}
             </form>
+            </>
+            )}
 
             <div className="pt-10 border-t border-slate-100 text-center space-y-4">
                <p className="text-slate-500 font-bold text-sm tracking-tight">

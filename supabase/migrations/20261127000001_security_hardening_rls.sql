@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS private.platform_admins (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 REVOKE ALL ON TABLE private.platform_admins FROM PUBLIC, anon, authenticated;
+ALTER TABLE private.platform_admins ENABLE ROW LEVEL SECURITY;
 
 -- 2. Internal RLS helper functions (unexposed private schema, search_path='')
 CREATE OR REPLACE FUNCTION private.is_platform_admin()

@@ -159,80 +159,53 @@ export const recordNewMerchant = async (restaurantObj) => {
 }
 
 export const recordPendingPayment = async (paymentObj) => {
+  const cleanUtr = (paymentObj.utrNumber || '').trim().toUpperCase()
+  const cleanEmail = (paymentObj.merchantEmail || '').trim().toLowerCase()
+
+  // Insert a fresh PENDING_APPROVAL row (non-admin merchants cannot UPDATE under RLS)
+  const { error: pvError } = await supabase.from('payment_verifications').insert({
+    restaurant_id: paymentObj.restaurantId,
+    merchant_name: paymentObj.merchantName,
+    email: cleanEmail,
+    plan_name: paymentObj.planName,
+    amount: paymentObj.amount,
+    utr_number: cleanUtr,
+    status: 'PENDING_APPROVAL',
+    created_at: new Date().toISOString()
+  })
+
+  if (pvError) {
+    throw pvError
+  }
+
+  // Insert admin notification record (non-fatal if restricted)
   try {
-    const cleanUtr = (paymentObj.utrNumber || '').trim()
-    const cleanEmail = (paymentObj.merchantEmail || '').trim().toLowerCase()
+    await supabase.from('notifications').insert({
+      restaurant_id: paymentObj.restaurantId,
+      title: '💳 UTR Payment Verification Needed',
+      message: `${paymentObj.merchantName} submitted UTR #${cleanUtr} for ${paymentObj.planName} (₹${paymentObj.amount})`,
+      type: 'payment_verification',
+      is_read: false,
+      created_at: new Date().toISOString()
+    })
+  } catch {
+    // non-fatal notification note
+  }
 
-    // Check if an existing pending verification row exists for this restaurant or UTR
-    let existingId = null
-    if (paymentObj.restaurantId) {
-      const { data: ex } = await supabase
-        .from('payment_verifications')
-        .select('id')
-        .eq('restaurant_id', paymentObj.restaurantId)
-        .eq('status', 'PENDING_APPROVAL')
-        .maybeSingle()
-      if (ex?.id) existingId = ex.id
-    }
-
-    if (!existingId && cleanUtr) {
-      const { data: exUtr } = await supabase
-        .from('payment_verifications')
-        .select('id')
-        .eq('utr_number', cleanUtr)
-        .maybeSingle()
-      if (exUtr?.id) existingId = exUtr.id
-    }
-
-    if (existingId) {
-      await supabase.from('payment_verifications').update({
-        merchant_name: paymentObj.merchantName,
-        email: cleanEmail,
-        plan_name: paymentObj.planName,
-        amount: paymentObj.amount,
-        utr_number: cleanUtr,
-        status: 'PENDING_APPROVAL',
-        created_at: new Date().toISOString()
-      }).eq('id', existingId)
-    } else {
-      await supabase.from('payment_verifications').insert({
-        restaurant_id: paymentObj.restaurantId,
-        merchant_name: paymentObj.merchantName,
-        email: cleanEmail,
-        plan_name: paymentObj.planName,
-        amount: paymentObj.amount,
-        utr_number: cleanUtr,
-        status: 'PENDING_APPROVAL',
-        created_at: new Date().toISOString()
-      })
-    }
-
-    // Insert admin notification record
-    try {
-      await supabase.from('notifications').insert({
-        title: '💳 UTR Payment Verification Needed',
-        message: `${paymentObj.merchantName} submitted UTR #${cleanUtr} for ${paymentObj.planName} (₹${paymentObj.amount})`,
-        type: 'payment_verification',
-        is_read: false,
-        created_at: new Date().toISOString()
-      })
-    } catch (nErr) {}
-
-    // Broadcast across windows & tabs
-    window.dispatchEvent(new Event('platformConfigUpdated'))
-    try {
-      localStorage.setItem('servora_admin_payment_alert', JSON.stringify({
-        id: Date.now(),
-        merchant: paymentObj.merchantName,
-        email: cleanEmail,
-        utr: cleanUtr,
-        plan: paymentObj.planName,
-        amount: paymentObj.amount,
-        time: Date.now()
-      }))
-    } catch (lsErr) {}
-  } catch (e) {
-    console.warn('recordPendingPayment notice:', e)
+  // Broadcast across windows & tabs
+  window.dispatchEvent(new Event('platformConfigUpdated'))
+  try {
+    localStorage.setItem('servora_admin_payment_alert', JSON.stringify({
+      id: Date.now(),
+      merchant: paymentObj.merchantName,
+      email: cleanEmail,
+      utr: cleanUtr,
+      plan: paymentObj.planName,
+      amount: paymentObj.amount,
+      time: Date.now()
+    }))
+  } catch {
+    // ignore storage quota error
   }
 }
 

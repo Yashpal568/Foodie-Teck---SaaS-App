@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Menu, 
   Search, 
@@ -110,8 +111,8 @@ export default function AdminHeader({ onMenuClick }) {
 
       isInitialLoadRef.current = false
 
-      // 2. Recent Merchant Signups
-      restaurants.slice(-4).forEach(r => {
+      // 2. Recent Merchant Signups (restaurants are ordered newest-first)
+      restaurants.slice(0, 4).forEach(r => {
         aggregatedList.push({
           id: `rest-${r.id}`,
           category: 'MERCHANTS',
@@ -119,7 +120,7 @@ export default function AdminHeader({ onMenuClick }) {
           desc: `${r.business_name || r.name || 'Merchant'} (${r.email || 'N/A'}) initialized workspace.`,
           timestamp: new Date(r.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           rawDate: new Date(r.created_at || Date.now()).getTime(),
-          unread: false,
+          unread: String(r.status || '').toLowerCase() === 'pending',
           route: '/admin/customers',
           icon: Store,
           color: 'blue'
@@ -155,17 +156,18 @@ export default function AdminHeader({ onMenuClick }) {
         if (dbNotifs && dbNotifs.length > 0) {
           dbNotifs.forEach(n => {
             if (!aggregatedList.some(item => item.id === `notif-${n.id}`)) {
+              const isPaymentNotif = n.type === 'payment_verification' || n.type === 'subscription'
               aggregatedList.push({
                 id: `notif-${n.id}`,
-                category: n.type === 'new_order' ? 'ORDERS' : 'SYSTEM',
+                category: n.type === 'new_order' ? 'ORDERS' : isPaymentNotif ? 'PAYMENTS' : 'SYSTEM',
                 title: n.title || 'Platform Notification',
                 desc: n.message || 'Notification received.',
                 timestamp: new Date(n.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                 rawDate: new Date(n.created_at || Date.now()).getTime(),
                 unread: !n.is_read,
-                route: '/admin/audit',
-                icon: Zap,
-                color: 'blue'
+                route: isPaymentNotif ? '/admin/verifications' : '/admin/audit',
+                icon: isPaymentNotif ? CreditCard : Zap,
+                color: isPaymentNotif ? 'emerald' : 'blue'
               })
             }
           })
@@ -244,8 +246,8 @@ export default function AdminHeader({ onMenuClick }) {
     window.addEventListener('platformConfigUpdated', loadNotifications)
     window.addEventListener('storage', handleStorage)
 
-    // Quiet 60-second fallback polling while Realtime handles live instant push notifications
-    const interval = setInterval(loadNotifications, 60000)
+    // Quiet 15-second fallback polling while Realtime handles live instant push notifications
+    const interval = setInterval(loadNotifications, 15000)
 
     const channel = supabase
       .channel('public:admin_header_notifs')

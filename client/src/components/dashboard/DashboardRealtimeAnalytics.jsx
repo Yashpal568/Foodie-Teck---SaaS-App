@@ -26,6 +26,7 @@ import {
   Area
 } from 'recharts'
 import { useOrderManagement } from '@/hooks/useOrderManagement'
+import { useTableSessions } from '@/hooks/useTableSessions'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -79,8 +80,12 @@ function CustomPieTooltip({ active, payload }) {
 
 export default function DashboardRealtimeAnalytics({ restaurantId = 'default', onNavigateAnalytics }) {
   const { orders: activeOrders, orderHistory } = useOrderManagement(restaurantId)
+  const { stats: tableStats } = useTableSessions(restaurantId)
+  const activeTablesCount = (tableStats?.occupied || 0) + (tableStats?.billing || 0)
   const [chartMode, setChartMode] = useState('categories') // 'categories' | 'status' | 'hourly'
   const [activeIndex, setActiveIndex] = useState(null)
+
+  const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
 
   // Aggregate All Live Orders
   const allOrders = useMemo(() => {
@@ -108,8 +113,9 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       })
     })
 
-    // If no orders yet, provide smart realistic starter categories so chart looks premium
+    // Only show starter demo data inside isolated demo mode; real merchants start at 0
     if (totalItemsCount === 0) {
+      if (!isDemo) return []
       const fallback = [
         { name: 'Starters', value: 8, revenue: 1920 },
         { name: 'Main Course', value: 12, revenue: 4200 },
@@ -131,7 +137,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       percentage: ((c.value / totalItemsCount) * 100).toFixed(1),
       fill: CATEGORY_COLORS[i % CATEGORY_COLORS.length]
     }))
-  }, [allOrders])
+  }, [allOrders, isDemo])
 
   // 2. Status Distribution Calculation
   const statusData = useMemo(() => {
@@ -151,6 +157,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
     }))
 
     if (entries.length === 0) {
+      if (!isDemo) return []
       return [
         { name: 'Completed', value: 14, percentage: '56.0', fill: STATUS_COLORS.FINISHED },
         { name: 'Served', value: 6, percentage: '24.0', fill: STATUS_COLORS.SERVED },
@@ -159,7 +166,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       ]
     }
     return entries
-  }, [allOrders])
+  }, [allOrders, isDemo])
 
   // 3. Hourly Order Velocity Calculation
   const hourlyData = useMemo(() => {
@@ -186,7 +193,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
 
     const vals = Object.values(map)
     const hasData = vals.some(v => v.orders > 0)
-    if (!hasData) {
+    if (!hasData && isDemo) {
       return [
         { hour: '11 AM', orders: 3, revenue: 840 },
         { hour: '1 PM', orders: 9, revenue: 2750 },
@@ -198,11 +205,11 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       ]
     }
     return vals
-  }, [allOrders])
+  }, [allOrders, isDemo])
 
-  const topCategory = categoryData[0] || { name: 'Main Course', percentage: '38.5' }
-  const totalOrdersCount = allOrders.length || 29
-  const totalVolumeSum = categoryData.reduce((a, b) => a + b.value, 0) || 35
+  const topCategory = categoryData[0] || { name: 'None yet', percentage: '0' }
+  const totalOrdersCount = isDemo ? (allOrders.length || 29) : allOrders.length
+  const totalVolumeSum = categoryData.reduce((a, b) => a + b.value, 0)
 
   return (
     <Card className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
@@ -278,7 +285,13 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
           <div className="lg:col-span-7 flex flex-col items-center justify-center min-w-0 w-full">
             <div className="w-full h-72 min-h-[280px] relative flex items-center justify-center">
               
-              {chartMode === 'categories' && (
+              {chartMode === 'categories' && categoryData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center p-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 w-full h-full">
+                  <ShoppingBag className="w-8 h-8 text-slate-300 mb-2" />
+                  <p className="text-sm font-bold text-slate-600">No sales data yet</p>
+                  <p className="text-xs text-slate-400 mt-1">Category analytics populate automatically once orders are placed.</p>
+                </div>
+              ) : chartMode === 'categories' && (
                 <ResponsiveContainer width="100%" height={270}>
                   <PieChart>
                     <Tooltip content={<CustomPieTooltip />} />
@@ -309,7 +322,13 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
                 </ResponsiveContainer>
               )}
 
-              {chartMode === 'status' && (
+              {chartMode === 'status' && statusData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center p-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 w-full h-full">
+                  <Activity className="w-8 h-8 text-slate-300 mb-2" />
+                  <p className="text-sm font-bold text-slate-600">No fulfillment data yet</p>
+                  <p className="text-xs text-slate-400 mt-1">Order status breakdown will appear here in real time.</p>
+                </div>
+              ) : chartMode === 'status' && (
                 <ResponsiveContainer width="100%" height={270}>
                   <PieChart>
                     <Tooltip content={<CustomPieTooltip />} />
@@ -362,7 +381,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
               )}
 
               {/* Center Donut Hub for Pie Charts */}
-              {(chartMode === 'categories' || chartMode === 'status') && (
+              {((chartMode === 'categories' && categoryData.length > 0) || (chartMode === 'status' && statusData.length > 0)) && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     {chartMode === 'categories' ? 'Total Items' : 'Total Orders'}
@@ -436,7 +455,11 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
                 )}
               </div>
 
-              {(chartMode === 'status' ? statusData : categoryData).slice(0, 4).map((item) => (
+              {(chartMode === 'status' ? statusData : categoryData).length === 0 ? (
+                <p className="text-xs text-slate-400 font-medium py-3 text-center">
+                  No category breakdown available yet.
+                </p>
+              ) : (chartMode === 'status' ? statusData : categoryData).slice(0, 4).map((item) => (
                 <div key={item.name} className="space-y-1">
                   <div className="flex justify-between text-[11px] font-semibold text-slate-600">
                     <div className="flex items-center gap-1.5">
@@ -466,7 +489,9 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
               </div>
               <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs">
                 <p className="text-[10px] font-bold uppercase text-slate-400">Active Tables</p>
-                <p className="text-base font-black text-emerald-600 mt-0.5">1 Table Live</p>
+                <p className="text-base font-black text-emerald-600 mt-0.5">
+                  {activeTablesCount} {activeTablesCount === 1 ? 'Table Live' : 'Tables Live'}
+                </p>
               </div>
             </div>
 

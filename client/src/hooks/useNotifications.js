@@ -103,9 +103,10 @@ export const useNotifications = (restaurantId) => {
         }
       }
 
-      // Normalize to UI expectation
+      // Normalize to UI expectation (exclude admin-targeted payment_verification alerts from restaurant floor bell)
       const mapped = (dbNotifications || [])
         .filter(n => {
+          if (n.type === 'payment_verification' || n.type === 'subscription') return false
           if (recentSeen.has(n.id)) return false
           recentSeen.add(n.id)
           return true

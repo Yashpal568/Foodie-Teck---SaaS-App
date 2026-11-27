@@ -35,8 +35,9 @@ import Sidebar from '../layout/Sidebar'
 import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import QRCode from 'qrcode'
-import { getCachedRestaurantId, getMyRestaurant, bulkSaveQRCodes, supabase, ensureValidRestaurantUUID } from '@/lib/api'
-import { generateRestaurantSignature, generateTableSignature } from '@/utils/tableSecurity'
+import { toast } from 'sonner'
+import { getCachedRestaurantId, getMyRestaurant, configureRestaurantTables, getTableSessions, supabase, ensureValidRestaurantUUID } from '@/lib/api'
+import { generateRestaurantSignature, generateTableSignature, getPublicMenuOrigin } from '@/utils/tableSecurity'
 import UpgradePlanModal from './UpgradePlanModal'
 import QRTemplateStudioModal from './QRTemplateStudioModal'
 import { getPlanDetails } from '@/utils/planLimits'
@@ -44,7 +45,7 @@ import { getPlanDetails } from '@/utils/planLimits'
 // Cryptographic Universal Restaurant QR generator (Single Master QR for entire venue)
 const generateMasterQRCode = async (restaurantId) => {
   const sig = generateRestaurantSignature(restaurantId)
-  const origin = typeof window !== 'undefined' ? window.location.origin : (import.meta.env.VITE_APP_URL || 'https://servora.quantumesh.in')
+  const origin = getPublicMenuOrigin()
   const url = `${origin}/menu?restaurant=${restaurantId}&sig=${sig}`
 
   let qrDataUrl = ''
@@ -74,7 +75,7 @@ const generateMasterQRCode = async (restaurantId) => {
 // Cryptographic table QR generator (Optional per-table locked mode)
 const generateQRCode = async (restaurantId, tableNumber) => {
   const sig = generateTableSignature(restaurantId, tableNumber)
-  const origin = typeof window !== 'undefined' ? window.location.origin : (import.meta.env.VITE_APP_URL || 'https://servora.quantumesh.in')
+  const origin = getPublicMenuOrigin()
   const url = `${origin}/menu?restaurant=${restaurantId}&table=${tableNumber}&sig=${sig}`
   
   let qrDataUrl = ''
@@ -103,25 +104,37 @@ const generateQRCode = async (restaurantId, tableNumber) => {
   }
 }
 
-// Load QR codes dynamically from Supabase
+// Load QR codes + configured floor table count dynamically from Supabase / Demo store
 const loadQRCodesFromStorage = async (restaurantId, limit = 10) => {
   try {
     if (!restaurantId) return []
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo'
     const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-    const validId = isUUID(restaurantId) ? restaurantId : (await ensureValidRestaurantUUID(restaurantId) || restaurantId)
-    
-    let countToGenerate = 10
-    
-    if (isUUID(validId)) {
+    const validId = isDemo ? 'demo-merchant' : (isUUID(restaurantId) ? restaurantId : (await ensureValidRestaurantUUID(restaurantId) || restaurantId))
+
+    let countToGenerate = 0
+
+    // Prefer live table_sessions as source of truth so QR Fleet & Floor POS stay 1:1 synced
+    const sessions = await getTableSessions(validId)
+    if (Array.isArray(sessions) && sessions.length > 0) {
+      countToGenerate = sessions.length
+    } else if (!isDemo && isUUID(validId)) {
       try {
         const { data } = await supabase.from('qr_codes').select('table_number').eq('restaurant_id', validId).order('table_number', { ascending: true })
         if (data && data.length > 0) {
           countToGenerate = data.length
         }
-      } catch (e) {}
+      } catch {
+        // fallback below
+      }
     }
 
-    const targetCount = Math.min(countToGenerate, limit > 0 ? limit : 10)
+    if (countToGenerate <= 0) {
+      return []
+    }
+
+    const effectiveCap = limit > 0 ? limit : countToGenerate
+    const targetCount = Math.min(countToGenerate, effectiveCap)
     const codes = []
     for (let i = 1; i <= targetCount; i++) {
       codes.push(await generateQRCode(validId, i))
@@ -136,7 +149,7 @@ const loadQRCodesFromStorage = async (restaurantId, limit = 10) => {
 export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan, restaurantId: propRestaurantId }) {
   const planDetails = getPlanDetails(plan?.name)
   const tableLimit = planDetails.tableLimit
-  const initialRid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'a3b0c97f-7acb-478b-8b5a-68763af06b5c'
+  const initialRid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'demo-merchant'
   const [restaurantId, setRestaurantId] = useState(initialRid)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [restaurantProfile, setRestaurantProfile] = useState({})
@@ -189,14 +202,17 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     repairSession()
   }, [propRestaurantId, restaurantId])
 
-  // Load Master QR + table configurations dynamically
+  // Load Master QR + table configurations dynamically & sync on TableSessions changes
   useEffect(() => {
     let isMounted = true
     const loadData = async () => {
       if (!restaurantId) return
-      const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
-        ? restaurantId
-        : (await ensureValidRestaurantUUID(restaurantId) || restaurantId)
+      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo'
+      const validId = isDemo
+        ? 'demo-merchant'
+        : (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId)
+          ? restaurantId
+          : (await ensureValidRestaurantUUID(restaurantId) || restaurantId))
 
       const [master, savedQRCodes] = await Promise.all([
         generateMasterQRCode(validId),
@@ -207,14 +223,21 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
         if (savedQRCodes && savedQRCodes.length > 0) {
           setQrCodes(savedQRCodes)
           setTableCount(Math.min(savedQRCodes.length, effectiveLimit))
+        } else {
+          setQrCodes([])
+          setTableCount(Math.min(8, effectiveLimit))
         }
       }
     }
     loadData()
-    return () => { isMounted = false }
+    window.addEventListener('tableSessionsUpdated', loadData)
+    return () => {
+      isMounted = false
+      window.removeEventListener('tableSessionsUpdated', loadData)
+    }
   }, [restaurantId, effectiveLimit])
 
-  // Sync Tables & Universal Master QR
+  // Sync Tables & Universal Master QR into table_sessions + qr_codes
   const generateAllQRCodes = async () => {
     if (tableCount > effectiveLimit) {
       setShowUpgradeModal(true)
@@ -222,29 +245,37 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
     }
     setIsGenerating(true)
     try {
-      const activeRid = restaurantId || (await ensureValidRestaurantUUID(propRestaurantId || 'a3b0c97f-7acb-478b-8b5a-68763af06b5c'))
+      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || propRestaurantId === 'demo-merchant' || propRestaurantId === 'demo'
+      const activeRid = isDemo
+        ? 'demo-merchant'
+        : (restaurantId || (await ensureValidRestaurantUUID(propRestaurantId)))
+
+      if (!activeRid) {
+        throw new Error('Could not resolve restaurant identifier.')
+      }
+
+      const targetCount = Math.min(tableCount, effectiveLimit)
+      await configureRestaurantTables(activeRid, targetCount)
+
       const master = await generateMasterQRCode(activeRid)
       setMasterQR(master)
 
       const codes = []
-      const targetCount = Math.min(tableCount, effectiveLimit)
       for (let i = 1; i <= targetCount; i++) {
         const qrCode = await generateQRCode(activeRid, i)
         codes.push(qrCode)
       }
       setQrCodes(codes)
       setShowConfigDrawer(false)
-      
-      // Save directly to Supabase table_sessions and qr_codes (using Universal Master URL)
-      const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-      if (isUUID(activeRid)) {
-        const universalPayloads = codes.map(c => ({ ...c, url: master.url, isUniversal: true }))
-        bulkSaveQRCodes(activeRid, universalPayloads).catch(() => {})
-      }
-      
-      window.dispatchEvent(new CustomEvent('qrCodesUpdated', { detail: { qrCodes: codes, masterQR: master } }))
+
+      toast.success(`Synced ${targetCount} Floor Tables`, {
+        description: 'Universal QR & Table Sessions are now connected and live.'
+      })
     } catch (error) {
-      console.error('Error generating QR codes:', error)
+      console.error('Error syncing floor tables:', error)
+      toast.error('Failed to sync tables', {
+        description: error?.message || 'Unable to save tables to database.'
+      })
     } finally {
       setIsGenerating(false)
     }
@@ -695,14 +726,26 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
                   </p>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowLegacyPerTable(prev => !prev)}
-                  className="text-xs font-bold border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl cursor-pointer self-start sm:self-auto"
-                >
-                  {showLegacyPerTable ? 'Hide Per-Table QRs' : 'Individual Table-Locked QRs (Optional)'}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  {setActiveItem && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveItem('tables')}
+                      className="text-xs font-bold border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 rounded-xl cursor-pointer"
+                    >
+                      View Live Table Sessions →
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowLegacyPerTable(prev => !prev)}
+                    className="text-xs font-bold border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl cursor-pointer"
+                  >
+                    {showLegacyPerTable ? 'Hide Per-Table QRs' : 'Individual Table-Locked QRs (Optional)'}
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">

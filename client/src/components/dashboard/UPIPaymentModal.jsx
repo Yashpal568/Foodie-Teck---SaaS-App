@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
-import { AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   QrCode, 
   Copy, 
@@ -95,23 +95,17 @@ export default function UPIPaymentModal({
           start_date: new Date().toISOString()
        }
 
-       // 1. Authoritative Supabase DB sync (surface errors; never silently ignore failed persistence)
+       // 1. Authoritative Supabase DB sync (merchants can INSERT pending subscriptions; Admin activates on approval)
        const { data: existingSub, error: subFetchErr } = await supabase
           .from('subscriptions')
-          .select('id')
+          .select('id, status')
           .eq('restaurant_id', restaurantId)
           .limit(1)
           .maybeSingle()
 
        if (subFetchErr) throw subFetchErr
 
-       if (existingSub?.id) {
-          const { error: subUpdateErr } = await supabase
-             .from('subscriptions')
-             .update(subPayload)
-             .eq('id', existingSub.id)
-          if (subUpdateErr) throw subUpdateErr
-       } else {
+       if (!existingSub?.id) {
           const { error: subInsertErr } = await supabase
              .from('subscriptions')
              .insert(subPayload)

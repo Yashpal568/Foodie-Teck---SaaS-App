@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { getRestaurantByEmail, ensureValidRestaurantUUID } from './restaurant.service'
+import { updateTableStatus } from './table.service'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const isUUID = (str) => typeof str === 'string' && UUID_REGEX.test(str)
@@ -135,6 +136,14 @@ export const createOrder = async (orderData) => {
       is_prepaid: Boolean(orderData.is_prepaid),
       created_at: new Date().toISOString(),
       order_items: validatedInputItems,
+    }
+    if (demoOrder.type !== 'TAKE-AWAY' && demoOrder.table_number) {
+      updateTableStatus('demo-merchant', demoOrder.table_number, {
+        status: 'occupied',
+        customers: Number(orderData.guests || 1),
+        current_order_id: demoOrder.id,
+        session_start: new Date().toISOString(),
+      }).catch(() => {})
     }
     dispatchOrderBroadcasts({ ...demoOrder, tableNumber: demoOrder.table_number, customerName: demoOrder.customer_name, items: validatedInputItems }, 'demo-merchant')
     recentClientOrderKeys.set(idempotencyKey, demoOrder)

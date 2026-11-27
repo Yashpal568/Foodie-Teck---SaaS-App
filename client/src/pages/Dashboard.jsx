@@ -183,12 +183,14 @@ function Dashboard() {
       const subscription = subscriptions.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
 
       if (subscription) {
+        const upperSubStatus = String(subscription.status || "").toUpperCase();
         const isApproved =
-          subscription.status === "Approved" ||
-          subscription.status === "Active";
+          upperSubStatus === "APPROVED" ||
+          upperSubStatus === "ACTIVE";
         const isPending =
-          subscription.status === "PENDING_APPROVAL" ||
-          subscription.status === "PENDING_PAYMENT";
+          (upperSubStatus === "PENDING_APPROVAL" ||
+            upperSubStatus === "PENDING_PAYMENT") &&
+          Boolean(subscription.utr_number);
         setSubDetails({
           pendingApproval: isPending,
           utrNumber: subscription.utr_number || "",

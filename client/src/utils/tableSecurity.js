@@ -126,5 +126,26 @@ export const setLockedTableSession = (restaurantId, tableNumber, signature) => {
 export const clearLockedTableSession = () => {
   try {
     sessionStorage.removeItem('servora_table_session_lock')
-  } catch {}
+  } catch {
+    // ignore storage failure
+  }
+}
+
+const DEFAULT_PUBLIC_APP_ORIGIN = 'https://servora.quantumesh.in'
+
+/**
+ * Resolve the canonical public origin for scannable customer QR codes.
+ * Uses the active non-localhost domain in production and falls back to VITE_APP_URL
+ * (https://servora.quantumesh.in) during local development so printed QRs never encode localhost.
+ */
+export const getPublicMenuOrigin = () => {
+  const configured = (import.meta.env?.VITE_APP_URL || '').trim().replace(/\/+$/, '')
+  if (typeof window !== 'undefined' && window.location) {
+    const host = (window.location.hostname || '').toLowerCase()
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.endsWith('.local')
+    if (!isLocal && window.location.origin) {
+      return window.location.origin.replace(/\/+$/, '')
+    }
+  }
+  return configured || DEFAULT_PUBLIC_APP_ORIGIN
 }

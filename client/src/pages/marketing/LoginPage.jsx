@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import { 
   Mail, 
@@ -112,6 +112,27 @@ export default function LoginPage() {
         }
       }
 
+      // 3. First sign-in after email confirmation: provision restaurant workspace using verified owner_id
+      if (!restaurant && !restError) {
+        const meta = authData.user.user_metadata || {}
+        const fallbackName = (meta.business_name || '').trim() || cleanEmail.split('@')[0]
+        const { data: createdRest, error: createErr } = await supabase
+          .from('restaurants')
+          .insert({
+            owner_id: authData.user.id,
+            business_name: fallbackName,
+            email: cleanEmail,
+            status: 'Pending',
+            created_at: new Date().toISOString(),
+          })
+          .select('id, business_name, email, owner_id')
+          .maybeSingle()
+
+        if (!createErr && createdRest?.id) {
+          restaurant = createdRest
+        }
+      }
+
       if (!restaurant?.id) {
         await supabase.auth.signOut().catch(() => {})
         setError('No restaurant workspace is linked to this account. Please sign up first.')
@@ -125,7 +146,21 @@ export default function LoginPage() {
         // non-fatal storage notice
       }
 
+      // If this merchant has no subscription or submitted payment yet, send to Plan Selection -> Payment
+      const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('id, status, utr_number')
+        .eq('restaurant_id', restaurant.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
       setIsAuthenticating(false)
+      if (!existingSub || (!existingSub.utr_number && !['APPROVED', 'ACTIVE'].includes(String(existingSub.status || '').toUpperCase()))) {
+        navigate('/pricing', { replace: true })
+        return
+      }
+
       navigate(`/console/${restaurant.id}`, { replace: true })
     } catch (err) {
       console.error('Auth error:', err)

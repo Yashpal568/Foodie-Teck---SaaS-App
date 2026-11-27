@@ -38,11 +38,8 @@ export default function MobileNavbar({ activeItem, setActiveItem = () => {}, res
               const st = String(o.status || '').toUpperCase()
               return !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(st)
             })
-            // If DB has active orders, display that; otherwise fallback for demo
-            if (activeOrders.length > 0) {
-              setActiveOrdersCount(activeOrders.length)
-              return
-            }
+            setActiveOrdersCount(activeOrders.length)
+            return
           }
         }
 

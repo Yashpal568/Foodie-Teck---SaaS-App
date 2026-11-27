@@ -806,6 +806,36 @@ export default function CustomerMenu() {
     }
   }, [tableNumber, restaurantId]);
 
+  // Keep Single-QR Table Picker synced when merchant reconfigures tables
+  useEffect(() => {
+    if (!restaurantId || restaurantId === "default") return;
+    const refreshTables = () => {
+      getTableSessions(restaurantId)
+        .then((sessions) => {
+          if (Array.isArray(sessions) && sessions.length > 0) {
+            const nums = Array.from(
+              new Set(
+                sessions
+                  .map((s) => Number(s.table_number))
+                  .filter((n) => !isNaN(n) && n > 0),
+              ),
+            ).sort((a, b) => a - b);
+            if (nums.length > 0) setAvailableTables(nums);
+          }
+        })
+        .catch(() => {});
+    };
+    const handleStorage = (e) => {
+      if (e.key === "servora_demo_table_sessions_v1") refreshTables();
+    };
+    window.addEventListener("tableSessionsUpdated", refreshTables);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("tableSessionsUpdated", refreshTables);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [restaurantId]);
+
   // Check for session completion and clear active order
   useEffect(() => {
     if (activeOrderId && currentOrder) {

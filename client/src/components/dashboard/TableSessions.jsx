@@ -46,10 +46,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { useOrderManagement, ORDER_STATUS } from "@/hooks/useOrderManagement";
 import {
   getTableSessions,
   updateTableStatus as updateTableAPI,
+  configureRestaurantTables,
   getQRCodes,
   fetchOrders,
   updateOrderStatus,
@@ -135,6 +137,9 @@ const TableSessions = ({
   const [activeTab, setActiveTab] = useState("overview");
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [resolvedId, setResolvedId] = useState(null);
+  const [showConfigTablesModal, setShowConfigTablesModal] = useState(false);
+  const [configTableCount, setConfigTableCount] = useState(8);
+  const [savingTables, setSavingTables] = useState(false);
 
   // Live 1-Second Ticker for Exact Serve Duration
   useEffect(() => {
@@ -160,9 +165,10 @@ const TableSessions = ({
         typeof window !== "undefined"
           ? window.location.pathname.split("/console/")[1]
           : null;
-      const targetInput = restaurantId || pathId || "tigerbistro99@gmail.com";
+      const targetInput = restaurantId || pathId || "demo-merchant";
       const validId = await ensureValidRestaurantUUID(targetInput);
       const targetRid = validId || targetInput;
+      setResolvedId(targetRid);
 
       const [cloudQRs, cloudSessions, cloudOrders] = await Promise.all([
         getQRCodes(targetRid),
@@ -170,28 +176,37 @@ const TableSessions = ({
         fetchOrders(targetRid),
       ]);
 
-      // Determine total tables count directly from Supabase
-      let activeQRs = cloudQRs && cloudQRs.length > 0 ? cloudQRs : null;
-      let highestTableNum = 10;
-      if (activeQRs && activeQRs.length > 0) {
-        highestTableNum = Math.max(
-          ...activeQRs.map((q) => Number(q.tableNumber || q.table_number || 1)),
-        );
-      } else if (cloudSessions && cloudSessions.length > 0) {
-        highestTableNum = Math.max(
-          ...cloudSessions.map((s) => Number(s.table_number || 1)),
-        );
-      } else if (planDetails.tableLimit > 10) {
-        highestTableNum = planDetails.tableLimit;
+      // Derive tables dynamically from restaurant's configured table_sessions, qr_codes, and active dine-in orders
+      const activeQRs = cloudQRs && cloudQRs.length > 0 ? cloudQRs : [];
+      const configuredTableNums = new Set();
+      (cloudSessions || []).forEach((s) => {
+        const n = Number(s.table_number);
+        if (n > 0) configuredTableNums.add(n);
+      });
+      activeQRs.forEach((q) => {
+        const n = Number(q.tableNumber || q.table_number);
+        if (n > 0) configuredTableNums.add(n);
+      });
+      (cloudOrders || []).forEach((o) => {
+        const isActive =
+          o.status === "PENDING" ||
+          o.status === "PREPARING" ||
+          o.status === "READY" ||
+          o.status === "SERVED" ||
+          o.status === "BILL_REQUESTED";
+        const n = Number(String(o.table_number || "").replace(/\D/g, ""));
+        if (isActive && n > 0) configuredTableNums.add(n);
+      });
+
+      const sortedTableNums = Array.from(configuredTableNums).sort(
+        (a, b) => a - b,
+      );
+      if (sortedTableNums.length > 0) {
+        setConfigTableCount(sortedTableNums.length);
       }
 
-      const totalCount = Math.max(
-        highestTableNum,
-        activeQRs ? activeQRs.length : 10,
-      );
-      const baseTables = Array.from({ length: totalCount }, (_, i) => {
-        const tableNum = i + 1;
-        const matchingQR = (activeQRs || []).find(
+      const baseTables = sortedTableNums.map((tableNum) => {
+        const matchingQR = activeQRs.find(
           (q) => Number(q.tableNumber || q.table_number) === tableNum,
         );
         return {
@@ -239,7 +254,7 @@ const TableSessions = ({
     } finally {
       setLoading(false);
     }
-  }, [restaurantId, planDetails.tableLimit]);
+  }, [restaurantId]);
 
   useEffect(() => {
     initializeFloorPlan();
@@ -256,6 +271,7 @@ const TableSessions = ({
     const handleStorageEvent = (e) => {
       if (
         e.key === "servora_latest_order" ||
+        e.key === "servora_demo_table_sessions_v1" ||
         (e.key && e.key.startsWith("servora_qr_codes_"))
       ) {
         initializeFloorPlan();
@@ -263,11 +279,17 @@ const TableSessions = ({
     };
 
     window.addEventListener("qrCodesUpdated", handleQRUpdated);
+    window.addEventListener("tableSessionsUpdated", handleQRUpdated);
     window.addEventListener("servora_new_order", handleNewOrderEvent);
     window.addEventListener("storage", handleStorageEvent);
 
     let floorChannel = null;
-    if (resolvedId) {
+    const isUuid =
+      resolvedId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        resolvedId,
+      );
+    if (isUuid) {
       floorChannel = supabase
         .channel(`floor-plan-${resolvedId}`)
         .on(
@@ -312,6 +334,7 @@ const TableSessions = ({
     return () => {
       if (floorChannel) supabase.removeChannel(floorChannel);
       window.removeEventListener("qrCodesUpdated", handleQRUpdated);
+      window.removeEventListener("tableSessionsUpdated", handleQRUpdated);
       window.removeEventListener("servora_new_order", handleNewOrderEvent);
       window.removeEventListener("storage", handleStorageEvent);
     };
@@ -390,6 +413,37 @@ const TableSessions = ({
       String(selectedTable.tableNumber) === String(tableNumber)
     ) {
       setSelectedTable((prev) => ({ ...prev, status: newStatus }));
+    }
+  };
+
+  const handleConfigureTables = async () => {
+    const parsed = parseInt(configTableCount, 10);
+    const limit = planDetails?.tableLimit || 9999;
+    if (isNaN(parsed) || parsed < 1 || parsed > 100) {
+      toast.error("Please enter a valid number of tables (1 - 100).");
+      return;
+    }
+    if (limit < 9999 && parsed > limit) {
+      toast.error(
+        `Your ${planDetails.name} allows up to ${limit} tables. Upgrade to add more.`,
+      );
+      setShowConfigTablesModal(false);
+      setShowUpgradeModal(true);
+      return;
+    }
+    setSavingTables(true);
+    try {
+      const targetRid = resolvedId || restaurantId || "demo-merchant";
+      await configureRestaurantTables(targetRid, parsed);
+      await initializeFloorPlan();
+      setShowConfigTablesModal(false);
+      toast.success(
+        `Floor updated to ${parsed} ${parsed === 1 ? "table" : "tables"}. Single Universal QR stays synced!`,
+      );
+    } catch (err) {
+      toast.error(err.message || "Failed to configure tables.");
+    } finally {
+      setSavingTables(false);
     }
   };
 
@@ -536,6 +590,18 @@ const TableSessions = ({
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-xl h-9 px-3 border-slate-200 font-bold"
+                onClick={() => {
+                  setConfigTableCount(tables.length || 8);
+                  setShowConfigTablesModal(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                Configure Tables
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 className="rounded-xl h-9 px-3 border-slate-200"
                 onClick={initializeFloorPlan}
               >
@@ -547,8 +613,8 @@ const TableSessions = ({
                 className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-3 font-bold"
                 onClick={() => setActiveItem("qr-codes")}
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Manage QR Codes
+                <QrCode className="w-4 h-4 mr-2" />
+                Universal QR
               </Button>
             </div>
           </div>
@@ -711,7 +777,30 @@ const TableSessions = ({
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {!loading && tables.length === 0 ? (
+              <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-10 text-center flex flex-col items-center justify-center max-w-lg mx-auto my-6">
+                <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-4">
+                  <Grid className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">
+                  No Dining Tables Configured Yet
+                </h3>
+                <p className="text-sm text-slate-500 mt-1.5 mb-5 max-w-sm">
+                  Create your restaurant tables here. Customers scanning your Single Universal QR will immediately pick from these live tables.
+                </p>
+                <Button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 h-10 font-bold"
+                  onClick={() => {
+                    setConfigTableCount(8);
+                    setShowConfigTablesModal(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Restaurant Tables
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredTables.map((table) => {
                 const config =
                   statusConfig[table.status] || statusConfig.available;
@@ -895,6 +984,7 @@ const TableSessions = ({
                 );
               })}
             </div>
+            )}
           </TabsContent>
 
           <TabsContent value="grid" className="mt-8">
@@ -1215,6 +1305,71 @@ const TableSessions = ({
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Configure Tables Modal */}
+      <Dialog
+        open={showConfigTablesModal}
+        onOpenChange={setShowConfigTablesModal}
+      >
+        <DialogContent className="sm:max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900">
+              Configure Restaurant Tables
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 text-sm">
+              Set the total number of dining tables for this restaurant. Tables sync live with your Single Universal QR and Table Sessions without disturbing occupied tables.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
+                Total Dining Tables (1 - {planDetails.tableLimit >= 9999 ? 100 : planDetails.tableLimit})
+              </label>
+              <Input
+                type="number"
+                min={1}
+                max={planDetails.tableLimit >= 9999 ? 100 : planDetails.tableLimit}
+                value={configTableCount}
+                onChange={(e) => setConfigTableCount(e.target.value)}
+                className="h-11 rounded-xl font-bold text-base"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[4, 8, 12, 16, 24].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setConfigTableCount(preset)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                    Number(configTableCount) === preset
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {preset} Tables
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setShowConfigTablesModal(false)}
+              disabled={savingTables}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold"
+              onClick={handleConfigureTables}
+              disabled={savingTables}
+            >
+              {savingTables ? "Syncing Floor..." : "Save & Sync Tables"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
