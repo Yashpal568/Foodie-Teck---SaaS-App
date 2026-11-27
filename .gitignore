@@ -1,28 +1,43 @@
+# ========================================================
+# SERVORA MASTER GITIGNORE
+# ========================================================
+
 # Dependencies
 node_modules/
+*/node_modules/
 .pnp
 .pnp.js
 
-# Production Builds
+# Production Builds & Output
 dist/
+client/dist/
 dist-ssr/
 build/
+out/
 *.local
 
-# Environment Variables (Protect Secrets)
+# Environment Variables & Secrets
 .env
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
 .env.production
 .env.production.local
+.env.cloudflare
+server/.env
+client/.env
 *.env
 
-# Keep template env files
+# Preserve template files
 !.env.example
+!client/.env.example
+!server/.env.example
 
 # Cloudflare & Hosting Platform Caches
 .wrangler/
+*/.wrangler/
 .vercel
 .netlify
 
@@ -35,7 +50,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Editor & OS files
+# Editor & OS Artifacts
 .vscode/*
 !.vscode/extensions.json
 .idea/
@@ -47,7 +62,11 @@ Desktop.ini
 *.njsproj
 *.sln
 *.sw?
+*.tmp
 
-# Temporary & Test artifacts
+# Temporary Test, Cache & Storage Folders
 scratch/
 coverage/
+.tempmediaStorage/
+.agents/
+0.26.0
