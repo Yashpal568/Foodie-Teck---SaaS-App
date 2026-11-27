@@ -418,7 +418,7 @@ export default function CustomerMenu() {
   const categoryRefs = useRef({});
   const themeSwipeStartX = useRef(null);
 
-  const { createOrder, updateStatus, getOrdersByTable } =
+  const { orders: liveRestaurantOrders, createOrder, updateStatus, getOrdersByTable } =
     useOrderManagement(restaurantId);
 
   useEffect(() => {
@@ -488,17 +488,10 @@ export default function CustomerMenu() {
         setIsTableLockedFromURL(lockedFromUrl);
 
         const sessionKey = `servora_active_table_${resId}`;
-        const nameSessionKey = `servora_customer_name_${resId}`;
         let storedTable = "";
-        let storedName = "";
         try {
           storedTable = sessionStorage.getItem(sessionKey) || "";
-          storedName = sessionStorage.getItem(nameSessionKey) || "";
         } catch (e) {}
-
-        if (storedName) {
-          setCustomerName(storedName);
-        }
 
         let effectiveTable = "";
         if (lockedFromUrl && rawTable) {
@@ -836,15 +829,43 @@ export default function CustomerMenu() {
     };
   }, [restaurantId]);
 
-  // Check for session completion and clear active order
+  // Check for session completion and hydrate active order on load/table switch
   useEffect(() => {
     if (activeOrderId && currentOrder) {
-      if (currentOrder.status === ORDER_STATUS.FINISHED) {
+      if (currentOrder.status === ORDER_STATUS.FINISHED || currentOrder.status === ORDER_STATUS.CANCELLED) {
         setActiveOrderId(null);
         setCurrentOrder(null);
+        try {
+          sessionStorage.removeItem("activeOrderId");
+          if (restaurantId) sessionStorage.removeItem(`servora_active_order_${restaurantId}`);
+        } catch (e) {}
+      }
+      return;
+    }
+
+    // Hydrate from cached order or live active orders on the customer's table
+    if (!currentOrder && (liveRestaurantOrders?.length > 0 || activeOrderId)) {
+      let matched = null;
+      if (activeOrderId) {
+        matched = (liveRestaurantOrders || []).find((o) => String(o.id) === String(activeOrderId)) || null;
+        if (!matched && typeof window !== "undefined") {
+          try {
+            const rawCached = sessionStorage.getItem(`servora_order_${activeOrderId}`);
+            if (rawCached) matched = JSON.parse(rawCached);
+          } catch (e) {}
+        }
+      }
+      if (!matched && tableNumber && tableNumber !== "N/A") {
+        matched = (getOrdersByTable(tableNumber) || []).find(
+          (o) => !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(o.status || "").toUpperCase()),
+        ) || null;
+      }
+      if (matched) {
+        setCurrentOrder(matched);
+        setActiveOrderId(matched.id);
       }
     }
-  }, [activeOrderId, currentOrder]);
+  }, [activeOrderId, currentOrder, liveRestaurantOrders, tableNumber, restaurantId, getOrdersByTable]);
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -977,12 +998,33 @@ export default function CustomerMenu() {
 
   const handleTrackOrders = useCallback(() => {
     setActiveTab("orders");
-    if (currentOrder || activeOrderId) {
+    const tableOrder =
+      tableNumber && tableNumber !== "N/A"
+        ? (getOrdersByTable(tableNumber) || []).find(
+            (o) => !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(o.status || "").toUpperCase()),
+          )
+        : null;
+    const resolvedOrder =
+      currentOrder ||
+      (activeOrderId && (liveRestaurantOrders || []).find((o) => String(o.id) === String(activeOrderId))) ||
+      tableOrder ||
+      ((restaurantId === "demo-merchant" || restaurantId === "demo") ? (liveRestaurantOrders || [])[0] : null);
+
+    if (resolvedOrder) {
+      setCurrentOrder(resolvedOrder);
+      setActiveOrderId(resolvedOrder.id);
       setShowOrderTracking(true);
+    } else if (activeOrderId) {
+      // Clear stale unresolvable session ID and prompt menu/ordering cleanly
+      try {
+        sessionStorage.removeItem("activeOrderId");
+      } catch (e) {}
+      setActiveOrderId(null);
+      setShowNoOrdersModal(true);
     } else {
       setShowNoOrdersModal(true);
     }
-  }, [currentOrder, activeOrderId]);
+  }, [currentOrder, activeOrderId, tableNumber, restaurantId, liveRestaurantOrders, getOrdersByTable]);
 
   const handleDragStart = useCallback((e) => {
     setIsDragging(true);
@@ -1072,7 +1114,7 @@ export default function CustomerMenu() {
       const orderData = {
         restaurantId,
         tableNumber: cleanTable,
-        customerName: customerName.trim() || "Guest Customer",
+        customerName: customerName.trim() || `Table ${cleanTable} Guest`,
         specialInstructions: cookingInstructions || undefined,
         notes: cookingInstructions || undefined,
         items: cart,
@@ -1093,19 +1135,27 @@ export default function CustomerMenu() {
         setActiveOrderId(order.id);
         try {
           sessionStorage.setItem("activeOrderId", order.id);
+          sessionStorage.setItem(
+            `servora_order_${order.id}`,
+            JSON.stringify(order),
+          );
         } catch (e) {
           console.error(e);
         }
         setOrderPlaced(true);
         setShowConfirmModal(false);
         setCart([]);
-        setTimeout(() => setShowOrderTracking(true), 1500);
+        setCustomerName("");
+        try {
+          sessionStorage.removeItem(`servora_customer_name_${restaurantId}`);
+        } catch (e) {}
+        setTimeout(() => setShowOrderTracking(true), 1200);
       } else {
         throw new Error("Database did not return a valid order ID");
       }
     } catch (err) {
       console.error("❌ Order Placement Failed:", err);
-      alert("Failed to place order. Please check your connection.");
+      toast.error(err?.message || "Failed to place order. Please check your connection.");
     } finally {
       setIsSaving(false);
     }
@@ -1203,7 +1253,9 @@ export default function CustomerMenu() {
     return (
       <OrderTracking
         orderId={currentOrder?.id || activeOrderId}
+        initialOrder={currentOrder}
         restaurantId={restaurantId}
+        tableNumber={tableNumber}
         theme={theme}
         onClose={() => {
           setShowOrderTracking(false);
@@ -3016,6 +3068,8 @@ export default function CustomerMenu() {
                         Your Name (Optional)
                       </label>
                       <Input
+                        name="optional_diner_name"
+                        autoComplete="off"
                         placeholder="e.g. Rahul"
                         value={customerName}
                         onChange={(e) => {
@@ -4005,6 +4059,8 @@ export default function CustomerMenu() {
                 Your Name (Optional)
               </label>
               <Input
+                name="optional_table_diner_name"
+                autoComplete="off"
                 placeholder="e.g. Rahul"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}

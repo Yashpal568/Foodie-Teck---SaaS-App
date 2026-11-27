@@ -5,6 +5,7 @@ import {
   createOrder as apiCreateOrder, 
   updateOrderStatus as apiUpdateStatus 
 } from '@/lib/api'
+import { getDemoOrders, DEMO_ORDERS_STORAGE_KEY } from '@/services/order.service'
 import { ensureValidRestaurantUUID } from '@/services/restaurant.service'
 
 // Order status constants
@@ -77,7 +78,7 @@ const MOCK_DEMO_ORDERS = [
   {
     id: 'demo-ord-101',
     tableNumber: '4',
-    customerName: 'Aarav Sharma',
+    customerName: 'Table 4 Guest',
     items: [
       { name: 'Butter Chicken Grand', price: 420, quantity: 1 },
       { name: 'Garlic Butter Naan', price: 65, quantity: 2 },
@@ -94,7 +95,7 @@ const MOCK_DEMO_ORDERS = [
   {
     id: 'demo-ord-102',
     tableNumber: '2',
-    customerName: 'Priya Patel',
+    customerName: 'Table 2 Guest',
     items: [
       { name: 'Paneer Tikka Charcoal', price: 340, quantity: 1 },
       { name: 'Dal Makhani Special', price: 290, quantity: 1 },
@@ -112,7 +113,7 @@ const MOCK_DEMO_ORDERS = [
   {
     id: 'demo-ord-103',
     tableNumber: '7',
-    customerName: 'Vikram Singh',
+    customerName: 'Table 7 Guest',
     items: [
       { name: 'Dum Handi Biryani', price: 450, quantity: 2 },
       { name: 'Gulab Jamun with Rabri', price: 150, quantity: 2 }
@@ -166,11 +167,39 @@ export const useOrderManagement = (restaurantId) => {
 
   // ── 1. Fetch Orders from Database ──
   const refreshOrders = useCallback(async (showLoading = true) => {
+    const normalizeList = (list) => (list || []).map(o => {
+      const cName = String(o.customer_name || o.customerName || '')
+      const oType = String(o.type || o.order_type || o.orderType || '')
+      const isPrepaid = o.payment_status === 'PAID' || 
+                        o.is_prepaid === true || 
+                        cName.includes('PAID') || 
+                        oType.includes('PAID')
+      return {
+        ...o,
+        id: o.id,
+        tableNumber: o.table_number || o.tableNumber || '1',
+        customerName: cName.replace(/\s*•\s*PAID/gi, '').trim() || 'Guest',
+        items: o.order_items || o.items || [],
+        order_items: o.order_items || o.items || [],
+        total: o.total || 0,
+        status: o.status || 'PENDING',
+        payment_status: isPrepaid ? 'PAID' : (o.payment_status || 'UNPAID'),
+        is_prepaid: isPrepaid,
+        type: oType.replace(/\s*•\s*PAID/gi, '').trim() || 'DINE-IN',
+        notes: isPrepaid ? 'BILLING DONE / PAID IN ADVANCE ✅' : (o.notes || ''),
+        createdAt: o.created_at || o.createdAt,
+        statusHistory: o.status_history || o.statusHistory || [
+          { status: o.status || 'PENDING', timestamp: o.created_at || o.createdAt, note: 'Order received' }
+        ]
+      }
+    })
+
     const idToUse = resolvedId || (isUUID(restaurantId) ? restaurantId : null)
     if (!idToUse) {
       if (isDemo) {
-        setOrders(MOCK_DEMO_ORDERS.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status)))
-        setOrderHistory(MOCK_DEMO_ORDERS.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status)))
+        const demoList = normalizeList(getDemoOrders())
+        setOrders(demoList.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status)))
+        setOrderHistory(demoList.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status)))
       }
       if (showLoading) setLoading(false)
       return
@@ -179,31 +208,7 @@ export const useOrderManagement = (restaurantId) => {
     if (showLoading) setLoading(true)
     try {
       const resp = await fetchOrders(idToUse)
-      const allOrders = (resp || []).map(o => {
-        const cName = String(o.customer_name || o.customerName || '')
-        const oType = String(o.type || o.order_type || o.orderType || '')
-        const isPrepaid = o.payment_status === 'PAID' || 
-                          o.is_prepaid === true || 
-                          cName.includes('PAID') || 
-                          oType.includes('PAID')
-        return {
-          ...o,
-          id: o.id,
-          tableNumber: o.table_number || o.tableNumber || '1',
-          customerName: cName.replace(/\s*•\s*PAID/gi, '').trim() || 'Guest',
-          items: o.order_items || o.items || [],
-          total: o.total || 0,
-          status: o.status || 'PENDING',
-          payment_status: isPrepaid ? 'PAID' : (o.payment_status || 'UNPAID'),
-          is_prepaid: isPrepaid,
-          type: oType.replace(/\s*•\s*PAID/gi, '').trim() || 'DINE-IN',
-          notes: isPrepaid ? 'BILLING DONE / PAID IN ADVANCE ✅' : (o.notes || ''),
-          createdAt: o.created_at,
-          statusHistory: o.status_history || o.statusHistory || [
-            { status: o.status || 'PENDING', timestamp: o.created_at, note: 'Order received' }
-          ]
-        }
-      })
+      const allOrders = normalizeList(resp)
       
       // Separate Active vs History
       const active = allOrders.filter(o => 
@@ -214,10 +219,11 @@ export const useOrderManagement = (restaurantId) => {
       )
       
       if (isDemo) {
-        const mockActive = MOCK_DEMO_ORDERS.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
-        const mockHistory = MOCK_DEMO_ORDERS.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status))
-        setOrders(active.length > 0 ? active : mockActive)
-        setOrderHistory(history.length > 0 ? history : mockHistory)
+        const demoList = normalizeList(getDemoOrders())
+        const demoActive = demoList.filter(o => !['FINISHED', 'CANCELLED'].includes(o.status))
+        const demoHistory = demoList.filter(o => ['FINISHED', 'CANCELLED'].includes(o.status))
+        setOrders(active.length > 0 ? active : demoActive)
+        setOrderHistory(history.length > 0 ? history : demoHistory)
       } else {
         setOrders(active)
         setOrderHistory(history)
@@ -234,41 +240,84 @@ export const useOrderManagement = (restaurantId) => {
     const effectiveSubscriptionId = resolvedId || (isUUID(restaurantId) ? restaurantId : null)
     if (!effectiveSubscriptionId) {
       if (isDemo) refreshOrders(true)
-      return
+    } else {
+      refreshOrders(true)
     }
 
-    refreshOrders(true)
-
-    // Listen for real-time changes to the 'orders' table
-    const channel = supabase
-      .channel(`public:orders:rid=${effectiveSubscriptionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', 
-          schema: 'public',
-          table: 'orders',
-          filter: `restaurant_id=eq.${effectiveSubscriptionId}`
-        },
-        (payload) => {
-          console.log('🔔 Live Order Event:', payload)
-          refreshOrders(false) // BACKGROUND REFRESH (NO LOADING SPINNER)
-        }
-      )
-      .subscribe()
+    let channel = null
+    if (effectiveSubscriptionId) {
+      // Listen for real-time changes to the 'orders' table
+      channel = supabase
+        .channel(`public:orders:rid=${effectiveSubscriptionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*', 
+            schema: 'public',
+            table: 'orders',
+            filter: `restaurant_id=eq.${effectiveSubscriptionId}`
+          },
+          (payload) => {
+            console.log('🔔 Live Order Event:', payload)
+            refreshOrders(false)
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'order_items'
+          },
+          () => {
+            refreshOrders(false)
+          }
+        )
+        .subscribe()
+    }
 
     const handleLocalOrder = () => {
       refreshOrders(false)
     }
+    const handleStorageEvent = (e) => {
+      if (
+        !e.key ||
+        e.key === DEMO_ORDERS_STORAGE_KEY ||
+        e.key === 'servora_latest_order'
+      ) {
+        refreshOrders(false)
+      }
+    }
+
+    let bc = null
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('servora_orders_channel')
+        bc.onmessage = () => refreshOrders(false)
+      }
+    } catch {
+      // ignore BroadcastChannel failures
+    }
+
+    const safetyInterval = setInterval(() => {
+      refreshOrders(false)
+    }, 8000)
+
     window.addEventListener('newOrderCreated', handleLocalOrder)
-    window.addEventListener('storage', handleLocalOrder)
+    window.addEventListener('servora_new_order', handleLocalOrder)
+    window.addEventListener('orderStatusUpdated', handleLocalOrder)
+    window.addEventListener('storage', handleStorageEvent)
 
     return () => {
-      supabase.removeChannel(channel)
+      clearInterval(safetyInterval)
+      if (channel) supabase.removeChannel(channel)
+      if (bc) bc.close()
       window.removeEventListener('newOrderCreated', handleLocalOrder)
-      window.removeEventListener('storage', handleLocalOrder)
+      window.removeEventListener('servora_new_order', handleLocalOrder)
+      window.removeEventListener('orderStatusUpdated', handleLocalOrder)
+      window.removeEventListener('storage', handleStorageEvent)
     }
-  }, [resolvedId, restaurantId, refreshOrders])
+  }, [resolvedId, restaurantId, isDemo, refreshOrders])
 
   // ── 3. Create Order via DB ──
   const createNewOrder = async (orderData) => {
@@ -300,10 +349,9 @@ export const useOrderManagement = (restaurantId) => {
     })
 
     if (isDemo || !isUUID(orderId)) {
-      const target = MOCK_DEMO_ORDERS.find(o => o.id === orderId)
-      if (target) target.status = newStatus
-      window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: { orderId, status: newStatus } }))
-      return { id: orderId, status: newStatus }
+      const updated = await apiUpdateStatus(orderId, newStatus)
+      await refreshOrders(false)
+      return updated
     }
 
     try {
@@ -319,10 +367,13 @@ export const useOrderManagement = (restaurantId) => {
 
   // ── 5. Analytics Helper (Stats) ──
   const stats = useMemo(() => {
-    const totalRevenue = orderHistory.reduce((sum, o) => sum + (o.total || 0), 0)
+    const totalRevenue = orderHistory
+      .filter(o => String(o.status || '').toUpperCase() !== 'CANCELLED')
+      .reduce((sum, o) => sum + (o.total || 0), 0)
     return {
       totalRevenue,
       activeOrders: orders.length,
+      pendingOrders: orders.filter(o => ['PENDING', 'ORDERED'].includes(String(o.status || '').toUpperCase())).length,
       historyCount: orderHistory.length
     }
   }, [orders, orderHistory])

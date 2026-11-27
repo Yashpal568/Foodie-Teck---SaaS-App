@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
-import { TrendingUp, TrendingDown, Users, DollarSign, ShoppingCart, ChefHat, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Users, DollarSign, ShoppingCart, ChefHat, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { useOrderManagement } from '@/hooks/useOrderManagement'
 import { useTableSessions } from '@/hooks/useTableSessions'
 import { getMenuItems } from '@/lib/api'
@@ -92,6 +92,17 @@ const CARD_CONFIGS = [
     border: 'border-violet-100',
   },
   {
+    key: 'pending',
+    title: 'Pending Orders',
+    subtitle: 'Awaiting kitchen action',
+    icon: Clock,
+    gradient: 'from-rose-500 to-orange-500',
+    lightBg: 'bg-rose-50',
+    iconColor: 'text-rose-600',
+    accent: '#e11d48',
+    border: 'border-rose-100',
+  },
+  {
     key: 'tables',
     title: 'Active Tables',
     subtitle: 'Occupied right now',
@@ -132,12 +143,21 @@ export default function OverviewCards({ restaurantId = 'default' }) {
   const [menuCount, setMenuCount] = useState(0)
 
   useEffect(() => {
-    if (restaurantId && restaurantId !== 'guest') {
-      getMenuItems(restaurantId)
-        .then(items => setMenuCount(Array.isArray(items) ? items.length : 0))
-        .catch(() => setMenuCount(0))
-    } else {
-      setMenuCount(0)
+    const loadMenuCount = () => {
+      if (restaurantId && restaurantId !== 'guest') {
+        getMenuItems(restaurantId)
+          .then(items => setMenuCount(Array.isArray(items) ? items.length : 0))
+          .catch(() => setMenuCount(0))
+      } else {
+        setMenuCount(0)
+      }
+    }
+    loadMenuCount()
+    window.addEventListener('menuUpdated', loadMenuCount)
+    window.addEventListener('storage', loadMenuCount)
+    return () => {
+      window.removeEventListener('menuUpdated', loadMenuCount)
+      window.removeEventListener('storage', loadMenuCount)
     }
   }, [restaurantId])
 
@@ -164,19 +184,28 @@ export default function OverviewCards({ restaurantId = 'default' }) {
       return Number(order?.total_amount || order?.total || order?.final_amount || 0)
     }
 
-    // Revenue
+    // Revenue (exclude CANCELLED orders)
     const todayOrdersList = allOrders.filter(o => getOrderDateStr(o) === today)
     const yesterdayOrdersList = (orderHistory || []).filter(o => getOrderDateStr(o) === yesterday)
 
-    const todayRevenue = todayOrdersList.reduce((sum, o) => sum + getOrderTotal(o), 0)
-    const yesterdayRevenue = yesterdayOrdersList.reduce((sum, o) => sum + getOrderTotal(o), 0)
+    const todayRevenueOrders = todayOrdersList.filter(o => String(o.status || '').toUpperCase() !== 'CANCELLED')
+    const yesterdayRevenueOrders = yesterdayOrdersList.filter(o => String(o.status || '').toUpperCase() !== 'CANCELLED')
+
+    const todayRevenue = todayRevenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
+    const yesterdayRevenue = yesterdayRevenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
     const revenueDiff = yesterdayRevenue > 0 
       ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 * 10) / 10
       : (todayRevenue > 0 ? 100 : 0)
 
+    // Real-time Pending Orders (PENDING / ORDERED awaiting kitchen start)
+    const pendingList = (activeOrders || []).filter(o => ['PENDING', 'ORDERED'].includes(String(o.status || '').toUpperCase()))
+    const preparingList = (activeOrders || []).filter(o => ['PREPARING', 'COOKING', 'READY'].includes(String(o.status || '').toUpperCase()))
+    const pendingCount = pendingList.length
+    const activeQueueCount = (activeOrders || []).length
+
     // Orders
-    const todayOrders = todayOrdersList.length
-    const yesterdayOrders = yesterdayOrdersList.length
+    const todayOrders = todayRevenueOrders.length
+    const yesterdayOrders = yesterdayRevenueOrders.length
     const ordersDiff = yesterdayOrders > 0 
       ? Math.round(((todayOrders - yesterdayOrders) / yesterdayOrders) * 100 * 10) / 10
       : (todayOrders > 0 ? 100 : 0)
@@ -190,6 +219,10 @@ export default function OverviewCards({ restaurantId = 'default' }) {
     const sparkRevenue = todayRevenue > 0
       ? [todayRevenue * 0.4, todayRevenue * 0.6, todayRevenue * 0.8, todayRevenue * 0.7, todayRevenue * 0.9, todayRevenue]
       : (yesterdayRevenue > 0 ? [yesterdayRevenue * 0.5, yesterdayRevenue, 0, 0, 0] : [0, 0, 0, 0, 0])
+
+    const sparkPending = pendingCount > 0
+      ? [0, 1, Math.max(1, pendingCount - 1), pendingCount, pendingCount]
+      : [0, 0, 0, 0, 0]
 
     const sparkOrders = todayOrders > 0
       ? [todayOrders * 0.4, todayOrders * 0.7, todayOrders * 0.6, todayOrders * 0.8, todayOrders * 0.9, todayOrders]
@@ -212,6 +245,15 @@ export default function OverviewCards({ restaurantId = 'default' }) {
           ? `₹${Math.round(yesterdayRevenue).toLocaleString('en-IN')} yesterday` 
           : (todayRevenue > 0 ? `${todayOrders} orders processed today` : 'No revenue yet today'),
         sparkData: sparkRevenue,
+      },
+      pending: {
+        value: `${pendingCount}`,
+        rawValue: pendingCount,
+        change: pendingCount > 0 && activeQueueCount > 0 ? Math.round((pendingCount / activeQueueCount) * 100) : 0,
+        detail: pendingCount > 0
+          ? `${pendingCount} new · ${preparingList.length} in kitchen`
+          : (preparingList.length > 0 ? `${preparingList.length} active in kitchen` : 'No pending orders right now'),
+        sparkData: sparkPending,
       },
       tables: {
         value: `${activeTables}`,
@@ -237,10 +279,10 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         sparkData: sparkMenu,
       },
     }
-  }, [orderStats, activeOrders, orderHistory, tableStats, menuCount])
+  }, [orderStats, activeOrders, orderHistory, tableStats, tables, menuCount])
 
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3.5">
       {CARD_CONFIGS.map((config) => {
         const stat = stats[config.key]
         const isUp = stat.change >= 0

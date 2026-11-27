@@ -48,8 +48,8 @@ Under **Environment Variables** (Production), click **Add variable** and add:
 | `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsIn...` | Supabase Public Anon Key |
 | `VITE_CLOUDINARY_CLOUD_NAME` | `vub5bfcq` | Cloudinary Image Hosting |
 | `VITE_CLOUDINARY_UPLOAD_PRESET` | `servora_menu` | Cloudinary Preset |
-| `VITE_ADMIN_EMAIL` | `admin@servora.com` | Master Admin Email |
-| `VITE_ADMIN_PASSWORD` | `admin123` | Master Admin Password |
+| `VITE_APP_URL` | `https://servora.quantumesh.in` | Canonical QR & Menu Production URL |
+| `VITE_API_URL` | `https://api.servora.quantumesh.in` | Authoritative Express Backend API URL |
 | `NODE_VERSION` | `20` | Node.js version |
 
 ### Step 5: Deploy

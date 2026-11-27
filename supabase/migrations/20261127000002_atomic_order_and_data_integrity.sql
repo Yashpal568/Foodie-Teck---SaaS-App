@@ -149,16 +149,23 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  UPDATE public.table_sessions ts
-  SET status = 'occupied',
-      customers = GREATEST(1, COALESCE(ts.customers, 0)),
-      session_start = COALESCE(ts.session_start, NOW()),
-      last_activity = NOW()
-  WHERE ts.restaurant_id = p_restaurant_id
-    AND ts.table_number = p_table_number
-    AND LOWER(COALESCE(ts.status, 'available')) IN ('available', 'needs-cleaning');
+  INSERT INTO public.table_sessions (
+    restaurant_id, table_number, status, customers, session_start, last_activity
+  )
+  VALUES (
+    p_restaurant_id, p_table_number, 'occupied', 1, NOW(), NOW()
+  )
+  ON CONFLICT (restaurant_id, table_number) DO UPDATE
+  SET status = CASE
+        WHEN LOWER(COALESCE(public.table_sessions.status, 'available')) IN ('available', 'needs-cleaning')
+          THEN 'occupied'
+        ELSE public.table_sessions.status
+      END,
+      customers = GREATEST(1, COALESCE(public.table_sessions.customers, 0)),
+      session_start = COALESCE(public.table_sessions.session_start, NOW()),
+      last_activity = NOW();
 
-  RETURN FOUND;
+  RETURN TRUE;
 END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.claim_public_table_session(UUID, INT) FROM PUBLIC;
@@ -419,14 +426,21 @@ BEGIN
   IF v_clean_type <> 'TAKE-AWAY' THEN
     v_table_int := NULLIF(REGEXP_REPLACE(v_clean_table, '\D', '', 'g'), '')::INT;
     IF v_table_int IS NOT NULL THEN
-      UPDATE public.table_sessions
-      SET status = 'occupied',
+      INSERT INTO public.table_sessions (
+        restaurant_id, table_number, status, customers, current_order_id, session_start, last_activity
+      )
+      VALUES (
+        p_restaurant_id, v_table_int, 'occupied', GREATEST(1, COALESCE(p_guests, 1)), v_order.id, NOW(), NOW()
+      )
+      ON CONFLICT (restaurant_id, table_number) DO UPDATE
+      SET status = CASE
+            WHEN UPPER(v_status) = 'BILL_REQUESTED' THEN 'billing'
+            ELSE 'occupied'
+          END,
           customers = GREATEST(1, COALESCE(p_guests, 1)),
           current_order_id = v_order.id,
-          session_start = COALESCE(session_start, NOW()),
-          last_activity = NOW()
-      WHERE restaurant_id = p_restaurant_id
-        AND table_number = v_table_int;
+          session_start = COALESCE(public.table_sessions.session_start, NOW()),
+          last_activity = NOW();
     END IF;
   END IF;
 

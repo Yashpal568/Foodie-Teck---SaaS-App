@@ -1,151 +1,182 @@
-# Servora — Final Production Readiness & Security Verification Report
+# Servora — Final Production Readiness & Pre-Deployment Verification Report
 
 **Verification Date:** 2026-11-27  
-**Auditor Scope:** Git integrity, SQL migrations, authentication & tenant isolation, billing/ordering logic, dependency advisories, production environment configuration, build, and automated tests.  
-**Live Deployment Verdict:** **NOT READY FOR UNATTENDED PRODUCTION CUTOVER — READY FOR CONTROLLED STAGING ROLLOUT AFTER RESOLVING BLOCKERS BELOW**
+**Auditor Scope:** Git state & diff verification, legacy admin credential audit, full `190`-commit Git history secret audit & `git filter-repo` remediation plan, deployment config audit (Vercel, Cloudflare Workers/Pages, Express 5 API), Supabase migrations & staging readiness, Nodemailer `10.6.1` compatibility & SMTP smoke-test plan, and Production Go/No-Go criteria.  
+**Controlled Staging Verdict:** **READY FOR CONTROLLED STAGING ROLLOUT AFTER COMPLETING OWNER ENVIRONMENT & DOMAIN ACTIONS BELOW**  
+**Production Cutover Verdict:** **NO-GO UNTIL ALL CRITICAL PRODUCTION GATES IN SECTION 9 ARE PROVEN GREEN**
 
 > **Permitted Status Taxonomy Used Strictly Throughout:**  
 > `FIXED AND VERIFIED` · `IMPLEMENTED BUT NOT LIVE-VERIFIED` · `REQUIRES OWNER ACTION` · `BLOCKED` · `NOT IMPLEMENTED`
 
 ---
 
-## 1. Git Repository Integrity
+## 1. Current Git State & Working Tree Verification
 
-| Item | Verified State | Status |
+| Check | Verified Result | Status |
 |---|---|---|
-| **Actual Git Repository Root** | `E:\foodie-tech\client` (`client/.git` is the sole Git repository in the workspace) | `REQUIRES OWNER ACTION` |
-| **Root Directory (`E:\foodie-tech\`)** | `Test-Path .git` = `False` (`server/`, `supabase/`, `docs/`, root `wrangler.json`, root `vercel.json`, root `.env.example`, root `.gitignore` are NOT inside any Git repository) | `REQUIRES OWNER ACTION` |
-| **Active Branch (`client/.git`)** | `security/servora-production-hardening` (branched from `main` at `b8a7503`, remote `origin`: `https://github.com/Yashpal568/Foodie-Teck---SaaS-App.git`) | `FIXED AND VERIFIED` |
-| **Remote / Push / Merge State** | Local working tree changes remain uncommitted on `security/servora-production-hardening`; zero commits pushed to `main` or `origin` | `FIXED AND VERIFIED` |
-| **Tracked Secret Config Alert (`client/.git`)** | `.env.cloudflare` was modified (`M .env.cloudflare`) with placeholders and added to `.gitignore`, but remains **indexed/tracked** in `client/.git` until `git -C client rm --cached .env.cloudflare` is run before committing | `REQUIRES OWNER ACTION` |
+| **Canonical Git Root** | `E:\foodie-tech\.git` | `FIXED AND VERIFIED` |
+| **Current Checked-Out Branch** | `main` at `e5b52f3` (`e5b52f301b47c3e17a6b9b478dab4edb1586d520`), tracking `origin/main` cleanly | `FIXED AND VERIFIED` |
+| **Synced Remote & Branch Refs (`git show-ref`)** | `refs/heads/main`, `refs/heads/security/servora-production-hardening`, `refs/remotes/origin/main`, `refs/remotes/origin/security/servora-production-hardening`, and `refs/remotes/origin/HEAD` all point identically to `e5b52f301b47c3e17a6b9b478dab4edb1586d520`; `refs/remotes/origin/feature/backend-foundation` sits at `4542de2e`. | `FIXED AND VERIFIED` |
+| **GitHub `origin/main` Untouched** | Zero local commits since `e5b52f3`; nothing pushed, reset, stashed, or rewritten during this check. | `FIXED AND VERIFIED` |
 
-### Complete File Inventory
+### Exact Uncommitted Workspace Files (`git status -s` & `git diff`)
+1. `CLOUDFLARE_DEPLOYMENT_GUIDE.md` (`M`): Replaced obsolete `VITE_ADMIN_EMAIL` / `VITE_ADMIN_PASSWORD` (`admin123`) table entries (`-2/+2` lines) with `VITE_APP_URL` and `VITE_API_URL`.
+2. `server/package.json` (`M`): Upgraded `"nodemailer"` from `"^9.0.5"` → `"^10.6.1"`.
+3. `server/package-lock.json` (`M`): Updated resolved `nodemailer` `9.1.1` → `10.6.1` (`engines.node >= 20.0.0`).
+4. `server/tests/email-nodemailer.test.js` (`??`): Added Nodemailer `10.6.1` `streamTransport` MIME serialization & `email.service.js` template/guard tests (`2` test cases).
+5. `docs/testing/FINAL_PRODUCTION_READINESS_REPORT.md` (`M`): This updated pre-deployment & staging verification report.
+*(Note: `client/src/components/dashboard/QRCodeManagement.jsx`, `client/src/services/table.service.js`, and `client/src/utils/tableSecurity.js` also show `M` in `git status -s` purely from Windows CRLF/LF autocrlf stat conversion with `0` content diff lines in `git diff`.)*
 
-#### A. Modified Tracked Files in `client/.git` (`M`)
-`client/.env.cloudflare`, `client/.env.example`, `client/.gitignore`, `client/eslint.config.js`, `client/package-lock.json`, `client/package.json`, `client/public/_headers`, `client/scripts/export_database_data.js`, `client/scripts/verify_new_database.js`, `client/src/App.jsx`, `client/src/components/admin/AdminHeader.jsx`, `client/src/components/admin/AdminProtectedRoute.jsx`, `client/src/components/auth/MerchantProtectedRoute.jsx`, `client/src/components/dashboard/OrderManagement.jsx`, `client/src/components/dashboard/OrderNotification.jsx`, `client/src/components/dashboard/QRCodeManagement.jsx`, `client/src/components/dashboard/QRTemplateStudioModal.jsx`, `client/src/components/dashboard/Settings.jsx`, `client/src/components/dashboard/SubscriptionLockOverlay.jsx`, `client/src/components/dashboard/UPIPaymentModal.jsx`, `client/src/components/layout/Layout.jsx`, `client/src/components/layout/Sidebar.jsx`, `client/src/components/order/OrderTracking.jsx`, `client/src/components/pos/POSBillPreviewModal.jsx`, `client/src/components/pos/SplitPaymentModal.jsx`, `client/src/components/settings/NotificationSettings.jsx`, `client/src/components/settings/TaxSettings.jsx`, `client/src/components/ui/Logo.jsx`, `client/src/components/ui/NotificationDropdown.jsx`, `client/src/components/ui/dialog.jsx`, `client/src/docs/supabase_schema_and_rls.sql`, `client/src/hooks/useNotifications.js`, `client/src/hooks/useRestaurantProfile.js`, `client/src/lib/adminSupabase.js`, `client/src/lib/supabase.js`, `client/src/pages/CustomerMenu.jsx`, `client/src/pages/Dashboard.jsx`, `client/src/pages/admin/AdminLoginPage.jsx`, `client/src/pages/marketing/LoginPage.jsx`, `client/src/services/admin.service.js`, `client/src/services/billing.service.js`, `client/src/services/cloudinary.service.js`, `client/src/services/email.service.js`, `client/src/services/menu.service.js`, `client/src/services/order.service.js`, `client/src/services/restaurant.service.js`, `client/src/services/table.service.js`, `client/src/utils/tableSecurity.js`, `client/src/vite-env.d.ts`, `client/vite.config.js`, `client/wrangler.json`
-
-#### B. Added / Untracked Files in `client/.git` (`??`)
-- `client/src/__tests__/auth-and-tenant.test.js`
-- `client/src/__tests__/billing-order-upload.test.js`
-- `client/src/__tests__/receipt-helpers.test.js`
-- `client/src/components/dashboard/WaiterCallBanner.jsx`
-- `client/src/components/ui/ErrorBoundary.jsx`
-- `client/src/lib/adminAuth.js`
-- `client/src/lib/merchantAuth.js`
-- `client/src/utils/hotelBellAudio.js`
-- `client/src/utils/receiptHelpers.js`
-
-#### C. Ignored Files in `client/.git` (`!!`)
-- `client/.env`, `client/dist/`, `client/node_modules/`
-
-#### D. Files Outside `client/.git` (Workspace Root `E:\foodie-tech\`)
-- **Migrations (`supabase/migrations/`):**
-  - `supabase/migrations/20261127000001_security_hardening_rls.sql`
-  - `supabase/migrations/20261127000002_atomic_order_and_data_integrity.sql`
-  - `supabase/migrations/20261127000003_restaurant_gstin.sql`
-- **Backend (`server/`):** `server/server.js`, `server/lib/supabase.js`, `server/middleware/security.js`, `server/routes/billing.routes.js`, `server/routes/email.routes.js`, `server/services/{billing.engine.js,email.service.js,invoice.service.js,payment.service.js,pdf.service.js,tax.engine.js}`, `server/jobs/expiryCron.js`, `server/tests/security-and-billing.test.js`, `server/package.json`, `server/package-lock.json`, `server/.gitignore`, `server/.env`
-- **Documentation (`docs/`):**
-  - `docs/security/{SECURITY_AUDIT_REPORT.md,RLS_SECURITY_MATRIX.md,SECRET_ROTATION_GUIDE.md,INCIDENT_RESPONSE.md}`
-  - `docs/architecture/PRODUCTION_ARCHITECTURE.md`
-  - `docs/migrations/PRODUCTION_MIGRATION_PLAN.md`
-  - `docs/deployment/PRODUCTION_DEPLOYMENT_GUIDE.md`
-  - `docs/testing/{QA_VERIFICATION_REPORT.md,FINAL_PRODUCTION_READINESS_REPORT.md}`
-- **Root Configs (`E:\foodie-tech\`):** `.env.example`, `.env.cloudflare`, `.env.production`, `.gitignore`, `vercel.json`, `wrangler.json`
-
-> **Git Remediation Needed (`REQUIRES OWNER ACTION`):** Because `server/`, `supabase/`, and `docs/` sit outside `client/.git`, committing inside `client/` alone will **not** version-control the backend or SQL migrations. Consolidate into a single monorepo or push `server/`/`supabase/`/`docs/` into dedicated branches before release.
+- **Branch Placement Recommendation:** When authorized to commit, commit these updates onto **`security/servora-production-hardening`** for staging review first, then fast-forward / PR-merge into **`main`** once staging gates pass so both branches stay aligned.
 
 ---
 
-## 2. SQL Migration Verification
+## 2. Legacy Admin Credential Remediation Audit
 
-All three migrations in `supabase/migrations/` were inspected line-by-line against [supabase_schema_and_rls.sql](file:///e:/foodie-tech/client/src/docs/supabase_schema_and_rls.sql) and live application queries:
+Searched the entire workspace (`git grep`) for `VITE_ADMIN_PASSWORD`, `VITE_ADMIN_EMAIL`, `admin123`, `servora_admin_auth`, `servora_admin_token`, and `admin@servora.com`:
 
-| Migration / Control | Findings & Compatibility Check | Status |
-|---|---|---|
-| `20261127000001_security_hardening_rls.sql` | Creates unexposed `private` schema, `private.platform_admins`, `private.is_platform_admin()`, `private.owns_restaurant(uuid)`, `public.is_platform_admin()` (`SECURITY DEFINER`, `SET search_path = ''`, `REVOKE` public execute). Enables RLS and drops legacy `USING (true)` policies across all 19 tables (`restaurants`, `subscriptions`, `subscription_plans`, `payment_verifications`, `payment_methods`, `menu_categories`, `menu_items`, `table_sessions`, `qr_codes`, `orders`, `order_items`, `gst_settings`, `customers`, `support_tickets`, `ticket_replies`, `notifications`, `waiter_calls`, `audit_logs`, `invoices`). | `IMPLEMENTED BUT NOT LIVE-VERIFIED` |
-| `20261127000002_atomic_order_and_data_integrity.sql` | Adds idempotency/payment/notes/variant/stock columns, hot tenant indexes, unique idempotency index `idx_orders_idempotency_unique`, non-rejected UTR unique index `idx_payment_verifications_utr_unique`, `guard_subscription_status_transition()` trigger, `get_public_restaurant_profile`, `get_public_table_numbers`, `request_waiter_assistance`, deadlock-safe `FOR UPDATE` RPC `create_validated_order`, and `get_public_order_status`. | `IMPLEMENTED BUT NOT LIVE-VERIFIED` |
-| `20261127000003_restaurant_gstin.sql` | Adds optional `gstin` on `restaurants` & `gst_settings`. **Verification catch fixed during audit:** added explicit `DROP FUNCTION IF EXISTS public.get_public_restaurant_profile(UUID);` before recreating with `gstin` column (PostgreSQL rejects `CREATE OR REPLACE FUNCTION` when `RETURNS TABLE` columns change) and preserved `COALESCE(r.status, 'Active') <> 'Suspended'`. | `IMPLEMENTED BUT NOT LIVE-VERIFIED` |
-| **Accidental Lockout Audit** | - **Public QR Customers:** Menu/categories/gst read directly (`anon`); restaurant profile, table picker, order submission, waiter calls, and order status use granted `SECURITY DEFINER` RPCs without exposing merchant PII.<br>- **Restaurant Owners:** Permitted on all tenant tables via `owner_id = (SELECT auth.uid())` — **pre-migration backfill required if any legacy restaurant row has `owner_id IS NULL`** (`PRODUCTION_MIGRATION_PLAN.md`).<br>- **Administrators:** Permitted via `app_metadata.role` (`SUPER_ADMIN`/`ADMIN`/`PLATFORM_ADMIN`) or `private.platform_admins`. **Requires assigning `app_metadata.role` before cutover.**<br>- **Signup Flow Caveat:** `RegisterPage.jsx` expects an immediate session from `signUp`; if Supabase "Confirm email" is enabled without DB trigger backfill, initial client inserts wait until confirmation.<br>- **Multi-User Staff Accounts:** Separate non-owner kitchen/staff user accounts do not exist in schema. | `IMPLEMENTED BUT NOT LIVE-VERIFIED` (`Staff RBAC: NOT IMPLEMENTED`) |
-| **Live Supabase / Staging Execution** | No staging database credentials available in workspace; production DB intentionally untouched. Rollback instructions documented in [RLS_SECURITY_MATRIX.md](file:///e:/foodie-tech/docs/security/RLS_SECURITY_MATRIX.md) and [PRODUCTION_MIGRATION_PLAN.md](file:///e:/foodie-tech/docs/migrations/PRODUCTION_MIGRATION_PLAN.md). | `BLOCKED` |
-
----
-
-## 3. Authentication & Authorization Verification
-
-| Scenario | Evidence & Method | Status |
-|---|---|---|
-| Unauthenticated admin access (`AdminProtectedRoute` / `/api/admin/session`) | Verified in `auth-and-tenant.test.js` (`verifyAdminSession` -> `unauthenticated`) and `security-and-billing.test.js` (`GET /api/admin/session` -> `401`, `/api/email/status` -> `401`) using mocked Supabase Auth. | `FIXED AND VERIFIED` *(Mocked Auth)* |
-| Authenticated non-admin access / `user_metadata` role spoofing | Verified in `auth-and-tenant.test.js` (`forbidden`) and `security-and-billing.test.js` (`403` on `/api/admin/session` and `/api/email/test`) even with `user_metadata.role = 'SUPER_ADMIN'`. | `FIXED AND VERIFIED` *(Mocked Auth)* |
-| Valid platform admin access (`app_metadata.role` / `is_platform_admin` RPC) | Verified in `auth-and-tenant.test.js` and `security-and-billing.test.js` (`200`, `user.role = 'SUPER_ADMIN'`). | `FIXED AND VERIFIED` *(Mocked Auth)* |
-| Merchant A accessing Merchant B (client route guard & backend API) | Verified in `auth-and-tenant.test.js` (`forbidden_cross_tenant`) and `security-and-billing.test.js` (`POST /api/billing/calculate` -> `403`, `GET /api/billing/invoice/:id` -> `403`). | `FIXED AND VERIFIED` *(Mocked Auth)* |
-| Expired JWT handling | Verified in `auth-and-tenant.test.js` (`JWT expired` -> fail closed) and `security-and-billing.test.js` (`GET /api/admin/session` -> `401`). | `FIXED AND VERIFIED` *(Mocked Auth)* |
-| Invalid / malformed JWT handling | Verified in `security-and-billing.test.js` (`Bearer invalid.jwt` -> `401`). | `FIXED AND VERIFIED` *(Mocked Auth)* |
-| Database verification failure (fail-closed) | Verified in `auth-and-tenant.test.js` (`tenant_not_found` -> `authorized: false`) and `security-and-billing.test.js` (`requireRestaurantAccess` DB error -> `503`). | `FIXED AND VERIFIED` *(Mocked DB)* |
-| Demo merchant isolation (`demo-merchant`) | Verified in `auth-and-tenant.test.js`, `billing-order-upload.test.js`, and live localhost browser inspection on `/console/demo-merchant?tab=orders` (no RPC/tenant DB writes). | `FIXED AND VERIFIED` |
-| Forged `sessionStorage` / `fallback_auth_email` cleanup | Verified in `auth-and-tenant.test.js` (clears `servora_admin_auth`, `servora_admin_token`, `servora_admin_user`, `fallback_auth_email` before rejecting). | `FIXED AND VERIFIED` |
-
----
-
-## 4. Billing, Ordering & Upload Verification
-
-| Scenario | Evidence & Method | Status |
-|---|---|---|
-| Failed payment / backend unreachable (`createServerInvoice`, `settleInvoicePayment`) | Verified in `billing-order-upload.test.js`: HTTP `500`/`502` and network exceptions throw explicit errors and never fabricate `{ status: 'PAID' }` or `INV-*`. | `FIXED AND VERIFIED` |
-| Duplicate order / payment submission (Idempotency) | Verified in `billing-order-upload.test.js` (`create_validated_order` called once on retry with same `idempotencyKey`) and `security-and-billing.test.js` (`processPayment` returns `idempotentReplay: true` with 1 payment). | `FIXED AND VERIFIED` |
-| Invalid menu item price / negative price / >100% discount | Verified in `billing-order-upload.test.js` (`calculateBillPreview` & `createOrder` reject upfront) and `security-and-billing.test.js` (`calculateBill` throws & server overrides spoofed `₹1` price with DB price `₹140`). | `FIXED AND VERIFIED` |
-| Out-of-stock item rejection | Verified in `billing-order-upload.test.js` (RPC error propagated cleanly) and `security-and-billing.test.js` (`Cold Coffee` with `is_in_stock: false` returns `400`). | `FIXED AND VERIFIED` |
-| Unauthorized cross-tenant invoice read (`GET /api/billing/invoice/:id`) | Verified in `security-and-billing.test.js` (Merchant A requesting Merchant B invoice -> `403`). | `FIXED AND VERIFIED` |
-| Cloudinary SVG/XSS/oversized/unauthenticated uploads | Verified in `billing-order-upload.test.js` (`image/svg+xml`, `text/html`, empty, `> 5 MB`, traversal `..`, and unauthenticated non-demo uploads blocked). | `FIXED AND VERIFIED` |
-| Duplicate UTR rejection (`idx_payment_verifications_utr_unique`) | Client regex `^[A-Z0-9]{10,22}$` and error-message mapping implemented in `UPIPaymentModal.jsx`; DB uniqueness index authored in `20261127000002`, not tested against live Postgres. | `IMPLEMENTED BUT NOT LIVE-VERIFIED` |
-| Concurrent inventory updates (`FOR UPDATE` row lock) | Implemented in `create_validated_order` SQL RPC (deterministic UUID lock order) and fallback `.gte('quantity', qty)`; live concurrent race testing blocked without live Postgres instance. | `IMPLEMENTED BUT NOT LIVE-VERIFIED` |
-| Unauthorized subscription activation | Protected by RLS (`subscriptions_admin_update`, `subscriptions_tenant_insert_pending`) and trigger `guard_subscription_status_transition()` in SQL; fail-closed UI implemented in `Dashboard.jsx`; not live DB tested. | `IMPLEMENTED BUT NOT LIVE-VERIFIED` |
-
----
-
-## 5. Dependency Security Analysis
-
-| Package Workspace | Audit Result | Details & Recommendation | Status |
+| Finding Location | Classification | Runtime Impact | Status |
 |---|---|---|---|
-| **Client (`client/`)** | **0 vulnerabilities** (`npm --prefix client audit`) | All 20 baseline vulnerabilities cleanly resolved via non-breaking `npm audit fix`. Verified after adding `vitest` and `jsdom`. | `FIXED AND VERIFIED` |
-| **Server (`server/`) — Non-breaking** | 4 of 5 fixed (`proxy-addr` critical, `body-parser`, `brace-expansion`, `qs`) | Resolved cleanly via `npm --prefix server audit fix`. | `FIXED AND VERIFIED` |
-| **Server (`server/`) — `nodemailer@9.1.1`** | **1 high vulnerability remaining** (`range <= 10.1.3`) | Advisories include `GHSA-v53p-9fqp-m79j` / `GHSA-prgh-xp8r-p3m5` (`addressparser` quadratic ReDoS, CVSS 7.5), `GHSA-6vj9-mwq6-2f5v` (TLS servername DNS cache reuse), and parser/reply advisories fixed in `nodemailer >= 10.1.4` (`10.6.1`, `isSemVerMajor: true`). Exposure is partially mitigated because `/api/email/*` routes are `requireAuth` + `requireAdmin` (except `/forgot-password`, which enforces `EMAIL_REGEX` + rate limiting) and `email.service.js` only uses `createTransport`, `verify()`, and `sendMail()`. **Not blindly upgraded** because major bump requires live SMTP regression testing. | `REQUIRES OWNER ACTION` |
+| **Active Runtime Auth (`AdminProtectedRoute.jsx`, `AdminLoginPage.jsx`, `adminAuth.js`, `AdminHeader.jsx`, `server/middleware/security.js`)** | Clean | **Zero dependency** on `VITE_ADMIN_*`, `'admin123'`, or storage flags. Admin access relies exclusively on server-verified Supabase JWT (`app_metadata.role` ∈ `{'SUPER_ADMIN','ADMIN','PLATFORM_ADMIN'}`), `private.platform_admins`, and `/api/admin/session`. | `FIXED AND VERIFIED` |
+| `client/src/lib/adminAuth.js` (`LEGACY_ADMIN_KEYS`) | Defensive cleanup constant | Lists `['servora_admin_token', 'servora_admin_auth', 'servora_admin_user']` strictly to **delete** stale keys via `clearLegacyAdminStorage()`. Verified by `auth-and-tenant.test.js`. | `FIXED AND VERIFIED` |
+| `client/src/lib/audit.js:10` | Non-auth fallback log label | Uses `'admin@servora.com'` only as a fallback `actor` display string when `session?.user?.email` is absent in client audit logging; grants zero privileges. | `FIXED AND VERIFIED` |
+| `docs/deployment/PRODUCTION_DEPLOYMENT_GUIDE.md`, `docs/security/*`, `docs/testing/*` | Historical audit / rotation documentation | Documents removed legacy credentials and cleanup steps. | `FIXED AND VERIFIED` |
+
+### Hosting Dashboard Cleanup Checklist (`REQUIRES OWNER ACTION`)
+- **Cloudflare Dashboard (`Workers & Pages` → `servora` → `Settings` → `Variables and Secrets`):**
+  1. Delete `VITE_ADMIN_EMAIL` and `VITE_ADMIN_PASSWORD` if present in **Production** or **Preview** environments.
+  2. Verify `VITE_APP_URL=https://servora.quantumesh.in` and (after backend deploy) `VITE_API_URL=<https-backend-url>`.
+- **Vercel Dashboard (`Project Settings` → `Environment Variables`):**
+  1. Delete `VITE_ADMIN_EMAIL` and `VITE_ADMIN_PASSWORD` across **Production**, **Preview**, and **Development** scopes.
+  2. Confirm **no** `SUPABASE_SERVICE_ROLE_KEY` or `SMTP`/`GMAIL` secrets exist in Vercel/Cloudflare frontend env vars.
+- **Credential Rotation:** Rotate any admin mailbox/login password that previously reused the legacy shared credential (`SECRET_ROTATION_GUIDE.md`).
 
 ---
 
-## 6. Production Configuration Audit (Keys Checked — Zero Secrets Printed)
+## 3. Full Git History Secret Audit & Safe `git filter-repo` Cleanup Plan
 
-| Area | Verified Configuration State | Gaps / Action Required | Status |
+Scanned all **`190` reachable commits** (`git rev-list --all`) without exposing secret values:
+
+| Secret Category | Affected Commits & File Paths | Genuine vs Placeholder | Rotation Required |
 |---|---|---|---|
-| **Frontend Env Exposure (`client/`)** | Zero `VITE_ADMIN_*` keys in `.env*`, `wrangler.json`, `client/wrangler.json`, `vite-env.d.ts`, or compiled `client/dist/assets/*.js`. | Remove legacy `VITE_ADMIN_EMAIL` & `VITE_ADMIN_PASSWORD` from live Cloudflare Pages / Vercel dashboards; set `VITE_PLATFORM_UPI_ID` cleanly. | `FIXED AND VERIFIED` / `REQUIRES OWNER ACTION` |
-| **Missing Production API Config (`VITE_API_URL`)** | `VITE_API_URL` is absent in `.env.production`, `.env.cloudflare`, `wrangler.json`, and `client/wrangler.json`. | **Deployment Blocker for live POS settlement & SMTP email:** without `VITE_API_URL` pointing to the HTTPS Express backend, `createServerInvoice`, `settleInvoicePayment`, `sendForgotPasswordEmail`, `sendPurchaseSummaryEmail`, and `sendTestEmail` intentionally fail closed (`Backend unconfigured`). | `REQUIRES OWNER ACTION` |
-| **Backend Env (`server/.env`)** | `server/.env` has `PORT`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `FRONTEND_URL`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `EMAIL_FROM`, plus unused `INSTANCE_ID` & `JWT_SECRET`. | **Critical Deployment Blocker:** `SUPABASE_SERVICE_ROLE_KEY` is **missing** in `server/.env`. Once hardened RLS (`20261127000001`) is active, `requireRestaurantAccess` and `expiryCron` require `SUPABASE_SERVICE_ROLE_KEY`; otherwise fallback to `SUPABASE_ANON_KEY` causes tenant lookup denial (`403`) on protected billing routes. Also add `ALLOWED_ORIGINS` if preview domains are needed and remove unused `INSTANCE_ID`/`JWT_SECRET`. | `REQUIRES OWNER ACTION` |
-| **CORS Policy (`server/server.js`)** | Allows `https://servora.quantumesh.in`, localhost/127.0.0.1 (`5173`, `4173`), `FRONTEND_URL`, and comma-separated `ALLOWED_ORIGINS`. Unlisted origins fail (`CORS policy`). | Ensure production `FRONTEND_URL=https://servora.quantumesh.in` and add `https://www.servora.quantumesh.in` / staging host to `ALLOWED_ORIGINS`. | `FIXED AND VERIFIED` |
-| **Static Host Routing & Security Headers** | `client/public/_headers` (Cloudflare) & `vercel.json` (Vercel) include `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `HSTS`, and SPA fallback rewrites. | Ensure Cloudflare Pages / Vercel builds from `client` with `dist` output directory. | `FIXED AND VERIFIED` |
+| **Legacy Admin Password (`VITE_ADMIN_PASSWORD` / `'admin123'`)** | `671fe38`..`b8a7503c`, `1425b770`, `9451876d`, `c5006ae7`, `22d1d9b0`: `.env.cloudflare` (deleted in `a4e4800d`), `.env.example`, `src/pages/admin/AdminLoginPage.jsx`, `src/lib/adminSupabase.js`, `src/vite-env.d.ts` | Legacy active/fallback password literal | **Yes** (rotate credential & clear dashboard vars) |
+| **Supabase Anon JWT (`JWT(role=anon)`)** | `1425b770`..`e5b52f3`: `.env.cloudflare`, `.env.example`, `wrangler.json`, `client/wrangler.json`, `src/lib/supabase.js`, `client/scripts/*` | Public client `anon` key (`role="anon"`), protected by RLS | No |
+| **Supabase Service-Role Key / SMTP / DB Passwords / JWT Secrets / Private Keys / Tokens** | `a4e4800d`..`e5b52f3` (`server/lib/supabase.js`, `server/.env.example`, docs) | Code expressions (`process.env.*`), doc identifiers, and `.env.example` placeholders only (**`0` genuine secrets in all 190 commits**) | Local `server/.env` App Password / service-role rotation recommended only if ever shared externally |
+
+### Coordinated Git History Rewrite Procedure (`REQUIRES OWNER ACTION` — Do NOT Run Unannounced)
+- **Affected Refs:** `refs/heads/main`, `refs/heads/security/servora-production-hardening`, `refs/remotes/origin/main`, `refs/remotes/origin/security/servora-production-hardening`, and historical branch `refs/remotes/origin/feature/backend-foundation` (`4542de2e`).
+- **Preconditions & Backup:**
+  1. Freeze pushes/merges across collaborators (`Yashpal568/Foodie-Teck---SaaS-App`).
+  2. Create full bare mirror backup outside workspace: `git clone --mirror https://github.com/Yashpal568/Foodie-Teck---SaaS-App.git servora-repo-backup.git`.
+- **Execution Plan (`git-filter-repo`):**
+  1. Prepare an untracked replacement rules file outside the repo (containing legacy fallback literal strings mapped to `REDACTED_LEGACY_CREDENTIAL`).
+  2. Run on a fresh clone:
+     ```bash
+     git filter-repo --invert-paths --path .env.cloudflare
+     git filter-repo --replace-text ../replacements.txt
+     ```
+  3. Verify `git log --all -S` shows zero residual `.env.cloudflare` blobs or literal strings, and verify latest tree matches pre-rewrite `HEAD` (`git diff`).
+- **Force-Push & Coordination Implications:**
+  - Every rewritten commit SHA changes; force-pushing (`git push --force --all`) breaks existing local clones/PRs and requires deleting/re-creating open feature branches and having all developers fresh-clone (`git clone`) rather than `git pull`.
+  - Ask GitHub Support / clear GitHub object caches for cached commit views if external exposure cleanup is required, and **still rotate** the legacy credential regardless of rewrite.
 
 ---
 
-## 7. Automated Tests, Build & E2E Scope Matrix
+## 4. Deployment Configuration & Environment Matrix
 
-### Executed Automated Checks (Post-Final-Code-Edit)
-- **Client Unit/Security Tests (`npm --prefix client test -- --run`):** **29/29 passed** (3 files: `auth-and-tenant.test.js` [11], `billing-order-upload.test.js` [12], `receipt-helpers.test.js` [6]; duration `3.42s`, **mocked Supabase/fetch**).
-- **Server Security & Billing Tests (`npm --prefix server test`):** **14/14 passed** (2 suites in `security-and-billing.test.js`; duration `1.37s`, real Express 5 HTTP requests with **mocked Supabase/SMTP**).
-- **Production Frontend Build (`npm --prefix client run build`):** **`✓ built in 14.02s`** (exit `0`, 3,358 modules).
+### Authoritative Hosting Topology
+- **Current Live Custom Domain (`https://servora.quantumesh.in`):** Currently DNS-routed to **Vercel** (`server: Vercel`, serving pre-consolidation bundle `assets/index-C-W8ryYD.js`), where `vercel.json` at repo root configures `"buildCommand": "cd client && npm install && npm run build"`, `"outputDirectory": "client/dist"`, `"framework": "vite"`, SPA rewrite `/(.*) -> /index.html"`, and strict headers (`X-Frame-Options: DENY`). *(Fallback `client/vercel.json` exists only if Vercel Root Directory is explicitly set to `client`.)*
+- **Cloudflare Workers Static Assets (`https://servora.yash38688.workers.dev`):** Root `wrangler.json` (`name: "servora"`, `assets.directory: "./client/dist"`, `not_found_handling: "single-page-application"`) is deployed and serving updated bundle `assets/index-CIVk6RRy.js`. `client/wrangler.json` (`assets.directory: "./dist"`) is aligned for `client/` root builds.
+- **Authoritative Frontend Decision Required:** Designate **either** **Vercel** (fix Vercel Root Directory `.` + `vercel.json` build on `main`) **or** **Cloudflare Workers** (attach custom domain `servora.quantumesh.in` to `servora` Worker in Cloudflare Dashboard and remove Vercel DNS) as the single canonical production frontend host so deployments cannot drift.
+- **Backend Express 5 API (`server/server.js`):** Not yet deployed externally; listens on `process.env.PORT || 5000`, mounts `/api/email`, `/api/billing`, `/api/admin/session`, `helmet()`, `requestContext`, rate limiting (`180 req/min` global `/api`, `15 req/min` `/api/email`), and `initExpiryCron()`.
+- **Backend CORS Allowlist (`server/server.js`):** `https://servora.quantumesh.in`, `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, `process.env.FRONTEND_URL`, and comma-separated `process.env.ALLOWED_ORIGINS`. Unlisted origins fail closed (`403`).
 
-### Live E2E Workflow Coverage Ledger (Honest Boundary)
+### Required Environment Variables (Zero Secret Values Exposed)
 
-| Workflow | Status | Notes |
-|---|---|---|
-| Demo Console Orders Kanban & Dynamic Bill Receipt UI (`localhost:5173/console/demo-merchant?tab=orders`) | `FIXED AND VERIFIED` | Verified visually in real Chrome browser (`0` console errors) plus unit-tested in `receipt-helpers.test.js`. |
-| Merchant Login, Live Dashboard, Subscription Lock, Admin Dashboard (`Supabase Auth` + `app_metadata`) | `IMPLEMENTED BUT NOT LIVE-VERIFIED` | Covered by mocked unit/HTTP tests & Vite build; live Supabase E2E login not executed (`BLOCKED` on live staging credentials & SQL migration run). |
-| Public QR Menu, Live Order Placement, Kitchen Updates, Invoice/Payment Persistence | `IMPLEMENTED BUT NOT LIVE-VERIFIED` | Covered by SQL migration + mocked client/server suites; live Postgres RPC/trigger/RLS execution `BLOCKED` pending staging run. **Regression risk noted:** after hardened RLS, anonymous guests on `OrderTracking.jsx` will no longer receive realtime `postgres_changes` updates on `orders` and rely on the 30s `get_public_order_status` RPC poll unless an authenticated/broadcast notification channel is added later. |
+| Variable Name | Location / Host | Public vs Secret | Verified Local State (`client/.env` / `server/.env`) | Notes |
+|---|---|---|---|---|
+| `VITE_SUPABASE_URL` | Frontend (`client/.env`, Vercel, Cloudflare `wrangler.json`) | Public | `<SET>` | Supabase project HTTPS URL |
+| `VITE_SUPABASE_ANON_KEY` | Frontend (`client/.env`, Vercel, Cloudflare `wrangler.json`) | Public (`anon` role) | `<SET>` | Protected by Postgres RLS |
+| `VITE_APP_URL` | Frontend (`client/.env`, Vercel, Cloudflare `wrangler.json`) | Public | `<SET>` | `https://servora.quantumesh.in` (prevents `localhost` QR URLs) |
+| `VITE_API_URL` | Frontend (Vercel, Cloudflare runtime/build) | Public | **Unset** (`REQUIRES OWNER ACTION`) | Required for live POS billing/invoices & backend SMTP triggers |
+| `VITE_CLOUDINARY_CLOUD_NAME` | Frontend (`client/.env`, Vercel, Cloudflare) | Public | `<SET>` | Cloudinary unsigned upload target |
+| `VITE_CLOUDINARY_UPLOAD_PRESET` | Frontend (`client/.env`, Vercel, Cloudflare) | Public | `<SET>` | Unsigned upload preset |
+| `VITE_PLATFORM_UPI_ID` | Frontend (Vercel, Cloudflare) | Public (optional) | Unset (defaults in UI) | Platform UPI VPA shown in subscription checkout |
+| `NODE_ENV` | Backend (`server/` host) | Config (`production`) | Unset (`REQUIRES OWNER ACTION`) | Suppresses stack/verbose error output |
+| `PORT` | Backend (`server/.env` / PaaS) | Config | `<SET>` | Defaults to `5000` |
+| `SUPABASE_URL` | Backend (`server/.env` / PaaS) | Public | `<SET>` | Must match project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Backend (`server/.env` / PaaS) | **SECRET (Server-Only)** | **MISSING** (`REQUIRES OWNER ACTION`) | Critical: `server/lib/supabase.js` falls back to `anon` without it, breaking protected server tenant checks & cron under RLS |
+| `FRONTEND_URL` | Backend (`server/.env` / PaaS) | Config | `<SET>` | Must be `https://servora.quantumesh.in` in prod (CORS & trusted email links) |
+| `ALLOWED_ORIGINS` | Backend (`server/` host) | Config | Unset (recommended) | Comma-separated staging/www origins |
+| `GMAIL_USER` | Backend (`server/.env` / PaaS) | Config / Secret | `<SET>` | Sender Gmail address |
+| `GMAIL_APP_PASSWORD` | Backend (`server/.env` / PaaS) | **SECRET (Server-Only)** | `<SET>` | 16-char Google App Password (simulation mode activates if omitted) |
+| `EMAIL_FROM` | Backend (`server/.env` / PaaS) | Config | `<SET>` | Display sender header |
+| `INSTANCE_ID`, `JWT_SECRET` | Local `server/.env` | Unused legacy keys | `<SET>` | Not referenced anywhere in `server/`; clean up on host |
 
 ---
 
-## 8. Deployment Blockers & Required Owner Actions Checklist
+## 5. Staging Readiness, Migrations & Incomplete Features
 
-### Hard Deployment Blockers (Must Complete Before Production Rollout)
-1. **Provision Backend Runtime Environment (`REQUIRES OWNER ACTION`):** Set `SUPABASE_SERVICE_ROLE_KEY`, `NODE_ENV=production`, `FRONTEND_URL=https://servora.quantumesh.in`, rotated `GMAIL_APP_PASSWORD`, and `ALLOWED_ORIGINS`, and deploy the Express backend (`server/`).
-2. **Set Frontend API URL (`REQUIRES OWNER ACTION`):** Configure `VITE_API_URL` in Cloudflare Pages / Vercel so POS billing, invoices, and password-reset emails work in production; delete `VITE_ADMIN_EMAIL` & `VITE_ADMIN_PASSWORD` from hosting dashboards.
-3. **Run SQL Migrations in Staging -> Production (`REQUIRES OWNER ACTION`):** Backfill any `restaurants.owner_id IS NULL`, deduplicate any conflicting UTRs, assign `raw_app_meta_data.role = 'SUPER_ADMIN'` to platform admins, and apply `20261127000001`, `20261127000002`, and `20261127000003` in numeric order (`PRODUCTION_MIGRATION_PLAN.md`).
-4. **Rotate Compromised Credentials (`REQUIRES OWNER ACTION`):** Rotate legacy admin password, Supabase `service_role` key, and SMTP App Password (`SECRET_ROTATION_GUIDE.md`), untrack `client/.env.cloudflare` (`git -C client rm --cached .env.cloudflare`), and resolve Git workspace structure for `server/`, `supabase/`, and `docs/`.
-5. **Verify & Upgrade `nodemailer` (`REQUIRES OWNER ACTION`):** Test `nodemailer@10.6.1` in staging against Gmail SMTP and bump `"nodemailer"` in `server/package.json` cleanly once verified.
+### Migration Execution Order & Preconditions
+1. `supabase/migrations/20261127000001_security_hardening_rls.sql` — creates `private` schema, `private.platform_admins` (RLS enabled), `private.is_platform_admin()`, `private.owns_restaurant()`, `public.is_platform_admin()`, drops permissive policies, enforces strict tenant/admin RLS on all 19 tables.
+2. `supabase/migrations/20261127000002_atomic_order_and_data_integrity.sql` — adds order/menu integrity columns & indexes, quarantines duplicate non-`REJECTED` UTRs before `idx_payment_verifications_utr_unique`, adds `guard_subscription_status_transition()`, `DROP FUNCTION IF EXISTS` guards, and creates `claim_public_table_session`, `request_waiter_assistance`, `create_validated_order`, `get_public_order_status`, and initial 6-column `get_public_restaurant_profile`.
+3. `supabase/migrations/20261127000003_restaurant_gstin.sql` — adds `gstin` on `restaurants` & `gst_settings` and **must run after `000002`** because it recreates `get_public_restaurant_profile(UUID)` with the 7th `gstin` return column.
+
+- **Required Preconditions:** Database backup/PITR verified; every active `public.restaurants` row has `owner_id` mapped to `auth.users.id`; platform admin accounts carry `raw_app_meta_data.role = 'SUPER_ADMIN'` (or row in `private.platform_admins`).
+- **Rollback Plan:** Column/index additions are additive. If an RLS regression occurs in staging, apply targeted policy adjustments per [RLS_SECURITY_MATRIX.md](file:///e:/foodie-tech/docs/security/RLS_SECURITY_MATRIX.md) or restore the pre-migration snapshot; **never** re-introduce `FOR ALL USING (true)`.
+
+### Staging End-to-End Test Checklist (`BLOCKED` until Staging Backend + Migrations Configured)
+- **Authentication & Authorization:** Unauthenticated `/admin/*` redirects to `/admin/login`; `user_metadata` role spoofing fails (`403`); valid `SUPER_ADMIN` `app_metadata` unlocks `/admin/dashboard`; Merchant signup → `/pricing` → UPI Payment modal (`UPIPaymentModal`) → `/console/:id` verification gate.
+- **Multi-Tenant Isolation:** Brand-new Merchant A starts with `₹0` revenue, `0` orders, `0` tables (zero demo data leak); Merchant A requesting Merchant B `/console/<id>`, `/api/billing/calculate`, or `/api/billing/invoice/:id` receives denied/`403`/`0` rows.
+- **Ordering, Inventory & Tables:** Merchant configures `N` dining tables (`configureRestaurantTables`); Universal QR (`/menu?restaurant=<id>&sig=...`) encodes production origin; guest selects Table 1 (`claim_public_table_session`), places order (`create_validated_order` overrides client price with DB price, decrements finite stock atomically, rejects out-of-stock/replay); KDS advances `PENDING` → `FINISHED`.
+- **Billing & Dynamic Receipts:** Server-side `POST /api/billing/calculate`, `/api/billing/invoice`, `/api/billing/settle` persist authoritative totals and idempotency keys (`SUPABASE_SERVICE_ROLE_KEY` active); receipt renders dynamic address/phone/optional GSTIN cleanly (`receiptHelpers.js`).
+- **Email & RLS:** `GET /api/email/status` (`SUPER_ADMIN` only) reports live Gmail SMTP connected; admin payment approval triggers PDF invoice dispatch.
+
+### Explicitly Incomplete / Known Limitations
+1. **Multi-User Kitchen & Staff RBAC (`NOT IMPLEMENTED`):** `private.owns_restaurant(uuid)` strictly permits `restaurants.owner_id = auth.uid()` (plus platform admins). Dedicated waiter/chef user logins with scoped permissions are not yet implemented.
+2. **Anonymous Guest Order Tracking Realtime & Item Details (`IMPLEMENTED BUT LIMITED`):** Under hardened RLS, unauthenticated guests in [OrderTracking.jsx](file:///e:/foodie-tech/client/src/components/order/OrderTracking.jsx#L56-L130) cannot read `public.orders` directly or receive `postgres_changes` events (`filter: id=eq.${orderId}`), so updates arrive via a **30-second interval poll** calling `get_public_order_status` (returning summary fields with `items: []`).
+
+---
+
+## 6. Email Verification & Safe Real-Inbox SMTP Smoke-Test Procedure
+
+- **Nodemailer Version & Audit:** `nodemailer@10.6.1` (`server/package.json` `"^10.6.1"`); `npm --prefix server audit` = **`0` vulnerabilities**.
+- **Code Compatibility Verified:** `server/services/email.service.js` uses `nodemailer.createTransport({ service: 'gmail', host: 'smtp.gmail.com', port: 465, secure: true, auth: { user, pass } })`, `transporter.verify()`, and `transporter.sendMail()`, verified against Node `v22.14.0` in `server/tests/email-nodemailer.test.js` (`16/16` server tests pass).
+- **Safe Real-Inbox Smoke Test Procedure (Run ONLY After Explicit Owner Approval & Staging Secret Setup):**
+  1. Ensure `server/.env` (or staging secret store) has valid `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, rotated `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `EMAIL_FROM`, and `FRONTEND_URL`.
+  2. Start the server in staging and authenticate as a `SUPER_ADMIN` user (`ADMIN_JWT`).
+  3. Verify SMTP handshake without sending mail:
+     `GET <BACKEND_URL>/api/email/status` with `Authorization: Bearer <ADMIN_JWT>` → confirm `configured: true`, `status: "Connected to Gmail SMTP"`.
+  4. Dispatch one controlled test email to an owner-controlled inbox:
+     `POST <BACKEND_URL>/api/email/test` with `Authorization: Bearer <ADMIN_JWT>` and `{ "email": "<owner-test-inbox>" }` → confirm `mode: "live"` and inbox receipt (`SPF`/`DKIM`/HTML rendering).
+  5. Test one `sendPurchaseSummaryEmail` staging approval flow to confirm PDF attachment (`SRV-INV-*.pdf`) renders cleanly in the owner inbox.
+
+---
+
+## 7. Automated Tests & Build Status (Current Verified Runs)
+
+- **Server Tests (`npm --prefix server test`):** `16/16` passed across `3` suites (`Nodemailer v10 Compatibility & Email Service Tests` [2], `Servora Server Security Middleware & Tenant Isolation` [7], `Authoritative Billing Engine & Payment Idempotency` [7]), `0` failed.
+- **Client Tests (`npm --prefix client test -- --run`):** `33/33` passed across `4` files (`auth-and-tenant.test.js` [11], `billing-order-upload.test.js` [12], `table-config.test.js` [4], `receipt-helpers.test.js` [6]), mocked Supabase/fetch.
+- **Security Audits:** `npm --prefix server audit` → `0` vulnerabilities; `npm --prefix client audit` → `0` vulnerabilities.
+- **Live Supabase Anonymous Probes (Read-Only):** All 10 private tables returned `0` rows; `private.platform_admins` blocked (`HTTP 406 PGRST106`); `is_platform_admin` denied (`401 42501`); all 6 public RPCs reachable.
+
+---
+
+## 8. Remaining Owner Actions Summary
+
+1. Choose canonical frontend host (**Vercel** vs **Cloudflare Workers**) and ensure `https://servora.quantumesh.in` serves the latest build (`assets/index-CIVk6RRy.js` or newer).
+2. Provision `SUPABASE_SERVICE_ROLE_KEY`, `NODE_ENV=production`, `FRONTEND_URL`, `ALLOWED_ORIGINS`, and rotated `GMAIL_USER`/`GMAIL_APP_PASSWORD` on backend host, deploy `server/`, and configure `VITE_API_URL` on frontend host.
+3. Clean any legacy `VITE_ADMIN_*` entries from Vercel/Cloudflare dashboards and rotate legacy shared admin passwords.
+4. Approve whether to commit the 5 clean local workspace updates onto `security/servora-production-hardening` → `main`, and decide separately on executing the `git filter-repo` history cleanup.
+5. Authorize and execute the controlled Staging E2E & real-inbox SMTP smoke tests.
+
+---
+
+## 9. Production Cutover Go / No-Go Criteria
+
+Production cutover is **NO-GO** until every gate below is verified green:
+1. `[ ]` Express backend (`server/`) live over HTTPS with valid `SUPABASE_SERVICE_ROLE_KEY`, `NODE_ENV=production`, strict `ALLOWED_ORIGINS`, and `VITE_API_URL` wired in frontend build.
+2. `[ ]` `https://servora.quantumesh.in` verified serving the hardened frontend bundle (no stale Vercel/Cloudflare split-brain deployment).
+3. `[ ]` Legacy `VITE_ADMIN_EMAIL` / `VITE_ADMIN_PASSWORD` purged from hosting dashboards and old shared admin credentials rotated.
+4. `[ ]` All `3` migrations (`000001` → `000002` → `000003`) confirmed applied in strict numeric order with zero `restaurants.owner_id IS NULL` gaps.
+5. `[ ]` Live staging E2E walkthrough completed cleanly: Signup → Plan Purchase & UTR → Admin Notification & Approval → Zero-leak Merchant Dashboard → Menu & Tables → Customer QR Order (`create_validated_order`) → KDS Completion → Server POS Invoice & Settlement → Real-inbox Nodemailer `10.6.1` SMTP email delivery.

@@ -29,18 +29,70 @@ import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { requestWaiter } from '@/services/table.service'
+import { getDemoOrders, DEMO_ORDERS_STORAGE_KEY } from '@/services/order.service'
 import { toast } from 'sonner'
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const isUUID = (val) => typeof val === 'string' && UUID_REGEX.test(val)
+
+const readCachedOrder = (orderId, fallbackInitial) => {
+  if (fallbackInitial && (!orderId || String(fallbackInitial.id) === String(orderId))) {
+    return fallbackInitial
+  }
+  if (!orderId || typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage?.getItem(`servora_order_${orderId}`)
+    if (raw) return JSON.parse(raw)
+  } catch {
+    // ignore storage parse failure
+  }
+  if (!isUUID(String(orderId))) {
+    const demoHit = getDemoOrders().find((o) => String(o.id) === String(orderId))
+    if (demoHit) return demoHit
+  }
+  return null
+}
+
+const normalizeTrackedOrder = (raw, fallbackCached = null) => {
+  if (!raw) return fallbackCached || null
+  const items =
+    (Array.isArray(raw.order_items) && raw.order_items.length > 0 && raw.order_items) ||
+    (Array.isArray(raw.items) && raw.items.length > 0 && raw.items) ||
+    (Array.isArray(fallbackCached?.order_items) && fallbackCached.order_items) ||
+    (Array.isArray(fallbackCached?.items) && fallbackCached.items) ||
+    []
+
+  return {
+    ...(fallbackCached || {}),
+    ...raw,
+    id: raw.id || fallbackCached?.id,
+    tableNumber: raw.table_number || raw.tableNumber || fallbackCached?.tableNumber || '1',
+    customerName: raw.customer_name || raw.customerName || fallbackCached?.customerName || 'Guest Customer',
+    items,
+    order_items: items,
+    subtotal: Number(raw.subtotal ?? fallbackCached?.subtotal ?? raw.total ?? 0),
+    tax: Number(raw.tax ?? fallbackCached?.tax ?? 0),
+    total: Number(raw.total ?? fallbackCached?.total ?? 0),
+    status: String(raw.status || fallbackCached?.status || 'PENDING').toUpperCase(),
+    createdAt: raw.created_at || raw.createdAt || fallbackCached?.createdAt,
+  }
+}
 
 export default function OrderTracking({ 
   orderId, 
+  initialOrder = null,
   restaurantId, 
+  tableNumber = null,
   onClose, 
   onOpenCart, 
   onOpenSearch,
   theme = 'dark' 
 }) {
-  const [order, setOrder] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [order, setOrder] = useState(() => {
+    const cached = readCachedOrder(orderId, initialOrder)
+    return cached ? normalizeTrackedOrder(cached) : null
+  })
+  const [loading, setLoading] = useState(() => !readCachedOrder(orderId, initialOrder))
   const [isCallingWaiter, setIsCallingWaiter] = useState(false)
   const [waiterCalledSuccess, setWaiterCalledSuccess] = useState(false)
   const [copiedOrderId, setCopiedOrderId] = useState(false)
@@ -49,11 +101,48 @@ export default function OrderTracking({
   const { orders, orderHistory, loading: hookLoading } = useOrderManagement(restaurantId)
   const { profile } = useRestaurantProfile(restaurantId)
 
-  // 📡 Real-time Supabase Order Polling & Subscription
+  // Seed immediately if initialOrder arrives or changes
   useEffect(() => {
-    if (!orderId) return
+    const cached = readCachedOrder(orderId, initialOrder)
+    if (cached) {
+      setOrder((prev) => normalizeTrackedOrder(cached, prev))
+      setLoading(false)
+    }
+  }, [orderId, initialOrder])
+
+  // 📡 Real-time Supabase + Cross-Tab Order Polling & Subscription
+  useEffect(() => {
+    if (!orderId) {
+      setLoading(false)
+      return
+    }
 
     const fetchSingleOrder = async () => {
+      const cached = readCachedOrder(orderId, initialOrder)
+
+      // 1. Non-UUID / Demo orders: NEVER query UUID-typed Supabase column (prevents 400 Bad Request)
+      if (!isUUID(String(orderId))) {
+        const demoOrders = getDemoOrders()
+        const demoHit =
+          demoOrders.find((o) => String(o.id) === String(orderId)) ||
+          (tableNumber
+            ? demoOrders.find(
+                (o) =>
+                  String(o.table_number || o.tableNumber) === String(tableNumber) &&
+                  !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(String(o.status || '').toUpperCase()),
+              )
+            : null) ||
+          demoOrders[0] ||
+          null
+        const resolved = demoHit || cached
+        if (resolved) {
+          setOrder((prev) => normalizeTrackedOrder(resolved, prev))
+        }
+        setLoading(false)
+        return
+      }
+
+      // 2. Real UUID order: direct query or guest RPC fallback
       try {
         const { data, error } = await supabase
           .from('orders')
@@ -62,84 +151,106 @@ export default function OrderTracking({
           .maybeSingle()
 
         if (!error && data) {
-          const formatted = {
-            ...data,
-            id: data.id,
-            tableNumber: data.table_number,
-            customerName: data.customer_name,
-            items: data.order_items || [],
-            subtotal: data.subtotal || data.total,
-            tax: data.tax || 0,
-            total: data.total || 0,
-            status: data.status || 'PENDING',
-            createdAt: data.created_at
-          }
+          const formatted = normalizeTrackedOrder(data, cached)
           setOrder(formatted)
           setLoading(false)
           return
         }
 
-        // Fallback to narrow public guest tracking RPC when RLS restricts direct orders read
-        if (restaurantId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(restaurantId))) {
+        const ridToUse = profile?.id || restaurantId
+        if (ridToUse && isUUID(String(ridToUse))) {
           const { data: rpcRows } = await supabase.rpc('get_public_order_status', {
             p_order_id: orderId,
-            p_restaurant_id: restaurantId,
+            p_restaurant_id: ridToUse,
           })
           const row = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows
           if (row) {
-            setOrder({
-              ...row,
-              id: row.id,
-              tableNumber: row.table_number,
-              items: [],
-              subtotal: row.subtotal || row.total,
-              tax: row.tax || 0,
-              total: row.total || 0,
-              status: row.status || 'PENDING',
-              createdAt: row.created_at,
-            })
+            setOrder((prev) => normalizeTrackedOrder(row, prev || cached))
             setLoading(false)
+            return
           }
+        }
+
+        if (cached) {
+          setOrder((prev) => normalizeTrackedOrder(cached, prev))
         }
       } catch (e) {
         console.error('Error fetching tracking order:', e)
+        if (cached) {
+          setOrder((prev) => normalizeTrackedOrder(cached, prev))
+        }
+      } finally {
+        setLoading(false)
       }
     }
 
     fetchSingleOrder()
 
-    const orderChannel = supabase
-      .channel(`live-tracking-${orderId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'orders',
-        filter: `id=eq.${orderId}`
-      }, (payload) => {
-        console.log('⚡ Live Order Status Event:', payload)
-        fetchSingleOrder()
-      })
-      .subscribe()
+    let orderChannel = null
+    if (isUUID(String(orderId))) {
+      orderChannel = supabase
+        .channel(`live-tracking-${orderId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`
+        }, (payload) => {
+          console.log('⚡ Live Order Status Event:', payload)
+          fetchSingleOrder()
+        })
+        .subscribe()
+    }
 
-    const safetyInterval = setInterval(fetchSingleOrder, 30000)
+    const handleLiveStatusEvent = (e) => {
+      const targetId = e?.detail?.orderId || e?.detail?.id
+      if (!targetId || String(targetId) === String(orderId)) {
+        fetchSingleOrder()
+      }
+    }
+    const handleStorageEvent = (e) => {
+      if (!e.key || e.key === DEMO_ORDERS_STORAGE_KEY || e.key === 'servora_latest_order') {
+        fetchSingleOrder()
+      }
+    }
+
+    let bc = null
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('servora_orders_channel')
+        bc.onmessage = () => fetchSingleOrder()
+      }
+    } catch {
+      // ignore BroadcastChannel failures
+    }
+
+    const safetyInterval = setInterval(fetchSingleOrder, 5000)
+
+    window.addEventListener('orderStatusUpdated', handleLiveStatusEvent)
+    window.addEventListener('servora_new_order', handleLiveStatusEvent)
+    window.addEventListener('storage', handleStorageEvent)
 
     return () => {
       clearInterval(safetyInterval)
-      supabase.removeChannel(orderChannel)
+      if (orderChannel) supabase.removeChannel(orderChannel)
+      if (bc) bc.close()
+      window.removeEventListener('orderStatusUpdated', handleLiveStatusEvent)
+      window.removeEventListener('servora_new_order', handleLiveStatusEvent)
+      window.removeEventListener('storage', handleStorageEvent)
     }
-  }, [orderId])
+  }, [orderId, restaurantId, profile?.id, initialOrder])
 
-  // Fallback if hook loads faster
+  // Sync smoothly whenever useOrderManagement updates this order's status
   useEffect(() => {
-    if (!hookLoading && !order) {
+    if (!hookLoading && orderId) {
       const allOrders = [...orders, ...orderHistory]
       const foundOrder = allOrders.find(o => String(o.id) === String(orderId))
       if (foundOrder) {
-        setOrder(foundOrder)
+        setOrder((prev) => normalizeTrackedOrder(foundOrder, prev))
         setLoading(false)
       }
     }
-  }, [orders, orderHistory, orderId, hookLoading, order])
+  }, [orders, orderHistory, orderId, hookLoading])
 
   const handleCallConcierge = async () => {
     if (isCallingWaiter) return
@@ -243,7 +354,16 @@ export default function OrderTracking({
     return 0
   }, [normalizedStatus])
 
-  const currentStage = STAGES[currentStageIndex] || STAGES[0]
+  const currentStage =
+    normalizedStatus === 'CANCELLED'
+      ? {
+          key: 'CANCELLED',
+          title: 'Order Cancelled',
+          desc: 'This order was cancelled by the restaurant. Contact staff if you need help.',
+          icon: Clock,
+          progress: 0,
+        }
+      : STAGES[currentStageIndex] || STAGES[0]
   const currentProgressPercent = currentStage.progress
 
   // Loading Screen

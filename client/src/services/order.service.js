@@ -4,9 +4,130 @@ import { updateTableStatus } from './table.service'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const isUUID = (str) => typeof str === 'string' && UUID_REGEX.test(str)
+export const DEMO_ORDERS_STORAGE_KEY = 'servora_demo_orders_v1'
+
+const LEGACY_DEMO_NAME_MAP = {
+  'demo-ord-101': 'Table 4 Guest',
+  'demo-ord-102': 'Table 2 Guest',
+  'demo-ord-103': 'Table 7 Guest',
+}
+
+const createDefaultDemoOrders = () => [
+  {
+    id: 'demo-ord-101',
+    restaurant_id: 'demo-merchant',
+    table_number: '4',
+    tableNumber: '4',
+    customer_name: 'Table 4 Guest',
+    customerName: 'Table 4 Guest',
+    order_items: [
+      { name: 'Butter Chicken Grand', price: 420, quantity: 1 },
+      { name: 'Garlic Butter Naan', price: 65, quantity: 2 },
+      { name: 'Virgin Blue Mojito', price: 160, quantity: 2 },
+    ],
+    total: 770,
+    subtotal: 770,
+    tax: 0,
+    status: 'PREPARING',
+    created_at: new Date(Date.now() - 8 * 60000).toISOString(),
+    createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
+    statusHistory: [
+      { status: 'PENDING', timestamp: new Date(Date.now() - 10 * 60000).toISOString() },
+      { status: 'PREPARING', timestamp: new Date(Date.now() - 8 * 60000).toISOString() },
+    ],
+  },
+  {
+    id: 'demo-ord-102',
+    restaurant_id: 'demo-merchant',
+    table_number: '2',
+    tableNumber: '2',
+    customer_name: 'Table 2 Guest',
+    customerName: 'Table 2 Guest',
+    order_items: [
+      { name: 'Paneer Tikka Charcoal', price: 340, quantity: 1 },
+      { name: 'Dal Makhani Special', price: 290, quantity: 1 },
+      { name: 'Jeera Rice Bowl', price: 180, quantity: 1 },
+    ],
+    total: 810,
+    subtotal: 810,
+    tax: 0,
+    status: 'READY',
+    created_at: new Date(Date.now() - 15 * 60000).toISOString(),
+    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
+    statusHistory: [
+      { status: 'PENDING', timestamp: new Date(Date.now() - 18 * 60000).toISOString() },
+      { status: 'PREPARING', timestamp: new Date(Date.now() - 15 * 60000).toISOString() },
+      { status: 'READY', timestamp: new Date(Date.now() - 2 * 60000).toISOString() },
+    ],
+  },
+  {
+    id: 'demo-ord-103',
+    restaurant_id: 'demo-merchant',
+    table_number: '7',
+    tableNumber: '7',
+    customer_name: 'Table 7 Guest',
+    customerName: 'Table 7 Guest',
+    order_items: [
+      { name: 'Dum Handi Biryani', price: 450, quantity: 2 },
+      { name: 'Gulab Jamun with Rabri', price: 150, quantity: 2 },
+    ],
+    total: 1200,
+    subtotal: 1200,
+    tax: 0,
+    status: 'PENDING',
+    created_at: new Date(Date.now() - 2 * 60000).toISOString(),
+    createdAt: new Date(Date.now() - 2 * 60000).toISOString(),
+    statusHistory: [
+      { status: 'PENDING', timestamp: new Date(Date.now() - 2 * 60000).toISOString() },
+    ],
+  },
+]
+
+export const getDemoOrders = () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(DEMO_ORDERS_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          let migrated = false
+          const cleaned = parsed.map((o) => {
+            const replacement = LEGACY_DEMO_NAME_MAP[o?.id]
+            if (replacement && ['Aarav Sharma', 'Priya Patel', 'Vikram Singh'].includes(o.customer_name || o.customerName)) {
+              migrated = true
+              return { ...o, customer_name: replacement, customerName: replacement }
+            }
+            return o
+          })
+          if (migrated) {
+            window.localStorage.setItem(DEMO_ORDERS_STORAGE_KEY, JSON.stringify(cleaned))
+          }
+          return cleaned
+        }
+      }
+      const defaults = createDefaultDemoOrders()
+      window.localStorage.setItem(DEMO_ORDERS_STORAGE_KEY, JSON.stringify(defaults))
+      return defaults
+    }
+  } catch {
+    // ignore storage access issues
+  }
+  return createDefaultDemoOrders()
+}
+
+const saveDemoOrders = (orders) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(DEMO_ORDERS_STORAGE_KEY, JSON.stringify(orders))
+    }
+  } catch {
+    // ignore storage quota errors
+  }
+}
 
 export const VALID_ORDER_TRANSITIONS = {
-  PENDING: ['PENDING', 'PREPARING', 'CANCELLED'],
+  PENDING: ['PENDING', 'ORDERED', 'PREPARING', 'CANCELLED'],
+  ORDERED: ['ORDERED', 'PREPARING', 'CANCELLED'],
   PREPARING: ['PREPARING', 'READY', 'CANCELLED'],
   READY: ['READY', 'SERVED', 'CANCELLED'],
   SERVED: ['SERVED', 'BILL_REQUESTED', 'FINISHED'],
@@ -57,6 +178,23 @@ const dispatchOrderBroadcasts = (orderBroadcastPayload, broadcastTargetId) => {
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('servora_new_order', { detail: orderBroadcastPayload }))
+    window.dispatchEvent(new CustomEvent('newOrderCreated', { detail: orderBroadcastPayload }))
+  }
+}
+
+const dispatchStatusBroadcasts = (orderId, status) => {
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('servora_orders_channel')
+      channel.postMessage({ type: 'ORDER_STATUS_UPDATED', payload: { orderId, status, timestamp: Date.now() } })
+      setTimeout(() => channel.close(), 1000)
+    }
+  } catch {
+    // non-fatal cross-tab channel notice
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: { orderId, status } }))
   }
 }
 
@@ -120,11 +258,15 @@ export const createOrder = async (orderData) => {
     const gstRate = Math.max(0, Math.min(100, Number(orderData.gstRate || 0)))
     const tax = Number((subtotal * (gstRate / 100)).toFixed(2))
     const total = Number((subtotal + tax).toFixed(2))
+    const resolvedTableLabel = String(orderData.tableNumber || orderData.table_number || '1')
+    const resolvedGuestName =
+      String(orderData.customerName || orderData.customer_name || '').trim() ||
+      `Table ${resolvedTableLabel} Guest`
     const demoOrder = {
       id: `demo-ord-${Date.now().toString(36)}`,
       restaurant_id: 'demo-merchant',
-      table_number: String(orderData.tableNumber || orderData.table_number || '1'),
-      customer_name: String(orderData.customerName || 'Guest Customer').slice(0, 100),
+      table_number: resolvedTableLabel,
+      customer_name: resolvedGuestName.slice(0, 100),
       status: orderData.status || 'PENDING',
       subtotal,
       tax,
@@ -134,9 +276,14 @@ export const createOrder = async (orderData) => {
       type: String(orderData.type || orderData.order_type || 'DINE-IN'),
       payment_status: orderData.payment_status || 'DEMO',
       is_prepaid: Boolean(orderData.is_prepaid),
+      notes: String(orderData.notes || orderData.specialInstructions || ''),
+      guests: Number(orderData.guests || 1),
       created_at: new Date().toISOString(),
       order_items: validatedInputItems,
     }
+    const existingDemo = getDemoOrders()
+    saveDemoOrders([demoOrder, ...existingDemo.filter((o) => String(o.id) !== String(demoOrder.id))])
+
     if (demoOrder.type !== 'TAKE-AWAY' && demoOrder.table_number) {
       updateTableStatus('demo-merchant', demoOrder.table_number, {
         status: 'occupied',
@@ -159,10 +306,15 @@ export const createOrder = async (orderData) => {
 
   // ── 1. Preferred Path: Atomic Database RPC (DB Prices + Stock Locking + Single TX) ──
   if (allItemsHaveUUID) {
+    const rpcCustomerName =
+      String(orderData.customerName || orderData.customer_name || '').trim() ||
+      (orderData.tableNumber || orderData.table_number
+        ? `Table ${orderData.tableNumber || orderData.table_number} Guest`
+        : 'Guest Customer')
     const { data: rpcResult, error: rpcError } = await supabase.rpc('create_validated_order', {
       p_restaurant_id: validRestaurantId,
       p_table_number: String(orderData.tableNumber || orderData.table_number || '1'),
-      p_customer_name: String(orderData.customerName || orderData.customer_name || 'Guest Customer'),
+      p_customer_name: rpcCustomerName,
       p_order_type: String(orderData.type || orderData.order_type || 'DINE-IN'),
       p_items: validatedInputItems.map((i) => ({
         menu_item_id: i.menu_item_id,
@@ -286,20 +438,26 @@ export const createOrder = async (orderData) => {
     }
 
     if (orderData.type !== 'TAKE-AWAY' && orderData.tableNumber) {
-      await supabase
-        .from('table_sessions')
-        .update({
-          status: 'occupied',
-          customers: orderData.guests || 1,
-          current_order_id: insertedOrder.id,
-          session_start: new Date().toISOString(),
-          last_activity: new Date().toISOString(),
-        })
-        .eq('restaurant_id', validRestaurantId)
-        .eq('table_number', parseInt(orderData.tableNumber, 10))
-        .then(({ error }) => {
-          if (error) console.warn('Table session update warning:', error.message)
-        })
+      const parsedTable = parseInt(String(orderData.tableNumber).replace(/\D/g, ''), 10)
+      if (Number.isInteger(parsedTable) && parsedTable > 0) {
+        const { error: upsertErr } = await supabase
+          .from('table_sessions')
+          .upsert({
+            restaurant_id: validRestaurantId,
+            table_number: parsedTable,
+            status: 'occupied',
+            customers: orderData.guests || 1,
+            current_order_id: insertedOrder.id,
+            session_start: new Date().toISOString(),
+            last_activity: new Date().toISOString(),
+          }, { onConflict: 'restaurant_id, table_number' })
+        if (upsertErr) {
+          await supabase.rpc('claim_public_table_session', {
+            p_restaurant_id: validRestaurantId,
+            p_table_number: parsedTable,
+          }).catch(() => {})
+        }
+      }
     }
 
     const itemsSummary = authoritativeLines.map((i) => `${i.quantity}x ${i.name}`).join(', ')
@@ -343,6 +501,10 @@ export const createOrder = async (orderData) => {
 }
 
 export const fetchOrders = async (restaurantId) => {
+  if (restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest') {
+    return getDemoOrders()
+  }
+
   let validId = restaurantId
   if (!isUUID(validId)) {
     validId = await ensureValidRestaurantUUID(restaurantId)
@@ -369,8 +531,49 @@ export const updateOrderStatus = async (orderId, nextStatus) => {
   }
 
   if (!orderId || !isUUID(orderId)) {
-    window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: { orderId, status: normalizedNext } }))
-    return { id: orderId, status: normalizedNext, updated_at: new Date().toISOString() }
+    const existingDemo = getDemoOrders()
+    let targetOrder = existingDemo.find((o) => String(o.id) === String(orderId)) || null
+    const updatedDemoList = existingDemo.map((o) => {
+      if (String(o.id) !== String(orderId)) return o
+      targetOrder = {
+        ...o,
+        status: normalizedNext,
+        updated_at: new Date().toISOString(),
+        statusHistory: [
+          ...(Array.isArray(o.statusHistory) ? o.statusHistory : []),
+          { status: normalizedNext, timestamp: new Date().toISOString() },
+        ],
+      }
+      return targetOrder
+    })
+    saveDemoOrders(updatedDemoList)
+
+    if (targetOrder && targetOrder.table_number) {
+      const tNum = parseInt(String(targetOrder.table_number).replace(/\D/g, ''), 10)
+      if (Number.isInteger(tNum) && tNum > 0) {
+        const hasOtherOpenOrder = updatedDemoList.some(
+          (o) =>
+            String(o.id) !== String(orderId) &&
+            parseInt(String(o.table_number || o.tableNumber || '').replace(/\D/g, ''), 10) === tNum &&
+            !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(String(o.status || '').toUpperCase())
+        )
+        if (normalizedNext === 'BILL_REQUESTED') {
+          updateTableStatus('demo-merchant', tNum, { status: 'billing' }).catch(() => {})
+        } else if ((normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED') && !hasOtherOpenOrder) {
+          updateTableStatus('demo-merchant', tNum, {
+            status: 'available',
+            current_order_id: null,
+            customers: 0,
+            session_start: null,
+          }).catch(() => {})
+        } else if (['PENDING', 'ORDERED', 'PREPARING', 'READY', 'SERVED'].includes(normalizedNext)) {
+          updateTableStatus('demo-merchant', tNum, { status: 'occupied' }).catch(() => {})
+        }
+      }
+    }
+
+    dispatchStatusBroadcasts(orderId, normalizedNext)
+    return targetOrder || { id: orderId, status: normalizedNext, updated_at: new Date().toISOString() }
   }
 
   const { data: currentOrder, error: fetchErr } = await supabase
@@ -407,33 +610,51 @@ export const updateOrderStatus = async (orderId, nextStatus) => {
       tableStatus = 'occupied'
     } else if (normalizedNext === 'BILL_REQUESTED') {
       tableStatus = 'billing'
-    } else if (normalizedNext === 'FINISHED') {
+    } else if (normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED') {
       tableStatus = 'available'
     }
 
     if (tableStatus && order.table_number && order.restaurant_id) {
       const tNum = parseInt(String(order.table_number).replace(/\D/g, ''), 10) || 1
-      await supabase
-        .from('table_sessions')
-        .update({
-          status: tableStatus,
-          last_activity: new Date().toISOString(),
-          ...(normalizedNext === 'FINISHED'
-            ? {
-                current_order_id: null,
-                customers: 0,
-                session_start: null,
-              }
-            : {}),
-        })
-        .eq('restaurant_id', order.restaurant_id)
-        .eq('table_number', tNum)
-        .then(({ error: tableErr }) => {
-          if (tableErr) console.warn('Table session sync warning:', tableErr.message)
-        })
+      const tableApi = supabase.from('table_sessions')
+      const clearSessionFields =
+        normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED'
+          ? {
+              current_order_id: null,
+              customers: 0,
+              session_start: null,
+            }
+          : {
+              current_order_id: order.id,
+            }
+
+      const syncCall =
+        typeof tableApi?.upsert === 'function'
+          ? tableApi.upsert(
+              {
+                restaurant_id: order.restaurant_id,
+                table_number: tNum,
+                status: tableStatus,
+                last_activity: new Date().toISOString(),
+                ...clearSessionFields,
+              },
+              { onConflict: 'restaurant_id, table_number' }
+            )
+          : tableApi
+              .update({
+                status: tableStatus,
+                last_activity: new Date().toISOString(),
+                ...clearSessionFields,
+              })
+              .eq('restaurant_id', order.restaurant_id)
+              .eq('table_number', tNum)
+
+      await syncCall.then(({ error: tableErr }) => {
+        if (tableErr) console.warn('Table session sync warning:', tableErr.message)
+      })
     }
 
-    window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: { orderId, status: normalizedNext } }))
+    dispatchStatusBroadcasts(orderId, normalizedNext)
   }
   return order
 }

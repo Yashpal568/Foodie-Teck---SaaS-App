@@ -125,10 +125,18 @@ const TableStatus = ({ restaurantId = 'default' }) => {
       try {
         const allOrders = await fetchOrders(resolvedId)
         const active = allOrders.find(o => 
-          String(o.table_number) === String(tableNum) &&
-          (o.status === 'PENDING' || o.status === 'PREPARING' || o.status === 'READY' || o.status === 'SERVED' || o.status === 'BILL_REQUESTED')
+          String(o.table_number || o.tableNumber) === String(tableNum) &&
+          ['PENDING', 'ORDERED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED'].includes(String(o.status || '').toUpperCase())
         )
-        setTableOrder(active || null)
+        const resolved = active || selectedTable.activeOrder || null
+        if (resolved) {
+          setTableOrder({
+            ...resolved,
+            order_items: resolved.order_items || resolved.items || [],
+          })
+        } else {
+          setTableOrder(null)
+        }
       } catch (err) {
         console.error('Error fetching table order on Dashboard:', err)
       } finally {
@@ -244,7 +252,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${isOccupied ? 'text-indigo-200 bg-indigo-500/20 border border-indigo-500/30' : 'text-indigo-600 bg-indigo-50 border border-indigo-100'}`}>T{tableNum}</span>
                         </div>
                         <p className={`text-[11px] font-semibold truncate mt-1 ${isOccupied ? 'text-indigo-200' : 'text-slate-400'}`}>
-                          {isOccupied ? 'Dine-in Customer' : 'Available'}
+                          {isOccupied ? (table.customerName || 'Dine-in Customer') : 'Available'}
                         </p>
                       </div>
 
@@ -284,10 +292,12 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                         </div>
 
                         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-2 px-3 flex justify-between items-center text-xs font-bold shadow-xs">
-                          <span className="text-indigo-300 text-[10px] uppercase tracking-wider">Active Check</span>
+                          <span className="text-indigo-300 text-[10px] uppercase tracking-wider">
+                            {table.liveAmount > 0 ? formatCurrency(table.liveAmount) : 'Active Check'}
+                          </span>
                           <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Running
+                            {table.activeOrder?.status || 'Running'}
                           </span>
                         </div>
                       </div>

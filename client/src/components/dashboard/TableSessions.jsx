@@ -198,6 +198,13 @@ const TableSessions = ({
         if (isActive && n > 0) configuredTableNums.add(n);
       });
 
+      const activeStatuses = ['PENDING', 'ORDERED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED']
+      const extraOrderTables = (cloudOrders || [])
+        .filter((o) => activeStatuses.includes(String(o.status || '').toUpperCase()))
+        .map((o) => parseInt(String(o.table_number || o.tableNumber || '').replace(/\D/g, ''), 10))
+        .filter((n) => Number.isInteger(n) && n > 0)
+      extraOrderTables.forEach((n) => configuredTableNums.add(n))
+
       const sortedTableNums = Array.from(configuredTableNums).sort(
         (a, b) => a - b,
       );
@@ -219,31 +226,31 @@ const TableSessions = ({
         .map((qr) => {
           const session =
             (cloudSessions || []).find(
-              (s) => String(s.table_number) === String(qr.table_number),
+              (s) => Number(s.table_number) === Number(qr.table_number),
             ) || {};
           const activeOrder = (cloudOrders || []).find(
             (o) =>
-              String(o.table_number) === String(qr.table_number) &&
-              (o.status === "PENDING" ||
-                o.status === "PREPARING" ||
-                o.status === "READY" ||
-                o.status === "SERVED" ||
-                o.status === "BILL_REQUESTED"),
+              parseInt(String(o.table_number || o.tableNumber || '').replace(/\D/g, ''), 10) === Number(qr.table_number) &&
+              activeStatuses.includes(String(o.status || '').toUpperCase()),
           );
+
+          const derivedStatus = activeOrder
+            ? (String(activeOrder.status).toUpperCase() === 'BILL_REQUESTED' ? 'billing' : 'occupied')
+            : (session.status || 'available')
 
           return {
             id: qr.table_number,
             name: `Table ${qr.table_number}`,
             tableNumber: qr.table_number,
             qrUrl: qr.url || "",
-            status: session.status || (activeOrder ? "occupied" : "available"),
-            customers: session.customers || (activeOrder ? 2 : 0),
+            status: derivedStatus,
+            customers: session.customers || (activeOrder ? (activeOrder.guests || 1) : 0),
             currentOrder: activeOrder || null,
             sessionStart:
-              session.session_start || activeOrder?.created_at || null,
+              session.session_start || activeOrder?.created_at || activeOrder?.createdAt || null,
             lastActivity: session.last_activity || null,
             restaurantId: targetRid,
-            needsCleaning: session.status === "needs-cleaning",
+            needsCleaning: derivedStatus === "needs-cleaning",
           };
         })
         .sort((a, b) => a.tableNumber - b.tableNumber);
