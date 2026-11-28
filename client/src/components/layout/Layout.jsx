@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import MobileNavbar from './MobileNavbar'
@@ -6,9 +6,20 @@ import OrderNotification from '../dashboard/OrderNotification'
 import WaiterCallBanner from '../dashboard/WaiterCallBanner'
 
 export default function Layout({ children, activeItem, setActiveItem, currency, onCurrencyChange, restaurantId, plan, onUpgradeClick }) {
-  // Sidebar starts expanded on all screen sizes (md+).
-  // User can collapse it anytime using the PanelLeft toggle in the navbar.
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  // Collapse automatically into 74px Icon Rail on Tablet (768px–1023px), expand to 244px on Desktop (>=1024px)
+  const [isCollapsed, setIsCollapsed] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false
+  )
+
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth
+      if (w >= 768 && w < 1024) setIsCollapsed(true)
+      else if (w >= 1024) setIsCollapsed(false)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   return (
     <div className="flex flex-1 min-h-0 h-full bg-slate-50 overflow-hidden">
@@ -41,8 +52,8 @@ export default function Layout({ children, activeItem, setActiveItem, currency, 
           setIsCollapsed={setIsCollapsed}
         />
         <WaiterCallBanner restaurantId={restaurantId} />
-        {/* pb-16 on mobile for bottom nav bar; pb-0 on md+ */}
-        <main className={`flex-1 overflow-auto bg-[#f4f6f9] pb-16 md:pb-0 group ${isCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
+        {/* pb-24 on mobile for bottom nav bar clearance; pb-8 on md+ */}
+        <main className={`flex-1 overflow-auto bg-[#F8FAFC] pb-24 md:pb-8 group ${isCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
           {children}
         </main>
 

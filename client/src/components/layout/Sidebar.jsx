@@ -236,7 +236,7 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   }, [restaurantId])
 
   return (
-    <div className={`bg-white ${isMobile ? '' : 'border-r border-slate-200/80'} transition-all duration-300 ${isCollapsed ? 'w-20' : (isMobile ? 'w-full' : 'w-60')} h-full min-h-0 flex flex-col shrink-0 ${isMobile ? 'flex' : 'hidden md:flex'}`}>
+    <div className={`bg-white ${isMobile ? '' : 'border-r border-slate-200/90'} transition-all duration-300 ${isCollapsed ? 'w-[74px]' : (isMobile ? 'w-full' : 'w-[244px]')} h-full min-h-0 flex flex-col shrink-0 ${isMobile ? 'flex' : 'hidden md:flex'}`}>
       {/* Compact Brand Header */}
       <div className={`h-14 flex items-center shrink-0 ${isCollapsed ? 'justify-center px-2' : 'justify-start px-5'}`}>
         {isCollapsed ? (

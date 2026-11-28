@@ -246,14 +246,15 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', s
           </div>
         </div>
 
-        {/* View Switcher Buttons */}
-        <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/70 self-start sm:self-auto shadow-inner">
+        {/* View Switcher Buttons (Horizontal snap rail on mobile) */}
+        <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 w-full sm:w-auto overflow-x-auto no-scrollbar shrink-0">
           <button
+            type="button"
             onClick={() => setChartMode('categories')}
             className={cn(
-              "px-2.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+              "min-h-[40px] sm:min-h-[36px] px-3 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0",
               chartMode === 'categories'
-                ? "bg-white text-indigo-700 shadow-xs font-black ring-1 ring-slate-200/70"
+                ? "bg-white text-[#3B4BFF] shadow-xs font-black ring-1 ring-slate-200/70"
                 : "text-slate-600 hover:text-slate-900"
             )}
           >
@@ -262,11 +263,12 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', s
           </button>
 
           <button
+            type="button"
             onClick={() => setChartMode('status')}
             className={cn(
-              "px-2.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+              "min-h-[40px] sm:min-h-[36px] px-3 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0",
               chartMode === 'status'
-                ? "bg-white text-indigo-700 shadow-xs font-black ring-1 ring-slate-200/70"
+                ? "bg-white text-[#3B4BFF] shadow-xs font-black ring-1 ring-slate-200/70"
                 : "text-slate-600 hover:text-slate-900"
             )}
           >
@@ -275,11 +277,12 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', s
           </button>
 
           <button
+            type="button"
             onClick={() => setChartMode('hourly')}
             className={cn(
-              "px-2.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+              "min-h-[40px] sm:min-h-[36px] px-3 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0",
               chartMode === 'hourly'
-                ? "bg-white text-indigo-700 shadow-xs font-black ring-1 ring-slate-200/70"
+                ? "bg-white text-[#3B4BFF] shadow-xs font-black ring-1 ring-slate-200/70"
                 : "text-slate-600 hover:text-slate-900"
             )}
           >
@@ -290,10 +293,10 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', s
       </CardHeader>
 
       <CardContent className="p-4 sm:p-6 pt-5">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-center">
           
-          {/* ── LEFT: RECHARTS INTERACTIVE PIE / BAR CHART (7 COLS) ── */}
-          <div className="lg:col-span-7 flex flex-col items-center justify-center min-w-0 w-full">
+          {/* ── LEFT: RECHARTS INTERACTIVE PIE / BAR / AREA CHART (7 COLS) ── */}
+          <div className="md:col-span-7 flex flex-col items-center justify-center min-w-0 w-full">
             <div className="w-full h-72 min-h-[280px] relative flex items-center justify-center">
               
               {chartMode === 'categories' && categoryData.length === 0 ? (
@@ -341,32 +344,17 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', s
                 </div>
               ) : chartMode === 'status' && (
                 <ResponsiveContainer width="100%" height={270}>
-                  <PieChart>
+                  <BarChart data={statusData} margin={{ top: 12, right: 12, left: -18, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomPieTooltip />} />
-                    <Pie
-                      data={statusData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={68}
-                      outerRadius={102}
-                      paddingAngle={4}
-                      isAnimationActive={false}
-                      onMouseEnter={(_, index) => setActiveIndex(index)}
-                      onMouseLeave={() => setActiveIndex(null)}
-                    >
+                    <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={42}>
                       {statusData.map((entry, index) => (
-                        <Cell 
-                          key={`status-cell-${index}`} 
-                          fill={entry.fill}
-                          stroke="#ffffff"
-                          strokeWidth={2}
-                          className="transition-all duration-200 cursor-pointer outline-none hover:opacity-90"
-                        />
+                        <Cell key={`status-bar-${index}`} fill={entry.fill} />
                       ))}
-                    </Pie>
-                  </PieChart>
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               )}
 
@@ -391,8 +379,8 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', s
                 </ResponsiveContainer>
               )}
 
-              {/* Center Donut Hub for Pie Charts */}
-              {((chartMode === 'categories' && categoryData.length > 0) || (chartMode === 'status' && statusData.length > 0)) && (
+              {/* Center Donut Hub for Category Share Pie Chart */}
+              {chartMode === 'categories' && categoryData.length > 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     {chartMode === 'categories' ? 'Total Items' : 'Total Orders'}
@@ -433,7 +421,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', s
           </div>
 
           {/* ── RIGHT: METRICS & CATEGORY SHARE LEDGER (5 COLS) ── */}
-          <div className="lg:col-span-5 flex flex-col gap-3 min-w-0">
+          <div className="md:col-span-5 flex flex-col gap-3 min-w-0">
             {/* Top Performer Highlight Card */}
             <div className="p-3.5 sm:p-4 rounded-2xl bg-linear-to-br from-indigo-50/90 via-purple-50/50 to-white border border-indigo-100 shadow-xs">
               <div className="flex items-center justify-between">

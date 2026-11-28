@@ -136,7 +136,20 @@ export const DEFAULT_SAMPLE_MENU = [
   }
 ]
 
-/** Fetch menu items dynamically from Supabase DB (fallback to sample menu ONLY for isolated demo mode) */
+/**
+ * Public customer menu read (safe for both anonymous guests and authenticated customers).
+ * Always routes through `get_public_menu_bootstrap` RPC (never exposes `quantity` and never
+ * assumes an authenticated session belongs to the restaurant owner).
+ */
+export const fetchPublicMenuItems = async (restaurantId) => {
+  const bootstrap = await fetchPublicMenuBootstrap(restaurantId)
+  return Array.isArray(bootstrap?.menuItems) ? bootstrap.menuItems : []
+}
+
+/**
+ * Merchant inventory & menu read (authenticated restaurant owner only via RLS).
+ * Non-owners receive 0 rows from direct `menu_items` SELECT.
+ */
 export const fetchMenuItems = async (restaurantId) => {
   if (restaurantId === 'demo-merchant' || restaurantId === 'demo') {
     return DEFAULT_SAMPLE_MENU.map(normalizeMenuItem)
@@ -145,9 +158,15 @@ export const fetchMenuItems = async (restaurantId) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) return []
 
+  const sessionRes = await supabase?.auth?.getSession?.().catch(() => null)
+  const hasSession = Boolean(sessionRes?.data?.session?.user)
+  const selectCols = hasSession
+    ? 'id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at'
+    : 'id, restaurant_id, name, description, price, half_price, category, type, is_in_stock, photo_url, created_at'
+
   const { data, error } = await supabase
     .from('menu_items')
-    .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
+    .select(selectCols)
     .eq('restaurant_id', uuid)
     .order('created_at', { ascending: true })
 

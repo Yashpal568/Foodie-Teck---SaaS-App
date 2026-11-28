@@ -95,7 +95,7 @@ import {
   normalizeTableKey,
 } from "@/utils/orderPipelineHelpers";
 import {
-  fetchMenuItems,
+  fetchPublicMenuItems,
   fetchGstSettings,
   fetchPublicMenuBootstrap,
   getRestaurantByEmail,
@@ -622,8 +622,8 @@ export default function CustomerMenu() {
           }));
         }
 
-        // 2. Load menu items from Supabase
-        let items = bootstrap?.menuItems ?? (await fetchMenuItems(resId));
+        // 2. Load menu items from Supabase public bootstrap
+        let items = bootstrap?.menuItems ?? (await fetchPublicMenuItems(resId));
         let effectiveId = resId;
         let rescuedGst = null;
 
@@ -634,7 +634,7 @@ export default function CustomerMenu() {
             effectiveId = profile.id;
             setRestaurantId(effectiveId);
             const rescuedBootstrap = await fetchPublicMenuBootstrap(effectiveId);
-            items = rescuedBootstrap?.menuItems ?? (await fetchMenuItems(effectiveId));
+            items = rescuedBootstrap?.menuItems ?? (await fetchPublicMenuItems(effectiveId));
             rescuedGst = rescuedBootstrap?.gst || null;
 
             // Also fetch actual profile using the rescued UUID
@@ -1082,16 +1082,9 @@ export default function CustomerMenu() {
     const name = variant === "half" ? `${item.name} (Half Plate)` : item.name;
     const cartItemId = `${item._id}-${variant}`;
 
-    // Check stock limit across variants
-    const totalInCart = cart
-      .filter((i) => i._id === item._id)
-      .reduce((sum, i) => sum + i.quantity, 0);
-    if (
-      item.quantity !== null &&
-      item.quantity !== undefined &&
-      totalInCart >= item.quantity
-    ) {
-      toast.error(`Only ${item.quantity} available in stock`);
+    // Enforce availability status on customer menu; authoritative stock caps are validated atomically at checkout
+    if (item.isInStock === false) {
+      toast.error(`"${item.name}" is currently out of stock`);
       return;
     }
 
@@ -2182,9 +2175,7 @@ export default function CustomerMenu() {
                                 <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                               </button>
                             </div>
-                          ) : item.quantity !== null &&
-                            item.quantity !== undefined &&
-                            item.quantity <= 0 ? (
+                          ) : item.isInStock === false ? (
                             <div className="px-3 py-1.5 border border-red-500/20 bg-red-50/50 rounded-lg text-[10px] font-bold text-red-600 uppercase tracking-wider">
                               Out of Stock
                             </div>
@@ -2537,9 +2528,7 @@ export default function CustomerMenu() {
                                         <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                                       </button>
                                     </div>
-                                  ) : item.quantity !== null &&
-                                    item.quantity !== undefined &&
-                                    item.quantity <= 0 ? (
+                                  ) : item.isInStock === false ? (
                                     <div className="px-3 py-1 bg-red-50/90 backdrop-blur border border-red-200 rounded-lg text-[9px] font-bold text-red-600 uppercase tracking-wider shadow-sm">
                                       Out of Stock
                                     </div>

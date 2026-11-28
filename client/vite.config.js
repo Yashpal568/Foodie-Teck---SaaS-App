@@ -33,6 +33,13 @@ function enforceProductionSupabaseBoundary(mode) {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss(), enforceProductionSupabaseBoundary(mode)],
+  esbuild:
+    mode === "production"
+      ? {
+          drop: ["console", "debugger"],
+          legalComments: "none",
+        }
+      : undefined,
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -44,6 +51,8 @@ export default defineConfig(({ mode }) => ({
     include: ['src/__tests__/**/*.test.{js,jsx}'],
   },
   build: {
+    sourcemap: false,
+    minify: "esbuild",
     emptyOutDir: true,
     chunkSizeWarningLimit: 600,
     rollupOptions: {

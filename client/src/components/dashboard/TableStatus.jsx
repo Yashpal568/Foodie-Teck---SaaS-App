@@ -79,6 +79,7 @@ const TableStatus = ({ restaurantId = 'default' }) => {
   const [tableOrder, setTableOrder] = useState(null)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [resolvedId, setResolvedId] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('all')
 
   // Live 1-second ticker for customer serve duration
   useEffect(() => {
@@ -218,18 +219,28 @@ const TableStatus = ({ restaurantId = 'default' }) => {
             'billing': 'text-purple-600',
             'needs-cleaning': 'text-amber-600'
           };
+          const isFilterActive = statusFilter === status;
           return (
-            <div key={status} className="bg-white border border-slate-200/80 shadow-2xs px-1.5 py-2.5 rounded-2xl flex flex-col items-center text-center hover:shadow-xs transition-all duration-200">
+            <button
+              key={status}
+              type="button"
+              onClick={() => setStatusFilter(prev => prev === status ? 'all' : status)}
+              className={`min-h-[44px] bg-white border shadow-2xs px-1.5 py-2.5 rounded-2xl flex flex-col items-center text-center transition-all duration-200 cursor-pointer ${
+                isFilterActive
+                  ? 'border-[#3B4BFF] ring-1 ring-[#3B4BFF]/20 bg-[#EFF4FF]/40'
+                  : 'border-slate-200/80 hover:border-slate-300'
+              }`}
+            >
               <p className={`text-base sm:text-lg font-black leading-none ${colorMap[status]}`}>{stats[status] || 0}</p>
               <p className="text-[8.5px] sm:text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-1 text-center truncate w-full">
                 {statusConfig[status].label}
               </p>
-            </div>
+            </button>
           )
         })}
       </div>
 
-      {/* Table Cards Grid (Always Clean 2-Column Responsive Layout) */}
+      {/* Table Cards Grid (2-col Mobile, 4-col Tablet, 2-col Desktop) */}
       {displayTables.length === 0 ? (
         <div className="py-10 px-4 text-center bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center">
           <Utensils className="w-6 h-6 text-slate-300 mb-2" />
@@ -237,8 +248,10 @@ const TableStatus = ({ restaurantId = 'default' }) => {
           <p className="text-[11px] text-slate-400 mt-0.5">Open Table Sessions to create tables for your floor.</p>
         </div>
       ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3.5">
-            {displayTables.map((table) => {
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 gap-2.5 sm:gap-3">
+            {displayTables
+              .filter((t) => statusFilter === 'all' || (t.status || 'available') === statusFilter)
+              .map((table) => {
               const tableNum = table.table_number || table.tableNumber
               const statusKey = table.status || 'available'
               const status = statusConfig[statusKey] || statusConfig.available

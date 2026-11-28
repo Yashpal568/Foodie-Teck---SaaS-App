@@ -24,61 +24,75 @@ export default function OnboardingChecklist({ profile, onSetupClick }) {
 
   if (progress === 100) return null;
 
+  const ringCircumference = 113.1
+  const ringOffset = Number((ringCircumference * (1 - progress / 100)).toFixed(2))
+
   return (
     <motion.div 
-      initial={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-indigo-100 rounded-2xl p-4 sm:p-5 mb-4 lg:mb-6 shadow-sm shadow-indigo-100/50 relative overflow-hidden"
+      className="bg-gradient-to-r from-white via-white to-[#EFF4FF]/60 border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-[0_2px_10px_-4px_rgba(9,13,31,0.05)] relative overflow-hidden"
     >
-      <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-[80px] -z-10 -translate-y-1/2 translate-x-1/2" />
-      
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 sm:gap-6">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shrink-0">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+        <div className="flex-1 min-w-0 space-y-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-[#EFF4FF] text-[#3B4BFF] border border-[#C7D7FE]/80 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full shrink-0">
               Setup Required
             </span>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight truncate">Complete your restaurant profile</h2>
+            <h2 className="text-base font-extrabold text-[#090D1F] tracking-tight">Complete your restaurant profile</h2>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mb-4 max-w-xl">
-            You're almost ready to go live! Complete the remaining steps to ensure your customers have all the necessary information about your restaurant.
+          <p className="text-xs text-slate-600 max-w-2xl">
+            Complete the remaining steps so diners see your verified brand, phone number, and location on every QR menu &amp; GST receipt.
           </p>
           
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
             {steps.map((step, idx) => (
-              <div key={idx} className={`flex items-center gap-1.5 text-xs font-bold ${step.isComplete ? 'text-emerald-600' : 'text-slate-400'}`}>
-                {step.isComplete ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Circle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                <span className={step.isComplete ? 'line-through opacity-70' : ''}>{step.label}</span>
-              </div>
+              <button
+                key={idx}
+                type="button"
+                onClick={onSetupClick}
+                className={`min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                  step.isComplete
+                    ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-700'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-[#C7D7FE] hover:text-[#3B4BFF]'
+                }`}
+              >
+                {step.isComplete ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <Circle className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
+                <span className={step.isComplete ? 'line-through opacity-75' : ''}>{step.label}</span>
+              </button>
             ))}
           </div>
         </div>
 
-        <div className="w-full md:w-auto flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-4 shrink-0 mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
-          <div className="flex items-center gap-3 w-auto">
+        <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-4 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
+          <div className="flex items-center gap-2.5">
             <div className="text-right">
-              <div className="text-xl sm:text-2xl font-black text-indigo-600 leading-none">{progress}%</div>
-              <div className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Completed</div>
+              <div className="text-xl font-extrabold text-[#3B4BFF] leading-none">{progress}%</div>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">Completed</div>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-4 border-indigo-50 flex items-center justify-center relative shrink-0">
-               <svg className="w-10 h-10 sm:w-12 sm:h-12 -rotate-90 absolute top-[-4px] left-[-4px]" viewBox="0 0 36 36">
-                  <path
-                    className="text-indigo-500 transition-all duration-1000 ease-out"
-                    strokeDasharray={`${progress}, 100`}
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                  />
-               </svg>
-            </div>
+            <svg className="w-11 h-11 -rotate-90 shrink-0" viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="#E2E8F0" strokeWidth="4" />
+              <circle
+                cx="22"
+                cy="22"
+                r="18"
+                fill="none"
+                stroke="#3B4BFF"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringOffset}
+                className="transition-all duration-700 ease-out"
+              />
+            </svg>
           </div>
           <button 
+            type="button"
             onClick={onSetupClick}
-            className="px-4 sm:px-5 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 whitespace-nowrap"
+            className="min-h-[42px] px-4 bg-gradient-to-r from-[#3B4BFF] to-[#4F46E5] hover:brightness-105 text-white text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
           >
-            Finish Setup
-            <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Finish Setup</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

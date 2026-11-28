@@ -227,20 +227,20 @@ export default function ThermalReceiptModal({
       <DialogContent
         showCloseButton={false}
         overlayClassName="z-[1250] bg-slate-950/55 backdrop-blur-sm"
-        className="z-[1300] w-[95vw] sm:max-w-[820px] p-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl gap-0"
+        className="z-[1300] flex flex-col w-[calc(100vw-20px)] max-w-[calc(100vw-20px)] sm:max-w-[calc(100vw-24px)] md:w-[95vw] md:max-w-[820px] max-h-[90dvh] rounded-2xl overflow-hidden p-0 border border-slate-200/90 bg-white shadow-2xl gap-0"
       >
-        {/* Clean Header */}
-        <div className="px-5 sm:px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-              <Printer className="w-4.5 h-4.5" />
+        {/* Clean Header (Pinned Top) */}
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-white border-b border-slate-100 flex items-center justify-between gap-2.5 shrink-0 w-full min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+              <Printer className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <DialogTitle className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
                 Print Receipt ({paperPreset.label}
                 {isCompact ? " Compact" : isStandard ? " Sheet" : ""})
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 mt-0.5 truncate">
+              <DialogDescription className="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate">
                 Table {tableNo} • Folio #{orderRef} • Ready for{" "}
                 {paperPreset.description}
               </DialogDescription>
@@ -251,26 +251,26 @@ export default function ThermalReceiptModal({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-full bg-slate-100/80 text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 cursor-pointer shrink-0"
             title="Close"
           >
             <X className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Split Pane: Live Paper Preview + Printer Configuration */}
-        <div className="grid grid-cols-1 md:grid-cols-[1.08fr_0.92fr]">
+        {/* Split Pane: Live Paper Preview + Printer Configuration (Scrollable Body) */}
+        <div className="grid grid-cols-1 md:grid-cols-[1.08fr_0.92fr] min-w-0 w-full flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
           {/* Left: Paper Preview Tray */}
-          <div className="bg-slate-100/85 p-5 sm:p-6 flex items-start justify-center border-b md:border-b-0 md:border-r border-slate-200/80 max-h-[75vh] overflow-y-auto no-scrollbar">
+          <div className="bg-slate-100/70 p-3.5 sm:p-6 flex items-start justify-center border-b md:border-b-0 md:border-r border-slate-200/80 md:max-h-[75vh] md:overflow-y-auto no-scrollbar min-w-0 w-full">
             <div
               data-testid="thermal-paper-preview"
               data-paper-width={paperPreset.id}
-              className={`bg-white font-mono text-slate-800 shadow-[0_8px_24px_rgba(15,23,42,0.08)] border border-slate-200/70 transition-all duration-200 relative select-text ${previewWidthClass}`}
+              className={`bg-[#FAF9F5] md:bg-white font-mono text-slate-800 shadow-[0_6px_20px_rgba(15,23,42,0.06)] border border-slate-200/80 rounded-2xl md:rounded-none transition-all duration-200 relative select-text w-full max-w-full overflow-hidden ${previewWidthClass}`}
             >
               {/* Brand Header */}
-              <div className="text-center space-y-0.5">
+              <div className="text-center space-y-0.5 break-words">
                 <h2
-                  className={`font-black text-slate-950 uppercase tracking-wide leading-snug ${
+                  className={`font-black text-slate-950 uppercase tracking-wide leading-snug break-words ${
                     isStandard
                       ? "text-base"
                       : isCompact
@@ -281,17 +281,17 @@ export default function ThermalReceiptModal({
                   {header.name}
                 </h2>
                 {header.address && (
-                  <p className="text-[10px] text-slate-500 leading-tight">
+                  <p className="text-[10px] text-slate-500 leading-tight break-all">
                     {header.address}
                   </p>
                 )}
                 {header.gstin && (
-                  <p className="text-[10px] text-slate-600 font-medium">
+                  <p className="text-[10px] text-slate-600 font-medium break-all">
                     GSTIN: {header.gstin}
                   </p>
                 )}
                 {header.phone && (
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px] text-slate-500 break-all">
                     Ph: {header.phone}
                   </p>
                 )}
@@ -457,7 +457,7 @@ export default function ThermalReceiptModal({
           </div>
 
           {/* Right: Paper & Browser Print Controls */}
-          <div className="p-5 sm:p-6 bg-white flex flex-col justify-between gap-4">
+          <div className="p-4 sm:p-6 bg-white flex flex-col justify-between gap-4 min-w-0 w-full">
             <div className="space-y-3.5">
               {/* Browser Printing Info */}
               <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
@@ -608,8 +608,8 @@ export default function ThermalReceiptModal({
               </div>
             </div>
 
-            {/* Bottom Actions */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
+            {/* Bottom Actions (Desktop/Tablet inside Right Pane) */}
+            <div className="hidden md:block space-y-2 pt-2 border-t border-slate-100">
               <Button
                 type="button"
                 disabled={isPrintingPdf}
@@ -671,7 +671,64 @@ export default function ThermalReceiptModal({
                 </Button>
               )}
             </div>
+
+            {/* Mobile WhatsApp / Settle secondary row inside scroll */}
+            <div className="md:hidden space-y-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSendWhatsApp}
+                className="w-full h-9 rounded-xl border-slate-200 bg-white hover:bg-emerald-50 text-slate-700 text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Send WhatsApp</span>
+              </Button>
+              {onProceedToSettle && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onClose?.();
+                    onProceedToSettle?.();
+                  }}
+                  className="w-full h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Proceed to Payment Settlement</span>
+                </Button>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Mobile Pinned Footer (Always Visible Without Scrolling) - Ditto Screenshot 1 */}
+        <div className="md:hidden shrink-0 px-4 py-3 bg-white border-t border-slate-100 grid grid-cols-2 gap-2.5">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isDownloadingPdf}
+            onClick={handleDownloadPdf}
+            className="h-10.5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-600" />
+            <span>{isDownloadingPdf ? "Generating..." : "Download PDF"}</span>
+          </Button>
+          <Button
+            type="button"
+            disabled={isPrintingPdf}
+            onClick={handlePrintNow}
+            className={`h-10.5 rounded-xl font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              isPrintingPdf || printSuccessAnim
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                : "bg-[#4338CA] hover:bg-[#3730A3] text-white shadow-sm"
+            }`}
+          >
+            <Printer className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {isPrintingPdf || printSuccessAnim
+                ? "Printing..."
+                : "Print Receipt"}
+            </span>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

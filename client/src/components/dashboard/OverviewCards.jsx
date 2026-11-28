@@ -301,54 +301,65 @@ export default function OverviewCards({ restaurantId = 'default', selectedDate =
   }, [orderStats, activeOrders, orderHistory, tableStats, tables, menuCount, activeDateKey, prevDateKey, isTodayView, isYesterdayView])
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3.5">
-      {CARD_CONFIGS.map((config) => {
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      {CARD_CONFIGS.map((config, idx) => {
         const stat = stats[config.key]
         const isUp = stat.change >= 0
         const TrendIcon = isUp ? ArrowUpRight : ArrowDownRight
+        const barWidth =
+          config.key === 'revenue'
+            ? (stat.rawValue > 0 ? 74 : 0)
+            : config.key === 'pending'
+              ? Math.min(100, (stat.rawValue || 0) * 20)
+              : config.key === 'tables'
+                ? Math.min(100, Math.max(0, stat.change || (stat.rawValue > 0 ? 60 : 0)))
+                : config.key === 'orders'
+                  ? Math.min(100, (stat.rawValue || 0) * 10)
+                  : Math.min(100, (stat.rawValue || 0) * 5)
 
         return (
           <div
             key={config.key}
-            className={`group relative bg-white rounded-2xl border ${config.border} px-3.5 py-3.5 sm:p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden cursor-default`}
+            className={`bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_10px_-4px_rgba(9,13,31,0.05)] hover:border-[#C7D7FE] p-4 flex flex-col justify-between transition-all duration-200 ${
+              idx === 4 ? 'col-span-2 md:col-span-1' : ''
+            }`}
           >
-            {/* Background gradient orb */}
-            <div className={`absolute -right-5 -top-5 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-linear-to-br ${config.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
+            <div className="flex items-center justify-between gap-2">
+              <span className={`w-9 h-9 rounded-xl ${config.lightBg} ${config.iconColor} flex items-center justify-center shrink-0`}>
+                <config.icon className="w-4 h-4" />
+              </span>
 
-            {/* Top row: Icon + Trend badge */}
-            <div className="flex items-start justify-between mb-2.5 sm:mb-4">
-              <div className={`p-2 sm:p-2.5 rounded-xl ${config.lightBg}`}>
-                <config.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${config.iconColor}`} />
-              </div>
-
-              {stat.change !== 0 && (
-                <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold ${
-                  isUp
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                    : 'bg-red-50 text-red-700 border border-red-100'
+              {stat.change !== 0 ? (
+                <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  isUp ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
                 }`}>
-                  <TrendIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  <TrendIcon className="w-3 h-3" />
                   {Math.abs(stat.change).toFixed(1)}%
-                </div>
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-slate-400 truncate max-w-[90px]">
+                  {config.key === 'menu' ? 'Live QR' : config.key === 'pending' ? 'KDS' : '0% Cut'}
+                </span>
               )}
             </div>
 
-            {/* Value */}
-            <div className="mb-0.5 sm:mb-1">
-              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
+            <div className="mt-3">
+              <p className="text-2xl font-extrabold text-[#090D1F] tracking-tight leading-none truncate">
                 {stat.value}
+              </p>
+              <p className="text-xs font-semibold text-slate-600 mt-1 truncate">
+                {stat.titleOverride || config.title}
               </p>
             </div>
 
-            {/* Title */}
-            <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mb-2.5 sm:mb-3 truncate">{stat.titleOverride || config.title}</p>
-
-            {/* Sparkline + detail */}
-            <div className="flex items-end justify-between gap-1">
-              <p className="text-[9px] sm:text-[10px] text-slate-400 font-medium leading-tight" style={{ maxWidth: '60%' }}>
-                {stat.detail}
-              </p>
-              <Sparkline data={stat.sparkData} color={config.accent} height={22} />
+            <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1.5">
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${barWidth}%`, backgroundColor: config.accent }}
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium truncate">{stat.detail}</p>
             </div>
           </div>
         )
