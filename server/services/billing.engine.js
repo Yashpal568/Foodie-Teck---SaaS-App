@@ -44,6 +44,7 @@ function calculateBill(payload, dbPriceMap = new Map()) {
     discount = null,
     restaurantId = 'default',
     isInterState = false,
+    gstSettings = null,
   } = payload || {}
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -132,12 +133,77 @@ function calculateBill(payload, dbPriceMap = new Map()) {
   let totalTaxPaise = 0
   const taxSummaryByCategory = {}
 
+  const hasExplicitGstConfig = Boolean(gstSettings && typeof gstSettings === 'object')
+  const isGstEnabled = hasExplicitGstConfig
+    ? (Boolean(gstSettings.enabled) && Number(gstSettings.rate || 0) > 0)
+    : true
+  const configuredRate = hasExplicitGstConfig ? Number(gstSettings.rate || 0) : null
+  const configuredLabel = hasExplicitGstConfig ? String(gstSettings.label || 'GST') : 'GST'
+
   const taxedItems = pricedItems.map((item) => {
     const itemDiscountRatio = subtotalPaise > 0 ? item._linePaise / subtotalPaise : 0
     const itemDiscountPaise = Math.round(discountPaise * itemDiscountRatio)
     const itemTaxablePaise = Math.max(0, item._linePaise - itemDiscountPaise)
 
-    const taxResult = calculateItemTax(fromPaise(itemTaxablePaise), item, restaurantId, Boolean(isInterState))
+    let taxResult
+    if (hasExplicitGstConfig) {
+      if (!isGstEnabled || !Number.isFinite(configuredRate) || configuredRate <= 0) {
+        taxResult = {
+          ruleName: `${configuredLabel} Disabled (0%)`,
+          taxCategoryId: 'EXEMPT_0',
+          cgstRate: 0,
+          cgstAmount: 0,
+          sgstRate: 0,
+          sgstAmount: 0,
+          igstRate: 0,
+          igstAmount: 0,
+          totalTax: 0,
+          _cgstPaise: 0,
+          _sgstPaise: 0,
+          _igstPaise: 0,
+          _totalTaxPaise: 0,
+        }
+      } else if (isInterState) {
+        const igstPaise = Math.round((itemTaxablePaise * configuredRate) / 100)
+        taxResult = {
+          ruleName: `${configuredLabel} (${configuredRate}%)`,
+          taxCategoryId: `CUSTOM_${configuredRate}`,
+          cgstRate: 0,
+          cgstAmount: 0,
+          sgstRate: 0,
+          sgstAmount: 0,
+          igstRate: configuredRate,
+          igstAmount: fromPaise(igstPaise),
+          totalTax: fromPaise(igstPaise),
+          _cgstPaise: 0,
+          _sgstPaise: 0,
+          _igstPaise: igstPaise,
+          _totalTaxPaise: igstPaise,
+        }
+      } else {
+        const halfRate = configuredRate / 2
+        const cgstPaise = Math.round((itemTaxablePaise * halfRate) / 100)
+        const sgstPaise = Math.round((itemTaxablePaise * halfRate) / 100)
+        const totalLineTaxPaise = cgstPaise + sgstPaise
+        taxResult = {
+          ruleName: `${configuredLabel} (${configuredRate}%)`,
+          taxCategoryId: `CUSTOM_${configuredRate}`,
+          cgstRate: halfRate,
+          cgstAmount: fromPaise(cgstPaise),
+          sgstRate: halfRate,
+          sgstAmount: fromPaise(sgstPaise),
+          igstRate: 0,
+          igstAmount: 0,
+          totalTax: fromPaise(totalLineTaxPaise),
+          _cgstPaise: cgstPaise,
+          _sgstPaise: sgstPaise,
+          _igstPaise: 0,
+          _totalTaxPaise: totalLineTaxPaise,
+        }
+      }
+    } else {
+      taxResult = calculateItemTax(fromPaise(itemTaxablePaise), item, restaurantId, Boolean(isInterState))
+    }
     const { _cgstPaise, _sgstPaise, _igstPaise, _totalTaxPaise, ...publicTax } = taxResult
 
     totalCgstPaise += _cgstPaise
@@ -219,9 +285,31 @@ function calculateBill(payload, dbPriceMap = new Map()) {
   }
 }
 
+async function resolveRestaurantGstSettings(restaurantId) {
+  if (!supabase || !UUID_REGEX.test(String(restaurantId || ''))) {
+    return null
+  }
+  try {
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('gst_settings')
+      .eq('id', restaurantId)
+      .maybeSingle()
+    if (error || !data || !data.gst_settings || typeof data.gst_settings !== 'object') {
+      return null
+    }
+    return data.gst_settings
+  } catch {
+    return null
+  }
+}
+
 async function calculateAuthoritativeBill(payload) {
   const dbPriceMap = await resolveAuthoritativePrices(payload?.items || [], payload?.restaurantId)
-  return calculateBill(payload, dbPriceMap)
+  const resolvedGstSettings = payload?.gstSettings && typeof payload.gstSettings === 'object'
+    ? payload.gstSettings
+    : await resolveRestaurantGstSettings(payload?.restaurantId)
+  return calculateBill({ ...payload, gstSettings: resolvedGstSettings }, dbPriceMap)
 }
 
 module.exports = {

@@ -31,6 +31,7 @@ async function generateInvoice(payload) {
     items = [],
     discount = null,
     isInterState = false,
+    gstSettings = null,
     notes = '',
   } = payload || {}
 
@@ -39,6 +40,7 @@ async function generateInvoice(payload) {
     discount,
     restaurantId,
     isInterState,
+    gstSettings,
   })
 
   const invoiceNumber = getNextInvoiceNumber(restaurantId)

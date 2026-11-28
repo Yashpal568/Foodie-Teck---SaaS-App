@@ -70,85 +70,109 @@ export default function Navbar({
     avatar: ''
   })
 
-  // Sync profile with Supabase Session & Restaurant Identity
+  // Sync profile with Supabase Session & Restaurant Identity (strictly tenant-isolated)
   useEffect(() => {
+    let active = true
     const loadProfile = async () => {
-      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo'
-      let email = ''
-      let name = isDemo ? 'Servora Demo Kitchen' : 'Merchant Admin'
-      let avatar = ''
-
-      // Read optional non-authoritative session email display cache
-      const storedSession = sessionStorage.getItem('servora_user_session')
-      if (storedSession) {
-        try {
-          const parsed = JSON.parse(storedSession)
-          if (parsed.email) email = parsed.email
-          if (parsed.avatar || parsed.logo_url) avatar = parsed.avatar || parsed.logo_url
-        } catch {
-          // ignore invalid JSON cache
+      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+      if (isDemo) {
+        if (active) {
+          setUserProfile({
+            name: 'Servora Demo Kitchen',
+            email: 'demo@servora.app',
+            avatar: ''
+          })
         }
+        return
       }
 
-      // 1. Query Restaurant Profile by UUID or Email from database
-      if (!isDemo && restaurantId && restaurantId !== 'guest' && restaurantId !== 'default') {
+      let email = ''
+      let name = 'Merchant Admin'
+      let avatar = ''
+      let restOwnerId = null
+
+      // 1. Query authoritative Restaurant Profile exclusively for target restaurantId
+      if (restaurantId && restaurantId !== 'default') {
         try {
           const uuid = await ensureValidRestaurantUUID(restaurantId)
           let rest = null
-          
+
           if (uuid) {
-            const { data } = await supabase.from('restaurants').select('business_name, email, logo_url, cover_url').eq('id', uuid).maybeSingle()
+            const { data } = await supabase
+              .from('restaurants')
+              .select('id, owner_id, business_name, email, logo_url, cover_url')
+              .eq('id', uuid)
+              .maybeSingle()
             rest = data
-          } else if (restaurantId.includes('@')) {
-            const { data } = await supabase.from('restaurants').select('business_name, email, logo_url, cover_url').eq('email', restaurantId.toLowerCase()).maybeSingle()
+          } else if (String(restaurantId).includes('@')) {
+            const { data } = await supabase
+              .from('restaurants')
+              .select('id, owner_id, business_name, email, logo_url, cover_url')
+              .eq('email', String(restaurantId).toLowerCase())
+              .maybeSingle()
             rest = data
           }
 
           if (rest) {
+            restOwnerId = rest.owner_id || null
             if (rest.business_name) name = rest.business_name
             if (rest.email) email = rest.email
             if (rest.logo_url) avatar = rest.logo_url
           }
         } catch {
-          // keep auth session display fallback
+          // keep safe fallback
         }
       }
 
-      // 2. Try Supabase Auth Session if still empty
+      // 2. Fallback to current authenticated user ONLY when owning this workspace or no restaurant email exists
       if (!email) {
         try {
           const { data: { session } } = await getCachedSession()
           const user = session?.user
-          if (user?.email) {
+          if (user?.email && (!restOwnerId || restOwnerId === user.id)) {
             email = user.email
-            name = user.user_metadata?.business_name || user.email.split('@')[0]
+            if (name === 'Merchant Admin') {
+              name = user.user_metadata?.business_name || user.email.split('@')[0]
+            }
           }
         } catch {
           // ignore unauthenticated state
         }
       }
 
-      setUserProfile({
-        name: name || (isDemo ? 'Servora Demo Kitchen' : 'Restaurant'),
-        email: email || (isDemo ? 'demo@servora.app' : ''),
-        avatar: avatar || ''
-      })
+      if (active) {
+        setUserProfile({
+          name: name || 'Restaurant',
+          email: email || '',
+          avatar: avatar || ''
+        })
+      }
     }
 
     loadProfile()
 
-    const handleProfileUpdate = (e) => {
-      if (e.detail) {
-        setUserProfile(prev => ({
-          ...prev,
-          name: e.detail.business_name || prev.name,
-          avatar: e.detail.logo_url || prev.avatar
-        }))
+    const handleProfileUpdate = async (e) => {
+      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+      if (isDemo || !e.detail) return
+      const detailRid = e.detail.restaurantId
+      if (detailRid && restaurantId) {
+        const currentUuid = await ensureValidRestaurantUUID(restaurantId)
+        if (detailRid !== restaurantId && (!currentUuid || detailRid !== currentUuid)) {
+          return
+        }
       }
+      setUserProfile(prev => ({
+        ...prev,
+        name: e.detail.business_name || prev.name,
+        avatar: e.detail.logo_url || prev.avatar
+      }))
     }
 
     window.addEventListener('restaurantProfileUpdated', handleProfileUpdate)
-    return () => window.removeEventListener('restaurantProfileUpdated', handleProfileUpdate)
+    return () => {
+      active = false
+      window.removeEventListener('restaurantProfileUpdated', handleProfileUpdate)
+    }
   }, [restaurantId])
 
   // Combined searchable items
@@ -330,7 +354,7 @@ export default function Navbar({
           </div>
 
           {/* Real-time Notification Dropdown */}
-          <NotificationDropdown restaurantId={restaurantId} />
+          <NotificationDropdown restaurantId={restaurantId} onNavigateTab={setActiveItem} />
 
           <div className="h-4 w-px bg-slate-200 hidden sm:block mx-0.5" />
 

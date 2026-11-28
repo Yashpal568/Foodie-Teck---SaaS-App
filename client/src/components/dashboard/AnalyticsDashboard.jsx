@@ -62,76 +62,26 @@ import {
 } from 'recharts'
 
 import { formatCurrencyExact as formatCurrency } from '@/utils/formatters'
+import {
+  isCancelledOrder,
+  filterBillableOrders,
+  computeAnalyticsSummary,
+  computeCustomDateRangeStats,
+  computeRevenueTrend,
+  computeHourlyPeakData,
+} from '@/utils/analyticsHelpers'
 
-// Generate revenue trend data
-const generateRevenueTrend = (orderHistory, timeRange) => {
-  const now = new Date()
-  
-  if (!orderHistory || orderHistory.length === 0) return []
-  
-  if (timeRange === 'all') {
-    // Monthly aggregation for long-term view
-    const monthlyStats = {}
-    orderHistory.forEach(order => {
-      const orderDate = order.createdAt || order.created_at;
-      if (orderDate) {
-        const date = new Date(orderDate)
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-        if (!monthlyStats[monthKey]) {
-          monthlyStats[monthKey] = { 
-            name: date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
-            revenue: 0, 
-            orders: 0,
-            fullDate: date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-            timestamp: date.getTime()
-          }
-        }
-        monthlyStats[monthKey].revenue += (Number(order.total) || 0)
-        monthlyStats[monthKey].orders += 1
-      }
-    })
-    
-    return Object.values(monthlyStats).sort((a, b) => a.timestamp - b.timestamp)
-  }
-
-  const days = timeRange === '7days' ? 7 : timeRange === '30days' ? 30 : 90
-  const trend = []
-  
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-    const dateStr = date.toLocaleDateString('en-CA') // YYYY-MM-DD
-    
-    // Aggregate revenue for this specific local day
-    const dayRevenue = orderHistory
-      .filter(order => {
-        const orderDate = order.createdAt || order.created_at;
-        return orderDate && orderDate.split('T')[0] === dateStr;
-      })
-      .reduce((sum, order) => sum + (Number(order.total) || 0), 0)
-    
-    const dayOrders = orderHistory.filter(order => {
-      const orderDate = order.createdAt || order.created_at;
-      return orderDate && orderDate.split('T')[0] === dateStr;
-    }).length
-
-    trend.push({
-      name: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-      date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-      revenue: dayRevenue,
-      orders: dayOrders,
-      fullDate: date.toLocaleDateString('en-IN', { dateStyle: 'long' })
-    })
-  }
-  
-  return trend
-}
+// Generate revenue trend data (excluding CANCELLED orders)
+const generateRevenueTrend = (ordersList, timeRange) =>
+  computeRevenueTrend(ordersList, timeRange)
 
 export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate, restaurantId: propRestaurantId, plan }) {
-  const targetRestaurantId = propRestaurantId || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'tigerbistro99@gmail.com'
+  const pathSegment = typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null
+  const cleanUrlRid = pathSegment ? decodeURIComponent(pathSegment.split('/')[0].split('?')[0]) : null
+  const targetRestaurantId = propRestaurantId || cleanUrlRid || null
   const { orders, orderHistory, loading, stats, refreshOrders } = useOrderManagement(targetRestaurantId)
   const { profile } = useRestaurantProfile(targetRestaurantId)
-  const restaurantName = profile?.name || profile?.business_name || 'Tiger Bistro'
+  const restaurantName = profile?.name || profile?.business_name || 'Restaurant'
   
   const [menuItems, setMenuItems] = useState([])
   const [timeRange, setTimeRange] = useState('30days')
@@ -154,9 +104,9 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     avgOrderValue: 0
   })
 
-  // Update: Calculate itemOrders and itemViews from real order history
+  // Update: Calculate itemOrders and itemViews from non-cancelled order history
   const analytics = useMemo(() => {
-    const ordersList = orderHistory || []
+    const ordersList = filterBillableOrders(orderHistory)
     const itemOrdersMap = {}
     const itemViewsMap = {}
     
@@ -227,36 +177,17 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     return () => window.removeEventListener('servora_menu_visit', handleLiveVisit)
   }, [targetRestaurantId, orders, orderHistory])
 
-  // Real-time data updates (derived dynamically from live Supabase orders & sessions)
+  // Real-time data updates (derived dynamically from live non-cancelled Supabase orders)
   useEffect(() => {
-    const combinedOrders = [...orders, ...orderHistory]
-
-    const now = new Date()
-    let daysCutoff = 7
-    if (timeRange === '30days') daysCutoff = 30
-    if (timeRange === '90days') daysCutoff = 90
-    if (timeRange === 'all') daysCutoff = 3650
-
-    const cutoffDate = new Date(now.getTime() - (daysCutoff * 24 * 60 * 60 * 1000))
-
-    const filteredOrders = combinedOrders.filter(order => {
-      const d = new Date(order.created_at || order.createdAt || Date.now())
-      return d >= cutoffDate
-    })
-
-    const targetOrders = filteredOrders.length > 0 ? filteredOrders : combinedOrders
-
-    const totalRevenueSum = targetOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0)
-    const totalOrdersCount = targetOrders.length
-    const avgOrderVal = totalOrdersCount > 0 ? Math.round(totalRevenueSum / totalOrdersCount) : 0
-    const activeUsersCount = Math.max(orders.length, targetOrders.length > 0 ? targetOrders.length : 1)
+    const summary = computeAnalyticsSummary({ orders, orderHistory, timeRange })
+    const activeUsersCount = summary.totalOrders > 0 ? Math.max(orders.length, summary.totalOrders) : 0
 
     setRealtimeData({
-      totalViews: realViewsCount > 0 ? realViewsCount : totalOrdersCount,
-      totalOrders: totalOrdersCount,
-      totalRevenue: totalRevenueSum,
+      totalViews: realViewsCount > 0 ? realViewsCount : summary.totalOrders,
+      totalOrders: summary.totalOrders,
+      totalRevenue: summary.totalRevenue,
       activeUsers: activeUsersCount,
-      avgOrderValue: avgOrderVal
+      avgOrderValue: summary.avgOrderValue
     })
   }, [orders, orderHistory, timeRange, loading, menuItems, realViewsCount])
 
@@ -278,15 +209,15 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     return () => clearTimeout(timer)
   }, [targetRestaurantId])
 
-  // Memoized calculations for performance
+  // Memoized calculations for performance (excluding CANCELLED orders)
   const revenueTrend = useMemo(() => {
-    const combinedOrders = [...orders, ...orderHistory]
+    const combinedOrders = filterBillableOrders([...orders, ...orderHistory])
     return generateRevenueTrend(combinedOrders, timeRange)
   }, [orders, orderHistory, timeRange])
 
   const categoryDistribution = useMemo(() => {
     const distribution = {}
-    const combinedOrders = [...orders, ...orderHistory]
+    const combinedOrders = filterBillableOrders([...orders, ...orderHistory])
     
     combinedOrders.forEach(order => {
       const items = order.items || order.order_items || []
@@ -310,48 +241,13 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     })).sort((a, b) => b.revenue - a.revenue)
   }, [orders, orderHistory])
 
-  // Hourly Peak Hours calculation
+  // Hourly Peak Hours calculation (excluding CANCELLED orders)
   const hourlyPeakData = useMemo(() => {
-    const combinedOrders = [...orders, ...orderHistory]
-    const hourMap = {
-      'Morning (8 AM - 12 PM)': { rev: 0, count: 0 },
-      'Lunch (12 PM - 3 PM)': { rev: 0, count: 0 },
-      'Afternoon (3 PM - 6 PM)': { rev: 0, count: 0 },
-      'Dinner Rush (6 PM - 9 PM)': { rev: 0, count: 0 },
-      'Late Night (9 PM - 12 AM)': { rev: 0, count: 0 }
-    }
-    
-    combinedOrders.forEach(o => {
-      const d = new Date(o.created_at || o.createdAt || Date.now())
-      const h = d.getHours()
-      const total = Number(o.total) || 0
-      if (h >= 8 && h < 12) {
-        hourMap['Morning (8 AM - 12 PM)'].rev += total
-        hourMap['Morning (8 AM - 12 PM)'].count += 1
-      } else if (h >= 12 && h < 15) {
-        hourMap['Lunch (12 PM - 3 PM)'].rev += total
-        hourMap['Lunch (12 PM - 3 PM)'].count += 1
-      } else if (h >= 15 && h < 18) {
-        hourMap['Afternoon (3 PM - 6 PM)'].rev += total
-        hourMap['Afternoon (3 PM - 6 PM)'].count += 1
-      } else if (h >= 18 && h < 21) {
-        hourMap['Dinner Rush (6 PM - 9 PM)'].rev += total
-        hourMap['Dinner Rush (6 PM - 9 PM)'].count += 1
-      } else {
-        hourMap['Late Night (9 PM - 12 AM)'].rev += total
-        hourMap['Late Night (9 PM - 12 AM)'].count += 1
-      }
-    })
-
-    return Object.entries(hourMap).map(([slot, data]) => ({
-      slot,
-      revenue: data.rev,
-      orders: data.count
-    }))
+    return computeHourlyPeakData([...orders, ...orderHistory])
   }, [orders, orderHistory])
 
   const getTopItems = (type, limit = 5) => {
-    const combinedOrders = [...orders, ...orderHistory]
+    const combinedOrders = filterBillableOrders([...orders, ...orderHistory])
     const itemMap = {}
     
     combinedOrders.forEach(order => {
@@ -417,35 +313,9 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     return categoryStats
   }
 
-  // Custom Date Range Calculation
+  // Custom Date Range Calculation (excluding CANCELLED orders)
   const customRangeStats = useMemo(() => {
-    if (!customDateRange.startDate && !customDateRange.endDate) {
-      return { revenue: 0, orders: 0, avgValue: 0 }
-    }
-
-    const orderHistoryList = analytics.orderHistory || []
-    
-    const startObj = customDateRange.startDate ? new Date(customDateRange.startDate) : new Date(0)
-    if (customDateRange.startDate) startObj.setHours(0, 0, 0, 0)
-    
-    const endObj = customDateRange.endDate ? new Date(customDateRange.endDate) : new Date()
-    if (customDateRange.endDate) endObj.setHours(23, 59, 59, 999)
-
-    const filteredOrders = orderHistoryList.filter(order => {
-      const orderDateRaw = order.createdAt || order.created_at;
-      if (!orderDateRaw) return false
-      const orderDate = new Date(orderDateRaw)
-      return orderDate >= startObj && orderDate <= endObj
-    })
-
-    const totalRevenue = filteredOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0)
-    const totalOrders = filteredOrders.length
-
-    return {
-      revenue: totalRevenue,
-      orders: totalOrders,
-      avgValue: totalOrders > 0 ? totalRevenue / totalOrders : 0
-    }
+    return computeCustomDateRangeStats(analytics.orderHistory, customDateRange.startDate, customDateRange.endDate)
   }, [analytics.orderHistory, customDateRange])
 
   const handleExportReport = () => {
@@ -513,8 +383,9 @@ export default function AnalyticsDashboard({ activeItem, setActiveItem, navigate
     const cardH = 19
     const startY = 48
 
-    const totalRev = Number(stats?.totalRevenue || realtimeData.totalRevenue || 0)
-    const totalOrdCount = (orderHistory?.length || 0) + (orders?.length || 0) || realtimeData.totalOrders || 0
+    const billableOrdersList = filterBillableOrders([...(orders || []), ...(orderHistory || [])])
+    const totalRev = Number(realtimeData.totalRevenue || billableOrdersList.reduce((s, o) => s + (Number(o.total) || 0), 0))
+    const totalOrdCount = billableOrdersList.length || realtimeData.totalOrders || 0
     const activeAOV = totalOrdCount > 0 ? (totalRev / totalOrdCount) : (realtimeData.avgOrderValue || 0)
     const activeVisitors = realtimeData.activeUsers || (stats?.activeOrders || 0)
 

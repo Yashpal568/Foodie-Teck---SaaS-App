@@ -310,49 +310,61 @@ export default function OrderTracking({
       title: 'Order Confirmed',
       desc: 'Order received & verified by kitchen staff',
       icon: Clock,
-      progress: 20
+      progress: 16
     },
     {
       key: ORDER_STATUS.PREPARING || 'PREPARING',
       title: 'Chef Preparing',
       desc: 'Master chefs are crafting your dishes fresh',
       icon: Flame,
-      progress: 45
+      progress: 35
     },
     {
       key: ORDER_STATUS.READY || 'READY',
       title: 'Plated & Ready',
       desc: 'Quality checked, garnished & on the hot pass',
       icon: ChefHat,
-      progress: 70
+      progress: 58
     },
     {
       key: ORDER_STATUS.SERVED || 'SERVED',
       title: 'Served at Table',
       desc: 'Hot gourmet meal delivered directly to your table',
       icon: CheckCircle2,
-      progress: 90
+      progress: 76
     },
     {
       key: ORDER_STATUS.BILL_REQUESTED || 'BILL_REQUESTED',
       title: 'Bill In Progress',
       desc: 'Concierge is preparing your final table invoice & receipt',
       icon: Receipt,
+      progress: 90
+    },
+    {
+      key: ORDER_STATUS.FINISHED || 'FINISHED',
+      title: 'Order Completed & Settled',
+      desc: 'Your bill is settled. Thank you for dining with us!',
+      icon: PartyPopper,
       progress: 100
     }
   ]
 
   const normalizedStatus = (order?.status || 'PENDING').toUpperCase()
-  
+  const isOrderFinished =
+    normalizedStatus === 'FINISHED' ||
+    normalizedStatus === 'FINISHED_CLOSED' ||
+    normalizedStatus === 'DELIVERED' ||
+    normalizedStatus === 'COMPLETED'
+
   const currentStageIndex = useMemo(() => {
     if (normalizedStatus === 'PENDING' || normalizedStatus === 'ORDERED') return 0
     if (normalizedStatus === 'PREPARING' || normalizedStatus === 'COOKING') return 1
     if (normalizedStatus === 'READY') return 2
     if (normalizedStatus === 'SERVED') return 3
     if (normalizedStatus === 'BILL_REQUESTED' || normalizedStatus === 'BILLING') return 4
-    if (normalizedStatus === 'FINISHED' || normalizedStatus === 'DELIVERED' || normalizedStatus === 'COMPLETED') return 4
+    if (isOrderFinished) return 5
     return 0
-  }, [normalizedStatus])
+  }, [normalizedStatus, isOrderFinished])
 
   const currentStage =
     normalizedStatus === 'CANCELLED'
@@ -505,8 +517,8 @@ export default function OrderTracking({
                 <span>{currentStage.title}</span>
                 {normalizedStatus === 'BILL_REQUESTED' ? (
                   <Receipt className="w-7 h-7 text-amber-400 shrink-0 animate-pulse" />
-                ) : normalizedStatus === 'SERVED' || normalizedStatus === 'FINISHED' ? (
-                  <PartyPopper className="w-7 h-7 text-amber-400 shrink-0" />
+                ) : normalizedStatus === 'SERVED' || isOrderFinished ? (
+                  <PartyPopper className="w-7 h-7 text-emerald-400 shrink-0" />
                 ) : (
                   <Flame className="w-6 h-6 text-amber-400 shrink-0 animate-pulse" />
                 )}
@@ -592,8 +604,9 @@ export default function OrderTracking({
           {/* Timeline Milestones */}
           <div className="space-y-4 pt-1">
             {STAGES.map((stg, idx) => {
-              const isPast = idx < currentStageIndex
-              const isCurrent = idx === currentStageIndex
+              const isPast = idx < currentStageIndex || (isOrderFinished && idx === STAGES.length - 1)
+              const isCurrent = !isOrderFinished && idx === currentStageIndex
+              const isSettledFinal = isOrderFinished && idx === STAGES.length - 1
               const StageIcon = stg.icon
 
               return (
@@ -636,6 +649,11 @@ export default function OrderTracking({
                           isDark ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-emerald-600 bg-emerald-50 border-emerald-200'
                         }`}>
                           CURRENT
+                        </span>
+                      )}
+                      {isSettledFinal && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider text-emerald-400 bg-emerald-500/15 border-emerald-500/30">
+                          SETTLED
                         </span>
                       )}
                     </div>
@@ -750,7 +768,7 @@ export default function OrderTracking({
               }`}
             >
               <Plus className="w-4 h-4 stroke-3" />
-              <span>Order More Dishes</span>
+              <span>{isOrderFinished ? 'Start New Order' : 'Order More Dishes'}</span>
             </Button>
           </div>
 

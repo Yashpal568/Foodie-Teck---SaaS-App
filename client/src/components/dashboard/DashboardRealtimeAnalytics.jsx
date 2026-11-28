@@ -87,17 +87,21 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
 
   const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
 
-  // Aggregate All Live Orders
+  // Aggregate All Live Orders (and non-cancelled subset for revenue/category totals)
   const allOrders = useMemo(() => {
     return [...(activeOrders || []), ...(orderHistory || [])]
   }, [activeOrders, orderHistory])
 
-  // 1. Category Distribution Calculation
+  const billableOrders = useMemo(() => {
+    return allOrders.filter(o => String(o?.status || '').toUpperCase() !== 'CANCELLED')
+  }, [allOrders])
+
+  // 1. Category Distribution Calculation (excludes CANCELLED orders)
   const categoryData = useMemo(() => {
     const map = {}
     let totalItemsCount = 0
 
-    allOrders.forEach(order => {
+    billableOrders.forEach(order => {
       const items = order.items || order.order_items || []
       items.forEach(item => {
         const cat = (item.category || item.menu_items?.category || 'Main Course').trim()
@@ -137,7 +141,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       percentage: ((c.value / totalItemsCount) * 100).toFixed(1),
       fill: CATEGORY_COLORS[i % CATEGORY_COLORS.length]
     }))
-  }, [allOrders, isDemo])
+  }, [billableOrders, isDemo])
 
   // 2. Status Distribution Calculation
   const statusData = useMemo(() => {

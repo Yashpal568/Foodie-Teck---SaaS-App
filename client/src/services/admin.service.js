@@ -1,8 +1,11 @@
 import { supabase } from '../lib/supabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
+import { assertMerchantOperational } from '../lib/merchantAuth'
 
 /** Record a manual price change to audit_logs for real-time history tracking */
 export const recordPriceChange = async (restaurantId, itemName, oldPrice, newPrice, itemId) => {
+  const uuid = await ensureValidRestaurantUUID(restaurantId)
+  if (uuid) await assertMerchantOperational(uuid)
   const { error } = await supabase
     .from('audit_logs')
     .insert([{
@@ -112,6 +115,7 @@ export const fetchGstSettings = async (restaurantId) => {
 export const saveGstSettings = async (restaurantId, gstData) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) throw new Error("Could not resolve a valid UUID for this restaurant.")
+  await assertMerchantOperational(uuid)
 
   const cleanGstin = String(gstData.gstin || '').trim().toUpperCase()
   try {

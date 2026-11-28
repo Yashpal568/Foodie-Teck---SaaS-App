@@ -17,6 +17,8 @@ const getApiBaseUrl = () => {
   return 'http://localhost:5000'
 }
 
+export const isBillingServerConfigured = () => Boolean(import.meta.env.VITE_API_URL)
+
 const getAuthHeaders = async () => {
   const headers = { 'Content-Type': 'application/json' }
   try {
@@ -37,7 +39,7 @@ const fromPaise = (paise) => Number((paise / 100).toFixed(2))
  * Validate line items & compute a non-authoritative local estimate using integer paise math.
  * Throws immediately on invalid prices, negative quantities, or invalid discounts.
  */
-export function calculateBillPreview({ items, discount = null, isInterState = false }) {
+export function calculateBillPreview({ items, discount = null, isInterState = false, gstSettings = null }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error('At least one line item is required for bill calculation.')
   }
@@ -94,10 +96,32 @@ export function calculateBillPreview({ items, discount = null, isInterState = fa
   let totalSgstPaise = 0
   let totalIgstPaise = 0
 
+  const hasExplicitGstConfig = Boolean(gstSettings && typeof gstSettings === 'object')
+  const isGstEnabled = hasExplicitGstConfig
+    ? (Boolean(gstSettings.enabled) && Number(gstSettings.rate || 0) > 0)
+    : true
+  const configuredRate = hasExplicitGstConfig ? Number(gstSettings.rate || 0) : null
+  const configuredLabel = hasExplicitGstConfig ? String(gstSettings.label || 'GST') : 'GST'
+
   processedItems.forEach((item) => {
     const ratio = subtotalPaise > 0 ? item._linePaise / subtotalPaise : 0
     const itemDiscountPaise = Math.round(discountPaise * ratio)
     const itemTaxablePaise = Math.max(0, item._linePaise - itemDiscountPaise)
+
+    if (hasExplicitGstConfig) {
+      if (!isGstEnabled || !Number.isFinite(configuredRate) || configuredRate <= 0) {
+        return
+      }
+      if (isInterState) {
+        totalIgstPaise += Math.round((itemTaxablePaise * configuredRate) / 100)
+      } else {
+        const halfRate = configuredRate / 2
+        totalCgstPaise += Math.round((itemTaxablePaise * halfRate) / 100)
+        totalSgstPaise += Math.round((itemTaxablePaise * halfRate) / 100)
+      }
+      return
+    }
+
     const isBev = isBeverage(item.category, item.name)
     if (isInterState) {
       const igstRate = isBev ? 18 : 5
@@ -129,6 +153,9 @@ export function calculateBillPreview({ items, discount = null, isInterState = fa
       },
       taxableValue: fromPaise(taxablePaise),
       taxes: {
+        enabled: isGstEnabled,
+        rate: isGstEnabled ? configuredRate : 0,
+        label: configuredLabel,
         isInterState: Boolean(isInterState),
         cgst: fromPaise(totalCgstPaise),
         sgst: fromPaise(totalSgstPaise),
@@ -148,15 +175,22 @@ export function calculateBillPreview({ items, discount = null, isInterState = fa
  * Server-authoritative bill calculation.
  * Falls back ONLY to a tagged non-authoritative preview (`isPreview: true, authoritative: false`).
  */
-export async function calculateServerBill({ items, discount = null, restaurantId = 'default', isInterState = false }) {
-  const apiBase = getApiBaseUrl()
-  if (apiBase) {
+export async function calculateServerBill({
+  items,
+  discount = null,
+  restaurantId = 'default',
+  isInterState = false,
+  gstSettings = null,
+}) {
+  const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+  const apiBase = import.meta.env.VITE_API_URL ? getApiBaseUrl() : null
+  if (apiBase && !isDemo) {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${apiBase}/api/billing/calculate`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ items, discount, restaurantId, isInterState }),
+        body: JSON.stringify({ items, discount, restaurantId, isInterState, gstSettings }),
       })
 
       const data = await response.json().catch(() => null)
@@ -173,7 +207,7 @@ export async function calculateServerBill({ items, discount = null, restaurantId
     }
   }
 
-  return calculateBillPreview({ items, discount, isInterState })
+  return calculateBillPreview({ items, discount, isInterState, gstSettings })
 }
 
 /**

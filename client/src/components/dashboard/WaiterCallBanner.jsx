@@ -69,7 +69,7 @@ export default function WaiterCallBanner({ restaurantId }) {
   const recentTableRingRef = useRef(new Map())
   const dismissedIdsRef = useRef(new Set())
 
-  // Unlock Web Audio API on first user gesture
+  // Unlock Web Audio API on first user gesture so live waiter alerts ring reliably
   useEffect(() => {
     unlockHotelBellAudio()
   }, [])
@@ -225,15 +225,19 @@ export default function WaiterCallBanner({ restaurantId }) {
   // Real-time Listeners (BroadcastChannel + Window + Storage + Supabase DB & Broadcast)
   useEffect(() => {
     const targetId = resolvedId || restaurantId || 'demo-merchant'
-    const isDemo = restaurantId === 'demo-merchant' || targetId === 'demo-merchant'
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || targetId === 'demo-merchant'
 
     const matchesRestaurant = (payload) => {
       if (!payload) return false
-      if (isDemo || !payload.restaurant_id) return true
+      const payloadRid = payload.restaurant_id
+      if (isDemo) {
+        return payloadRid === 'demo-merchant' || payloadRid === 'demo'
+      }
+      if (!payloadRid) return false
       return (
-        payload.restaurant_id === targetId ||
-        payload.restaurant_id === resolvedId ||
-        payload.restaurant_id === restaurantId
+        payloadRid === targetId ||
+        payloadRid === resolvedId ||
+        payloadRid === restaurantId
       )
     }
 
@@ -270,7 +274,7 @@ export default function WaiterCallBanner({ restaurantId }) {
     window.addEventListener('servora_waiter_call', customWaiterListener)
     window.addEventListener('storage', storageListener)
 
-    const subId = isUUID(resolvedId) ? resolvedId : isUUID(restaurantId) ? restaurantId : null
+    const subId = !isDemo ? (isUUID(resolvedId) ? resolvedId : isUUID(restaurantId) ? restaurantId : null) : null
     const activeChannels = []
 
     if (subId) {
@@ -296,12 +300,14 @@ export default function WaiterCallBanner({ restaurantId }) {
       activeChannels.push(dbWaiterChannel)
     }
 
-    const targetIds = new Set([subId, resolvedId, restaurantId, targetId, 'all'].filter(Boolean))
+    const targetIds = new Set(
+      (isDemo ? ['demo-merchant', 'demo'] : [subId, resolvedId, restaurantId, targetId]).filter(Boolean)
+    )
     targetIds.forEach((id) => {
       const broadcastCh = supabase
         .channel(`waiter-toasts:rid=${id}`)
         .on('broadcast', { event: 'waiter_call' }, (payload) => {
-          if (payload?.payload) {
+          if (payload?.payload && matchesRestaurant(payload.payload)) {
             enqueueWaiterCall(payload.payload, { shouldRing: true })
           }
         })

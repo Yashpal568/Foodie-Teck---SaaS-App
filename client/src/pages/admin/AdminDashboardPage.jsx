@@ -413,7 +413,7 @@ export default function AdminDashboardPage() {
             </div>
             <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>{activeMerchants} Active Stores &bull; 0 Suspended</span>
+              <span>{activeMerchants} Active Stores &bull; {Math.max(0, merchants - activeMerchants)} Suspended</span>
             </p>
           </div>
         </Card>

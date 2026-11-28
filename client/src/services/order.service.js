@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { getRestaurantByEmail, ensureValidRestaurantUUID } from './restaurant.service'
 import { updateTableStatus } from './table.service'
+import { assertMerchantOperational } from '../lib/merchantAuth'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const isUUID = (str) => typeof str === 'string' && UUID_REGEX.test(str)
@@ -139,6 +140,81 @@ export const VALID_ORDER_TRANSITIONS = {
 
 // Track recently processed client idempotency keys to prevent duplicate submits on rapid double-taps
 const recentClientOrderKeys = new Map()
+// Guard against concurrent duplicate status transitions (e.g., double-click on Cancel)
+const inFlightStatusTransitions = new Map()
+const restoredInventoryOrderIds = new Set()
+
+/**
+ * Restore ONLY finite (`quantity != null`) menu_items quantities when an order is cancelled.
+ * Leaves unlimited (`quantity === null`) items untouched and preserves idempotency per orderId.
+ */
+export const restoreFiniteOrderInventory = async (order, restaurantId) => {
+  if (!order?.id || restoredInventoryOrderIds.has(order.id) || order.inventory_restored === true) {
+    return { restoredCount: 0, skippedReason: 'already_restored' }
+  }
+  const rid = restaurantId || order.restaurant_id
+  const lines = Array.isArray(order.order_items)
+    ? order.order_items
+    : Array.isArray(order.items)
+      ? order.items
+      : []
+
+  restoredInventoryOrderIds.add(order.id)
+  let restoredCount = 0
+
+  try {
+    // Aggregate multiple order lines that reference the same menu_item_id (e.g. Full + Half)
+    const qtyByMenuItemId = new Map()
+    for (const line of lines) {
+      const menuItemId = line?.menu_item_id || line?.id
+      const qty = Number(line?.quantity || 0)
+      if (!menuItemId || !isUUID(String(menuItemId)) || !Number.isFinite(qty) || qty <= 0) {
+        continue
+      }
+      const key = String(menuItemId)
+      qtyByMenuItemId.set(key, (qtyByMenuItemId.get(key) || 0) + qty)
+    }
+
+    for (const [menuItemId, qty] of qtyByMenuItemId.entries()) {
+      const menuQuery = supabase.from('menu_items')
+      if (typeof menuQuery?.select !== 'function') continue
+
+      const { data: menuRow, error: fetchMenuErr } = await menuQuery
+        .select('id, quantity, is_in_stock')
+        .eq('id', menuItemId)
+        .eq('restaurant_id', rid)
+        .maybeSingle()
+
+      if (fetchMenuErr || !menuRow) continue
+
+      // Unlimited inventory (`quantity === null` or undefined): never increment or decrement
+      if (menuRow.quantity === null || menuRow.quantity === undefined) {
+        continue
+      }
+
+      const currentQty = Number(menuRow.quantity)
+      if (!Number.isFinite(currentQty)) continue
+
+      const nextQty = Math.max(0, currentQty) + qty
+      await supabase
+        .from('menu_items')
+        .update({
+          quantity: nextQty,
+          is_in_stock: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', menuItemId)
+        .eq('restaurant_id', rid)
+
+      restoredCount += 1
+    }
+
+    return { restoredCount, skippedReason: null }
+  } catch (err) {
+    restoredInventoryOrderIds.delete(order.id)
+    throw err
+  }
+}
 
 const dispatchOrderBroadcasts = (orderBroadcastPayload, broadcastTargetId) => {
   try {
@@ -182,11 +258,12 @@ const dispatchOrderBroadcasts = (orderBroadcastPayload, broadcastTargetId) => {
   }
 }
 
-const dispatchStatusBroadcasts = (orderId, status) => {
+const dispatchStatusBroadcasts = (orderId, status, extra = {}) => {
+  const payload = { id: orderId, orderId, status, timestamp: Date.now(), ...extra }
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const channel = new BroadcastChannel('servora_orders_channel')
-      channel.postMessage({ type: 'ORDER_STATUS_UPDATED', payload: { orderId, status, timestamp: Date.now() } })
+      channel.postMessage({ type: 'ORDER_STATUS_UPDATED', payload })
       setTimeout(() => channel.close(), 1000)
     }
   } catch {
@@ -194,7 +271,7 @@ const dispatchStatusBroadcasts = (orderId, status) => {
   }
 
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: { orderId, status } }))
+    window.dispatchEvent(new CustomEvent('orderStatusUpdated', { detail: payload }))
   }
 }
 
@@ -530,133 +607,253 @@ export const updateOrderStatus = async (orderId, nextStatus) => {
     throw new Error(`Invalid order status: "${nextStatus}".`)
   }
 
-  if (!orderId || !isUUID(orderId)) {
-    const existingDemo = getDemoOrders()
-    let targetOrder = existingDemo.find((o) => String(o.id) === String(orderId)) || null
-    const updatedDemoList = existingDemo.map((o) => {
-      if (String(o.id) !== String(orderId)) return o
-      targetOrder = {
-        ...o,
-        status: normalizedNext,
-        updated_at: new Date().toISOString(),
-        statusHistory: [
-          ...(Array.isArray(o.statusHistory) ? o.statusHistory : []),
-          { status: normalizedNext, timestamp: new Date().toISOString() },
-        ],
-      }
-      return targetOrder
-    })
-    saveDemoOrders(updatedDemoList)
+  const transitionKey = `${orderId}:${normalizedNext}`
+  if (inFlightStatusTransitions.has(transitionKey)) {
+    return inFlightStatusTransitions.get(transitionKey)
+  }
 
-    if (targetOrder && targetOrder.table_number) {
-      const tNum = parseInt(String(targetOrder.table_number).replace(/\D/g, ''), 10)
-      if (Number.isInteger(tNum) && tNum > 0) {
-        const hasOtherOpenOrder = updatedDemoList.some(
-          (o) =>
-            String(o.id) !== String(orderId) &&
-            parseInt(String(o.table_number || o.tableNumber || '').replace(/\D/g, ''), 10) === tNum &&
-            !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(String(o.status || '').toUpperCase())
-        )
-        if (normalizedNext === 'BILL_REQUESTED') {
-          updateTableStatus('demo-merchant', tNum, { status: 'billing' }).catch(() => {})
-        } else if ((normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED') && !hasOtherOpenOrder) {
-          updateTableStatus('demo-merchant', tNum, {
-            status: 'available',
-            current_order_id: null,
-            customers: 0,
-            session_start: null,
-          }).catch(() => {})
-        } else if (['PENDING', 'ORDERED', 'PREPARING', 'READY', 'SERVED'].includes(normalizedNext)) {
-          updateTableStatus('demo-merchant', tNum, { status: 'occupied' }).catch(() => {})
+  const runTransition = async () => {
+    if (!orderId || !isUUID(orderId)) {
+      const existingDemo = getDemoOrders()
+      const currentTarget = existingDemo.find((o) => String(o.id) === String(orderId)) || null
+      if (currentTarget) {
+        const currentDemoStatus = String(currentTarget.status || 'PENDING').toUpperCase()
+        if (currentDemoStatus === 'CANCELLED' && normalizedNext === 'CANCELLED') {
+          return { ...currentTarget, alreadyCancelled: true }
+        }
+        const allowed = VALID_ORDER_TRANSITIONS[currentDemoStatus] || []
+        if (!allowed.includes(normalizedNext)) {
+          throw new Error(`Invalid order status transition from ${currentDemoStatus} to ${normalizedNext}.`)
         }
       }
-    }
 
-    dispatchStatusBroadcasts(orderId, normalizedNext)
-    return targetOrder || { id: orderId, status: normalizedNext, updated_at: new Date().toISOString() }
-  }
+      let targetOrder = currentTarget
+      const updatedDemoList = existingDemo.map((o) => {
+        if (String(o.id) !== String(orderId)) return o
+        const markRestored = normalizedNext === 'CANCELLED' ? { inventory_restored: true } : {}
+        targetOrder = {
+          ...o,
+          status: normalizedNext,
+          ...markRestored,
+          updated_at: new Date().toISOString(),
+          statusHistory: [
+            ...(Array.isArray(o.statusHistory) ? o.statusHistory : []),
+            { status: normalizedNext, timestamp: new Date().toISOString() },
+          ],
+        }
+        return targetOrder
+      })
+      saveDemoOrders(updatedDemoList)
 
-  const { data: currentOrder, error: fetchErr } = await supabase
-    .from('orders')
-    .select('id, status, restaurant_id, table_number')
-    .eq('id', orderId)
-    .single()
-
-  if (fetchErr || !currentOrder) {
-    throw new Error(fetchErr?.message || 'Order not found.')
-  }
-
-  const currentStatus = String(currentOrder.status || 'PENDING').toUpperCase()
-  const allowedNext = VALID_ORDER_TRANSITIONS[currentStatus] || []
-  if (!allowedNext.includes(normalizedNext)) {
-    throw new Error(`Invalid order status transition from ${currentStatus} to ${normalizedNext}.`)
-  }
-
-  const { data: order, error } = await supabase
-    .from('orders')
-    .update({ status: normalizedNext, updated_at: new Date().toISOString() })
-    .eq('id', orderId)
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Supabase status update error:', error)
-    throw error
-  }
-
-  if (order) {
-    let tableStatus = null
-    if (normalizedNext === 'PREPARING' || normalizedNext === 'READY' || normalizedNext === 'SERVED') {
-      tableStatus = 'occupied'
-    } else if (normalizedNext === 'BILL_REQUESTED') {
-      tableStatus = 'billing'
-    } else if (normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED') {
-      tableStatus = 'available'
-    }
-
-    if (tableStatus && order.table_number && order.restaurant_id) {
-      const tNum = parseInt(String(order.table_number).replace(/\D/g, ''), 10) || 1
-      const tableApi = supabase.from('table_sessions')
-      const clearSessionFields =
-        normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED'
-          ? {
+      if (targetOrder && targetOrder.table_number) {
+        const tNum = parseInt(String(targetOrder.table_number).replace(/\D/g, ''), 10)
+        if (Number.isInteger(tNum) && tNum > 0) {
+          const hasOtherOpenOrder = updatedDemoList.some(
+            (o) =>
+              String(o.id) !== String(orderId) &&
+              parseInt(String(o.table_number || o.tableNumber || '').replace(/\D/g, ''), 10) === tNum &&
+              !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(String(o.status || '').toUpperCase())
+          )
+          if (normalizedNext === 'BILL_REQUESTED') {
+            updateTableStatus('demo-merchant', tNum, { status: 'billing' }).catch(() => {})
+          } else if ((normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED') && !hasOtherOpenOrder) {
+            updateTableStatus('demo-merchant', tNum, {
+              status: 'available',
               current_order_id: null,
               customers: 0,
               session_start: null,
-            }
-          : {
-              current_order_id: order.id,
-            }
+            }).catch(() => {})
+          } else if (['PENDING', 'ORDERED', 'PREPARING', 'READY', 'SERVED'].includes(normalizedNext)) {
+            updateTableStatus('demo-merchant', tNum, { status: 'occupied' }).catch(() => {})
+          }
+        }
+      }
 
-      const syncCall =
-        typeof tableApi?.upsert === 'function'
-          ? tableApi.upsert(
-              {
-                restaurant_id: order.restaurant_id,
-                table_number: tNum,
-                status: tableStatus,
-                last_activity: new Date().toISOString(),
-                ...clearSessionFields,
-              },
-              { onConflict: 'restaurant_id, table_number' }
-            )
-          : tableApi
-              .update({
-                status: tableStatus,
-                last_activity: new Date().toISOString(),
-                ...clearSessionFields,
+      dispatchStatusBroadcasts(orderId, normalizedNext, {
+        restaurant_id: 'demo-merchant',
+        table_number: targetOrder?.table_number || targetOrder?.tableNumber || '?',
+      })
+      return targetOrder || { id: orderId, status: normalizedNext, updated_at: new Date().toISOString() }
+    }
+
+    // 1. Atomic Postgres cancellation RPC (locks order & restores finite stock idempotently)
+    if (normalizedNext === 'CANCELLED' && typeof supabase.rpc === 'function') {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('cancel_order_and_restore_inventory', {
+        p_order_id: orderId,
+      })
+
+      if (!rpcErr && rpcData?.order) {
+        restoredInventoryOrderIds.add(orderId)
+        dispatchStatusBroadcasts(orderId, 'CANCELLED', {
+          restaurant_id: rpcData.order.restaurant_id,
+          table_number: rpcData.order.table_number,
+        })
+        return {
+          ...rpcData.order,
+          inventoryRestored: Boolean(rpcData.restored),
+          alreadyCancelled: Boolean(rpcData.already_cancelled),
+        }
+      }
+
+      if (rpcErr && rpcErr.code !== '42883' && rpcErr.code !== 'PGRST202') {
+        throw new Error(rpcErr.message || 'Order cancellation rejected.')
+      }
+    }
+
+    const { data: currentOrder, error: fetchErr } = await supabase
+      .from('orders')
+      .select('id, status, restaurant_id, table_number, inventory_restored, order_items(*)')
+      .eq('id', orderId)
+      .single()
+
+    if (fetchErr || !currentOrder) {
+      throw new Error(fetchErr?.message || 'Order not found.')
+    }
+
+    await assertMerchantOperational(currentOrder.restaurant_id)
+
+    const currentStatus = String(currentOrder.status || 'PENDING').toUpperCase()
+    if (currentStatus === 'CANCELLED' && normalizedNext === 'CANCELLED') {
+      // Idempotent repeat cancel: do not throw or restore inventory twice
+      restoredInventoryOrderIds.add(orderId)
+      return { ...currentOrder, alreadyCancelled: true, inventoryRestored: false }
+    }
+
+    const allowedNext = VALID_ORDER_TRANSITIONS[currentStatus] || []
+    if (!allowedNext.includes(normalizedNext)) {
+      throw new Error(`Invalid order status transition from ${currentStatus} to ${normalizedNext}.`)
+    }
+
+    const updatePayload = {
+      status: normalizedNext,
+      updated_at: new Date().toISOString(),
+    }
+
+    let orderQuery = supabase.from('orders').update(updatePayload).eq('id', orderId)
+    if (normalizedNext === 'CANCELLED' && typeof orderQuery?.in === 'function') {
+      // Atomic guard: only the winning concurrent caller transitions out of cancellable state
+      orderQuery = orderQuery.in('status', ['PENDING', 'ORDERED', 'PREPARING', 'READY'])
+    }
+
+    const selectChain = orderQuery.select()
+    const { data: order, error } =
+      typeof selectChain?.maybeSingle === 'function'
+        ? await selectChain.maybeSingle()
+        : await selectChain.single()
+
+    if (error) {
+      console.error('Supabase status update error:', error)
+      throw error
+    }
+
+    if (!order && normalizedNext === 'CANCELLED') {
+      // Another concurrent cancellation won the race first; return idempotently without restoring again
+      const { data: latestRow } = await supabase
+        .from('orders')
+        .select('id, status, restaurant_id, table_number')
+        .eq('id', orderId)
+        .single()
+      return { ...(latestRow || currentOrder), alreadyCancelled: true, inventoryRestored: false }
+    }
+
+    let restoreResult = { restoredCount: 0 }
+    if (normalizedNext === 'CANCELLED' && order) {
+      restoreResult = await restoreFiniteOrderInventory(
+        {
+          ...currentOrder,
+          ...order,
+          order_items: currentOrder.order_items || order.order_items || [],
+        },
+        order.restaurant_id || currentOrder.restaurant_id
+      )
+    }
+
+    if (order) {
+      let tableStatus = null
+      if (normalizedNext === 'PREPARING' || normalizedNext === 'READY' || normalizedNext === 'SERVED') {
+        tableStatus = 'occupied'
+      } else if (normalizedNext === 'BILL_REQUESTED') {
+        tableStatus = 'billing'
+      } else if (normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED') {
+        tableStatus = 'available'
+      }
+
+      if (tableStatus && order.table_number && order.restaurant_id) {
+        const tNum = parseInt(String(order.table_number).replace(/\D/g, ''), 10) || 1
+        let skipTableReset = false
+        if (tableStatus === 'available') {
+          const otherOrdersChain = supabase
+            .from('orders')
+            .select('id, status, table_number')
+            .eq('restaurant_id', order.restaurant_id)
+          if (typeof otherOrdersChain?.neq === 'function') {
+            const { data: otherRows } = await otherOrdersChain.neq('id', order.id)
+            if (Array.isArray(otherRows)) {
+              skipTableReset = otherRows.some((o2) => {
+                const t2 = parseInt(String(o2.table_number || '').replace(/\D/g, ''), 10)
+                const st2 = String(o2.status || '').toUpperCase()
+                return t2 === tNum && !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(st2)
               })
-              .eq('restaurant_id', order.restaurant_id)
-              .eq('table_number', tNum)
+            }
+          }
+        }
 
-      await syncCall.then(({ error: tableErr }) => {
-        if (tableErr) console.warn('Table session sync warning:', tableErr.message)
+        if (!skipTableReset) {
+          const tableApi = supabase.from('table_sessions')
+          const clearSessionFields =
+            normalizedNext === 'FINISHED' || normalizedNext === 'CANCELLED'
+              ? {
+                  current_order_id: null,
+                  customers: 0,
+                  session_start: null,
+                }
+              : {
+                  current_order_id: order.id,
+                }
+
+          const syncCall =
+            typeof tableApi?.upsert === 'function'
+              ? tableApi.upsert(
+                  {
+                    restaurant_id: order.restaurant_id,
+                    table_number: tNum,
+                    status: tableStatus,
+                    last_activity: new Date().toISOString(),
+                    ...clearSessionFields,
+                  },
+                  { onConflict: 'restaurant_id, table_number' }
+                )
+              : tableApi
+                  .update({
+                    status: tableStatus,
+                    last_activity: new Date().toISOString(),
+                    ...clearSessionFields,
+                  })
+                  .eq('restaurant_id', order.restaurant_id)
+                  .eq('table_number', tNum)
+
+          await syncCall.then(({ error: tableErr }) => {
+            if (tableErr) console.warn('Table session sync warning:', tableErr.message)
+          })
+        }
+      }
+
+      dispatchStatusBroadcasts(orderId, normalizedNext, {
+        restaurant_id: order?.restaurant_id,
+        table_number: order?.table_number,
       })
     }
 
-    dispatchStatusBroadcasts(orderId, normalizedNext)
+    return normalizedNext === 'CANCELLED'
+      ? { ...order, inventoryRestored: restoreResult.restoredCount > 0, alreadyCancelled: false }
+      : order
   }
-  return order
+
+  const promise = runTransition().finally(() => {
+    inFlightStatusTransitions.delete(transitionKey)
+  })
+  inFlightStatusTransitions.set(transitionKey, promise)
+  return promise
 }
 
 export const createTicket = async (restaurantId, ticketData) => {

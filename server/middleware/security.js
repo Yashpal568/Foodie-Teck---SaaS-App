@@ -157,7 +157,7 @@ function requireRestaurantAccess(extractRestaurantId) {
 
       const { data: rest, error } = await supabase
         .from('restaurants')
-        .select('id, owner_id')
+        .select('id, owner_id, status')
         .eq('id', String(rawId))
         .maybeSingle()
 
@@ -173,6 +173,14 @@ function requireRestaurantAccess(extractRestaurantId) {
         return res.status(403).json({
           success: false,
           error: 'Forbidden: you do not own this restaurant workspace.',
+          requestId: req.requestId,
+        })
+      }
+
+      if (String(rest.status || '').trim().toLowerCase() === 'suspended') {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: merchant workspace is suspended.',
           requestId: req.requestId,
         })
       }

@@ -149,7 +149,7 @@ const loadQRCodesFromStorage = async (restaurantId, limit = 10) => {
 export default function QRCodeManagement({ activeItem, setActiveItem, navigate, plan, restaurantId: propRestaurantId }) {
   const planDetails = getPlanDetails(plan?.name)
   const tableLimit = planDetails.tableLimit
-  const initialRid = propRestaurantId || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'demo-merchant'
+  const initialRid = propRestaurantId || (typeof window !== 'undefined' && window.location.pathname.includes('/console/') ? decodeURIComponent(window.location.pathname.split('/console/')[1] || '').split('/')[0] : null) || 'demo-merchant'
   const [restaurantId, setRestaurantId] = useState(initialRid)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [restaurantProfile, setRestaurantProfile] = useState({})
@@ -168,39 +168,56 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
   const [showConfigDrawer, setShowConfigDrawer] = useState(false)
   const [showLegacyPerTable, setShowLegacyPerTable] = useState(false)
 
-  // Fetch valid UUID & restaurant profile
+  // Fetch valid UUID & restaurant profile (strictly tenant-isolated, never cross-tenant cache)
   useEffect(() => {
+    let active = true
     const repairSession = async () => {
-      const target = propRestaurantId || restaurantId || getCachedRestaurantId()
-      if (target) {
-        const uuid = await ensureValidRestaurantUUID(target)
-        if (uuid) setRestaurantId(uuid)
+      const target = propRestaurantId || restaurantId
+      if (!target) return
 
-        try {
-          const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-          let res = await getMyRestaurant()
-          if (!res || (!res.logo_url && !res.avatar)) {
-            let q = null
-            if (target.includes('@')) {
-              q = supabase.from('restaurants').select('*').eq('email', target.toLowerCase()).maybeSingle()
-            } else if (uuid && isUUID(uuid)) {
-              q = supabase.from('restaurants').select('*').eq('id', uuid).maybeSingle()
-            } else if (isUUID(target)) {
-              q = supabase.from('restaurants').select('*').eq('id', target).maybeSingle()
-            }
-            if (q) {
-              const { data } = await q
-              if (data) res = data
-            }
-          }
-          if (res) setRestaurantProfile(res)
-        } catch (e) {
-          console.warn('Could not fetch restaurant profile for QR templates:', e)
+      const isDemo = target === 'demo-merchant' || target === 'demo' || target === 'guest'
+      if (isDemo) {
+        if (active) {
+          setRestaurantId('demo-merchant')
+          setRestaurantProfile({
+            id: 'demo-merchant',
+            name: 'Servora Demo Kitchen',
+            business_name: 'Servora Demo Kitchen',
+            logo_url: '',
+            status: 'Active'
+          })
         }
+        return
+      }
+
+      const uuid = await ensureValidRestaurantUUID(target)
+      if (active && uuid) setRestaurantId(uuid)
+
+      try {
+        const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+        let res = null
+        let q = null
+        if (uuid && isUUID(uuid)) {
+          q = supabase.from('restaurants').select('*').eq('id', uuid).maybeSingle()
+        } else if (isUUID(target)) {
+          q = supabase.from('restaurants').select('*').eq('id', target).maybeSingle()
+        } else if (String(target).includes('@')) {
+          q = supabase.from('restaurants').select('*').eq('email', String(target).toLowerCase()).maybeSingle()
+        }
+        if (q) {
+          const { data } = await q
+          if (data) res = data
+        }
+        if (active) {
+          setRestaurantProfile(res || { id: uuid || target, business_name: 'Restaurant', logo_url: '' })
+        }
+      } catch (e) {
+        console.warn('Could not fetch restaurant profile for QR templates:', e)
       }
     }
     repairSession()
-  }, [propRestaurantId, restaurantId])
+    return () => { active = false }
+  }, [propRestaurantId])
 
   // Load Master QR + table configurations dynamically & sync on TableSessions changes
   useEffect(() => {

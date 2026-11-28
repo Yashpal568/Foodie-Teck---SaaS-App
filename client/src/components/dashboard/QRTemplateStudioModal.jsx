@@ -795,7 +795,10 @@ export default function QRTemplateStudioModal({
     if (open && (!profile.logo_url && !profile.avatar)) {
       const loadProfile = async () => {
         try {
-          const rid = restaurantProfile?.id || getCachedRestaurantId() || (typeof window !== 'undefined' ? window.location.pathname.split('/console/')[1] : null) || 'tigerbistro99@gmail.com'
+          const pathSlug = typeof window !== 'undefined' && window.location.pathname.includes('/console/')
+            ? decodeURIComponent(window.location.pathname.split('/console/')[1] || '').split('/')[0]
+            : null
+          const rid = restaurantProfile?.id || pathSlug || 'demo-merchant'
           const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
           if (rid && rid !== 'demo-merchant' && rid !== 'demo') {
             let q = null

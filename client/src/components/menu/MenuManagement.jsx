@@ -16,13 +16,13 @@ import ImageStorage from '@/utils/imageStorage'
 import MenuNavbar from './MenuNavbar'
 import MenuMobileNavbar from './MenuMobileNavbar'
 import DeleteConfirmModal from './DeleteConfirmModal'
-import { fetchMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemStock, getCachedRestaurantId, getMyRestaurant, bulkReplaceMenuItems, bulkAddMenuItems, recordPriceChange } from '@/lib/api'
+import { fetchMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemStock, ensureValidRestaurantUUID, bulkReplaceMenuItems, bulkAddMenuItems, recordPriceChange } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import UpgradePlanModal from '../dashboard/UpgradePlanModal'
 import { getPlanDetails } from '@/utils/planLimits'
 
-export default function MenuManagement({ currency, onCurrencyChange, activeItem, setActiveItem, navigate, plan }) {
+export default function MenuManagement({ currency, onCurrencyChange, activeItem, setActiveItem, navigate, plan, restaurantId: propRestaurantId }) {
   const [menuItems, setMenuItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [showForm, setShowForm] = useState(false)
@@ -45,35 +45,49 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
   const [typeFilter, setTypeFilter] = useState('All')
   const [stockFilter, setStockFilter] = useState('All')
 
-  // ── Smart Data Fetching: Handle missing restaurantId automatically ──
+  // ── Smart Data Fetching: Strictly scoped to active console restaurantId (never cross-tenant cache) ──
   useEffect(() => {
+    let active = true
     const init = async () => {
-      let rid = getCachedRestaurantId() || (window.location.pathname.includes('/console/') ? window.location.pathname.split('/console/')[1] : null)
-      
-      if (!rid || rid.includes('@')) {
+      setIsLoading(true)
+      setMenuItems([])
+      setFilteredItems([])
+
+      const pathSlug =
+        typeof window !== 'undefined' && window.location.pathname.includes('/console/')
+          ? decodeURIComponent(window.location.pathname.split('/console/')[1] || '').split('/')[0]
+          : null
+
+      const target = propRestaurantId || pathSlug || 'demo-merchant'
+      const isDemo = target === 'demo-merchant' || target === 'demo' || target === 'guest'
+
+      let rid = isDemo ? 'demo-merchant' : target
+      if (!isDemo) {
         try {
-          const profile = await getMyRestaurant()
-          if (profile?.id) {
-            rid = profile.id
-          }
-        } catch (e) {}
+          const uuid = await ensureValidRestaurantUUID(target)
+          if (uuid) rid = uuid
+        } catch {
+          // keep resolved target
+        }
       }
 
-      if (!rid) rid = 'demo-restaurant'
-
+      if (!active) return
       setCurrentRid(rid)
       try {
         const items = await fetchMenuItems(rid)
-        setMenuItems(items)
-        setFilteredItems(items)
+        if (active) {
+          setMenuItems(items)
+          setFilteredItems(items)
+        }
       } catch (err) {
         console.error('Menu load error:', err)
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [propRestaurantId])
 
   // Apply filters
   useEffect(() => {
@@ -100,7 +114,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
 
   // ── Create or Update menu item via Supabase ──
   const handleSaveItem = async (itemData) => {
-    const rid = currentRid || getCachedRestaurantId() || 'demo-restaurant'
+    const rid = currentRid || propRestaurantId || 'demo-merchant'
     setIsSaving(true)
     try {
       if (editingItem) {
@@ -199,7 +213,7 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
 
   // ── Toggle stock via Supabase ──
   const handleToggleStock = async (itemId, newStockStatus) => {
-    const rid = currentRid || getCachedRestaurantId() || 'demo-restaurant'
+    const rid = currentRid || propRestaurantId || 'demo-merchant'
     const itemObj = menuItems.find(i => (i.id === itemId || i._id === itemId))
     const itemName = itemObj?.name || 'Item'
     try {
@@ -286,8 +300,8 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           currentUsage={menuItems.length}
           maxLimit={planDetails.menuItemLimit}
           restaurantId={currentRid}
-          merchantEmail="owner@restaurant.com"
-          merchantName="Restaurant Admin"
+          merchantEmail={currentRid === 'demo-merchant' ? 'demo@servora.app' : ''}
+          merchantName={currentRid === 'demo-merchant' ? 'Servora Demo Kitchen' : 'Restaurant Admin'}
           onUpgradeSuccess={() => {
             setShowUpgradeModal(false)
             toast.success('🎉 Plan Upgraded Successfully! Catalog limits expanded.')

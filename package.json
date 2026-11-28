@@ -6,6 +6,18 @@
     "dev": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
     "preview": "npm --prefix client run preview",
-    "lint": "npm --prefix client run lint"
+    "lint": "npm --prefix client run lint",
+    "load:verify-env": "node tests/load/verify-env.js",
+    "load:dry-run": "node tests/load/dry-run.js --dry-run",
+    "load:seed": "node tests/load/seed-restaurants.js",
+    "load:qr": "node tests/load/generate-qr-codes.js",
+    "load:normal": "node tests/load/order-load-test.js --profile=normal",
+    "load:busy": "node tests/load/order-load-test.js --profile=busy",
+    "load:peak": "node tests/load/order-load-test.js --profile=peak",
+    "load:realtime": "node tests/load/realtime-load-test.js",
+    "load:cancellation": "node tests/load/cancellation-test.js",
+    "load:isolation": "node tests/load/tenant-isolation-test.js",
+    "load:inventory": "node tests/load/inventory-verification.js",
+    "load:cleanup": "node tests/load/cleanup.js"
   }
 }

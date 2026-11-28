@@ -33,33 +33,7 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
     const targetId = resolvedId || restaurantId || 'demo-merchant'
 
     const playChime = () => {
-      try {
-        // High-fidelity Web Audio API synth chime (zero external network dependency)
-        const AudioContextClass = window.AudioContext || window['webkitAudioContext']
-        if (AudioContextClass) {
-          new AudioContextClass()
-        }
-      } catch (err) {}
-
-      // Respect user's sound preferences (currently disabled until settings context is added)
-      const settings = { soundEnabled: true, notificationsEnabled: true };
-      if (settings?.soundEnabled === false || settings?.notificationsEnabled === false) {
-        return
-      }
-
-      if (typeof window !== 'undefined') {
-        try {
-          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
-          audio.play().catch(() => {})
-        } catch (err) {}
-      }
-
-      // Haptic feedback for mobile devices
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        try {
-          navigator.vibrate([100, 50, 150])
-        } catch (e) {}
-      }
+      // Dashboard audio alerts disabled cleanly (visual toast notifications remain active)
     }
 
     const handleNewOrder = (order) => {
@@ -96,6 +70,21 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       setTimeout(() => setToast(current => current?.id === order.id ? null : current), 9000)
     }
 
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || targetId === 'demo-merchant'
+    const matchesTargetTenant = (payload) => {
+      if (!payload) return false
+      const payloadRid = payload.restaurant_id
+      if (isDemo) {
+        return payloadRid === 'demo-merchant' || payloadRid === 'demo'
+      }
+      if (!payloadRid) return false
+      return (
+        payloadRid === targetId ||
+        payloadRid === resolvedId ||
+        payloadRid === restaurantId
+      )
+    }
+
     // ── 0. BroadcastChannel Cross-Tab Communication ──
     let broadcastChannel = null
     try {
@@ -103,16 +92,8 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
         broadcastChannel = new BroadcastChannel('servora_orders_channel')
         broadcastChannel.onmessage = (event) => {
           const { type, payload } = event.data || {}
-          if (!payload) return
-
-          const isDemo = restaurantId === 'demo-merchant' || targetId === 'demo-merchant'
-          const idMatches = !payload.restaurant_id || 
-                            payload.restaurant_id === targetId || 
-                            payload.restaurant_id === resolvedId || 
-                            payload.restaurant_id === restaurantId
-
-          if (isDemo || idMatches) {
-            if (type === 'NEW_ORDER') handleNewOrder(payload)
+          if (type === 'NEW_ORDER' && matchesTargetTenant(payload)) {
+            handleNewOrder(payload)
           }
         }
       }
@@ -122,23 +103,16 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
 
     // ── 1. Local Window Custom Event & Cross-Tab Storage Event ──
     const customEventListener = (e) => {
-      if (e.detail) handleNewOrder(e.detail)
+      if (e.detail && matchesTargetTenant(e.detail)) {
+        handleNewOrder(e.detail)
+      }
     }
 
     const storageListener = (e) => {
       if (e.key === 'servora_latest_order' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue)
-          if (!parsed) return
-
-          // Match by ID or allow in demo mode
-          const isDemo = restaurantId === 'demo-merchant' || targetId === 'demo-merchant'
-          const idMatches = !parsed.restaurant_id || 
-                            parsed.restaurant_id === targetId || 
-                            parsed.restaurant_id === resolvedId || 
-                            parsed.restaurant_id === restaurantId
-
-          if (isDemo || idMatches) {
+          if (matchesTargetTenant(parsed)) {
             handleNewOrder(parsed)
           }
         } catch (err) {
@@ -150,13 +124,13 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
     window.addEventListener('servora_new_order', customEventListener)
     window.addEventListener('storage', storageListener)
 
-    // ── 2. Supabase Real-time Subscriptions (Both for resolved UUID & targetId) ──
+    // ── 2. Supabase Real-time Subscriptions (Strictly scoped to THIS tenant only) ──
     const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
     const activeChannels = []
 
-    const subId = isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)
+    const subId = !isDemo ? (isUUID(resolvedId) ? resolvedId : (isUUID(restaurantId) ? restaurantId : null)) : null
 
-    // Listen to actual DB inserts ONLY if valid UUID (otherwise demo uses broadcast)
+    // Listen to actual DB inserts ONLY if valid UUID
     if (subId) {
       const pgChannel = supabase
         .channel(`order-pg-changes:rid=${subId}`)
@@ -174,17 +148,19 @@ export default function OrderNotification({ restaurantId, onOrderClick }) {
       activeChannels.push(pgChannel)
     }
 
-    const targetIds = new Set([subId, resolvedId, restaurantId, targetId, 'all'].filter(Boolean))
+    const targetIds = new Set(
+      (isDemo ? ['demo-merchant', 'demo'] : [subId, resolvedId, restaurantId, targetId]).filter(Boolean)
+    )
     targetIds.forEach(id => {
-      // 2a. Real-time Order Broadcasts (Crucial for cross-device QR code orders on Demo accounts)
       const orderCh = supabase
         .channel(`order-toasts:rid=${id}`)
         .on(
           'broadcast',
           { event: 'new_order' },
           (payload) => {
-            console.log('🔔 Live Order Broadcast Received:', payload)
-            handleNewOrder(payload.payload)
+            if (matchesTargetTenant(payload?.payload)) {
+              handleNewOrder(payload.payload)
+            }
           }
         )
         .subscribe()

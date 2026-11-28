@@ -31,7 +31,7 @@ import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import { docSections, allArticles } from '../../data/docsContent'
 
-export default function Documentation({ activeItem, setActiveItem, navigate }) {
+export default function Documentation({ activeItem, setActiveItem, navigate, restaurantId = 'demo-merchant' }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeSectionId, setActiveSectionId] = useState('getting-started')
@@ -233,7 +233,7 @@ export default function Documentation({ activeItem, setActiveItem, navigate }) {
               <Compass className="w-3.5 h-3.5 text-blue-600" />
               <span className="text-[10px] font-black text-blue-700 uppercase tracking-tight">Support Hub</span>
             </div>
-            <NotificationDropdown />
+            <NotificationDropdown restaurantId={restaurantId} onNavigateTab={setActiveItem} />
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-200 cursor-pointer hover:scale-105 transition-transform">
               JD
             </div>

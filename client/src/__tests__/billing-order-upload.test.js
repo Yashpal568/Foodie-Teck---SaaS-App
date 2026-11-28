@@ -48,7 +48,9 @@ vi.mock('@/services/restaurant.service', () => ({
 }))
 
 import {
+  isBillingServerConfigured,
   calculateBillPreview,
+  calculateServerBill,
   createServerInvoice,
   settleInvoicePayment,
 } from '@/services/billing.service'
@@ -82,6 +84,57 @@ describe('Client Billing Integrity (client/src/services/billing.service.js)', ()
     expect(preview.pricing.subtotal).toBe(280)
     expect(preview.pricing.discount.amount).toBe(28)
     expect(preview.pricing.grandTotal).toBeGreaterThan(252)
+  })
+
+  it('charges zero tax when restaurant gstSettings is disabled or rate is 0%', async () => {
+    const previewDisabled = calculateBillPreview({
+      items: [{ name: 'Farmhouse Special Pizza (10")', price: 340, quantity: 1, category: 'Pizza' }],
+      gstSettings: { enabled: false, rate: 0, label: 'GST' },
+    })
+    expect(previewDisabled.pricing.subtotal).toBe(340)
+    expect(previewDisabled.pricing.taxes.totalTax).toBe(0)
+    expect(previewDisabled.pricing.taxes.cgst).toBe(0)
+    expect(previewDisabled.pricing.taxes.sgst).toBe(0)
+    expect(previewDisabled.pricing.grandTotal).toBe(340)
+
+    const previewDisabledWithStaleRate = calculateBillPreview({
+      items: [{ name: 'Cold Coffee', price: 130, quantity: 1, category: 'Beverages' }],
+      gstSettings: { enabled: false, rate: 18, label: 'GST' },
+    })
+    expect(previewDisabledWithStaleRate.pricing.taxes.totalTax).toBe(0)
+    expect(previewDisabledWithStaleRate.pricing.grandTotal).toBe(130)
+
+    const demoBill = await calculateServerBill({
+      items: [{ name: 'Farmhouse Special Pizza (10")', price: 340, quantity: 1, category: 'Pizza' }],
+      restaurantId: 'demo-merchant',
+      gstSettings: { enabled: false, rate: 0, label: 'GST' },
+    })
+    expect(demoBill.pricing.taxes.totalTax).toBe(0)
+    expect(demoBill.pricing.grandTotal).toBe(340)
+  })
+
+  it('applies exact configured custom GST rate when enabled', () => {
+    const gst5 = calculateBillPreview({
+      items: [{ name: 'Farmhouse Special Pizza (10")', price: 340, quantity: 1, category: 'Pizza' }],
+      gstSettings: { enabled: true, rate: 5, label: 'GST' },
+    })
+    expect(gst5.pricing.taxes.cgst).toBe(8.5)
+    expect(gst5.pricing.taxes.sgst).toBe(8.5)
+    expect(gst5.pricing.taxes.totalTax).toBe(17)
+    expect(gst5.pricing.grandTotal).toBe(357)
+
+    const gst12 = calculateBillPreview({
+      items: [{ name: 'Paneer Tikka', price: 500, quantity: 1, category: 'Starters' }],
+      gstSettings: { enabled: true, rate: 12, label: 'GST' },
+    })
+    expect(gst12.pricing.taxes.cgst).toBe(30)
+    expect(gst12.pricing.taxes.sgst).toBe(30)
+    expect(gst12.pricing.taxes.totalTax).toBe(60)
+    expect(gst12.pricing.grandTotal).toBe(560)
+  })
+
+  it('treats optional Express billing server as unconfigured unless VITE_API_URL is set', () => {
+    expect(isBillingServerConfigured()).toBe(false)
   })
 
   it('rejects empty items, negative price, and >100% discount', () => {

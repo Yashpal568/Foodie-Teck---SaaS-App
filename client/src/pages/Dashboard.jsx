@@ -42,6 +42,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase, getCachedSession } from '@/lib/supabase';
 
 function Dashboard() {
@@ -76,40 +77,57 @@ function Dashboard() {
 
   // Database-First: Derive context completely from the authenticated URL and Supabase session
   const dashboardEmail = urlId || "guest";
+  const isDemoMode = urlId === "demo-merchant" || urlId === "demo" || dashboardEmail === "demo-merchant" || dashboardEmail === "demo" || dashboardEmail === "guest";
   const [resolvedId, setResolvedId] = useState(null);
   const [userEmail, setUserEmail] = useState("");
   const { profile } = useRestaurantProfile(dashboardEmail);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemoMode) {
+      setUserEmail("");
+      return;
+    }
+    let mounted = true;
     getCachedSession().then(({ data: { user } }) => {
-      if (user?.email) setUserEmail(user.email);
+      if (mounted) {
+        setUserEmail(user?.email || "");
+      }
     });
-  }, []);
+    return () => { mounted = false; };
+  }, [isDemoMode, urlId]);
 
-  // Resolve ID (Email -> UUID)
+  // Resolve ID (Email -> UUID), strictly resetting on route/tenant changes
   useEffect(() => {
+    let active = true;
+    setResolvedId(null);
     async function resolve() {
       if (!dashboardEmail || dashboardEmail === "guest") return;
+      if (dashboardEmail === "demo-merchant" || dashboardEmail === "demo") {
+        if (active) setResolvedId("demo-merchant");
+        return;
+      }
       if (dashboardEmail.includes("@")) {
         const { data } = await supabase
           .from("restaurants")
           .select("id")
           .eq("email", dashboardEmail.toLowerCase())
           .maybeSingle();
-        if (data?.id) setResolvedId(data.id);
+        if (active && data?.id) setResolvedId(data.id);
       } else {
-        setResolvedId(dashboardEmail);
+        if (active) setResolvedId(dashboardEmail);
       }
     }
     resolve();
+    return () => { active = false; };
   }, [dashboardEmail]);
 
   const restaurantId = resolvedId || dashboardEmail;
 
   const [_daysRemaining, setDaysRemaining] = useState(30);
   const [isExpired, setIsExpired] = useState(false);
-  const [isSuspended, _setIsSuspended] = useState(false);
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspendedSubView, setSuspendedSubView] = useState(null); // null | 'support' | 'account'
   const [verificationError, setVerificationError] = useState(null);
 
   // Verify Auth & Plan Status
@@ -123,6 +141,7 @@ function Dashboard() {
     // ── Live Demo Merchant Bypass (Isolated Demo Sandbox) ──
     const isDemo = urlId === "demo-merchant" || urlId === "demo" || dashboardEmail === "demo-merchant" || dashboardEmail === "demo";
     if (isDemo) {
+      setIsSuspended(false);
       setIsExpired(false);
       setSubDetails({ pendingApproval: false, utrNumber: "DEMO-LIVE-PREVIEW", status: "Active" });
       setPlan({ name: "All-in-One Unlimited", purchaseDate: new Date().toISOString() });
@@ -140,6 +159,7 @@ function Dashboard() {
       const activeRestaurantId = resolvedId || profile?.id || urlId;
 
       let fetchedSubscriptions = [];
+      let fetchedStatus = profile?.status || '';
       if (activeRestaurantId && activeRestaurantId !== "guest") {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeRestaurantId);
         const isEmail = activeRestaurantId.includes("@");
@@ -148,13 +168,13 @@ function Dashboard() {
         if (isEmail) {
           q = supabase
             .from("restaurants")
-            .select("id")
+            .select("id, status, email, business_name")
             .eq("email", activeRestaurantId.toLowerCase())
             .maybeSingle();
         } else if (isUUID) {
           q = supabase
             .from("restaurants")
-            .select("id")
+            .select("id, status, email, business_name")
             .eq("id", activeRestaurantId)
             .maybeSingle();
         }
@@ -163,6 +183,9 @@ function Dashboard() {
           const { data, error: restErr } = await q;
           if (restErr) throw restErr;
           const rest = data;
+          if (rest?.status) {
+            fetchedStatus = rest.status;
+          }
           
           if (rest?.id) {
             const { data: subData, error: subErr } = await supabase
@@ -177,6 +200,9 @@ function Dashboard() {
           }
         }
       }
+
+      const accountSuspended = String(fetchedStatus || '').trim().toLowerCase() === 'suspended';
+      setIsSuspended(accountSuspended);
 
       // Use authoritative database subscription record as source of truth
       const subscriptions = Array.isArray(fetchedSubscriptions) ? fetchedSubscriptions : [];
@@ -247,7 +273,7 @@ function Dashboard() {
     window.addEventListener("platformConfigUpdated", handleSync);
     window.addEventListener("storage", handleSync);
 
-    // Supabase Realtime Listener strictly scoped to active tenant UUID
+    // Supabase Realtime Listener strictly scoped to active tenant UUID (subscriptions + restaurant status)
     const activeTargetId = resolvedId || profile?.id || urlId;
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(activeTargetId || ''));
     let channel = null;
@@ -264,9 +290,21 @@ function Dashboard() {
           },
           (payload) => {
             const status = payload?.new ? payload.new["status"] : undefined;
-            if (status === "Approved" || status === "Active") {
+            if (status === "Approved" || status === "Active" || status === "APPROVED" || status === "ACTIVE") {
               verifyAuthAndPlan();
             }
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "restaurants",
+            filter: `id=eq.${activeTargetId}`,
+          },
+          () => {
+            verifyAuthAndPlan();
           },
         )
         .subscribe();
@@ -296,7 +334,83 @@ function Dashboard() {
   }
 
   if (isSuspended) {
-    return <SuspensionOverlay />;
+    const handleSuspendedSignOut = async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      navigate("/login", { replace: true });
+    };
+
+    if (suspendedSubView === "support") {
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+          <div className="bg-rose-950 text-white px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs font-bold">
+              Account Suspended — Restricted Support Access Only
+            </span>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" className="h-8 bg-white/10 text-white border-white/20 text-xs" onClick={() => setSuspendedSubView(null)}>
+                Back to Suspension Notice
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 bg-white/10 text-white border-white/20 text-xs" onClick={handleSuspendedSignOut}>
+                Sign Out
+              </Button>
+            </div>
+          </div>
+          <HelpSupport
+            activeItem="help"
+            setActiveItem={() => setSuspendedSubView("support")}
+            navigate={navigate}
+            restaurantId={resolvedId || profile?.id || urlId}
+          />
+        </div>
+      );
+    }
+
+    if (suspendedSubView === "account") {
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6">
+          <div className="max-w-lg w-full bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xl space-y-5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xl font-black text-slate-900">Account & Subscription Status</h2>
+              <Badge className="bg-rose-100 text-rose-800 border-rose-200 font-black">SUSPENDED</Badge>
+            </div>
+            <div className="space-y-2 text-sm text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p><strong className="text-slate-900">Business:</strong> {profile?.business_name || "Merchant Workspace"}</p>
+              <p><strong className="text-slate-900">Account Email:</strong> {userEmail || profile?.email || "—"}</p>
+              <p><strong className="text-slate-900">Plan:</strong> {plan?.name || "All-in-One Unlimited"}</p>
+              <p><strong className="text-slate-900">Subscription Status:</strong> {subDetails.status}</p>
+              {subDetails.utrNumber && (
+                <p><strong className="text-slate-900">Latest UTR Ref:</strong> <span className="font-mono">{subDetails.utrNumber}</span></p>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              Operational screens (Orders, KDS, Menu, Tables, QR, Analytics) remain locked while your workspace is suspended.
+            </p>
+            <div className="flex flex-wrap gap-2.5">
+              <Button className="flex-1 bg-slate-950 text-white" onClick={() => setSuspendedSubView("support")}>
+                Open Support Ticket
+              </Button>
+              <Button variant="outline" onClick={() => setSuspendedSubView(null)}>
+                Back
+              </Button>
+              <Button variant="ghost" className="text-rose-600" onClick={handleSuspendedSignOut}>
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <SuspensionOverlay
+        restaurantName={profile?.business_name || ""}
+        onOpenSupport={() => setSuspendedSubView("support")}
+        onOpenAccount={() => setSuspendedSubView("account")}
+        onSignOut={handleSuspendedSignOut}
+      />
+    );
   }
 
   if (!plan || isExpired) {
@@ -545,6 +659,7 @@ function Dashboard() {
             setActiveItem={setActiveItem}
             navigate={navigate}
             plan={plan}
+            restaurantId={isDemoMode ? "demo-merchant" : (resolvedId || profile?.id || urlId)}
           />
         );
 
@@ -651,6 +766,7 @@ function Dashboard() {
             activeItem={activeItem}
             setActiveItem={setActiveItem}
             navigate={navigate}
+            restaurantId={isDemoMode ? "demo-merchant" : (resolvedId || urlId)}
           />
         );
 
@@ -660,6 +776,7 @@ function Dashboard() {
             activeItem={activeItem}
             setActiveItem={setActiveItem}
             navigate={navigate}
+            restaurantId={isDemoMode ? "demo-merchant" : (resolvedId || urlId)}
           />
         );
 
@@ -669,6 +786,7 @@ function Dashboard() {
             activeItem={activeItem}
             setActiveItem={setActiveItem}
             navigate={navigate}
+            restaurantId={isDemoMode ? "demo-merchant" : (resolvedId || urlId)}
           />
         );
 
@@ -714,11 +832,10 @@ function Dashboard() {
         activeItem={activeItem}
         setActiveItem={setActiveItem}
         navigate={navigate}
+        restaurantId={isDemoMode ? "demo-merchant" : (resolvedId || urlId)}
       />
     );
   }
-
-  const isDemoMode = urlId === "demo-merchant" || urlId === "demo" || dashboardEmail === "demo-merchant" || dashboardEmail === "demo";
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -750,7 +867,7 @@ function Dashboard() {
         setActiveItem={setActiveItem}
         currency={currency}
         onCurrencyChange={setCurrency}
-        restaurantId={urlId}
+        restaurantId={isDemoMode ? "demo-merchant" : (resolvedId || urlId)}
         plan={plan}
         onUpgradeClick={() => {
           setUpgradeLimitType("general");
@@ -766,9 +883,9 @@ function Dashboard() {
         onOpenChange={setShowUpgradeModal}
         currentPlanName={plan?.name || "All-in-One Unlimited"}
         limitType={upgradeLimitType}
-        restaurantId={resolvedId || profile?.id || urlId}
-        merchantEmail={userEmail || (profile ? profile["email"] : "")}
-        merchantName={profile?.business_name || "Servora Merchant"}
+        restaurantId={isDemoMode ? "demo-merchant" : (resolvedId || profile?.id || urlId)}
+        merchantEmail={isDemoMode ? "demo@servora.app" : (profile?.email || userEmail || "")}
+        merchantName={isDemoMode ? "Servora Demo Kitchen" : (profile?.business_name || "Servora Merchant")}
         onUpgradeSuccess={() => {
           setShowUpgradeModal(false);
           verifyAuthAndPlan();

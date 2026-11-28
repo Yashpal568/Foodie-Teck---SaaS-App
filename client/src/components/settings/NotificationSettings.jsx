@@ -5,7 +5,6 @@ import {
   Percent, 
   Store, 
   Users, 
-  Volume2, 
   Sparkles,
   Zap,
   CheckCircle2
@@ -19,10 +18,10 @@ export default function NotificationSettings({ notifications, setNotifications }
     { 
       key: 'orders', 
       title: 'Real-Time Table Orders Feed', 
-      desc: 'Receive instant chimes, desktop alerts, and automatic kitchen receipts when guests order.', 
+      desc: 'Receive instant desktop banners and automatic kitchen tickets when guests order.', 
       icon: ShoppingCart,
       color: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-      badge: 'Loud Chime + Popup'
+      badge: 'Visual Popup'
     },
     { 
       key: 'revenue', 
@@ -42,11 +41,11 @@ export default function NotificationSettings({ notifications, setNotifications }
     },
     { 
       key: 'customers', 
-      title: 'Guest Concierge & Waiter Call Chimes', 
-      desc: 'Play prominent audio alerts when diners at tables tap "Call Waiter" on their phones.', 
+      title: 'Guest Concierge & Waiter Call Bell', 
+      desc: 'Ring the service bell alert when diners at tables tap "Call Waiter" on their phones.', 
       icon: Users,
       color: 'bg-purple-50 text-purple-600 border-purple-200',
-      badge: 'High Priority Alert'
+      badge: 'Service Bell + Banner'
     },
   ]
 
@@ -58,16 +57,16 @@ export default function NotificationSettings({ notifications, setNotifications }
             <Bell className="w-6 h-6" />
           </div>
           <div>
-            <CardTitle className="text-lg font-black text-slate-900 tracking-tight">Audio & Real-Time Alert Engine</CardTitle>
+            <CardTitle className="text-lg font-black text-slate-900 tracking-tight">Real-Time Visual Alert Engine</CardTitle>
             <CardDescription className="text-xs text-slate-500 font-medium mt-0.5">
-              Customize real-time sound chimes and system events for your dining room.
+              Customize silent real-time visual alerts and system events for your dining room.
             </CardDescription>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold shrink-0">
-          <Volume2 className="w-4 h-4 text-indigo-600 animate-pulse" />
-          <span>Web Audio Synthesizer Active</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shrink-0">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <span>Silent Mode Active</span>
         </div>
       </CardHeader>
 

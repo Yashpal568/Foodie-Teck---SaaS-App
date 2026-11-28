@@ -2,11 +2,8 @@ import { toast } from 'sonner'
 
 /**
  * Web & Desktop Push Notification Engine
- * Manages browser push notification permissions, native system toasts, audio chimes, and Sonner UI alerts.
+ * Manages browser push notification permissions, native system toasts, and silent Sonner UI alerts.
  */
-
-// Initialize Audio FX Chime
-const chimeAudio = typeof window !== 'undefined' ? new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3') : null
 
 /**
  * Request Browser Desktop Notification Permission
@@ -42,17 +39,13 @@ export const requestPushPermission = async () => {
  * @param {string} [options.icon] - Icon URL
  * @param {string} [options.tag] - Unique tag ID
  * @param {Function} [options.onClick] - Click callback handler
- * @param {boolean} [options.sound=true] - Play audio chime
+ * @param {boolean} [options.sound=false] - Play audio chime (disabled across dashboard)
  */
-export const triggerPushNotification = ({ title, body, icon = '/logo.png', tag, onClick, sound = true }) => {
+export const triggerPushNotification = ({ title, body, icon = '/logo.png', tag, onClick, sound = false }) => {
   try {
-    // 1. Play Audio Chime
-    if (sound && chimeAudio) {
-      chimeAudio.currentTime = 0
-      chimeAudio.play().catch(() => {})
-    }
+    void sound
 
-    // 2. Trigger In-App Sonner Toast
+    // 1. Trigger In-App Sonner Toast
     toast(title, {
       description: body,
       duration: 5000,
@@ -62,7 +55,7 @@ export const triggerPushNotification = ({ title, body, icon = '/logo.png', tag, 
       } : undefined
     })
 
-    // 3. Trigger Browser Native System Push Notification (if permission granted)
+    // 2. Trigger Browser Native System Push Notification silently (if permission granted)
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       const pushNotif = new Notification(title, {
         body: body,
@@ -70,7 +63,7 @@ export const triggerPushNotification = ({ title, body, icon = '/logo.png', tag, 
         badge: icon,
         tag: tag || `notif-${Date.now()}`,
         requireInteraction: false,
-        silent: !sound
+        silent: true
       })
 
       if (onClick) {

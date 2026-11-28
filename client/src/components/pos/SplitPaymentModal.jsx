@@ -34,7 +34,7 @@ import {
 import QRCode from 'qrcode'
 import { toast } from 'sonner'
 import { escapeHtml, getRestaurantReceiptHeader } from '@/utils/receiptHelpers'
-import { createServerInvoice, settleInvoicePayment } from '@/services/billing.service'
+import { createServerInvoice, settleInvoicePayment, isBillingServerConfigured } from '@/services/billing.service'
 import { createOrder } from '@/services/order.service'
 
 export default function SplitPaymentModal({
@@ -135,7 +135,7 @@ export default function SplitPaymentModal({
     setTimeout(() => setCopiedUpi(false), 2000)
   }
 
-  // Reset when opened
+  // Reset ONLY when modal newly opens (do not wipe settledInvoice when parent clears cart after settlement)
   useEffect(() => {
     if (isOpen) {
       setSettledInvoice(null)
@@ -146,7 +146,7 @@ export default function SplitPaymentModal({
         { id: '2', payerName: 'Person B', method: 'CASH', amount: Math.floor(grandTotal / 2), reference: '' }
       ])
     }
-  }, [isOpen, grandTotal])
+  }, [isOpen])
 
   // Single Pay Change calculation
   const cashChange = useMemo(() => {
@@ -252,10 +252,16 @@ export default function SplitPaymentModal({
       }
 
       const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo'
+      const itemsSnapshot = cartItems.map((i) => ({ ...i }))
+      const pricingSnapshot = calculation?.pricing
+        ? JSON.parse(JSON.stringify(calculation.pricing))
+        : { subtotal: grandTotal, taxes: { totalTax: 0, cgst: 0, sgst: 0 }, grandTotal }
+      const orderNumberTable = String(tableNumber || '1').replace(/^Table\s*/i, '')
+      const paymentMethodSummary = finalPayments.map(p => p.method).join(' + ') || singleMethod
+      const resolvedRid = restaurantId || restaurantProfile?.id
 
-      let invoice
+      let invoice = null
       if (isDemo) {
-        // Strictly isolated demo sandbox preview (never hits or impersonates live tenant billing)
         invoice = {
           id: `demo_inv_${Date.now()}`,
           invoiceNumber: `DEMO-${Date.now().toString().slice(-6)}`,
@@ -263,13 +269,13 @@ export default function SplitPaymentModal({
           restaurantDetails: { name: restaurantProfile?.name || 'Servora Demo Kitchen' },
           tableNumber: String(tableNumber),
           customer: { name: customerName || 'Walk-in Guest' },
-          items: cartItems,
-          pricing: calculation?.pricing || { subtotal: grandTotal, taxes: { totalTax: 0 }, grandTotal },
+          items: itemsSnapshot,
+          pricing: pricingSnapshot,
           status: 'DEMO_PREVIEW',
           payments: finalPayments,
           issuedAt: new Date().toISOString(),
         }
-      } else {
+      } else if (isBillingServerConfigured()) {
         // 2. Generate Official Sequential Invoice on Authoritative Backend
         invoice = await createServerInvoice({
           restaurantId,
@@ -281,8 +287,13 @@ export default function SplitPaymentModal({
           },
           tableNumber: String(tableNumber),
           customer: { name: customerName },
-          items: cartItems,
-          discount
+          items: itemsSnapshot,
+          discount,
+          gstSettings: {
+            enabled: Boolean(restaurantProfile?.gstEnabled),
+            rate: Number(restaurantProfile?.gstRate || 0),
+            label: restaurantProfile?.gstLabel || 'GST'
+          }
         })
 
         // 3. Settle Payments against the Invoice (throws explicitly on failure)
@@ -291,17 +302,20 @@ export default function SplitPaymentModal({
           payments: finalPayments,
           restaurantId
         })
+        invoice = {
+          ...invoice,
+          items: Array.isArray(invoice.items) && invoice.items.length > 0 ? invoice.items : itemsSnapshot,
+          pricing: invoice.pricing || pricingSnapshot,
+          payments: finalPayments,
+        }
       }
 
-      // 4. Fire Order to Kitchen with Prepaid remark (Demo or Verified Settlement)
-      const orderNumberTable = String(tableNumber || '1').replace(/^Table\s*/i, '')
-      const paymentMethodSummary = finalPayments.map(p => p.method).join(' + ') || singleMethod
-      const resolvedRid = restaurantId || restaurantProfile?.id
+      // 4. Fire Order to Kitchen with Prepaid remark (Demo or Verified Supabase Settlement)
       const createdKOT = await createOrder({
         restaurantId: resolvedRid,
         tableNumber: orderNumberTable,
         customerName: customerName || `Table ${orderNumberTable} Guest`,
-        items: cartItems.map(i => ({
+        items: itemsSnapshot.map(i => ({
           id: i.id || i._id,
           name: i.name,
           price: i.price,
@@ -309,8 +323,8 @@ export default function SplitPaymentModal({
           variant: i.variant,
           notes: i.notes || ''
         })),
-        subtotal: calculation?.pricing?.subtotal || grandTotal,
-        tax: calculation?.pricing?.taxes?.totalTax || 0,
+        subtotal: pricingSnapshot?.subtotal || grandTotal,
+        tax: pricingSnapshot?.taxes?.totalTax || 0,
         total: grandTotal,
         status: 'PREPARING',
         payment_status: isDemo ? 'DEMO' : 'PAID',
@@ -320,11 +334,33 @@ export default function SplitPaymentModal({
         specialInstructions: isDemo ? `DEMO SANDBOX ORDER (${paymentMethodSummary})` : `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`
       })
 
+      if (!invoice) {
+        // Serverless Supabase-first POS settlement receipt backed by real persisted order ID
+        invoice = {
+          id: createdKOT?.id || `pos_${Date.now()}`,
+          invoiceNumber: `POS-${String(createdKOT?.id || Date.now()).slice(-6).toUpperCase()}`,
+          restaurantId: resolvedRid,
+          restaurantDetails: {
+            name: receiptHeader.name,
+            address: receiptHeader.address,
+            phone: receiptHeader.phone,
+            gstin: receiptHeader.gstin,
+          },
+          tableNumber: String(tableNumber),
+          customer: { name: customerName || `Table ${orderNumberTable} Guest` },
+          items: itemsSnapshot,
+          pricing: pricingSnapshot,
+          status: 'PAID',
+          payments: finalPayments,
+          issuedAt: new Date().toISOString(),
+        }
+      }
+
       // Instantly notify live components
       window.dispatchEvent(new CustomEvent('newOrderCreated', { detail: createdKOT }))
 
       setSettledInvoice(invoice)
-      toast.success(`🎉 Bill Settled & KOT Sent to Kitchen (PAID ✅)!`)
+      toast.success(`🎉 Bill Settled (${invoice.invoiceNumber}) & KOT Sent to Kitchen!`)
       if (onSuccessSettlement) {
         onSuccessSettlement(invoice)
       }
@@ -335,6 +371,12 @@ export default function SplitPaymentModal({
       setIsProcessing(false)
     }
   }
+
+  // Active snapshots for Settled Receipt UI & Thermal Print (safe even after cart clears)
+  const displayPricing = settledInvoice?.pricing || calculation?.pricing || {}
+  const displayItems = settledInvoice?.items || cartItems || []
+  const displayGrandTotal = displayPricing?.grandTotal ?? grandTotal
+  const displayTable = settledInvoice?.tableNumber || tableNumber
 
   // Thermal Print Receipt (Iframe-Isolated)
   const handlePrint = () => {
@@ -351,11 +393,11 @@ export default function SplitPaymentModal({
       const frameDoc = printFrame.contentWindow || printFrame.contentDocument.document || printFrame.contentDocument
       const doc = frameDoc.document || frameDoc
 
-      const itemsHtml = cartItems.map(item => `
+      const itemsHtml = displayItems.map(item => `
         <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px; align-items:flex-start;">
           <div style="max-width:260px; word-break:break-word;">
-            <span style="font-weight:bold; color:#0f172a;">${item.name}</span>
-            ${item.variant && item.variant !== 'full' ? `<span style="font-size:11px; color:#d97706; display:block;">(${item.variant})</span>` : ''}
+            <span style="font-weight:bold; color:#0f172a;">${escapeHtml(item.name)}</span>
+            ${item.variant && item.variant !== 'full' ? `<span style="font-size:11px; color:#d97706; display:block;">(${escapeHtml(item.variant)})</span>` : ''}
           </div>
           <span style="white-space:nowrap; margin:0 8px; color:#475569;">${item.quantity} x ₹${Number(item.price).toFixed(2)}</span>
           <span style="font-weight:bold; color:#0f172a; white-space:nowrap; text-align:right;">₹${(item.price * item.quantity).toFixed(2)}</span>
@@ -468,8 +510,8 @@ export default function SplitPaymentModal({
               <!-- Metadata -->
               <div class="dashed-border">
                 <div class="grid-2">
-                  <div><span style="color:#64748b;">Invoice No:</span> <strong style="color:#0f172a; font-size:13px;">${invNum}</strong></div>
-                  <div class="text-right"><span style="color:#64748b;">Table:</span> <strong style="color:#0f172a; font-size:14px;">Table ${tableNumber}</strong></div>
+                  <div><span style="color:#64748b;">Invoice No:</span> <strong style="color:#0f172a; font-size:13px;">${escapeHtml(invNum)}</strong></div>
+                  <div class="text-right"><span style="color:#64748b;">Table:</span> <strong style="color:#0f172a; font-size:14px;">Table ${escapeHtml(String(displayTable))}</strong></div>
                 </div>
                 <div class="grid-2">
                   <div><span style="color:#64748b;">Date & Time:</span> <span>${formattedDate}, ${formattedTime}</span></div>
@@ -491,31 +533,31 @@ export default function SplitPaymentModal({
               <div class="dashed-border" style="padding-bottom:10px;">
                 <div class="totals-row">
                   <span>Subtotal:</span>
-                  <span style="font-weight:bold; color:#0f172a;">₹${calculation?.pricing?.subtotal?.toFixed(2) || '0.00'}</span>
+                  <span style="font-weight:bold; color:#0f172a;">₹${Number(displayPricing?.subtotal || 0).toFixed(2)}</span>
                 </div>
-                ${calculation?.pricing?.discount?.amount > 0 ? `
+                ${(displayPricing?.discount?.amount || 0) > 0 ? `
                   <div class="totals-row" style="color:#059669; font-weight:bold;">
                     <span>Discount:</span>
-                    <span>-₹${calculation?.pricing?.discount?.amount?.toFixed(2)}</span>
+                    <span>-₹${Number(displayPricing?.discount?.amount || 0).toFixed(2)}</span>
                   </div>
                 ` : ''}
-                ${(calculation?.pricing?.taxes?.totalTax || 0) > 0 ? (() => {
-                  const tv = calculation?.pricing?.taxableValue || calculation?.pricing?.subtotal || 0
-                  const tTotal = calculation?.pricing?.taxes?.totalTax || 0
+                ${(displayPricing?.taxes?.totalTax || 0) > 0 ? (() => {
+                  const tv = displayPricing?.taxableValue || displayPricing?.subtotal || 0
+                  const tTotal = displayPricing?.taxes?.totalTax || 0
                   const halfPct = tv > 0 ? Number((((tTotal / tv) * 100) / 2).toFixed(2)) : 2.5
                   return `
                 <div class="totals-row">
                   <span>CGST (${halfPct}%):</span>
-                  <span>₹${calculation?.pricing?.taxes?.cgst?.toFixed(2) || '0.00'}</span>
+                  <span>₹${Number(displayPricing?.taxes?.cgst || 0).toFixed(2)}</span>
                 </div>
                 <div class="totals-row">
                   <span>SGST (${halfPct}%):</span>
-                  <span>₹${calculation?.pricing?.taxes?.sgst?.toFixed(2) || '0.00'}</span>
+                  <span>₹${Number(displayPricing?.taxes?.sgst || 0).toFixed(2)}</span>
                 </div>`
                 })() : ''}
                 <div class="grand-total-row">
                   <span>Total Paid:</span>
-                  <span>₹${grandTotal.toFixed(2)}</span>
+                  <span>₹${Number(displayGrandTotal || 0).toFixed(2)}</span>
                 </div>
               </div>
 
@@ -561,9 +603,9 @@ export default function SplitPaymentModal({
             </div>
             <div>
               <DialogTitle className="text-sm font-black tracking-tight text-white flex items-center gap-2">
-                <span>Table {tableNumber} Bill Settlement</span>
+                <span>Table {displayTable} {settledInvoice ? 'Invoice & Receipt' : 'Bill Settlement'}</span>
                 <Badge className="bg-emerald-500 text-white font-bold text-[10px] px-2 py-0.5">
-                  ₹{grandTotal} Due
+                  {settledInvoice ? `₹${displayGrandTotal} Paid` : `₹${grandTotal} Due`}
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-[11px] text-slate-400">
@@ -581,49 +623,59 @@ export default function SplitPaymentModal({
             </div>
 
             <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Official Invoice Generated</span>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Bill Settled & Receipt Ready</span>
               <h2 className="text-xl font-black text-slate-900 mt-0.5">{settledInvoice.invoiceNumber}</h2>
               <p className="text-xs text-emerald-700 font-bold mt-1 bg-emerald-50 inline-block px-3 py-0.5 rounded-full border border-emerald-200">
-                ✅ Paid & Settled (₹{grandTotal})
+                ✅ Paid & Settled (₹{Number(displayGrandTotal || 0).toFixed(2)})
               </p>
             </div>
+
+            {Array.isArray(settledInvoice.payments) && settledInvoice.payments.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-1.5 text-[11px]">
+                {settledInvoice.payments.map((p, idx) => (
+                  <span key={idx} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-semibold">
+                    {p.method}: ₹{Number(p.amount || 0).toFixed(2)}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Bill Summary Breakdown */}
             <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-xs text-left space-y-1.5">
               <div className="flex justify-between text-slate-600">
-                <span>Subtotal:</span>
-                <span>₹{calculation?.pricing?.subtotal?.toFixed(2)}</span>
+                <span>Subtotal ({displayItems.reduce((s, i) => s + Number(i.quantity || 1), 0)} items):</span>
+                <span>₹{Number(displayPricing?.subtotal || 0).toFixed(2)}</span>
               </div>
-              {calculation?.pricing?.discount?.amount > 0 && (
+              {(displayPricing?.discount?.amount || 0) > 0 && (
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>Discount:</span>
-                  <span>-₹{calculation?.pricing?.discount?.amount?.toFixed(2)}</span>
+                  <span>-₹{Number(displayPricing?.discount?.amount || 0).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-slate-600">
                 <span>Taxable Value:</span>
-                <span>₹{calculation?.pricing?.taxableValue?.toFixed(2)}</span>
+                <span>₹{Number(displayPricing?.taxableValue ?? displayPricing?.subtotal ?? 0).toFixed(2)}</span>
               </div>
-              {(calculation?.pricing?.taxes?.totalTax || 0) > 0 && (() => {
-                const tv = calculation?.pricing?.taxableValue || calculation?.pricing?.subtotal || 0
-                const tTotal = calculation?.pricing?.taxes?.totalTax || 0
+              {(displayPricing?.taxes?.totalTax || 0) > 0 && (() => {
+                const tv = displayPricing?.taxableValue || displayPricing?.subtotal || 0
+                const tTotal = displayPricing?.taxes?.totalTax || 0
                 const halfPct = tv > 0 ? Number((((tTotal / tv) * 100) / 2).toFixed(2)) : 2.5
                 return (
                   <>
                     <div className="flex justify-between text-slate-600">
                       <span>CGST ({halfPct}%):</span>
-                      <span>₹{calculation?.pricing?.taxes?.cgst?.toFixed(2)}</span>
+                      <span>₹{Number(displayPricing?.taxes?.cgst || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
                       <span>SGST ({halfPct}%):</span>
-                      <span>₹{calculation?.pricing?.taxes?.sgst?.toFixed(2)}</span>
+                      <span>₹{Number(displayPricing?.taxes?.sgst || 0).toFixed(2)}</span>
                     </div>
                   </>
                 )
               })()}
               <div className="flex justify-between font-black text-slate-900 pt-2 border-t text-sm">
                 <span>Grand Total Paid:</span>
-                <span>₹{grandTotal.toFixed(2)}</span>
+                <span>₹{Number(displayGrandTotal || 0).toFixed(2)}</span>
               </div>
             </div>
 
@@ -653,7 +705,11 @@ export default function SplitPaymentModal({
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs font-semibold">
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Subtotal & Taxes</span>
-                  <span className="text-slate-700 font-medium">Subtotal ₹{calculation?.pricing?.subtotal} • GST ₹{calculation?.pricing?.taxes?.totalTax}</span>
+                  <span className="text-slate-700 font-medium">
+                    Subtotal ₹{calculation?.pricing?.subtotal} • {(calculation?.pricing?.taxes?.totalTax || 0) > 0
+                      ? `${restaurantProfile?.gstLabel || 'GST'} ₹${calculation?.pricing?.taxes?.totalTax}`
+                      : 'Tax Exempt (₹0)'}
+                  </span>
                 </div>
                 <div className="text-right">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Total Payable</span>

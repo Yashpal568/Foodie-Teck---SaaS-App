@@ -71,7 +71,7 @@ const exportCSV = (list) => {
   URL.revokeObjectURL(url)
 }
 
-const exportPDF = async (list, stats = {}, restaurantName = 'Tiger Bistro') => {
+const exportPDF = async (list, stats = {}, restaurantName = 'Restaurant') => {
   const {
     doc,
     pageWidth,
@@ -440,14 +440,18 @@ const CustomerManagement = ({ plan = 'Basic', activeItem, setActiveItem, navigat
 
   const { orderHistory, loading: ordersLoading, refreshOrders } = useOrderManagement(restaurantId)
   const { profile } = useRestaurantProfile(restaurantId)
-  const restaurantName = profile?.name || profile?.business_name || 'Tiger Bistro'
+  const restaurantName = profile?.name || profile?.business_name || 'Restaurant'
   const [dbCustomers, setDbCustomers] = useState([])
   const [customersLoading, setCustomersLoading] = useState(true)
 
   useEffect(() => { setIsMounted(true) }, [])
 
   useEffect(() => {
-    if (!restaurantId || restaurantId === 'default') return
+    setDbCustomers([])
+    if (!restaurantId || restaurantId === 'default' || restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest') {
+      setCustomersLoading(false)
+      return
+    }
     setCustomersLoading(true)
     getCustomers(restaurantId)
       .then(data => setDbCustomers(data || []))

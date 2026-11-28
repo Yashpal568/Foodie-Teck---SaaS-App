@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
 import { generateRestaurantSignature, getPublicMenuOrigin } from '@/utils/tableSecurity'
+import { assertMerchantOperational } from '@/lib/merchantAuth'
 
 const DEMO_TABLES_STORAGE_KEY = 'servora_demo_table_sessions_v1'
 
@@ -119,6 +120,9 @@ export const updateTableStatus = async (restaurantId, tableNumber, updates) => {
 
   const validId = await ensureValidRestaurantUUID(restaurantId)
   if (!validId) return null
+  if (String(updates?.status || '').toLowerCase() !== 'occupied') {
+    await assertMerchantOperational(validId)
+  }
 
   const { data, error } = await supabase
     .from('table_sessions')
@@ -218,8 +222,7 @@ export const requestWaiter = async (restaurantId, tableNumber, customerName = 'G
   const targets = new Set([
     `waiter-toasts:rid=${validId}`,
     `waiter-toasts:rid=${restaurantId}`,
-    `waiter-toasts:rid=all`
-  ])
+  ].filter(Boolean))
 
   targets.forEach(channelName => {
     try {
@@ -362,6 +365,7 @@ export const acknowledgeWaiterCall = async (callId, restaurantId = null, tableNu
 export const acknowledgeAllWaiterCalls = async (restaurantId) => {
   const validId = await ensureValidRestaurantUUID(restaurantId)
   if (!isValidUUID(validId)) return true
+  await assertMerchantOperational(validId)
   try {
     const { error } = await supabase
       .from('waiter_calls')
@@ -379,6 +383,7 @@ export const acknowledgeAllWaiterCalls = async (restaurantId) => {
 export const syncTableSession = async (restaurant_id, tableData) => {
   const validId = await ensureValidRestaurantUUID(restaurant_id)
   if (!validId) return null
+  await assertMerchantOperational(validId)
 
   const { data, error } = await supabase
     .from('table_sessions')
@@ -455,6 +460,7 @@ export const configureRestaurantTables = async (restaurantId, targetCount) => {
   if (!isValidUUID(validId)) {
     throw new Error('Could not resolve restaurant UUID to configure floor tables.')
   }
+  await assertMerchantOperational(validId)
 
   const origin = getPublicMenuOrigin()
   const masterSig = generateRestaurantSignature(validId)

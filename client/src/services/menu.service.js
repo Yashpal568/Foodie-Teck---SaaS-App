@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { ensureValidRestaurantUUID } from './restaurant.service'
 import { uploadToCloudinary, isBase64Image } from './cloudinary.service'
+import { assertMerchantOperational } from '../lib/merchantAuth'
 
 async function uploadPhotoIfBase64(photoVal, _itemId, restaurantId) {
   if (!photoVal) return ''
@@ -167,6 +168,7 @@ export const createMenuItem = async (restaurantId, itemData) => {
 
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) throw new Error('Valid restaurant UUID is required to create menu items.')
+  await assertMerchantOperational(uuid)
 
   const payload = {
     restaurant_id: uuid,
@@ -197,6 +199,16 @@ export const createMenuItem = async (restaurantId, itemData) => {
 /** Update an existing menu item in Supabase DB */
 export const updateMenuItem = async (itemId, itemData, restaurantId) => {
   const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+  if (restaurantId === 'demo-merchant' || restaurantId === 'demo') {
+    return normalizeMenuItem({ id: itemId, ...itemData })
+  }
+  if (restaurantId) {
+    const checkUuid = isUUID(restaurantId) ? restaurantId : await ensureValidRestaurantUUID(restaurantId)
+    if (checkUuid) await assertMerchantOperational(checkUuid)
+  } else if (isUUID(itemId)) {
+    const { data: existingItem } = await supabase.from('menu_items').select('restaurant_id').eq('id', itemId).maybeSingle()
+    if (existingItem?.restaurant_id) await assertMerchantOperational(existingItem.restaurant_id)
+  }
   let photoVal = itemData.photo || itemData.photo_url || itemData.image_url || itemData.image || null
   photoVal = await uploadPhotoIfBase64(photoVal, itemId, restaurantId)
 
@@ -289,6 +301,7 @@ export const toggleMenuItemStock = async (itemId, isInStock, restaurantId = null
     .eq('id', itemId)
 
   if (restaurantId && isUUID(restaurantId)) {
+    await assertMerchantOperational(restaurantId)
     q = q.eq('restaurant_id', restaurantId)
   }
 
@@ -308,7 +321,11 @@ export const deleteMenuItem = async (itemId, restaurantId = null) => {
 
   let q = supabase.from('menu_items').delete().eq('id', itemId)
   if (restaurantId && isUUID(restaurantId)) {
+    await assertMerchantOperational(restaurantId)
     q = q.eq('restaurant_id', restaurantId)
+  } else {
+    const { data: existingItem } = await supabase.from('menu_items').select('restaurant_id').eq('id', itemId).maybeSingle()
+    if (existingItem?.restaurant_id) await assertMerchantOperational(existingItem.restaurant_id)
   }
   const { error } = await q
   if (error) {
@@ -325,6 +342,7 @@ export const getMenuItems = async (restaurantId) => {
 export const bulkAddMenuItems = async (restaurantId, items) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) return items.map(normalizeMenuItem)
+  await assertMerchantOperational(uuid)
 
   const formattedItems = await Promise.all(items.map(async (item) => {
     const norm = normalizeMenuItem(item)
@@ -371,6 +389,7 @@ export const bulkAddMenuItems = async (restaurantId, items) => {
 export const bulkReplaceMenuItems = async (restaurantId, items) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) return []
+  await assertMerchantOperational(uuid)
 
   const formattedItems = await Promise.all(items.map(async (item) => {
     const norm = normalizeMenuItem(item)
@@ -425,6 +444,7 @@ export const getCategories = async (restaurantId) => {
 export const syncCategories = async (restaurantId, categoryNames) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid || !categoryNames || categoryNames.length === 0) return
+  await assertMerchantOperational(uuid)
 
   const payloads = categoryNames.map((name, index) => ({
     restaurant_id: uuid,

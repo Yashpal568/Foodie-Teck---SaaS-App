@@ -138,11 +138,19 @@ export const useOrderManagement = (restaurantId) => {
 
   const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
 
-  // ── Sync: Resolve Restaurant Identity ──
+  // ── Sync: Resolve Restaurant Identity (reset stale state cleanly on tenant change) ──
   useEffect(() => {
     let isMounted = true
+    setResolvedId(null)
+    setOrders([])
+    setOrderHistory([])
+
     async function resolve() {
       if (!restaurantId) {
+        if (isMounted) setLoading(false)
+        return
+      }
+      if (isDemo) {
         if (isMounted) setLoading(false)
         return
       }
@@ -163,7 +171,7 @@ export const useOrderManagement = (restaurantId) => {
     }
     resolve()
     return () => { isMounted = false }
-  }, [restaurantId])
+  }, [restaurantId, isDemo])
 
   // ── 1. Fetch Orders from Database ──
   const refreshOrders = useCallback(async (showLoading = true) => {

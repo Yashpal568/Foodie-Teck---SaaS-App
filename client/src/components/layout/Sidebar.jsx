@@ -40,22 +40,27 @@ export default function Sidebar({ activeItem, setActiveItem, isCollapsed, setIsC
   const [counts, setCounts] = useState({ orders: 0, tables: 0 })
   const [resolvedId, setResolvedId] = useState(restaurantId || null)
   
-  // Resolve Identity (Email to UUID)
+  // Resolve Identity (Email to UUID), strictly resetting on tenant changes
   useEffect(() => {
+    let mounted = true
+    setResolvedId(null)
     async function resolve() {
       if (!restaurantId) return
+      if (restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest') {
+        if (mounted) setResolvedId('demo-merchant')
+        return
+      }
       try {
         const uuid = await ensureValidRestaurantUUID(restaurantId)
-        if (uuid) {
-          setResolvedId(uuid)
-        } else {
-          setResolvedId(restaurantId)
+        if (mounted) {
+          setResolvedId(uuid || restaurantId)
         }
       } catch (err) {
-        setResolvedId(restaurantId)
+        if (mounted) setResolvedId(restaurantId)
       }
     }
     resolve()
+    return () => { mounted = false }
   }, [restaurantId])
 
   useEffect(() => {

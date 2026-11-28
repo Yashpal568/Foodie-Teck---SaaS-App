@@ -149,16 +149,32 @@ const TableStatus = ({ restaurantId = 'default' }) => {
 
   const handleStatusChange = async (tableNumber, newStatus) => {
     if (!resolvedId) return
-    
-    // Optimistic UI update so the modal refreshes instantly
-    setSelectedTable(prev => prev ? { ...prev, status: newStatus } : null)
+
+    const isAvailableReset = newStatus === 'available'
+    if (isAvailableReset) {
+      setSelectedTable(null)
+    } else {
+      setSelectedTable(prev => prev ? { ...prev, status: newStatus } : null)
+    }
 
     try {
       await updateTableAPI(resolvedId, tableNumber, {
         status: newStatus,
+        ...(isAvailableReset
+          ? {
+              customers: 0,
+              current_order_id: null,
+              session_start: null,
+            }
+          : {}),
         last_activity: new Date().toISOString()
       })
       refreshTables()
+      if (isAvailableReset && window['toast']) {
+        window['toast'].success(`Table ${tableNumber} marked clean & available`, {
+          description: 'Ready for new guests.'
+        })
+      }
     } catch (e) {
       console.error('Error changing table status:', e)
       refreshTables() // Revert on error
@@ -306,8 +322,12 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                         <div className="w-7 h-7 bg-white rounded-full shadow-2xs flex items-center justify-center mb-1">
                           <Utensils className="w-3.5 h-3.5 text-slate-300" />
                         </div>
-                        <p className="text-[11px] font-bold text-slate-700">Ready for Seating</p>
-                        <p className="text-[9px] text-slate-400 font-medium mt-0.5">Scan QR code to order</p>
+                        <p className="text-[11px] font-bold text-slate-700">
+                          {statusKey === 'needs-cleaning' ? 'Cleanup in Progress' : 'Ready for Seating'}
+                        </p>
+                        <p className="text-[9px] text-slate-400 font-medium mt-0.5">
+                          {statusKey === 'needs-cleaning' ? 'Mark ready once cleaned' : 'Scan QR code to order'}
+                        </p>
                       </div>
                     )}
 
@@ -496,14 +516,28 @@ const TableStatus = ({ restaurantId = 'default' }) => {
                       </Button>
                     )}
 
-                    {selectedTable.status === 'needs-cleaning' ? (
+                    {selectedTable.status === 'needs-cleaning' && (
                       <Button className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'available')}>
                         <Sparkles className="w-4 h-4 mr-2" /> MARK TABLE READY
                       </Button>
-                    ) : (
+                    )}
+
+                    {selectedTable.status !== 'needs-cleaning' && selectedTable.status !== 'available' && !tableOrder && (
                       <Button variant="outline" className="w-full bg-white/60 h-14 rounded-3xl font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group" onClick={() => handleStatusChange(selectedTable.table_number || selectedTable.tableNumber, 'needs-cleaning')}>
                         <Sparkles className="w-4 h-4 mr-2 text-zinc-400 group-hover:text-indigo-500 transition-colors duration-300" /> REQUEST CLEANING
                       </Button>
+                    )}
+
+                    {selectedTable.status === 'available' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200/80 px-4 py-3 text-xs font-bold text-emerald-700">
+                          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>Table is clean and ready for guests</span>
+                        </div>
+                        <Button variant="outline" className="w-full bg-white/80 h-12 rounded-3xl font-bold text-[13px] tracking-wide border-zinc-200 text-zinc-700 hover:bg-zinc-50" onClick={() => setSelectedTable(null)}>
+                          CLOSE
+                        </Button>
+                      </div>
                     )}
                  </div>
               </div>

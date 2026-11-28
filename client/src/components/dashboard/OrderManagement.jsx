@@ -26,8 +26,6 @@ import {
   Pizza,
   Printer,
   Plus,
-  Volume2,
-  VolumeX,
   LayoutGrid,
   Kanban,
   List,
@@ -62,6 +60,7 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { fetchMenuItems } from '@/lib/api'
@@ -82,13 +81,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
   const [searchQuery, setSearchQuery] = useState('')
   const [orderTypeFilter, setOrderTypeFilter] = useState('ALL') // 'ALL' | 'DINE_IN' | 'TAKEAWAY'
   const [sortBy, setSortBy] = useState('NEWEST') // 'NEWEST' | 'URGENT' | 'AMOUNT_DESC'
-  const [soundEnabled, setSoundEnabled] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
-
-  // Horizontal Scroll slider state for status pills
-  const pillsScrollRef = useRef(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(true)
 
   // Checklist for kitchen items (orderId-itemIndex -> boolean)
   const [checkedItems, setCheckedItems] = useState({})
@@ -125,27 +118,6 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
     orders.forEach(o => { if (o && o.id) map.set(o.id, o) })
     return Array.from(map.values())
   }, [orders, orderHistory])
-
-  // Check scroll position of pill slider
-  const checkScrollPills = useCallback(() => {
-    if (!pillsScrollRef.current) return
-    const { scrollLeft, scrollWidth, clientWidth } = pillsScrollRef.current
-    setCanScrollLeft(scrollLeft > 8)
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 8)
-  }, [])
-
-  const scrollPills = (direction) => {
-    if (!pillsScrollRef.current) return
-    const scrollAmount = direction === 'left' ? -220 : 220
-    pillsScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
-    setTimeout(checkScrollPills, 350)
-  }
-
-  useEffect(() => {
-    checkScrollPills()
-    window.addEventListener('resize', checkScrollPills)
-    return () => window.removeEventListener('resize', checkScrollPills)
-  }, [allAvailableOrders, checkScrollPills])
 
   // Filter and sort active queue orders
   const processedOrders = useMemo(() => {
@@ -722,296 +694,253 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-16">
-      
-      {/* ── 1. Top Hero & Control Center ── */}
-      <div className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 py-3.5">
-          
-          {/* Header Row */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+    <TooltipProvider delayDuration={150}>
+      <div className="min-h-screen bg-slate-50/70 text-slate-900 pb-16">
+        
+        {/* ── 1. shadcn Studio Top Control Center ── */}
+        <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
+          <div className="max-w-[1720px] mx-auto px-4 sm:px-6 pt-3.5 pb-3">
             
-            {/* Title & Live Status */}
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
-                <ChefHat className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg xl:text-xl font-black text-slate-900 tracking-tight truncate">
-                    {mainTab === 'kitchen' ? 'Live Kitchen & Orders' : 'Date & Day-Wise Order History'}
-                  </h1>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shrink-0 whitespace-nowrap">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Live Cloud Sync
-                  </span>
+            {/* Row 1: Title Cluster + Primary Navigation & Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              
+              {/* Left: Icon + Title + Status Badge + Subtitle */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xs ring-1 ring-slate-900/10 shrink-0">
+                  {mainTab === 'kitchen' ? <ChefHat className="w-5 h-5" /> : <History className="w-5 h-5" />}
                 </div>
-                <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
-                  {mainTab === 'kitchen' 
-                    ? 'Real-time ticket display, KOT kitchen management & customer bill settlement.' 
-                    : 'Historical sales journal grouped chronologically with day-by-day revenue breakdowns.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Main Tabs (Live Kitchen vs Order History) & Quick Actions */}
-            <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 shrink-0">
-              
-              {/* Primary Tab Switcher */}
-              <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 shrink-0">
-                <button
-                  onClick={() => setMainTab('kitchen')}
-                  className={`px-2.5 py-1.5 rounded-lg font-bold text-[11.5px] transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    mainTab === 'kitchen' 
-                      ? 'bg-white text-indigo-700 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <ChefHat className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                  <span>Live Queue ({activeCount})</span>
-                </button>
-
-                <button
-                  onClick={() => setMainTab('history')}
-                  className={`px-2.5 py-1.5 rounded-lg font-bold text-[11.5px] transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    mainTab === 'history' 
-                      ? 'bg-white text-indigo-700 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <CalendarDays className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                  <span>Day & Date History</span>
-                </button>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-lg font-bold text-slate-950 tracking-tight truncate">
+                      {mainTab === 'kitchen' ? 'Live Kitchen & Orders' : 'Order History'}
+                    </h1>
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-200 bg-emerald-50/80 text-emerald-700 text-[11px] font-semibold px-2 py-0.5 rounded-full gap-1.5 shrink-0"
+                    >
+                      <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Cloud Sync
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    {mainTab === 'kitchen'
+                      ? 'Real-time KOT ticket queue, prep stages & table settlement.'
+                      : 'Complete chronological order archive and daily revenue log.'}
+                  </p>
+                </div>
               </div>
 
-              {/* Sound Toggle Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSoundEnabled(!soundEnabled)
-                  toast.info(soundEnabled ? '🔇 Order chime muted' : '🔊 Order chime enabled')
-                }}
-                className={`h-8.5 px-2.5 rounded-xl font-bold text-[11.5px] border-slate-200 transition-all whitespace-nowrap shrink-0 cursor-pointer ${
-                  soundEnabled ? 'text-indigo-600 bg-indigo-50/40 hover:bg-indigo-50' : 'text-slate-500 bg-white'
-                }`}
-              >
-                {soundEnabled ? <Volume2 className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" /> : <VolumeX className="w-3.5 h-3.5 mr-1 shrink-0" />}
-                <span className="hidden xl:inline">{soundEnabled ? 'Chimes' : 'Muted'}</span>
-              </Button>
-
-              {/* Refresh Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="h-8.5 px-2.5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[11.5px] shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 xl:mr-1.5 ${isRefreshing ? 'animate-spin text-indigo-600' : 'text-slate-500'}`} />
-                <span className="hidden xl:inline">Refresh</span>
-              </Button>
-
-              {/* + Quick POS Order Button */}
-              <Button
-                size="sm"
-                onClick={() => setShowManualOrderModal(true)}
-                className="h-8.5 px-3 rounded-xl bg-linear-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-[11.5px] shadow-sm shadow-indigo-500/20 transition-all active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                <span>Punch POS Order</span>
-              </Button>
-            </div>
-
-          </div>
-
-          {/* ── 2. View-Specific Toolbars ── */}
-          {mainTab === 'kitchen' ? (
-            
-            /* Live Kitchen Toolbar matching Reference Single-Row Layout */
-            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-              
-              {/* Working Pill Slider with Left/Right Buttons */}
-              <div className="relative flex items-center min-w-0 flex-1">
-                
-                {/* Left Scroll Chevron */}
-                {canScrollLeft && (
-                  <button
-                    onClick={() => scrollPills('left')}
-                    className="absolute left-0 z-10 w-6.5 h-6.5 rounded-full bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                )}
-
-                {/* Sliding Pills Container */}
-                <div 
-                  ref={pillsScrollRef}
-                  onScroll={checkScrollPills}
-                  className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth w-full py-0.5 pr-9"
-                >
-                  {[
-                    { id: 'ACTIVE', label: 'Active Queue', count: activeCount, dot: '' },
-                    { id: 'ORDERED', label: 'New / Placed', count: allAvailableOrders.filter(o => [ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(o.status)).length, dot: 'bg-blue-500' },
-                    { id: 'PREPARING', label: 'In Kitchen', count: prepCount, dot: 'bg-orange-500' },
-                    { id: 'READY', label: 'Ready to Serve', count: readyCount, dot: 'bg-emerald-500' },
-                    { id: 'BILL_REQUESTED', label: 'Bill Requested', count: billCount, dot: 'bg-amber-500' },
-                    { id: 'FINISHED', label: 'Completed', count: completedTodayCount, dot: 'bg-slate-400' },
-                    { id: 'ALL', label: 'All Records', count: allAvailableOrders.length, dot: 'bg-slate-300' }
-                  ].map(tab => {
-                    const isActive = statusFilter === tab.id
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setStatusFilter(tab.id)}
-                        className={`px-2.5 py-1 rounded-full font-bold text-[11px] whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shrink-0 select-none ${
-                          isActive 
-                            ? 'bg-slate-900 text-white shadow-xs' 
-                            : 'bg-white border border-slate-200/90 hover:bg-slate-50 text-slate-600'
-                        }`}
+              {/* Right: shadcn Tabs Mode Switcher + Compact Studio Actions */}
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                <Tabs value={mainTab} onValueChange={setMainTab}>
+                  <TabsList className="h-9 bg-slate-100/90 border border-slate-200/70 p-1 rounded-xl">
+                    <TabsTrigger
+                      value="kitchen"
+                      className="h-7 px-3 rounded-lg text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs cursor-pointer"
+                    >
+                      <ChefHat className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Live Queue</span>
+                      <Badge
+                        variant="secondary"
+                        className="h-4.5 min-w-5 px-1.5 text-[10px] font-bold bg-slate-200/70 text-slate-800 rounded-full"
                       >
-                        {tab.dot && (
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tab.dot}`}></span>
-                        )}
+                        {activeCount}
+                      </Badge>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="history"
+                      className="h-7 px-3 rounded-lg text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs cursor-pointer"
+                    >
+                      <History className="w-3.5 h-3.5 text-violet-600" />
+                      <span>Order History</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <Separator orientation="vertical" className="h-5 hidden sm:block bg-slate-200" />
+
+                <div className="flex items-center gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-600 cursor-pointer"
+                        aria-label="Refresh orders"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Refresh Live Orders</TooltipContent>
+                  </Tooltip>
+
+                  <Button
+                    size="sm"
+                    onClick={() => setShowManualOrderModal(true)}
+                    className="h-8.5 px-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Punch POS Order</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Cleanly Fitted Toolbar (Zero Overflow / Zero Scroll Chevrons) */}
+            {mainTab === 'kitchen' ? (
+              <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
+                
+                {/* Stage Filter Strip using shadcn Tabs */}
+                <Tabs value={statusFilter} onValueChange={setStatusFilter} className="min-w-0">
+                  <TabsList className="h-auto w-full xl:w-auto flex flex-wrap justify-start gap-1 bg-slate-100/80 border border-slate-200/70 p-1 rounded-xl">
+                    {[
+                      { id: 'ACTIVE', label: 'Active', count: activeCount, dot: '' },
+                      { id: 'ORDERED', label: 'Placed', count: allAvailableOrders.filter(o => [ORDER_STATUS.ORDERED, ORDER_STATUS.PENDING].includes(o.status)).length, dot: 'bg-blue-500' },
+                      { id: 'PREPARING', label: 'Cooking', count: prepCount, dot: 'bg-orange-500' },
+                      { id: 'READY', label: 'Ready', count: readyCount, dot: 'bg-emerald-500' },
+                      { id: 'BILL_REQUESTED', label: 'Billing', count: billCount, dot: 'bg-amber-500' },
+                      { id: 'FINISHED', label: 'Completed', count: completedTodayCount, dot: 'bg-slate-400' },
+                      { id: 'ALL', label: 'All', count: allAvailableOrders.length, dot: 'bg-slate-300' }
+                    ].map(tab => (
+                      <TabsTrigger
+                        key={tab.id}
+                        value={tab.id}
+                        className="h-7 px-2.5 rounded-lg text-[11.5px] font-semibold gap-1.5 text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs cursor-pointer"
+                      >
+                        {tab.dot && <span className={`size-1.5 rounded-full shrink-0 ${tab.dot}`} />}
                         <span>{tab.label}</span>
-                        <span className={`text-[10px] min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full font-bold ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}>
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-200/70 text-slate-700 tabular-nums">
                           {tab.count}
                         </span>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+
+                {/* Right Controls: Search + Sort + View Mode */}
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                  <div className="relative flex-1 sm:w-52 lg:w-56">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search table, item, #ID..."
+                      className="pl-8 pr-7 h-8.5 bg-slate-50/70 border-slate-200/90 rounded-xl text-xs font-medium focus-visible:ring-slate-400"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                        aria-label="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                    )
-                  })}
+                    )}
+                  </div>
+
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="h-8.5 w-[142px] bg-white border-slate-200/90 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 text-xs font-medium shadow-lg">
+                      <SelectItem value="NEWEST" className="cursor-pointer font-medium">⏱️ Newest First</SelectItem>
+                      <SelectItem value="URGENT" className="cursor-pointer font-medium">⚡ Oldest (Urgent)</SelectItem>
+                      <SelectItem value="AMOUNT_DESC" className="cursor-pointer font-medium">💰 Highest Amount</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Tabs value={viewMode} onValueChange={setViewMode}>
+                    <TabsList className="h-8.5 bg-slate-100/90 border border-slate-200/70 p-0.5 rounded-xl">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <TabsTrigger
+                            value="grid"
+                            className="h-7 w-7 p-0 rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs cursor-pointer"
+                            aria-label="Kitchen Grid View"
+                          >
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                          </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Kitchen Grid View</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <TabsTrigger
+                            value="kanban"
+                            className="h-7 w-7 p-0 rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs cursor-pointer"
+                            aria-label="Kanban Board View"
+                          >
+                            <Kanban className="w-3.5 h-3.5" />
+                          </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Kanban Pipeline</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <TabsTrigger
+                            value="list"
+                            className="h-7 w-7 p-0 rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs cursor-pointer"
+                            aria-label="Table List View"
+                          >
+                            <List className="w-3.5 h-3.5" />
+                          </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Compact List View</TooltipContent>
+                      </Tooltip>
+                    </TabsList>
+                  </Tabs>
                 </div>
-
-                {/* Right Scroll Chevron */}
-                {canScrollRight && (
-                  <button
-                    onClick={() => scrollPills('right')}
-                    className="absolute right-0 z-10 w-6.5 h-6.5 rounded-full bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                )}
-
               </div>
+            ) : (
+              /* Order History Toolbar */
+              <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <Tabs value={historyDateFilter} onValueChange={setHistoryDateFilter}>
+                  <TabsList className="h-auto flex flex-wrap justify-start gap-1 bg-slate-100/80 border border-slate-200/70 p-1 rounded-xl">
+                    {[
+                      { id: 'ALL', label: 'All Dates' },
+                      { id: 'TODAY', label: 'Today' },
+                      { id: 'YESTERDAY', label: 'Yesterday' },
+                      { id: 'WEEK', label: 'Last 7 Days' },
+                      { id: 'MONTH', label: 'Last 30 Days' }
+                    ].map(f => (
+                      <TabsTrigger
+                        key={f.id}
+                        value={f.id}
+                        className="h-7 px-3 rounded-lg text-xs font-semibold text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs cursor-pointer"
+                      >
+                        {f.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
 
-              {/* Search, Sort & View Switcher */}
-              <div className="flex items-center gap-2 shrink-0">
-                
-                {/* Search input */}
-                <div className="relative w-44 xl:w-52">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search table, item, #ID..."
-                    className="pl-8 h-8.5 bg-slate-50/70 border-slate-200 rounded-xl text-[11.5px] font-medium focus-visible:ring-indigo-500"
+                    value={historySearchQuery}
+                    onChange={(e) => setHistorySearchQuery(e.target.value)}
+                    placeholder="Filter history by table, dish, #ID..."
+                    className="pl-8 pr-7 h-8.5 bg-slate-50/70 border-slate-200/90 rounded-xl text-xs font-medium focus-visible:ring-slate-400"
                   />
-                  {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                      <X className="w-3 h-3" />
+                  {historySearchQuery && (
+                    <button
+                      onClick={() => setHistorySearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                      aria-label="Clear history search"
+                    >
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
-
-                {/* Sort selector */}
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="h-8.5 min-w-[130px] bg-white border-slate-200 rounded-xl text-[11.5px] font-bold text-slate-700 shadow-2xs">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 text-xs font-medium shadow-xl">
-                    <SelectItem value="NEWEST" className="cursor-pointer font-semibold">⏱️ Newest First</SelectItem>
-                    <SelectItem value="URGENT" className="cursor-pointer font-semibold">⚡ Oldest (Urgent)</SelectItem>
-                    <SelectItem value="AMOUNT_DESC" className="cursor-pointer font-semibold">💰 Highest Amount</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* View Switcher Tabs */}
-                <div className="flex items-center bg-slate-100/90 p-0.5 rounded-xl border border-slate-200/80 shrink-0">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'grid' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                    title="Kitchen Grid View (KDS)"
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('kanban')}
-                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'kanban' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                    title="Kanban Pipeline Board"
-                  >
-                    <Kanban className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'list' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                    title="Table Data List View"
-                  >
-                    <List className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
               </div>
+            )}
 
-            </div>
-
-          ) : (
-
-            /* History Explorer Filters Bar */
-            <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              
-              {/* History Date Filters */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-                {[
-                  { id: 'ALL', label: 'All Dates' },
-                  { id: 'TODAY', label: 'Today' },
-                  { id: 'YESTERDAY', label: 'Yesterday' },
-                  { id: 'WEEK', label: 'Last 7 Days' },
-                  { id: 'MONTH', label: 'Last 30 Days' }
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setHistoryDateFilter(f.id)}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all cursor-pointer ${
-                      historyDateFilter === f.id 
-                        ? 'bg-purple-600 text-white shadow-xs' 
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search within history */}
-              <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={historySearchQuery}
-                  onChange={(e) => setHistorySearchQuery(e.target.value)}
-                  placeholder="Filter history by table, dish, #ID..."
-                  className="pl-8.5 h-9 bg-slate-50 border-slate-200 rounded-xl text-xs font-medium"
-                />
-                {historySearchQuery && (
-                  <button onClick={() => setHistorySearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-
-            </div>
-
-          )}
-
-        </div>
-      </div>
+          </div>
+        </header>
 
       {/* ── 3. Main Content Area ── */}
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -2398,6 +2327,7 @@ export default function OrderManagement({ restaurantId, activeItem, setActiveIte
         </DialogContent>
       </Dialog>
 
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

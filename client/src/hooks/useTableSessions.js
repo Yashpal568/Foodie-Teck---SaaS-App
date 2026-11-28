@@ -9,11 +9,18 @@ export const useTableSessions = (restaurantId) => {
   const [loading, setLoading] = useState(true)
   const { orders: activeOrders = [] } = useOrderManagement(restaurantId)
 
-  // Resolve ID (Email -> UUID)
+  // Resolve ID (Email -> UUID), strictly resetting on route/tenant changes
   useEffect(() => {
     let active = true
+    setResolvedId(null)
+    setRawTables([])
+
     async function resolve() {
       if (!restaurantId) return
+      if (restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest') {
+        if (active) setResolvedId('demo-merchant')
+        return
+      }
       if (restaurantId.includes('@')) {
         const { data } = await supabase
           .from('restaurants')

@@ -1,5 +1,6 @@
 import { supabase, getCachedSession } from '../lib/supabase'
 import { uploadToCloudinary, isBase64Image } from './cloudinary.service'
+import { assertMerchantOperational } from '../lib/merchantAuth'
 
 /** Get the current logged-in user's restaurant ID from Supabase session */
 export const getMyRestaurant = async () => {
@@ -32,6 +33,7 @@ export const getMyRestaurant = async () => {
 export const updateRestaurantProfile = async (restaurantId, profileData) => {
   const uuid = await ensureValidRestaurantUUID(restaurantId)
   if (!uuid) throw new Error("Could not resolve a valid UUID for this restaurant.")
+  await assertMerchantOperational(uuid)
 
   let rawLogo = profileData.logo_url || profileData.avatar || ''
   let rawCover = profileData.cover_url || profileData.cover || ''
@@ -59,21 +61,18 @@ export const updateRestaurantProfile = async (restaurantId, profileData) => {
     }
   }
 
-  // 2. Instant local persistence & cache
+  // 2. Instant tenant-scoped local persistence & cache (never global unscoped keys)
   try {
     if (logo) {
       localStorage.setItem(`servora_restaurant_logo_${uuid}`, logo)
       localStorage.setItem(`servora_restaurant_logo_${restaurantId}`, logo)
-      localStorage.setItem('servora_restaurant_logo', logo)
     }
     if (cover) {
       localStorage.setItem(`servora_restaurant_cover_${uuid}`, cover)
       localStorage.setItem(`servora_restaurant_cover_${restaurantId}`, cover)
-      localStorage.setItem('servora_restaurant_cover', cover)
     }
     if (name) {
       localStorage.setItem(`servora_restaurant_name_${uuid}`, name)
-      localStorage.setItem('servora_restaurant_name', name)
     }
   } catch {
     // ignore storage quota errors

@@ -126,15 +126,23 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
   const [isReplying, setIsReplying] = useState(false)
 
   useEffect(() => {
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+    if (isDemo) {
+      setContactEmail('demo@servora.app')
+      setContactName('Servora Demo Kitchen')
+      return
+    }
+    let mounted = true
     async function loadUser() {
       const { data: { user: currentUser } } = await getCachedSession()
-      if (currentUser) {
+      if (mounted && currentUser) {
         setContactEmail(currentUser.email || '')
         setContactName(currentUser.user_metadata?.business_name || 'Merchant Admin')
       }
     }
     loadUser()
-  }, [])
+    return () => { mounted = false }
+  }, [restaurantId])
 
   // Tickets state
   const [tickets, setTickets] = useState([])
@@ -142,9 +150,14 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
   const [ticketFilter, setTicketFilter] = useState('ALL')
   const [loading, setLoading] = useState(true)
 
-  // Load tickets from Supabase
+  // Load tickets from Supabase (strictly skipping real DB for demo mode)
   const loadCloudTickets = async (isSilent = false) => {
-    if (!restaurantId) return
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+    if (!restaurantId || isDemo) {
+      setTickets([])
+      setLoading(false)
+      return
+    }
     try {
       if (!isSilent) setLoading(true)
       const data = await fetchTickets(restaurantId)
@@ -171,9 +184,10 @@ export default function HelpSupport({ activeItem, setActiveItem, navigate, resta
   }
 
   useEffect(() => {
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
     loadCloudTickets()
 
-    if (!restaurantId) return
+    if (!restaurantId || isDemo) return
 
     const channel = supabase
       .channel(`merchant_tickets_${restaurantId}`)

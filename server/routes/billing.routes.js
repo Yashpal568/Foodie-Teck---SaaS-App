@@ -26,7 +26,7 @@ router.post(
   requireRestaurantAccess((req) => req.body?.restaurantId),
   async (req, res) => {
     try {
-      const { items, discount, restaurantId, isInterState } = req.body
+      const { items, discount, restaurantId, isInterState, gstSettings } = req.body
 
       if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({
@@ -41,6 +41,7 @@ router.post(
         discount,
         restaurantId,
         isInterState: Boolean(isInterState),
+        gstSettings: gstSettings || null,
       })
 
       return res.json({
@@ -147,11 +148,14 @@ router.get('/invoice/:id', async (req, res) => {
       }
       const { data: rest } = await supabase
         .from('restaurants')
-        .select('id, owner_id')
+        .select('id, owner_id, status')
         .eq('id', invoice.restaurantId)
         .maybeSingle()
       if (!rest || rest.owner_id !== req.user.id) {
         return res.status(403).json({ success: false, error: 'Forbidden', requestId: req.requestId })
+      }
+      if (String(rest.status || '').trim().toLowerCase() === 'suspended') {
+        return res.status(403).json({ success: false, error: 'Forbidden: merchant workspace is suspended.', requestId: req.requestId })
       }
     }
 

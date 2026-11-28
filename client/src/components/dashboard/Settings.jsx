@@ -142,6 +142,36 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
     try {
       setLoading(true)
 
+      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+      if (isDemo) {
+        setProfileData({
+          name: 'Servora Demo Kitchen',
+          email: 'demo@servora.app',
+          phone: '',
+          address: '',
+          description: 'Multi-Cuisine • Gourmet Dining',
+          avatar: '',
+          cover: ''
+        })
+        let demoGst = { enabled: false, rate: '0', label: 'GST', gstin: '' }
+        try {
+          const savedDemoGst = window.localStorage.getItem('servora_demo_gst_settings')
+          if (savedDemoGst) {
+            const parsed = JSON.parse(savedDemoGst)
+            demoGst = {
+              enabled: Boolean(parsed?.enabled),
+              rate: String(parsed?.rate ?? '0'),
+              label: String(parsed?.label || 'GST'),
+              gstin: String(parsed?.gstin || '').trim().toUpperCase()
+            }
+          }
+        } catch {
+          // ignore localStorage read failure
+        }
+        setGstData(demoGst)
+        return
+      }
+
       let restaurant = null
 
       if (restaurantId) {
@@ -171,9 +201,7 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
             restaurant = data
           }
         }
-      }
-
-      if (!restaurant) {
+      } else {
         restaurant = await getMyRestaurant()
       }
 
@@ -331,6 +359,26 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
 
   const handleSave = async () => {
     setIsSaving(true)
+    const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+    if (isDemo) {
+      try {
+        window.localStorage.setItem(
+          'servora_demo_gst_settings',
+          JSON.stringify({
+            enabled: Boolean(gstData?.enabled),
+            rate: Number(gstData?.rate || 0),
+            label: String(gstData?.label || 'GST'),
+            gstin: String(gstData?.gstin || '').trim().toUpperCase()
+          })
+        )
+        window.dispatchEvent(new CustomEvent('gstSettingsUpdated', { detail: { restaurantId } }))
+      } catch {
+        // ignore localStorage write failure
+      }
+      setIsSaving(false)
+      showToast('Demo sandbox preview updated locally (cloud settings require a live restaurant account).', 'success')
+      return
+    }
     const rawRid = restaurantId || getCachedRestaurantId()
     
     try {
@@ -360,9 +408,10 @@ export default function Settings({ activeItem, setActiveItem, navigate, restaura
           await saveGstSettings(targetRid, gstData)
         }
 
-        // Broadcast profile update event so Navbar, Sidebar & Header immediately update with new photo
+        // Broadcast profile update event so Navbar, Sidebar & Header for THIS restaurant immediately update
         window.dispatchEvent(new CustomEvent('restaurantProfileUpdated', {
           detail: {
+            restaurantId: targetRid,
             business_name: profileData.name,
             logo_url: updatedProfile?.logo_url || profileData.avatar,
             cover_url: updatedProfile?.cover_url || profileData.cover

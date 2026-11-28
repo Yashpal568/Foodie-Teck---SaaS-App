@@ -182,4 +182,61 @@ describe('Merchant Tenant Isolation (client/src/lib/merchantAuth.js)', () => {
     expect(merchRes.authorized).toBe(false)
     expect(merchRes.reason).toBe('unauthenticated')
   })
+
+  it('prevents real session/storage email, menu, settings, and broadcast leaks into demo or sibling tenants', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const root = process.cwd()
+
+    const readRel = (p) => fs.readFileSync(path.resolve(root, p), 'utf8')
+
+    // 1. Navbar never reads servora_user_session and short-circuits to demo@servora.app in demo mode
+    const navbarSrc = readRel('src/components/layout/Navbar.jsx')
+    expect(navbarSrc).not.toContain("sessionStorage.getItem('servora_user_session')")
+    expect(navbarSrc).toContain("email: 'demo@servora.app'")
+    expect(navbarSrc).toContain('if (isDemo)')
+
+    // 2. Dashboard resets userEmail/resolvedId in demo mode & explicitly passes restaurantId to MenuManagement
+    const dashSrc = readRel('src/pages/Dashboard.jsx')
+    expect(dashSrc).toContain('setResolvedId(null);')
+    expect(dashSrc).toContain('setUserEmail("");')
+    expect(dashSrc).toContain('merchantEmail={isDemoMode ? "demo@servora.app"')
+    expect(dashSrc).toMatch(/<MenuManagement[\s\S]*restaurantId=\{isDemoMode \? "demo-merchant"/)
+
+    // 3. MenuManagement, QRCodeManagement, Settings, HelpSupport never read another tenant's session in demo mode
+    const menuMgmtSrc = readRel('src/components/menu/MenuManagement.jsx')
+    expect(menuMgmtSrc).not.toContain('getCachedRestaurantId')
+    expect(menuMgmtSrc).not.toContain('getMyRestaurant')
+    expect(menuMgmtSrc).not.toContain("'demo-restaurant'")
+
+    const qrMgmtSrc = readRel('src/components/dashboard/QRCodeManagement.jsx')
+    expect(qrMgmtSrc).toContain("if (isDemo)")
+    expect(qrMgmtSrc).not.toContain("let res = await getMyRestaurant()")
+
+    const settingsSrc = readRel('src/components/dashboard/Settings.jsx')
+    expect(settingsSrc).toContain("email: 'demo@servora.app'")
+
+    const helpSrc = readRel('src/components/dashboard/HelpSupport.jsx')
+    expect(helpSrc).toContain("setContactEmail('demo@servora.app')")
+
+    // 4. CustomerMenu & restaurant.service scope storage/broadcast strictly per restaurantId without unscoped globals
+    const restSvcSrc = readRel('src/services/restaurant.service.js')
+    expect(restSvcSrc).not.toContain("localStorage.setItem('servora_restaurant_logo'")
+    expect(restSvcSrc).not.toContain("localStorage.setItem('servora_restaurant_cover'")
+    expect(restSvcSrc).not.toContain("localStorage.setItem('servora_restaurant_name'")
+
+    const custMenuSrc = readRel('src/pages/CustomerMenu.jsx')
+    expect(custMenuSrc).not.toContain('localStorage.getItem("servora_restaurant_logo")')
+    expect(custMenuSrc).not.toContain('localStorage.getItem("servora_restaurant_cover")')
+    expect(custMenuSrc).toContain('if (msgRid !== restaurantId && slugId !== restaurantId) return;')
+
+    // 5. Real-time notification banners never subscribe to global 'all' or accept arbitrary demo/cross-tenant broadcasts
+    const orderNotifSrc = readRel('src/components/dashboard/OrderNotification.jsx')
+    expect(orderNotifSrc).not.toContain("'all'")
+    expect(orderNotifSrc).toContain('matchesTargetTenant')
+
+    const waiterBannerSrc = readRel('src/components/dashboard/WaiterCallBanner.jsx')
+    expect(waiterBannerSrc).not.toContain("'all'")
+    expect(waiterBannerSrc).toContain("return payloadRid === 'demo-merchant' || payloadRid === 'demo'")
+  })
 })

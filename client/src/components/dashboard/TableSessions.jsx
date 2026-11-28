@@ -402,25 +402,44 @@ const TableSessions = ({
   }, [tables, searchTerm, filterStatus]);
 
   const handleStatusChange = async (tableNumber, newStatus) => {
-    setTables((current) => {
-      const updated = current.map((t) =>
-        String(t.tableNumber) === String(tableNumber)
-          ? { ...t, status: newStatus }
-          : t,
-      );
-      const target = updated.find(
-        (t) => String(t.tableNumber) === String(tableNumber),
-      );
-      if (target) syncTableToCloud(target);
-      return [...updated];
-    });
+    const existing = tables.find(
+      (t) => String(t.tableNumber) === String(tableNumber),
+    );
+    if (!existing) return;
+
+    if (newStatus === "available") {
+      await handleMarkTableAvailable(existing);
+      return;
+    }
+
+    const updatedTarget = {
+      ...existing,
+      status: newStatus,
+      needsCleaning: newStatus === "needs-cleaning",
+    };
+
+    setTables((current) =>
+      current.map((t) =>
+        String(t.tableNumber) === String(tableNumber) ? updatedTarget : t,
+      ),
+    );
 
     if (
       selectedTable &&
       String(selectedTable.tableNumber) === String(tableNumber)
     ) {
-      setSelectedTable((prev) => ({ ...prev, status: newStatus }));
+      setSelectedTable((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: newStatus,
+              needsCleaning: newStatus === "needs-cleaning",
+            }
+          : null,
+      );
     }
+
+    await syncTableToCloud(updatedTarget);
   };
 
   const handleConfigureTables = async () => {
@@ -455,13 +474,17 @@ const TableSessions = ({
   };
 
   const syncTableToCloud = async (table) => {
-    if (!resolvedId) return;
+    if (!resolvedId || !table) return;
+    const orderId =
+      typeof table.currentOrder === "string"
+        ? table.currentOrder
+        : table.currentOrder?.id || null;
     try {
       await updateTableAPI(resolvedId, table.tableNumber, {
         status: table.status,
         customers: table.customers || 0,
-        current_order_id: table.currentOrder,
-        session_start: table.sessionStart,
+        current_order_id: orderId,
+        session_start: table.sessionStart || null,
         last_activity: new Date().toISOString(),
       });
     } catch (err) {
@@ -469,7 +492,8 @@ const TableSessions = ({
     }
   };
 
-  const handleMarkTableAvailable = async (table) => {
+  const handleMarkTableAvailable = async (table, { silent = false } = {}) => {
+    if (!table) return;
     const updated = {
       ...table,
       status: "available",
@@ -486,15 +510,19 @@ const TableSessions = ({
       ),
     );
 
-    // 2. Update the selected table modal view to show 'available'
-    if (selectedTable?.tableNumber === table.tableNumber) {
-      setSelectedTable((prev) => ({ ...prev, status: "available", customers: 0, currentOrder: null, sessionStart: null }));
+    // 2. Close the modal for the cleared table so it cannot loop back into "Request Cleaning"
+    if (String(selectedTable?.tableNumber) === String(table.tableNumber)) {
+      setSelectedTable(null);
     }
 
     // 3. If there's an active order, mark it as FINISHED so re-fetch doesn't override back to 'occupied'
-    if (tableOrder?.id) {
+    const activeOrderId =
+      (String(selectedTable?.tableNumber) === String(table.tableNumber) && tableOrder?.id) ||
+      table.currentOrder?.id ||
+      (typeof table.currentOrder === "string" ? table.currentOrder : null);
+    if (activeOrderId) {
       try {
-        await updateOrderStatus(tableOrder.id, "FINISHED");
+        await updateOrderStatus(activeOrderId, "FINISHED");
         setTableOrder(null);
       } catch (err) {
         console.warn("Could not finish order on table reset:", err);
@@ -515,18 +543,22 @@ const TableSessions = ({
         console.error("Failed to sync table reset to cloud:", err);
       }
     }
+
+    if (!silent) {
+      toast.success(`Table ${table.tableNumber} marked clean & available`, {
+        description: "Ready for new guests.",
+      });
+    }
   };
 
   const handleSettleAndClearPOS = async () => {
     if (!selectedTable) return;
+    const clearedTableNum = selectedTable.tableNumber;
     try {
-      if (tableOrder) {
-        await updateOrderStatus(tableOrder.id, "FINISHED");
-      }
-      await handleMarkTableAvailable(selectedTable);
+      await handleMarkTableAvailable(selectedTable, { silent: true });
       if (window["toast"]) {
         window["toast"].success(
-          `🎉 Table ${selectedTable.tableNumber} Settled & Cleared!`,
+          `🎉 Table ${clearedTableNum} Settled & Cleared!`,
           {
             description: "Table is now available for new guests.",
           },
@@ -932,10 +964,16 @@ const TableSessions = ({
                             <Utensils className="w-3.5 h-3.5 group-[.sidebar-collapsed]:w-4 group-[.sidebar-collapsed]:h-4 text-zinc-300" />
                           </div>
                           <p className="text-[11px] group-[.sidebar-collapsed]:text-[13px] font-bold text-zinc-600">
-                            Ready for Seating
+                            {table.status === "needs-cleaning"
+                              ? "Cleanup in Progress"
+                              : table.status === "reserved"
+                                ? "Reserved Table"
+                                : "Ready for Seating"}
                           </p>
                           <p className="text-[9px] group-[.sidebar-collapsed]:text-[10px] text-zinc-400 font-semibold mt-0.5">
-                            Scan QR code to order
+                            {table.status === "needs-cleaning"
+                              ? "Mark ready once cleaned"
+                              : "Scan QR code to order"}
                           </p>
                         </div>
                       )}
@@ -1286,27 +1324,47 @@ const TableSessions = ({
                     </Button>
                   )}
 
-                  {selectedTable.status === "needs-cleaning" ? (
+                  {selectedTable.status === "needs-cleaning" && (
                     <Button
                       className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
                       onClick={() => handleMarkTableAvailable(selectedTable)}
                     >
                       <Sparkles className="w-4 h-4 mr-2" /> MARK TABLE READY
                     </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      className="w-full bg-white/60 h-14 rounded-3xl font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group"
-                      onClick={() =>
-                        handleStatusChange(
-                          selectedTable.tableNumber,
-                          "needs-cleaning",
-                        )
-                      }
-                    >
-                      <Sparkles className="w-4 h-4 mr-2 text-zinc-400 group-hover:text-indigo-500 transition-colors duration-300" />{" "}
-                      REQUEST CLEANING
-                    </Button>
+                  )}
+
+                  {selectedTable.status !== "needs-cleaning" &&
+                    selectedTable.status !== "available" &&
+                    !tableOrder && (
+                      <Button
+                        variant="outline"
+                        className="w-full bg-white/60 h-14 rounded-3xl font-bold text-[13px] tracking-wide border-zinc-200/80 text-zinc-600 hover:bg-indigo-50/50 hover:text-indigo-700 hover:border-indigo-200 transition-all duration-300 shadow-sm hover:shadow-[0_8px_16px_-6px_rgba(99,102,241,0.2)] hover:-translate-y-0.5 group"
+                        onClick={() =>
+                          handleStatusChange(
+                            selectedTable.tableNumber,
+                            "needs-cleaning",
+                          )
+                        }
+                      >
+                        <Sparkles className="w-4 h-4 mr-2 text-zinc-400 group-hover:text-indigo-500 transition-colors duration-300" />{" "}
+                        REQUEST CLEANING
+                      </Button>
+                    )}
+
+                  {selectedTable.status === "available" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200/80 px-4 py-3 text-xs font-bold text-emerald-700">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Table is clean and ready for guests</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="w-full bg-white/80 h-12 rounded-3xl font-bold text-[13px] tracking-wide border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                        onClick={() => setSelectedTable(null)}
+                      >
+                        CLOSE
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>

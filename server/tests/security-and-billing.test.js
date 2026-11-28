@@ -6,6 +6,7 @@ const path = require('node:path')
 
 const TENANT_A_ID = '3a10e567-9e10-4c27-aadd-64e84cd8694c'
 const TENANT_B_ID = '9b21f678-1111-4c27-aadd-64e84cd86999'
+const TENANT_SUSPENDED_ID = '7c32a111-2222-4c27-aadd-64e84cd86888'
 
 const MERCHANT_A_TOKEN = 'mock-jwt-merchant-a-token-000001'
 const MERCHANT_B_TOKEN = 'mock-jwt-merchant-b-token-000002'
@@ -34,8 +35,9 @@ const USERS = {
 }
 
 const RESTAURANTS = new Map([
-  [TENANT_A_ID, { id: TENANT_A_ID, owner_id: USERS[MERCHANT_A_TOKEN].id, business_name: 'Cafe Alpha' }],
-  [TENANT_B_ID, { id: TENANT_B_ID, owner_id: USERS[MERCHANT_B_TOKEN].id, business_name: 'Bistro Beta' }],
+  [TENANT_A_ID, { id: TENANT_A_ID, owner_id: USERS[MERCHANT_A_TOKEN].id, business_name: 'Cafe Alpha', status: 'Active' }],
+  [TENANT_B_ID, { id: TENANT_B_ID, owner_id: USERS[MERCHANT_B_TOKEN].id, business_name: 'Bistro Beta', status: 'Active' }],
+  [TENANT_SUSPENDED_ID, { id: TENANT_SUSPENDED_ID, owner_id: USERS[MERCHANT_A_TOKEN].id, business_name: 'Suspended Diner', status: 'Suspended' }],
 ])
 
 const MENU_ITEMS = [
@@ -370,5 +372,56 @@ describe('Authoritative Billing Engine & Payment Idempotency', () => {
       headers: { Authorization: `Bearer ${MERCHANT_A_TOKEN}` },
     })
     assert.equal(res.status, 403)
+  })
+
+  it('rejects API access when restaurant workspace status is Suspended (403)', async () => {
+    const res = await fetch(`${baseUrl}/api/billing/calculate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        restaurantId: TENANT_SUSPENDED_ID,
+        items: [{ name: 'Tea', price: 20, quantity: 1 }],
+      }),
+    })
+    assert.equal(res.status, 403)
+
+    const suspendedInvoice = await generateInvoice({
+      restaurantId: TENANT_SUSPENDED_ID,
+      items: [{ name: 'Tea', price: 20, quantity: 1, category: 'Beverages' }],
+    })
+    const invRes = await fetch(`${baseUrl}/api/billing/invoice/${suspendedInvoice.id}`, {
+      headers: { Authorization: `Bearer ${MERCHANT_A_TOKEN}` },
+    })
+    assert.equal(invRes.status, 403)
+  })
+
+  it('applies zero tax when gstSettings is disabled and custom rate when enabled', async () => {
+    const disabledRes = await fetch(`${baseUrl}/api/billing/calculate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        restaurantId: TENANT_A_ID,
+        items: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Veg Momos', price: 140, quantity: 2 }],
+        gstSettings: { enabled: false, rate: 0, label: 'GST' },
+      }),
+    })
+    assert.equal(disabledRes.status, 200)
+    const disabledBody = await disabledRes.json()
+    assert.equal(disabledBody.data.pricing.taxes.totalTax, 0)
+    assert.equal(disabledBody.data.pricing.grandTotal, 280)
+
+    const customRes = calculateBill({
+      restaurantId: TENANT_A_ID,
+      items: [{ name: 'Veg Momos', price: 100, quantity: 2 }],
+      gstSettings: { enabled: true, rate: 12, label: 'GST' },
+    })
+    assert.equal(customRes.pricing.taxes.totalTax, 24)
+    assert.equal(customRes.pricing.grandTotal, 224)
   })
 })

@@ -7,6 +7,39 @@ const LEGACY_MERCHANT_BYPASS_KEYS = ['fallback_auth_email']
 export const isDemoRestaurantSlug = (restaurantId) =>
   restaurantId === 'demo-merchant' || restaurantId === 'demo'
 
+export const isRestaurantSuspended = (restaurant) =>
+  String(restaurant?.status || '').trim().toLowerCase() === 'suspended'
+
+/**
+ * Enforce operational block when a merchant workspace is suspended.
+ * Allows platform admins and isolated demo mode, fails closed on DB errors if requested.
+ */
+export async function assertMerchantOperational(restaurantId) {
+  if (!restaurantId || isDemoRestaurantSlug(restaurantId) || restaurantId === 'guest') {
+    return { allowed: true, suspended: false }
+  }
+  if (!UUID_REGEX.test(String(restaurantId))) {
+    return { allowed: true, suspended: false }
+  }
+
+  const query = supabase.from('restaurants').select('id, status').eq('id', restaurantId)
+  const { data, error } =
+    typeof query?.maybeSingle === 'function'
+      ? await query.maybeSingle()
+      : typeof query?.single === 'function'
+        ? await query.single()
+        : await query
+
+  if (error) {
+    throw new Error('Unable to verify restaurant account status.')
+  }
+  const rest = Array.isArray(data) ? data[0] : data
+  if (isRestaurantSuspended(rest)) {
+    throw new Error('Restaurant workspace is currently suspended. Contact support to restore operations.')
+  }
+  return { allowed: true, suspended: false }
+}
+
 export function clearLegacyMerchantStorage() {
   if (typeof window === 'undefined') return
   try {
@@ -47,18 +80,18 @@ export async function verifyMerchantAccess(restaurantId) {
     const isAdmin = hasTrustedAdminClaim(user)
     const rawTarget = String(restaurantId).trim()
 
-    let query = supabase.from('restaurants').select('id, owner_id, email, business_name')
+    let query = supabase.from('restaurants').select('id, owner_id, email, business_name, status')
     if (UUID_REGEX.test(rawTarget)) {
       query = query.eq('id', rawTarget)
     } else if (rawTarget.includes('@')) {
       query = query.eq('email', rawTarget.toLowerCase())
     } else {
-      return { authorized: false, isDemo: false, user, restaurant: null, reason: 'invalid_tenant_identifier' }
+      return { authorized: false, isDemo: false, isSuspended: false, user, restaurant: null, reason: 'invalid_tenant_identifier' }
     }
 
     const { data: rest, error: restError } = await query.maybeSingle()
     if (restError || !rest) {
-      return { authorized: false, isDemo: false, user, restaurant: null, reason: 'tenant_not_found' }
+      return { authorized: false, isDemo: false, isSuspended: false, user, restaurant: null, reason: 'tenant_not_found' }
     }
 
     if (isAdmin || (rest.owner_id && rest.owner_id === user.id)) {
@@ -66,13 +99,14 @@ export async function verifyMerchantAccess(restaurantId) {
         authorized: true,
         isDemo: false,
         isAdmin,
+        isSuspended: isRestaurantSuspended(rest),
         user,
         restaurant: rest,
         restaurantId: rest.id,
       }
     }
 
-    return { authorized: false, isDemo: false, user, restaurant: null, reason: 'forbidden_cross_tenant' }
+    return { authorized: false, isDemo: false, isSuspended: false, user, restaurant: null, reason: 'forbidden_cross_tenant' }
   } catch (err) {
     return {
       authorized: false,

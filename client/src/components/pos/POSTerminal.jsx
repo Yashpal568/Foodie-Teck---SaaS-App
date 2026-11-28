@@ -182,9 +182,10 @@ export default function POSTerminal({ restaurantId }) {
       try {
         setLoadingMenu(true)
         const items = await fetchMenuItems(restaurantId)
+        const isDemoMode = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
         if (Array.isArray(items) && items.length > 0) {
           setMenuItems(items)
-        } else {
+        } else if (isDemoMode) {
           setMenuItems([
             { id: 'm1', name: 'Crispy Kurkure Paneer Fingers', category: 'Starters', price: 240, halfPrice: 150, type: 'VEG', description: 'Crunchy battered cottage cheese coated in roasted flakes', isBestseller: true },
             { id: 'm2', name: 'Crispy Honey Chilli Potatoes', category: 'Starters', price: 210, halfPrice: null, type: 'VEG', description: 'Fried potato fingers tossed in sweet sesame chilli glaze' },
@@ -203,6 +204,8 @@ export default function POSTerminal({ restaurantId }) {
             { id: 'm15', name: 'Royal Kesar Mango Lassi', category: 'Beverages', price: 120, halfPrice: null, type: 'VEG', description: 'Thick yogurt blend with Alphonso mango pulp and saffron strands' },
             { id: 'm16', name: 'Fresh Mint Virgin Mojito', category: 'Beverages', price: 140, halfPrice: null, type: 'VEG', description: 'Crushed garden mint, fresh lime juice and sparkling soda' }
           ])
+        } else {
+          setMenuItems([])
         }
       } catch (e) {
         console.error('Menu load error:', e)
@@ -222,10 +225,16 @@ export default function POSTerminal({ restaurantId }) {
 
     try {
       setIsCalculating(true)
+      const gstSettings = {
+        enabled: Boolean(profile?.gstEnabled),
+        rate: Number(profile?.gstRate || 0),
+        label: profile?.gstLabel || 'GST'
+      }
       const result = await calculateServerBill({
         items: cart,
         discount: discount.value > 0 ? discount : null,
-        restaurantId
+        restaurantId,
+        gstSettings
       })
       setCalculation(result)
     } catch (err) {
@@ -233,7 +242,7 @@ export default function POSTerminal({ restaurantId }) {
     } finally {
       setIsCalculating(false)
     }
-  }, [cart, discount, restaurantId])
+  }, [cart, discount, restaurantId, profile?.gstEnabled, profile?.gstRate, profile?.gstLabel])
 
   useEffect(() => {
     runServerCalculation()
@@ -439,17 +448,24 @@ export default function POSTerminal({ restaurantId }) {
     }
   }
 
-  // Settlement Success
+  // Settlement Success: clear cart & refresh KDS while keeping settled receipt/print modal open
   const handleSettlementSuccess = () => {
     clearCart()
-    setShowPaymentModal(false)
+    setDiscount({ type: 'FLAT', value: 0, reason: '' })
     refreshOrders()
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       setIsPanelOpen(false)
     }
   }
 
-  const grandTotalValue = calculation?.pricing?.grandTotal || cart.reduce((s, i) => s + (i.price * i.quantity), 0)
+  const isGstEnabled = Boolean(profile?.gstEnabled) && Number(profile?.gstRate || 0) > 0
+  const configuredGstRate = isGstEnabled ? Number(profile?.gstRate || 0) : 0
+  const taxLabel = profile?.gstLabel || 'GST'
+  const subtotalRaw = cart.reduce((s, i) => s + (i.price * i.quantity), 0)
+  const displayedTax = calculation?.pricing?.taxes?.totalTax !== undefined
+    ? Number(calculation.pricing.taxes.totalTax)
+    : (isGstEnabled ? (subtotalRaw * configuredGstRate) / 100 : 0)
+  const grandTotalValue = calculation?.pricing?.grandTotal ?? subtotalRaw
   const totalItemCount = cart.reduce((s, i) => s + i.quantity, 0)
 
   // Common Order Drawer Contents for both Desktop Sidebar & Mobile Sheet
@@ -658,9 +674,11 @@ export default function POSTerminal({ restaurantId }) {
 
           {/* Taxes */}
           <div className="flex justify-between text-slate-500 text-[11px]">
-            <span>Taxes & GST (5%)</span>
+            <span>
+              {isGstEnabled ? `Taxes & ${taxLabel} (${configuredGstRate}%)` : `Taxes (${taxLabel} Disabled)`}
+            </span>
             <span className="font-mono text-slate-700">
-              ₹{calculation?.pricing?.taxes?.totalTax?.toFixed(2) || (cart.reduce((s, i) => s + (i.price * i.quantity), 0) * 0.05).toFixed(2)}
+              ₹{displayedTax.toFixed(2)}
             </span>
           </div>
         </div>

@@ -10,7 +10,7 @@ import Logo from '@/components/ui/Logo'
 import NotificationDropdown from '@/components/ui/NotificationDropdown'
 import MobileNavbar from '../layout/MobileNavbar'
 
-export default function VideoTutorials({ activeItem, setActiveItem, navigate }) {
+export default function VideoTutorials({ activeItem, setActiveItem, navigate, restaurantId = 'demo-merchant' }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -29,7 +29,7 @@ export default function VideoTutorials({ activeItem, setActiveItem, navigate }) 
           <Logo subtitle="Academy" iconSize={26} />
         </div>
         <div className="flex items-center gap-3">
-          <NotificationDropdown />
+          <NotificationDropdown restaurantId={restaurantId} onNavigateTab={setActiveItem} />
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-[10px] shadow-lg shadow-blue-500/20">
             JD
           </div>
@@ -77,7 +77,7 @@ export default function VideoTutorials({ activeItem, setActiveItem, navigate }) 
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <NotificationDropdown />
+            <NotificationDropdown restaurantId={restaurantId} onNavigateTab={setActiveItem} />
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-xs shadow-xl shadow-blue-500/20 ring-4 ring-white">
               JD
             </div>

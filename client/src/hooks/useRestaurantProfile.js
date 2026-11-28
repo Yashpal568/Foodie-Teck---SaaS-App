@@ -14,6 +14,23 @@ const readLocalGstin = (restaurantId) => {
     }
 }
 
+const readDemoGstSettings = () => {
+    try {
+        if (typeof window === 'undefined') return { enabled: false, rate: 0, label: 'GST', gstin: '' }
+        const raw = window.localStorage.getItem('servora_demo_gst_settings')
+        if (!raw) return { enabled: false, rate: 0, label: 'GST', gstin: '' }
+        const parsed = JSON.parse(raw)
+        return {
+            enabled: Boolean(parsed?.enabled),
+            rate: Number(parsed?.rate || 0),
+            label: String(parsed?.label || 'GST'),
+            gstin: String(parsed?.gstin || '').trim().toUpperCase(),
+        }
+    } catch {
+        return { enabled: false, rate: 0, label: 'GST', gstin: '' }
+    }
+}
+
 /**
  * Hook to manage restaurant profile + GST configuration via Supabase
  */
@@ -21,25 +38,29 @@ export const useRestaurantProfile = (restaurantId) => {
     const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
     const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
 
-    const [profile, setProfile] = useState(() => ({
-        id: restaurantId || null,
-        name: isDemo ? 'Servora Demo Kitchen' : '',
-        business_name: isDemo ? 'Servora Demo Kitchen' : '',
-        email: '',
-        address: '',
-        phone: '',
-        gstin: '',
-        gstEnabled: false,
-        gstRate: 0,
-        gstLabel: 'GST',
-        description: 'Premium Dining Experience',
-        plan: 'Professional',
-        status: 'Active'
-    }))
+    const [profile, setProfile] = useState(() => {
+        const demoGst = isDemo ? readDemoGstSettings() : null
+        return {
+            id: restaurantId || null,
+            name: isDemo ? 'Servora Demo Kitchen' : '',
+            business_name: isDemo ? 'Servora Demo Kitchen' : '',
+            email: '',
+            address: '',
+            phone: '',
+            gstin: demoGst?.gstin || '',
+            gstEnabled: Boolean(demoGst?.enabled),
+            gstRate: Number(demoGst?.rate || 0),
+            gstLabel: demoGst?.label || 'GST',
+            description: 'Premium Dining Experience',
+            plan: 'Professional',
+            status: 'Active'
+        }
+    })
     const [loading, setLoading] = useState(true)
 
     const fetchProfile = useCallback(async () => {
         if (isDemo) {
+            const demoGst = readDemoGstSettings()
             setProfile((prev) => ({
                 ...prev,
                 id: 'demo-merchant',
@@ -47,10 +68,10 @@ export const useRestaurantProfile = (restaurantId) => {
                 business_name: 'Servora Demo Kitchen',
                 address: '',
                 phone: '',
-                gstin: '',
-                gstEnabled: false,
-                gstRate: 0,
-                gstLabel: 'GST',
+                gstin: demoGst.gstin,
+                gstEnabled: demoGst.enabled,
+                gstRate: demoGst.rate,
+                gstLabel: demoGst.label,
             }))
             setLoading(false)
             return
@@ -73,7 +94,7 @@ export const useRestaurantProfile = (restaurantId) => {
                 }
             }
 
-            if (!data) {
+            if (!data && (!restaurantId || restaurantId === 'default')) {
                 data = await getMyRestaurant()
             }
 
@@ -111,7 +132,12 @@ export const useRestaurantProfile = (restaurantId) => {
     useEffect(() => {
         fetchProfile()
 
-        const handleSync = () => {
+        const handleSync = (e) => {
+            if (isDemo && e?.type !== 'gstSettingsUpdated') return
+            const detailRid = e?.detail?.restaurantId
+            if (detailRid && restaurantId && detailRid !== restaurantId && detailRid !== profile?.id) {
+                return
+            }
             fetchProfile()
         }
         window.addEventListener('restaurantProfileUpdated', handleSync)
@@ -120,7 +146,7 @@ export const useRestaurantProfile = (restaurantId) => {
             window.removeEventListener('restaurantProfileUpdated', handleSync)
             window.removeEventListener('gstSettingsUpdated', handleSync)
         }
-    }, [fetchProfile])
+    }, [fetchProfile, isDemo, restaurantId, profile?.id])
 
     const updateProfile = async (newProfile) => {
         try {

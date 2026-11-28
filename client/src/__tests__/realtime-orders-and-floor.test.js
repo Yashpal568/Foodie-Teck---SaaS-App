@@ -65,6 +65,8 @@ describe('Realtime Orders, Table 7 Occupancy & Pending Orders Card', () => {
     let updated = persisted.find((o) => o.id === first.id)
     expect(updated.status).toBe('PREPARING')
 
+    await updateOrderStatus(first.id, 'READY')
+    await updateOrderStatus(first.id, 'SERVED')
     await updateOrderStatus(first.id, 'FINISHED')
     persisted = JSON.parse(window.localStorage.getItem(DEMO_ORDERS_STORAGE_KEY))
     updated = persisted.find((o) => o.id === first.id)
@@ -108,5 +110,17 @@ describe('Realtime Orders, Table 7 Occupancy & Pending Orders Card', () => {
 
     const allOrders = await fetchOrders('demo-merchant')
     expect(allOrders.some((o) => ['Vikram Singh', 'Priya Patel', 'Aarav Sharma'].includes(o.customer_name || o.customerName))).toBe(false)
+  })
+
+  it('transitions FINISHED orders in OrderTracking from Bill In Progress to Order Completed & Settled and fixes CustomerMenu storage handler', () => {
+    const trackingSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/components/order/OrderTracking.jsx'), 'utf8')
+    expect(trackingSrc).toContain("title: 'Order Completed & Settled'")
+    expect(trackingSrc).toContain('if (isOrderFinished) return 5')
+    expect(trackingSrc).toContain('!isOrderFinished && idx === currentStageIndex')
+
+    const custSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/CustomerMenu.jsx'), 'utf8')
+    const storageHandlerSlice = custSrc.slice(custSrc.indexOf('const handleStorage'))
+    expect(storageHandlerSlice).not.toContain('servora_restaurant_logo_${resId}')
+    expect(storageHandlerSlice).toContain('servora_restaurant_logo_${restaurantId}')
   })
 })

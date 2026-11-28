@@ -418,7 +418,7 @@ export default function CustomerMenu() {
   const categoryRefs = useRef({});
   const themeSwipeStartX = useRef(null);
 
-  const { orders: liveRestaurantOrders, createOrder, updateStatus, getOrdersByTable } =
+  const { orders: liveRestaurantOrders, orderHistory: liveOrderHistory, createOrder, updateStatus, getOrdersByTable } =
     useOrderManagement(restaurantId);
 
   useEffect(() => {
@@ -554,11 +554,9 @@ export default function CustomerMenu() {
         try {
           localLogo =
             localStorage.getItem(`servora_restaurant_logo_${resId}`) ||
-            localStorage.getItem("servora_restaurant_logo") ||
             "";
           localCover =
             localStorage.getItem(`servora_restaurant_cover_${resId}`) ||
-            localStorage.getItem("servora_restaurant_cover") ||
             "";
         } catch (e) {}
 
@@ -567,7 +565,7 @@ export default function CustomerMenu() {
           const safeName =
             !rawName ||
             /^(test|test\s*2|test2|test2@gmail\.com)$/i.test(rawName)
-              ? "Tiger Bistro"
+              ? "Restaurant Menu"
               : rawName;
 
           // Prioritize local storage over stale database response for immediate feedback
@@ -702,14 +700,15 @@ export default function CustomerMenu() {
       )
       .subscribe();
 
-    // 2. Cross-Tab BroadcastChannel for instant zero-latency sync
+    // 2. Cross-Tab BroadcastChannel for instant zero-latency sync (strictly scoped to restaurantId)
     let bc = null;
     try {
       if (typeof window !== "undefined" && window.BroadcastChannel) {
         bc = new BroadcastChannel("servora_profile_sync");
         bc.onmessage = (e) => {
           if (e.data) {
-            const { business_name, logo_url, cover_url } = e.data;
+            const { restaurantId: msgRid, slugId, business_name, logo_url, cover_url } = e.data;
+            if (msgRid !== restaurantId && slugId !== restaurantId) return;
             setRestaurantData((prev) => ({
               ...prev,
               name: business_name || prev.name,
@@ -722,13 +721,13 @@ export default function CustomerMenu() {
       }
     } catch (e) {}
 
-    // 3. Storage event listener (across browser tabs)
+    // 3. Storage event listener (strictly scoped to this restaurantId)
     const handleStorage = (e) => {
-      if (e.key && e.key.startsWith("servora_restaurant_logo")) {
+      if (e.key === `servora_restaurant_logo_${restaurantId}`) {
         if (e.newValue)
           setRestaurantData((prev) => ({ ...prev, logo: e.newValue }));
       }
-      if (e.key && e.key.startsWith("servora_restaurant_cover")) {
+      if (e.key === `servora_restaurant_cover_${restaurantId}`) {
         if (e.newValue)
           setRestaurantData((prev) => ({
             ...prev,
@@ -738,9 +737,10 @@ export default function CustomerMenu() {
       }
     };
 
-    // 4. In-window custom event
+    // 4. In-window custom event (strictly scoped to this restaurantId)
     const handleProfileUpdate = (e) => {
       if (e.detail) {
+        if (e.detail.restaurantId && e.detail.restaurantId !== restaurantId) return;
         setRestaurantData((prev) => ({
           ...prev,
           name: e.detail.business_name || prev.name,
@@ -831,8 +831,21 @@ export default function CustomerMenu() {
 
   // Check for session completion and hydrate active order on load/table switch
   useEffect(() => {
-    if (activeOrderId && currentOrder) {
-      if (currentOrder.status === ORDER_STATUS.FINISHED || currentOrder.status === ORDER_STATUS.CANCELLED) {
+    const allKnownOrders = [...(liveRestaurantOrders || []), ...(liveOrderHistory || [])];
+    const targetId = currentOrder?.id || activeOrderId;
+    const syncedLatest = targetId
+      ? allKnownOrders.find((o) => String(o.id) === String(targetId))
+      : null;
+
+    if (syncedLatest && currentOrder && syncedLatest.status !== currentOrder.status) {
+      setCurrentOrder(syncedLatest);
+    }
+
+    const effectiveStatus = String((syncedLatest || currentOrder)?.status || '').toUpperCase();
+    const isTerminalStatus = ['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(effectiveStatus);
+
+    if (activeOrderId && (currentOrder || syncedLatest)) {
+      if (isTerminalStatus && !showOrderTracking) {
         setActiveOrderId(null);
         setCurrentOrder(null);
         try {
@@ -865,7 +878,7 @@ export default function CustomerMenu() {
         setActiveOrderId(matched.id);
       }
     }
-  }, [activeOrderId, currentOrder, liveRestaurantOrders, tableNumber, restaurantId, getOrdersByTable]);
+  }, [activeOrderId, currentOrder, showOrderTracking, liveRestaurantOrders, liveOrderHistory, tableNumber, restaurantId, getOrdersByTable]);
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -1004,8 +1017,12 @@ export default function CustomerMenu() {
             (o) => !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(o.status || "").toUpperCase()),
           )
         : null;
+    const activeCurrent =
+      currentOrder && !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(currentOrder.status || "").toUpperCase())
+        ? currentOrder
+        : null;
     const resolvedOrder =
-      currentOrder ||
+      activeCurrent ||
       (activeOrderId && (liveRestaurantOrders || []).find((o) => String(o.id) === String(activeOrderId))) ||
       tableOrder ||
       ((restaurantId === "demo-merchant" || restaurantId === "demo") ? (liveRestaurantOrders || [])[0] : null);
@@ -1260,6 +1277,17 @@ export default function CustomerMenu() {
         onClose={() => {
           setShowOrderTracking(false);
           setActiveTab("menu");
+          const trackedId = currentOrder?.id || activeOrderId;
+          const allKnown = [...(liveRestaurantOrders || []), ...(liveOrderHistory || [])];
+          const latest = allKnown.find((o) => String(o.id) === String(trackedId)) || currentOrder;
+          if (latest && ["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(latest.status || "").toUpperCase())) {
+            setActiveOrderId(null);
+            setCurrentOrder(null);
+            try {
+              sessionStorage.removeItem("activeOrderId");
+              if (restaurantId) sessionStorage.removeItem(`servora_active_order_${restaurantId}`);
+            } catch (e) {}
+          }
         }}
         onOpenCart={() => {
           setShowOrderTracking(false);

@@ -62,8 +62,8 @@ export default function POSBillPreviewModal({
       const itemsHtml = cartItems.map(item => `
         <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px; align-items:flex-start;">
           <div style="max-width:260px; word-break:break-word;">
-            <span style="font-weight:bold; color:#0f172a;">${item.name}</span>
-            ${item.variant && item.variant !== 'full' ? `<span style="font-size:11px; color:#d97706; display:block;">(${item.variant})</span>` : ''}
+            <span style="font-weight:bold; color:#0f172a;">${escapeHtml(item.name)}</span>
+            ${item.variant && item.variant !== 'full' ? `<span style="font-size:11px; color:#d97706; display:block;">(${escapeHtml(item.variant)})</span>` : ''}
           </div>
           <span style="white-space:nowrap; margin:0 8px; color:#475569;">${item.quantity} x ₹${Number(item.price).toFixed(2)}</span>
           <span style="font-weight:bold; color:#0f172a; white-space:nowrap; text-align:right;">₹${(item.price * item.quantity).toFixed(2)}</span>
