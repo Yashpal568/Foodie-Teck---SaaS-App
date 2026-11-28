@@ -85,19 +85,33 @@ function getRelativeTime(dateStr) {
   }
 }
 
-export default function RecentOrders({ restaurantId = 'default', onViewAll }) {
+import { formatLocalDateKey, shiftLocalDateKey, deduplicateOrders, filterOrdersByDate } from '@/utils/analyticsHelpers'
+
+export default function RecentOrders({ restaurantId = 'default', selectedDate = '', onViewAll }) {
   const { orders: activeOrders, orderHistory, loading } = useOrderManagement(restaurantId)
+  const todayKey = formatLocalDateKey()
+  const yesterdayKey = shiftLocalDateKey(todayKey, -1)
+  const isCustomPastDate = Boolean(selectedDate && selectedDate !== todayKey)
+
+  const formatShortDate = (dateKey) => {
+    if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return ''
+    const [y, m, d] = dateKey.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
 
   const orders = useMemo(() => {
-    const all = [...(activeOrders || []), ...(orderHistory || [])]
-    return all
+    const merged = deduplicateOrders([...(activeOrders || []), ...(orderHistory || [])])
+    const base = isCustomPastDate ? filterOrdersByDate(merged, selectedDate) : merged
+    return base
       .sort((a, b) => {
         const timeA = new Date(a.created_at || a.createdAt || 0).getTime()
         const timeB = new Date(b.created_at || b.createdAt || 0).getTime()
         return timeB - timeA
       })
-      .slice(0, 5)
-  }, [activeOrders, orderHistory])
+      .slice(0, isCustomPastDate ? 10 : 5)
+  }, [activeOrders, orderHistory, isCustomPastDate, selectedDate])
+
+  const selectedLabel = selectedDate === yesterdayKey ? 'Yesterday' : formatShortDate(selectedDate)
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
@@ -108,15 +122,21 @@ export default function RecentOrders({ restaurantId = 'default', onViewAll }) {
             <ReceiptText className="w-4 h-4 text-blue-600" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Recent Orders</h3>
-            <p className="text-[10px] text-slate-400 font-medium">Latest activity across all tables</p>
+            <h3 className="text-sm font-bold text-slate-900">
+              {isCustomPastDate ? `Orders · ${selectedLabel}` : 'Recent Orders'}
+            </h3>
+            <p className="text-[10px] text-slate-400 font-medium">
+              {isCustomPastDate
+                ? `Billing & order ledger for ${selectedLabel}`
+                : 'Latest activity across all tables'}
+            </p>
           </div>
         </div>
         <button
-          onClick={onViewAll}
+          onClick={() => onViewAll?.(selectedDate || todayKey)}
           className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors group cursor-pointer"
         >
-          View All
+          {isCustomPastDate ? 'View Day Ledger' : 'View All'}
           <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
         </button>
       </div>
@@ -188,8 +208,12 @@ export default function RecentOrders({ restaurantId = 'default', onViewAll }) {
             <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mb-3 border border-slate-100">
               <ReceiptText className="w-5 h-5 text-slate-300" />
             </div>
-            <p className="text-xs font-bold text-slate-400">No recent orders</p>
-            <p className="text-[11px] text-slate-300 mt-0.5 font-medium">Orders will appear here in real-time</p>
+            <p className="text-xs font-bold text-slate-400">
+              {isCustomPastDate ? `No orders found on ${selectedLabel}` : 'No recent orders'}
+            </p>
+            <p className="text-[11px] text-slate-300 mt-0.5 font-medium">
+              {isCustomPastDate ? 'Try picking another date above' : 'Orders will appear here in real-time'}
+            </p>
           </div>
         )}
       </div>

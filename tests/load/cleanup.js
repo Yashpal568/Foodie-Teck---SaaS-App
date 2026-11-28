@@ -93,12 +93,18 @@ export async function runCleanup(argv = process.argv.slice(2)) {
 
   if (restaurantIds.length > 0) {
     const chunkedDelete = async (table, column = 'restaurant_id') => {
-      const { error, count } = await adminClient
-        .from(table)
-        .delete({ count: 'exact' })
-        .in(column, restaurantIds)
-      if (error) report.errors.push(`${table}: ${error.message}`)
-      return count || 0
+      let totalDeleted = 0
+      const CHUNK_SIZE = 40 // keep PostgREST IN(...) query URL well under gateway limits
+      for (let i = 0; i < restaurantIds.length; i += CHUNK_SIZE) {
+        const slice = restaurantIds.slice(i, i + CHUNK_SIZE)
+        const { error, count } = await adminClient
+          .from(table)
+          .delete({ count: 'exact' })
+          .in(column, slice)
+        if (error) report.errors.push(`${table}[${i}..${i + slice.length - 1}]: ${error.message}`)
+        totalDeleted += count || 0
+      }
+      return totalDeleted
     }
 
     report.deleted.paymentVerifications = await chunkedDelete('payment_verifications')
@@ -113,10 +119,28 @@ export async function runCleanup(argv = process.argv.slice(2)) {
     report.deleted.restaurants = await chunkedDelete('restaurants', 'id')
   }
 
-  for (const uid of ownerUserIds) {
-    const { error } = await adminClient.auth.admin.deleteUser(uid)
-    if (error) report.errors.push(`auth.users(${uid}): ${error.message}`)
-    else report.deleted.authUsers += 1
+  const AUTH_BATCH = 10
+  for (let i = 0; i < ownerUserIds.length; i += AUTH_BATCH) {
+    const batch = ownerUserIds.slice(i, i + AUTH_BATCH)
+    await Promise.all(
+      batch.map(async (uid) => {
+        let lastErr = null
+        for (let attempt = 1; attempt <= 4; attempt += 1) {
+          const { error } = await adminClient.auth.admin.deleteUser(uid)
+          if (!error) {
+            report.deleted.authUsers += 1
+            return
+          }
+          lastErr = error
+          if (/rate limit|429|timeout/i.test(String(error.message || '')) && attempt < 4) {
+            await new Promise((res) => setTimeout(res, attempt * 1500))
+            continue
+          }
+          break
+        }
+        report.errors.push(`auth.users(${uid}): ${lastErr?.message || 'delete failed'}`)
+      })
+    )
   }
 
   report.finishedAt = new Date().toISOString()

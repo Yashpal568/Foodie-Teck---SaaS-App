@@ -74,4 +74,5 @@ artifacts/
 coverage/
 .tempmediaStorage/
 .agents/
+server/data/printer-configs.json
 0.26.0

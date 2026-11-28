@@ -425,3 +425,141 @@ describe('Authoritative Billing Engine & Payment Idempotency', () => {
     assert.equal(customRes.pricing.grandTotal, 224)
   })
 })
+
+describe('QZ Tray Digital Signing Security', () => {
+  it('rejects unauthenticated /api/print/qz-sign (401), rejects invalid payloads (400), and signs valid payloads with RSA-SHA512', async () => {
+    const crypto = require('crypto')
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    })
+
+    // 1. Unauthenticated request must be rejected (401)
+    const unauthRes = await fetch(`${baseUrl}/api/print/qz-sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toSign: 'test-challenge' }),
+    })
+    assert.equal(unauthRes.status, 401)
+
+    const prevKey = process.env.QZ_PRIVATE_KEY
+    process.env.QZ_PRIVATE_KEY = privateKey
+    try {
+      // 2. Cross-tenant signing attempt rejected (403)
+      const crossTenantRes = await fetch(`${baseUrl}/api/print/qz-sign`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ restaurantId: TENANT_B_ID, toSign: 'cross-tenant-challenge' }),
+      })
+      assert.equal(crossTenantRes.status, 403)
+
+      // 3. Empty/oversized payload rejected (400)
+      const badRes = await fetch(`${baseUrl}/api/print/qz-sign`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ restaurantId: TENANT_A_ID, toSign: '' }),
+      })
+      assert.equal(badRes.status, 400)
+
+      // 4. Valid authenticated signing request returns verifiable RSA-SHA512 signature
+      const payload = 'qz-challenge-2026-servora'
+      const okRes = await fetch(`${baseUrl}/api/print/qz-sign`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ restaurantId: TENANT_A_ID, toSign: payload }),
+      })
+      assert.equal(okRes.status, 200)
+      const body = await okRes.json()
+      assert.equal(body.success, true)
+      assert.equal(body.algorithm, 'RSA-SHA512')
+
+      const verifier = crypto.createVerify('RSA-SHA512')
+      verifier.update(payload)
+      verifier.end()
+      assert.equal(verifier.verify(publicKey, body.signature, 'base64'), true)
+
+      // 5. Control-byte injection & oversized payloads must be rejected (400)
+      const ctrlRes = await fetch(`${baseUrl}/api/print/qz-sign`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ restaurantId: TENANT_A_ID, toSign: 'bad\x00payload' }),
+      })
+      assert.equal(ctrlRes.status, 400)
+
+      // 5. Public certificate endpoint returns only cert text (never private key)
+      const prevCert = process.env.QZ_CERT_PEM
+      process.env.QZ_CERT_PEM = '-----BEGIN CERTIFICATE-----\nTESTCERT\n-----END CERTIFICATE-----'
+      try {
+        const certRes = await fetch(`${baseUrl}/api/print/qz-certificate`)
+        assert.equal(certRes.status, 200)
+        const certText = await certRes.text()
+        assert.ok(certText.includes('BEGIN CERTIFICATE'))
+        assert.ok(!certText.includes('PRIVATE KEY'))
+      } finally {
+        if (prevCert === undefined) delete process.env.QZ_CERT_PEM
+        else process.env.QZ_CERT_PEM = prevCert
+      }
+
+      // 6. Durable printer config API enforces tenant isolation & persistence per restaurantId + terminalId
+      const unauthCfg = await fetch(`${baseUrl}/api/print/config?restaurantId=${TENANT_A_ID}&terminalId=pos-1`)
+      assert.equal(unauthCfg.status, 401)
+
+      const crossCfgPut = await fetch(`${baseUrl}/api/print/config`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: TENANT_B_ID,
+          terminalId: 'pos-1',
+          stations: { billing: { printerName: 'Hijacked' } },
+        }),
+      })
+      assert.equal(crossCfgPut.status, 403)
+
+      const saveCfgRes = await fetch(`${baseUrl}/api/print/config`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${MERCHANT_A_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: TENANT_A_ID,
+          terminalId: 'counter-1',
+          terminalLabel: 'Front Desk POS',
+          stations: {
+            billing: { enabled: true, printerId: 'qz:EPSON-TM82', printerName: 'EPSON-TM82', paperWidthId: '80mm' },
+            kitchen: { enabled: true, printerId: 'qz:KITCHEN-80', printerName: 'KITCHEN-80', paperWidthId: '80mm' },
+          },
+        }),
+      })
+      assert.equal(saveCfgRes.status, 200)
+
+      const loadCfgRes = await fetch(
+        `${baseUrl}/api/print/config?restaurantId=${TENANT_A_ID}&terminalId=counter-1`,
+        { headers: { Authorization: `Bearer ${MERCHANT_A_TOKEN}` } }
+      )
+      assert.equal(loadCfgRes.status, 200)
+      const loadCfgBody = await loadCfgRes.json()
+      assert.equal(loadCfgBody.config.stations.billing.printerName, 'EPSON-TM82')
+      assert.equal(loadCfgBody.config.stations.kitchen.printerName, 'KITCHEN-80')
+    } finally {
+      if (prevKey === undefined) delete process.env.QZ_PRIVATE_KEY
+      else process.env.QZ_PRIVATE_KEY = prevKey
+    }
+  })
+})

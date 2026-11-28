@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { getRestaurantByEmail, ensureValidRestaurantUUID } from './restaurant.service'
-import { updateTableStatus } from './table.service'
+import { updateTableStatus, requestWaiter } from './table.service'
 import { assertMerchantOperational } from '../lib/merchantAuth'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -919,4 +919,45 @@ export const updateTicketStatus = async (ticketId, status) => {
     .single()
   if (error) throw error
   return data
+}
+
+/**
+ * Customer-facing request for final table bill once dining is ready to settle.
+ * - Demo mode updates order to BILL_REQUESTED + notifies merchant immediately.
+ * - Live DB mode tries safe guest RPC first and always notifies merchant concierge.
+ */
+export const requestOrderBill = async (orderId, restaurantId, tableNumber = '1', customerName = 'Guest') => {
+  const cleanTable = String(tableNumber || '1')
+  const cleanCustomer = String(customerName || 'Guest').trim() || 'Guest'
+  const isDemo = !orderId || !isUUID(String(orderId)) || restaurantId === 'demo-merchant' || restaurantId === 'demo'
+
+  if (isDemo) {
+    const updated = await updateOrderStatus(orderId, 'BILL_REQUESTED')
+    await requestWaiter(restaurantId || 'demo-merchant', cleanTable, `${cleanCustomer} • BILL REQUESTED`).catch(() => {})
+    return { order: updated, status: 'BILL_REQUESTED', notified: true }
+  }
+
+  const validRid = await ensureValidRestaurantUUID(restaurantId)
+  if (validRid && isUUID(validRid) && typeof supabase.rpc === 'function') {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('request_public_bill', {
+      p_order_id: orderId,
+      p_restaurant_id: validRid,
+    })
+    if (!rpcErr && rpcData) {
+      await requestWaiter(validRid, cleanTable, `${cleanCustomer} • BILL REQUESTED`).catch(() => {})
+      dispatchStatusBroadcasts(orderId, 'BILL_REQUESTED', {
+        restaurant_id: validRid,
+        table_number: cleanTable,
+      })
+      return { order: rpcData, status: 'BILL_REQUESTED', notified: true }
+    }
+  }
+
+  // Fallback for hardened RLS deployments without request_public_bill RPC
+  await requestWaiter(
+    validRid || restaurantId,
+    cleanTable,
+    `${cleanCustomer} • BILL REQUESTED (#${String(orderId).slice(-4).toUpperCase()})`
+  )
+  return { order: null, status: 'BILL_REQUESTED', notified: true }
 }

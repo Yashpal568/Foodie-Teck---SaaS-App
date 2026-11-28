@@ -70,6 +70,14 @@ export default function RegisterPage() {
     }
     setInitStatus(statuses[statuses.length - 1])
 
+    // Ensure any previous merchant session is cleared before registering a new account
+    try {
+      sessionStorage.removeItem('servora_restaurant_id')
+      await supabase.auth.signOut()
+    } catch {
+      // ignore signOut failure if no active session
+    }
+
     // ── Real Supabase Auth ──
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: formData.email,

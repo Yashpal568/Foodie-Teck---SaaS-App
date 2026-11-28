@@ -230,6 +230,9 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
   const outOfStockItems = totalItems - inStockItems
   const vegItems = menuItems.filter(item => item.type === 'VEG').length
   const nonVegItems = menuItems.filter(item => item.type === 'NON_VEG').length
+  const activeCategoryCount = new Set(menuItems.map(i => String(i.category || '').trim()).filter(Boolean)).size
+  const livePercent = totalItems > 0 ? Math.round((inStockItems / totalItems) * 100) : 0
+  const vegPercent = totalItems > 0 ? Math.round((vegItems / totalItems) * 100) : 0
 
   if (showForm) {
     return (
@@ -308,70 +311,77 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
           }}
         />
 
-        <div className="p-4 md:p-8 pb-24 md:pb-8 space-y-6 md:space-y-8">
-          {/* Stats Bar and List View */}
-
-          {/* Executive Stats Panel */}
-          <div className="md:px-0">
-            <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-gray-100 rounded-2xl">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-x divide-y divide-gray-100/60">
-                <div className="p-4 md:p-6 bg-blue-50/5 hover:bg-blue-50/30 transition-colors group">
-                  <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
-                    <div className="w-10 h-10 bg-blue-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <LayoutGrid className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] md:text-[10px] font-semibold text-blue-600/80 uppercase tracking-widest">Total</p>
-                      <p className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">{totalItems}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4 md:p-6 bg-green-50/5 hover:bg-green-50/30 transition-colors group">
-                  <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
-                    <div className="w-10 h-10 bg-green-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] md:text-[10px] font-semibold text-green-600/80 uppercase tracking-widest">Live</p>
-                      <p className="text-2xl md:text-3xl font-bold text-green-700 tracking-tight">{inStockItems}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4 md:p-6 bg-red-50/5 hover:bg-red-50/30 transition-colors group">
-                  <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
-                    <div className="w-10 h-10 bg-red-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <AlertCircle className="w-5 h-5 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] md:text-[10px] font-semibold text-red-600/80 uppercase tracking-widest">Alert</p>
-                      <p className="text-2xl md:text-3xl font-bold text-red-700 tracking-tight">{outOfStockItems}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4 md:p-6 bg-emerald-50/5 hover:bg-emerald-50/30 transition-colors group">
-                  <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
-                    <div className="w-10 h-10 bg-emerald-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Leaf className="w-5 h-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] md:text-[10px] font-semibold text-emerald-600/80 uppercase tracking-widest">Veg</p>
-                      <p className="text-2xl md:text-3xl font-bold text-emerald-700 tracking-tight">{vegItems}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4 md:p-6 bg-orange-50/5 hover:bg-orange-50/30 transition-colors group col-span-2 md:col-span-1">
-                  <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
-                    <div className="w-10 h-10 bg-orange-600/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Flame className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] md:text-[10px] font-semibold text-orange-600/80 uppercase tracking-widest">Non-Veg</p>
-                      <p className="text-2xl md:text-3xl font-bold text-orange-700 tracking-tight">{nonVegItems}</p>
-                    </div>
-                  </div>
+        <div className="p-3.5 md:p-6 lg:p-8 pb-24 md:pb-10 space-y-4 md:space-y-6 max-w-[1600px] mx-auto">
+          {/* 5 Individual Executive KPI Stat Cards (Horizontal scroll strip on mobile, 5-col grid on desktop) */}
+          <div className="flex lg:grid lg:grid-cols-5 gap-3 overflow-x-auto no-scrollbar pb-1 snap-x">
+            <div className="min-w-[148px] lg:min-w-0 shrink-0 snap-start bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-2xs hover:shadow-sm hover:border-blue-200/80 transition-[box-shadow,border-color] duration-200">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Items</span>
+                <div className="w-6.5 h-6.5 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <LayoutGrid className="w-3.5 h-3.5" />
                 </div>
               </div>
-            </Card>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight tabular-nums">{totalItems}</p>
+              <p className="text-[10.5px] font-medium text-blue-600 mt-0.5">
+                {activeCategoryCount} {activeCategoryCount === 1 ? 'category' : 'categories'} active
+              </p>
+            </div>
+
+            <div className="min-w-[148px] lg:min-w-0 shrink-0 snap-start bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-2xs hover:shadow-sm hover:border-emerald-200/80 transition-[box-shadow,border-color] duration-200">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live Active</span>
+                <div className="w-6.5 h-6.5 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 tracking-tight tabular-nums">{inStockItems}</p>
+              <p className="text-[10.5px] font-medium text-emerald-600 mt-0.5">
+                • {livePercent}% visible
+              </p>
+            </div>
+
+            <div className="min-w-[148px] lg:min-w-0 shrink-0 snap-start bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-2xs hover:shadow-sm hover:border-rose-200/80 transition-[box-shadow,border-color] duration-200">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stock Alerts</span>
+                <div className="w-6.5 h-6.5 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <p className={`text-xl sm:text-2xl font-black tracking-tight tabular-nums ${outOfStockItems > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                {outOfStockItems}
+              </p>
+              <p className={`text-[10.5px] font-medium mt-0.5 ${outOfStockItems > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {outOfStockItems === 0 ? 'Healthy • No stockouts' : `${outOfStockItems} out of stock`}
+              </p>
+            </div>
+
+            <div className="min-w-[148px] lg:min-w-0 shrink-0 snap-start bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-2xs hover:shadow-sm hover:border-emerald-200/80 transition-[box-shadow,border-color] duration-200">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pure Veg</span>
+                <div className="w-6.5 h-6.5 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Leaf className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 tracking-tight tabular-nums">{vegItems}</p>
+              <p className="text-[10.5px] font-medium text-emerald-600 mt-0.5">
+                {vegPercent}% vegetarian menu
+              </p>
+            </div>
+
+            <div className="min-w-[148px] lg:min-w-0 shrink-0 snap-start bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-2xs hover:shadow-sm hover:border-amber-200/80 transition-[box-shadow,border-color] duration-200">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Non-Veg</span>
+                <div className="w-6.5 h-6.5 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                  <Flame className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <p className={`text-xl sm:text-2xl font-black tracking-tight tabular-nums ${nonVegItems > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {nonVegItems}
+              </p>
+              <p className="text-[10.5px] font-medium text-slate-400 mt-0.5">
+                {nonVegItems === 0 ? 'Zero items configured' : `${nonVegItems} non-veg items`}
+              </p>
+            </div>
           </div>
 
           {/* List View */}
@@ -394,13 +404,14 @@ export default function MenuManagement({ currency, onCurrencyChange, activeItem,
             />
           </div>
 
-          {/* Mobile Sticky Floating Action Button */}
-          <div className="fixed bottom-24 right-6 md:hidden z-50">
+          {/* Mobile Sticky Floating Action Pill (+ New Dish) */}
+          <div className="fixed bottom-20 right-4 lg:hidden z-50">
             <Button 
-              onClick={() => setShowForm(true)} 
-              className="w-14 h-14 rounded-full bg-orange-600 hover:bg-orange-700 text-white shadow-2xl shadow-orange-600/40 border-4 border-white flex items-center justify-center transition-all hover:scale-110 active:scale-90"
+              onClick={handleAddNew} 
+              className="h-10 px-4 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/30 flex items-center gap-1.5 text-xs font-bold transition-transform active:scale-95 cursor-pointer"
             >
-              <Plus className="w-7 h-7" />
+              <Plus className="w-4 h-4" />
+              <span>New Dish</span>
             </Button>
           </div>
         </div>

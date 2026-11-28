@@ -29,25 +29,37 @@ import MenuBottomNavbar from '@/components/menu/MenuBottomNavbar'
 import { useOrderManagement, ORDER_STATUS, ORDER_STATUS_CONFIG } from '@/hooks/useOrderManagement'
 import { useRestaurantProfile } from '@/hooks/useRestaurantProfile'
 import { requestWaiter } from '@/services/table.service'
-import { getDemoOrders, DEMO_ORDERS_STORAGE_KEY } from '@/services/order.service'
+import { getDemoOrders, DEMO_ORDERS_STORAGE_KEY, requestOrderBill } from '@/services/order.service'
+import { doesOrderBelongToTable, formatStageCountdown, readWaiterCooldownRemaining } from '@/utils/orderPipelineHelpers'
 import { toast } from 'sonner'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const isUUID = (val) => typeof val === 'string' && UUID_REGEX.test(val)
 
-const readCachedOrder = (orderId, fallbackInitial) => {
+const readCachedOrder = (orderId, fallbackInitial, tableNumber = null) => {
   if (fallbackInitial && (!orderId || String(fallbackInitial.id) === String(orderId))) {
-    return fallbackInitial
+    if (!tableNumber || doesOrderBelongToTable(fallbackInitial, tableNumber)) {
+      return fallbackInitial
+    }
   }
   if (!orderId || typeof window === 'undefined') return null
   try {
     const raw = window.sessionStorage?.getItem(`servora_order_${orderId}`)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (!tableNumber || doesOrderBelongToTable(parsed, tableNumber)) {
+        return parsed
+      }
+    }
   } catch {
     // ignore storage parse failure
   }
   if (!isUUID(String(orderId))) {
-    const demoHit = getDemoOrders().find((o) => String(o.id) === String(orderId))
+    const demoHit = getDemoOrders().find(
+      (o) =>
+        String(o.id) === String(orderId) &&
+        (!tableNumber || doesOrderBelongToTable(o, tableNumber))
+    )
     if (demoHit) return demoHit
   }
   return null
@@ -86,29 +98,75 @@ export default function OrderTracking({
   onClose, 
   onOpenCart, 
   onOpenSearch,
+  waiterCooldownSeconds = null,
+  waiterCooldownText = null,
+  onCallWaiter = null,
+  cartCount = 0,
   theme = 'dark' 
 }) {
   const [order, setOrder] = useState(() => {
-    const cached = readCachedOrder(orderId, initialOrder)
+    const cached = readCachedOrder(orderId, initialOrder, tableNumber)
     return cached ? normalizeTrackedOrder(cached) : null
   })
-  const [loading, setLoading] = useState(() => !readCachedOrder(orderId, initialOrder))
+  const [loading, setLoading] = useState(() => !readCachedOrder(orderId, initialOrder, tableNumber))
   const [isCallingWaiter, setIsCallingWaiter] = useState(false)
-  const [waiterCalledSuccess, setWaiterCalledSuccess] = useState(false)
+  const [localCooldownSecs, setLocalCooldownSecs] = useState(() =>
+    readWaiterCooldownRemaining(restaurantId)
+  )
+  const [isRequestingBill, setIsRequestingBill] = useState(false)
+  const [billRequestedLocal, setBillRequestedLocal] = useState(false)
   const [copiedOrderId, setCopiedOrderId] = useState(false)
 
   const isDark = theme === 'dark'
   const { orders, orderHistory, loading: hookLoading } = useOrderManagement(restaurantId)
   const { profile } = useRestaurantProfile(restaurantId)
 
+  const targetRidForWaiter = profile?.id || restaurantId
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }, [orderId])
+
+  useEffect(() => {
+    const syncLocal = () => {
+      setLocalCooldownSecs(
+        Math.max(
+          readWaiterCooldownRemaining(restaurantId),
+          readWaiterCooldownRemaining(profile?.id)
+        )
+      )
+    }
+    syncLocal()
+    const interval = setInterval(syncLocal, 1000)
+    window.addEventListener('servora_waiter_cooldown_updated', syncLocal)
+    window.addEventListener('storage', syncLocal)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('servora_waiter_cooldown_updated', syncLocal)
+      window.removeEventListener('storage', syncLocal)
+    }
+  }, [restaurantId, profile?.id])
+
+  const effectiveCooldownSecs = Math.max(
+    Number(waiterCooldownSeconds || 0),
+    Number(localCooldownSecs || 0)
+  )
+  const isWaiterCalled = effectiveCooldownSecs > 0
+  const effectiveCooldownLabel =
+    (typeof waiterCooldownSeconds === 'number' && waiterCooldownSeconds > 0 && waiterCooldownText)
+      ? waiterCooldownText
+      : formatStageCountdown(effectiveCooldownSecs * 1000)
+
   // Seed immediately if initialOrder arrives or changes
   useEffect(() => {
-    const cached = readCachedOrder(orderId, initialOrder)
+    const cached = readCachedOrder(orderId, initialOrder, tableNumber)
     if (cached) {
       setOrder((prev) => normalizeTrackedOrder(cached, prev))
       setLoading(false)
     }
-  }, [orderId, initialOrder])
+  }, [orderId, initialOrder, tableNumber])
 
   // 📡 Real-time Supabase + Cross-Tab Order Polling & Subscription
   useEffect(() => {
@@ -118,25 +176,28 @@ export default function OrderTracking({
     }
 
     const fetchSingleOrder = async () => {
-      const cached = readCachedOrder(orderId, initialOrder)
+      const cached = readCachedOrder(orderId, initialOrder, tableNumber)
 
-      // 1. Non-UUID / Demo orders: NEVER query UUID-typed Supabase column (prevents 400 Bad Request)
+      // 1. Non-UUID / Demo orders: NEVER query UUID-typed Supabase column & NEVER fall back to another table
       if (!isUUID(String(orderId))) {
         const demoOrders = getDemoOrders()
-        const demoHit =
-          demoOrders.find((o) => String(o.id) === String(orderId)) ||
-          (tableNumber
-            ? demoOrders.find(
-                (o) =>
-                  String(o.table_number || o.tableNumber) === String(tableNumber) &&
-                  !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(String(o.status || '').toUpperCase()),
-              )
-            : null) ||
-          demoOrders[0] ||
-          null
-        const resolved = demoHit || cached
+        const exactMatch = demoOrders.find(
+          (o) =>
+            String(o.id) === String(orderId) &&
+            (!tableNumber || doesOrderBelongToTable(o, tableNumber))
+        )
+        const tableActiveMatch = tableNumber
+          ? demoOrders.find(
+              (o) =>
+                doesOrderBelongToTable(o, tableNumber) &&
+                !['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(String(o.status || '').toUpperCase())
+            )
+          : null
+        const resolved = exactMatch || tableActiveMatch || cached || null
         if (resolved) {
           setOrder((prev) => normalizeTrackedOrder(resolved, prev))
+        } else {
+          setOrder(null)
         }
         setLoading(false)
         return
@@ -238,36 +299,54 @@ export default function OrderTracking({
       window.removeEventListener('servora_new_order', handleLiveStatusEvent)
       window.removeEventListener('storage', handleStorageEvent)
     }
-  }, [orderId, restaurantId, profile?.id, initialOrder])
+  }, [orderId, restaurantId, profile?.id, initialOrder, tableNumber])
 
   // Sync smoothly whenever useOrderManagement updates this order's status
   useEffect(() => {
     if (!hookLoading && orderId) {
       const allOrders = [...orders, ...orderHistory]
-      const foundOrder = allOrders.find(o => String(o.id) === String(orderId))
+      const foundOrder = allOrders.find(
+        (o) =>
+          String(o.id) === String(orderId) &&
+          (!tableNumber || doesOrderBelongToTable(o, tableNumber))
+      )
       if (foundOrder) {
         setOrder((prev) => normalizeTrackedOrder(foundOrder, prev))
         setLoading(false)
       }
     }
-  }, [orders, orderHistory, orderId, hookLoading])
+  }, [orders, orderHistory, orderId, hookLoading, tableNumber])
 
   const handleCallConcierge = async () => {
     if (isCallingWaiter) return
+    if (isWaiterCalled) {
+      toast.info(`Waiter already notified! You can call again in ${effectiveCooldownLabel}`)
+      return
+    }
     setIsCallingWaiter(true)
 
     try {
-      const targetRid = profile?.id || restaurantId
-      const targetTable = order?.tableNumber || order?.table_number || '1'
-      const targetCust = order?.customerName || order?.customer_name || 'Guest Customer'
+      if (typeof onCallWaiter === 'function') {
+        await onCallWaiter()
+      } else {
+        const targetRid = targetRidForWaiter
+        const targetTable = order?.tableNumber || order?.table_number || tableNumber || '1'
+        const targetCust = order?.customerName || order?.customer_name || 'Guest Customer'
 
-      await requestWaiter(targetRid, targetTable, targetCust)
-
-      setWaiterCalledSuccess(true)
-      toast.success(`🛎️ Waiter Notified for Table ${targetTable}!`, {
-        description: 'A staff member has been alerted and is heading to your table.'
-      })
-      setTimeout(() => setWaiterCalledSuccess(false), 5000)
+        await requestWaiter(targetRid, targetTable, targetCust)
+        const until = Date.now() + 120 * 1000
+        try {
+          if (restaurantId) sessionStorage.setItem(`servora_waiter_until_${restaurantId}`, String(until))
+          if (targetRid) sessionStorage.setItem(`servora_waiter_until_${targetRid}`, String(until))
+        } catch {
+          // ignore storage failure
+        }
+        setLocalCooldownSecs(120)
+        window.dispatchEvent(new CustomEvent('servora_waiter_cooldown_updated', { detail: { restaurantId: targetRid, until } }))
+        toast.success(`🛎️ Waiter Notified for Table ${targetTable}!`, {
+          description: 'A staff member has been alerted and is heading to your table.'
+        })
+      }
     } catch (err) {
       console.error('Waiter call notification failed:', err)
       toast.error('Unable to notify waiter', {
@@ -275,6 +354,26 @@ export default function OrderTracking({
       })
     } finally {
       setIsCallingWaiter(false)
+    }
+  }
+
+  const handleRequestBill = async () => {
+    if (isRequestingBill || !order?.id) return
+    setIsRequestingBill(true)
+    try {
+      const targetRid = profile?.id || restaurantId
+      const targetTable = order?.tableNumber || order?.table_number || tableNumber || '1'
+      const targetCust = order?.customerName || order?.customer_name || 'Guest Customer'
+      await requestOrderBill(order.id, targetRid, targetTable, targetCust)
+      setBillRequestedLocal(true)
+      toast.success(`🧾 Final Bill Requested for Table ${targetTable}!`, {
+        description: 'Concierge has been notified and is preparing your final table check.'
+      })
+    } catch (err) {
+      console.error('Request bill failed:', err)
+      toast.error('Unable to request bill right now')
+    } finally {
+      setIsRequestingBill(false)
     }
   }
 
@@ -445,7 +544,9 @@ export default function OrderTracking({
       }`}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Logo showText={true} iconSize={26} className="scale-95" />
+            <button type="button" onClick={onClose} className="cursor-pointer flex items-center">
+              <Logo showText={true} iconSize={26} className="scale-95" />
+            </button>
             <div className={`h-4 w-px hidden sm:block ${isDark ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
             <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${
               isDark ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'
@@ -743,33 +844,76 @@ export default function OrderTracking({
             </div>
           </div>
 
-          {/* Actions: Contact Waiter & Add More Items */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <Button
-              onClick={handleCallConcierge}
-              disabled={isCallingWaiter || waiterCalledSuccess}
-              variant="outline"
-              className={`h-12 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer ${
-                isDark 
-                  ? 'bg-zinc-800/90 border-zinc-700 text-amber-300 hover:bg-zinc-800' 
-                  : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-900'
-              }`}
-            >
-              <BellRing className={`w-4 h-4 text-amber-400 ${isCallingWaiter ? 'animate-spin' : ''}`} />
-              <span>{waiterCalledSuccess ? 'Waiter Notified!' : 'Call Waiter'}</span>
-            </Button>
+          {/* Actions: Contact Waiter, Request Bill & Add More Items */}
+          <div className="space-y-2.5 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button
+                type="button"
+                onClick={handleCallConcierge}
+                disabled={isCallingWaiter}
+                variant="outline"
+                className={`h-12 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer ${
+                  isWaiterCalled
+                    ? isDark
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                    : isDark 
+                      ? 'bg-zinc-800/90 border-zinc-700 text-amber-300 hover:bg-zinc-800' 
+                      : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-900'
+                }`}
+              >
+                <BellRing className={`w-4 h-4 ${isWaiterCalled ? 'text-emerald-400 animate-pulse' : 'text-amber-400'} ${isCallingWaiter ? 'animate-spin' : ''}`} />
+                <span className="tabular-nums">
+                  {isWaiterCalled ? `Waiter Called • ${effectiveCooldownLabel}` : 'Call Waiter'}
+                </span>
+              </Button>
 
-            <Button
-              onClick={onClose}
-              className={`h-12 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
-                isDark
-                  ? 'bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
-                  : 'bg-zinc-950 hover:bg-zinc-800 text-white'
-              }`}
-            >
-              <Plus className="w-4 h-4 stroke-3" />
-              <span>{isOrderFinished ? 'Start New Order' : 'Order More Dishes'}</span>
-            </Button>
+              <Button
+                type="button"
+                onClick={onClose}
+                className={`h-12 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
+                  isDark
+                    ? 'bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950'
+                    : 'bg-zinc-950 hover:bg-zinc-800 text-white'
+                }`}
+              >
+                <Plus className="w-4 h-4 stroke-3" />
+                <span>{isOrderFinished ? 'Start New Order' : 'Order More Dishes'}</span>
+              </Button>
+            </div>
+
+            {!isOrderFinished && normalizedStatus !== 'CANCELLED' && (
+              normalizedStatus === 'BILL_REQUESTED' || billRequestedLocal ? (
+                <div className={`w-full h-11 rounded-xl border px-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider ${
+                  isDark
+                    ? 'bg-amber-500/15 border-amber-500/35 text-amber-300'
+                    : 'bg-amber-50 border-amber-200 text-amber-700'
+                }`}>
+                  <Receipt className="w-4 h-4 shrink-0" />
+                  <span>Bill Requested • Concierge Preparing Final Check</span>
+                </div>
+              ) : normalizedStatus === 'SERVED' ? (
+                <Button
+                  type="button"
+                  onClick={handleRequestBill}
+                  disabled={isRequestingBill}
+                  className={`w-full h-11 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer ${
+                    isDark
+                      ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>{isRequestingBill ? 'Requesting Final Bill...' : 'Ready to Leave? Request Final Bill'}</span>
+                </Button>
+              ) : null
+            )}
+
+            {isWaiterCalled && (
+              <p className={`text-[11px] font-semibold text-center tabular-nums ${isDark ? 'text-emerald-400/90' : 'text-emerald-700'}`}>
+                Concierge notified for Table {order.tableNumber || order.table_number || tableNumber || '1'} • Next call available in {effectiveCooldownLabel}
+              </p>
+            )}
           </div>
 
         </div>
@@ -814,11 +958,15 @@ export default function OrderTracking({
           if (onOpenSearch) onOpenSearch()
           else onClose()
         }}
-        onTrackClick={() => {}}
+        onTrackClick={() => {
+          if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }}
         hasActiveOrder={true}
         orderStatus={order?.status?.toLowerCase() || 'preparing'}
         theme={theme}
-        cartCount={0}
+        cartCount={cartCount}
       />
 
     </div>

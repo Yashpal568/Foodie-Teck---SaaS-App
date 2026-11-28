@@ -79,6 +79,8 @@ function AnimatedNumber({ value, prefix = '', suffix = '', className = '' }) {
   return <span className={className}>{formatted}{suffix}</span>
 }
 
+import { formatLocalDateKey, shiftLocalDateKey, deduplicateOrders } from '@/utils/analyticsHelpers'
+
 const CARD_CONFIGS = [
   {
     key: 'revenue',
@@ -137,7 +139,7 @@ const CARD_CONFIGS = [
   },
 ]
 
-export default function OverviewCards({ restaurantId = 'default' }) {
+export default function OverviewCards({ restaurantId = 'default', selectedDate = '' }) {
   const { stats: orderStats, orders: activeOrders, orderHistory } = useOrderManagement(restaurantId)
   const { stats: tableStats, tables } = useTableSessions(restaurantId)
   const [menuCount, setMenuCount] = useState(0)
@@ -161,13 +163,21 @@ export default function OverviewCards({ restaurantId = 'default' }) {
     }
   }, [restaurantId])
 
-  const stats = useMemo(() => {
-    const today = new Date().toLocaleDateString('en-CA')
-    const yesterdayDate = new Date()
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
-    const yesterday = yesterdayDate.toLocaleDateString('en-CA')
+  const todayKey = formatLocalDateKey()
+  const activeDateKey = selectedDate || todayKey
+  const yesterdayKey = shiftLocalDateKey(todayKey, -1)
+  const prevDateKey = shiftLocalDateKey(activeDateKey, -1)
+  const isTodayView = activeDateKey === todayKey
+  const isYesterdayView = activeDateKey === yesterdayKey
 
-    const allOrders = [...(activeOrders || []), ...(orderHistory || [])]
+  const formatShortLabel = (dateKey) => {
+    if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return ''
+    const [y, m, d] = dateKey.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  }
+
+  const stats = useMemo(() => {
+    const allOrders = deduplicateOrders([...(activeOrders || []), ...(orderHistory || [])])
 
     const getOrderDateStr = (order) => {
       const raw = order?.created_at || order?.createdAt || order?.date
@@ -184,49 +194,53 @@ export default function OverviewCards({ restaurantId = 'default' }) {
       return Number(order?.total_amount || order?.total || order?.final_amount || 0)
     }
 
-    // Revenue (exclude CANCELLED orders)
-    const todayOrdersList = allOrders.filter(o => getOrderDateStr(o) === today)
-    const yesterdayOrdersList = (orderHistory || []).filter(o => getOrderDateStr(o) === yesterday)
+    // Revenue (exclude CANCELLED orders) for selectedDate & previous day comparison
+    const selectedOrdersList = allOrders.filter(o => getOrderDateStr(o) === activeDateKey)
+    const prevDayOrdersList = allOrders.filter(o => getOrderDateStr(o) === prevDateKey)
 
-    const todayRevenueOrders = todayOrdersList.filter(o => String(o.status || '').toUpperCase() !== 'CANCELLED')
-    const yesterdayRevenueOrders = yesterdayOrdersList.filter(o => String(o.status || '').toUpperCase() !== 'CANCELLED')
+    const selectedRevenueOrders = selectedOrdersList.filter(o => String(o.status || '').toUpperCase() !== 'CANCELLED')
+    const prevRevenueOrders = prevDayOrdersList.filter(o => String(o.status || '').toUpperCase() !== 'CANCELLED')
 
-    const todayRevenue = todayRevenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
-    const yesterdayRevenue = yesterdayRevenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
-    const revenueDiff = yesterdayRevenue > 0 
-      ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 * 10) / 10
-      : (todayRevenue > 0 ? 100 : 0)
+    const selectedRevenue = selectedRevenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
+    const prevRevenue = prevRevenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
+    const revenueDiff = prevRevenue > 0 
+      ? Math.round(((selectedRevenue - prevRevenue) / prevRevenue) * 100 * 10) / 10
+      : (selectedRevenue > 0 ? 100 : 0)
 
-    // Real-time Pending Orders (PENDING / ORDERED awaiting kitchen start)
+    // Pending Orders (live queue when Today; settled/open breakdown when viewing past date)
     const pendingList = (activeOrders || []).filter(o => ['PENDING', 'ORDERED'].includes(String(o.status || '').toUpperCase()))
     const preparingList = (activeOrders || []).filter(o => ['PREPARING', 'COOKING', 'READY'].includes(String(o.status || '').toUpperCase()))
-    const pendingCount = pendingList.length
+    const settledSelectedCount = selectedOrdersList.filter(o => String(o.status || '').toUpperCase() === 'FINISHED').length
+    const cancelledSelectedCount = selectedOrdersList.filter(o => String(o.status || '').toUpperCase() === 'CANCELLED').length
+    const pendingCount = isTodayView ? pendingList.length : settledSelectedCount
     const activeQueueCount = (activeOrders || []).length
 
     // Orders
-    const todayOrders = todayRevenueOrders.length
-    const yesterdayOrders = yesterdayRevenueOrders.length
-    const ordersDiff = yesterdayOrders > 0 
-      ? Math.round(((todayOrders - yesterdayOrders) / yesterdayOrders) * 100 * 10) / 10
-      : (todayOrders > 0 ? 100 : 0)
+    const selectedOrdersCount = selectedRevenueOrders.length
+    const prevOrdersCount = prevRevenueOrders.length
+    const ordersDiff = prevOrdersCount > 0 
+      ? Math.round(((selectedOrdersCount - prevOrdersCount) / prevOrdersCount) * 100 * 10) / 10
+      : (selectedOrdersCount > 0 ? 100 : 0)
 
     // Tables
     const activeTables = (tableStats?.occupied || 0) + (tableStats?.billing || 0)
     const totalTables = tableStats?.total || (tables?.length || 0)
 
     const effectiveMenuCount = menuCount || 0
+    const prevLabel = isTodayView ? 'yesterday' : formatShortLabel(prevDateKey)
+    const shortSelectedLabel = isTodayView ? "Today's" : isYesterdayView ? "Yesterday's" : `${formatShortLabel(activeDateKey)}`
 
-    const sparkRevenue = todayRevenue > 0
-      ? [todayRevenue * 0.4, todayRevenue * 0.6, todayRevenue * 0.8, todayRevenue * 0.7, todayRevenue * 0.9, todayRevenue]
-      : (yesterdayRevenue > 0 ? [yesterdayRevenue * 0.5, yesterdayRevenue, 0, 0, 0] : [0, 0, 0, 0, 0])
+    const sparkRevenue = selectedRevenue > 0
+      ? [selectedRevenue * 0.4, selectedRevenue * 0.6, selectedRevenue * 0.8, selectedRevenue * 0.7, selectedRevenue * 0.9, selectedRevenue]
+      : (prevRevenue > 0 ? [prevRevenue * 0.5, prevRevenue, 0, 0, 0] : [0, 0, 0, 0, 0])
 
     const sparkPending = pendingCount > 0
       ? [0, 1, Math.max(1, pendingCount - 1), pendingCount, pendingCount]
       : [0, 0, 0, 0, 0]
 
-    const sparkOrders = todayOrders > 0
-      ? [todayOrders * 0.4, todayOrders * 0.7, todayOrders * 0.6, todayOrders * 0.8, todayOrders * 0.9, todayOrders]
-      : (yesterdayOrders > 0 ? [yesterdayOrders * 0.5, yesterdayOrders, 0, 0, 0] : [0, 0, 0, 0, 0])
+    const sparkOrders = selectedOrdersCount > 0
+      ? [selectedOrdersCount * 0.4, selectedOrdersCount * 0.7, selectedOrdersCount * 0.6, selectedOrdersCount * 0.8, selectedOrdersCount * 0.9, selectedOrdersCount]
+      : (prevOrdersCount > 0 ? [prevOrdersCount * 0.5, prevOrdersCount, 0, 0, 0] : [0, 0, 0, 0, 0])
 
     const sparkTables = activeTables > 0
       ? [1, 1, activeTables * 0.8, activeTables * 0.9, activeTables]
@@ -238,21 +252,25 @@ export default function OverviewCards({ restaurantId = 'default' }) {
 
     return {
       revenue: {
-        value: `₹${Math.round(todayRevenue).toLocaleString('en-IN')}`,
-        rawValue: todayRevenue,
+        titleOverride: `${shortSelectedLabel} Revenue`,
+        value: `₹${Math.round(selectedRevenue).toLocaleString('en-IN')}`,
+        rawValue: selectedRevenue,
         change: revenueDiff,
-        detail: yesterdayRevenue > 0 
-          ? `₹${Math.round(yesterdayRevenue).toLocaleString('en-IN')} yesterday` 
-          : (todayRevenue > 0 ? `${todayOrders} orders processed today` : 'No revenue yet today'),
+        detail: prevRevenue > 0 
+          ? `₹${Math.round(prevRevenue).toLocaleString('en-IN')} ${prevLabel}` 
+          : (selectedRevenue > 0 ? `${selectedOrdersCount} billable orders` : `No revenue on ${isTodayView ? 'today' : formatShortLabel(activeDateKey)}`),
         sparkData: sparkRevenue,
       },
       pending: {
+        titleOverride: isTodayView ? 'Pending Orders' : 'Settled Bills',
         value: `${pendingCount}`,
         rawValue: pendingCount,
-        change: pendingCount > 0 && activeQueueCount > 0 ? Math.round((pendingCount / activeQueueCount) * 100) : 0,
-        detail: pendingCount > 0
-          ? `${pendingCount} new · ${preparingList.length} in kitchen`
-          : (preparingList.length > 0 ? `${preparingList.length} active in kitchen` : 'No pending orders right now'),
+        change: isTodayView && pendingCount > 0 && activeQueueCount > 0 ? Math.round((pendingCount / activeQueueCount) * 100) : 0,
+        detail: isTodayView
+          ? (pendingCount > 0
+              ? `${pendingCount} new · ${preparingList.length} in kitchen`
+              : (preparingList.length > 0 ? `${preparingList.length} active in kitchen` : 'No pending orders right now'))
+          : `${settledSelectedCount} finished · ${cancelledSelectedCount} cancelled`,
         sparkData: sparkPending,
       },
       tables: {
@@ -263,12 +281,13 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         sparkData: sparkTables,
       },
       orders: {
-        value: `${todayOrders}`,
-        rawValue: todayOrders,
+        titleOverride: `${shortSelectedLabel} Orders`,
+        value: `${selectedOrdersCount}`,
+        rawValue: selectedOrdersCount,
         change: ordersDiff,
-        detail: yesterdayOrders > 0 
-          ? `${yesterdayOrders} orders yesterday` 
-          : (todayOrders > 0 ? 'Active orders placed today' : 'No orders placed today'),
+        detail: prevOrdersCount > 0 
+          ? `${prevOrdersCount} orders ${prevLabel}` 
+          : (selectedOrdersCount > 0 ? `Orders placed ${isTodayView ? 'today' : formatShortLabel(activeDateKey)}` : `No orders on ${isTodayView ? 'today' : formatShortLabel(activeDateKey)}`),
         sparkData: sparkOrders,
       },
       menu: {
@@ -279,7 +298,7 @@ export default function OverviewCards({ restaurantId = 'default' }) {
         sparkData: sparkMenu,
       },
     }
-  }, [orderStats, activeOrders, orderHistory, tableStats, tables, menuCount])
+  }, [orderStats, activeOrders, orderHistory, tableStats, tables, menuCount, activeDateKey, prevDateKey, isTodayView, isYesterdayView])
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3.5">
@@ -322,7 +341,7 @@ export default function OverviewCards({ restaurantId = 'default' }) {
             </div>
 
             {/* Title */}
-            <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mb-2.5 sm:mb-3 truncate">{config.title}</p>
+            <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mb-2.5 sm:mb-3 truncate">{stat.titleOverride || config.title}</p>
 
             {/* Sparkline + detail */}
             <div className="flex items-end justify-between gap-1">

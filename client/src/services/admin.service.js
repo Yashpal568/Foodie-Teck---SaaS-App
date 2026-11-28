@@ -103,9 +103,13 @@ export const fetchGstSettings = async (restaurantId) => {
     if (!data) {
       return { enabled: false, rate: 0, label: 'GST', gstin: localGstin }
     }
+    const resolvedGstin =
+      data.gstin !== undefined && data.gstin !== null
+        ? String(data.gstin).trim().toUpperCase()
+        : String(localGstin || '').trim().toUpperCase()
     return {
       ...data,
-      gstin: String(data.gstin || localGstin || '').trim().toUpperCase(),
+      gstin: resolvedGstin,
     }
   } catch {
     return { enabled: false, rate: 0, label: 'GST', gstin: '' }

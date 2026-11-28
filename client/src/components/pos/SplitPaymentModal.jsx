@@ -1,41 +1,59 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { 
-  CreditCard, 
-  QrCode, 
-  Banknote, 
-  Wallet, 
-  Split, 
-  CheckCircle, 
-  Printer, 
-  Receipt, 
-  UserPlus, 
-  Trash2, 
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  CreditCard,
+  QrCode,
+  Banknote,
+  Wallet,
+  Split,
+  CheckCircle,
+  Printer,
+  Receipt,
+  UserPlus,
+  Trash2,
   AlertCircle,
   Sparkles,
   ShieldCheck,
   Check,
   Copy,
   ExternalLink,
-  Smartphone
-} from 'lucide-react'
-import QRCode from 'qrcode'
-import { toast } from 'sonner'
-import { escapeHtml, getRestaurantReceiptHeader } from '@/utils/receiptHelpers'
-import { createServerInvoice, settleInvoicePayment, isBillingServerConfigured } from '@/services/billing.service'
-import { createOrder } from '@/services/order.service'
+  Smartphone,
+} from "lucide-react";
+import QRCode from "qrcode";
+import { toast } from "sonner";
+import { getRestaurantReceiptHeader } from "@/utils/receiptHelpers";
+import {
+  createPrinterAdapter,
+  DEFAULT_PAPER_SIZE_ID,
+  generateReceiptPdfDoc,
+  normalizeReceiptData,
+} from "@/utils/printConfig";
+import {
+  createServerInvoice,
+  settleInvoicePayment,
+  isBillingServerConfigured,
+} from "@/services/billing.service";
+import { createOrder } from "@/services/order.service";
+import { getMerchantUpi, saveMerchantUpiToDb } from "@/services/restaurant.service";
+import { generateRestaurantSignature, getPublicMenuOrigin } from "@/utils/tableSecurity";
 
 export default function SplitPaymentModal({
   isOpen,
@@ -46,244 +64,327 @@ export default function SplitPaymentModal({
   cartItems = [],
   calculation,
   discount,
-  customerName = 'Walk-in Guest',
-  onSuccessSettlement
+  customerName = "Walk-in Guest",
+  existingOrderId = null,
+  onSuccessSettlement,
 }) {
-  const grandTotal = calculation?.pricing?.grandTotal || 0
+  const grandTotal = calculation?.pricing?.grandTotal || 0;
 
   // Payment Mode: 'single' | 'split'
-  const [paymentMode, setPaymentMode] = useState('single')
+  const [paymentMode, setPaymentMode] = useState("single");
 
   // Single Pay States
-  const [singleMethod, setSingleMethod] = useState('UPI') // 'CASH' | 'UPI' | 'CARD' | 'WALLET'
-  const [cashTendered, setCashTendered] = useState(grandTotal)
-  const [singleRef, setSingleRef] = useState('')
+  const [singleMethod, setSingleMethod] = useState("UPI"); // 'CASH' | 'UPI' | 'CARD' | 'WALLET'
+  const [cashTendered, setCashTendered] = useState(grandTotal);
+  const [singleRef, setSingleRef] = useState("");
 
   // Split Pay States: Array of { id, payerName, method, amount, reference }
   const [splitPayers, setSplitPayers] = useState([
-    { id: '1', payerName: 'Person A', method: 'UPI', amount: Math.ceil(grandTotal / 2), reference: '' },
-    { id: '2', payerName: 'Person B', method: 'CASH', amount: Math.floor(grandTotal / 2), reference: '' }
-  ])
+    {
+      id: "1",
+      payerName: "Person A",
+      method: "UPI",
+      amount: Math.ceil(grandTotal / 2),
+      reference: "",
+    },
+    {
+      id: "2",
+      payerName: "Person B",
+      method: "CASH",
+      amount: Math.floor(grandTotal / 2),
+      reference: "",
+    },
+  ]);
 
   // Settlement Result State
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [settledInvoice, setSettledInvoice] = useState(null)
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [settledInvoice, setSettledInvoice] = useState(null);
 
   // Real Dynamic UPI QR Code Generation for Restaurant Merchant
-  const receiptHeader = getRestaurantReceiptHeader(restaurantProfile)
-  const payeeName = receiptHeader.name
+  const receiptHeader = getRestaurantReceiptHeader(restaurantProfile);
+  const payeeName = receiptHeader.name;
   const defaultMerchantUpi = useMemo(() => {
-    return (payeeName || 'servora').toLowerCase().replace(/[^a-z0-9]/g, '') + '@okaxis'
-  }, [payeeName])
+    return (
+      (payeeName || "servora").toLowerCase().replace(/[^a-z0-9]/g, "") +
+      "@okaxis"
+    );
+  }, [payeeName]);
 
   const [merchantUpi, setMerchantUpi] = useState(() => {
-    const saved = localStorage.getItem(`servora_merchant_upi_${restaurantId || 'default'}`)
-    return saved || restaurantProfile?.upi_id || restaurantProfile?.upiId || defaultMerchantUpi
-  })
-  
-  const [isEditingUpi, setIsEditingUpi] = useState(false)
-  const [tempUpiInput, setTempUpiInput] = useState(merchantUpi)
-  const [upiQrDataUrl, setUpiQrDataUrl] = useState('')
-  const [copiedUpi, setCopiedUpi] = useState(false)
-
-  // Sync if profile updates
-  useEffect(() => {
-    const saved = localStorage.getItem(`servora_merchant_upi_${restaurantId || 'default'}`)
-    if (saved) {
-      setMerchantUpi(saved)
-      setTempUpiInput(saved)
-    } else if (restaurantProfile?.upi_id || restaurantProfile?.upiId) {
-      const pUpi = restaurantProfile.upi_id || restaurantProfile.upiId
-      setMerchantUpi(pUpi)
-      setTempUpiInput(pUpi)
+    const profileUpi = restaurantProfile?.upi_id || restaurantProfile?.upiId;
+    if (profileUpi) return profileUpi;
+    try {
+      return (
+        localStorage.getItem(`servora_merchant_upi_${restaurantId || "default"}`) ||
+        defaultMerchantUpi
+      );
+    } catch {
+      return defaultMerchantUpi;
     }
-  }, [restaurantId, restaurantProfile])
+  });
+
+  const [isEditingUpi, setIsEditingUpi] = useState(false);
+  const [tempUpiInput, setTempUpiInput] = useState(merchantUpi);
+  const [upiQrDataUrl, setUpiQrDataUrl] = useState("");
+  const [copiedUpi, setCopiedUpi] = useState(false);
+
+  // Sync from Supabase payment_methods (source of truth) or restaurantProfile
+  useEffect(() => {
+    let active = true;
+    const syncUpi = async () => {
+      if (restaurantId) {
+        const dbUpi = await getMerchantUpi(restaurantId);
+        if (active && dbUpi) {
+          setMerchantUpi(dbUpi);
+          setTempUpiInput(dbUpi);
+          return;
+        }
+      }
+      const pUpi = restaurantProfile?.upi_id || restaurantProfile?.upiId;
+      if (active && pUpi) {
+        setMerchantUpi(pUpi);
+        setTempUpiInput(pUpi);
+      }
+    };
+    syncUpi();
+    return () => {
+      active = false;
+    };
+  }, [restaurantId, restaurantProfile]);
 
   // Generate dynamic scan-ready UPI QR code directly for restaurant merchant account
   useEffect(() => {
-    if (!isOpen || grandTotal <= 0) return
-    const activeUpi = merchantUpi || defaultMerchantUpi
-    const upiURI = `upi://pay?pa=${activeUpi}&pn=${encodeURIComponent(payeeName)}&am=${grandTotal}&cu=INR&tn=${encodeURIComponent(`Table ${tableNumber} Bill - ${payeeName}`)}`
+    if (!isOpen || grandTotal <= 0) return;
+    const activeUpi = merchantUpi || defaultMerchantUpi;
+    const upiURI = `upi://pay?pa=${activeUpi}&pn=${encodeURIComponent(payeeName)}&am=${grandTotal}&cu=INR&tn=${encodeURIComponent(`Table ${tableNumber} Bill - ${payeeName}`)}`;
     QRCode.toDataURL(upiURI, {
       width: 280,
       margin: 1,
       color: {
-        dark: '#0f172a',
-        light: '#ffffff'
-      }
+        dark: "#0f172a",
+        light: "#ffffff",
+      },
     })
-      .then(url => setUpiQrDataUrl(url))
-      .catch(err => console.warn('Failed to generate dynamic UPI QR:', err))
-  }, [isOpen, merchantUpi, defaultMerchantUpi, payeeName, grandTotal, tableNumber])
+      .then((url) => setUpiQrDataUrl(url))
+      .catch((err) => console.warn("Failed to generate dynamic UPI QR:", err));
+  }, [
+    isOpen,
+    merchantUpi,
+    defaultMerchantUpi,
+    payeeName,
+    grandTotal,
+    tableNumber,
+  ]);
 
-  const saveMerchantUpi = () => {
-    const trimmed = tempUpiInput.trim()
-    if (!trimmed || !trimmed.includes('@')) {
-      toast.error('Please enter a valid UPI ID (e.g. restaurant@okaxis or 9876543210@paytm)')
-      return
+  const saveMerchantUpi = async () => {
+    const trimmed = tempUpiInput.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      toast.error(
+        "Please enter a valid UPI ID (e.g. restaurant@okaxis or 9876543210@paytm)",
+      );
+      return;
     }
-    setMerchantUpi(trimmed)
-    localStorage.setItem(`servora_merchant_upi_${restaurantId || 'default'}`, trimmed)
-    setIsEditingUpi(false)
-    toast.success(`✅ Restaurant UPI ID updated to "${trimmed}"! QR code updated.`)
-  }
+    try {
+      await saveMerchantUpiToDb(restaurantId, trimmed);
+      setMerchantUpi(trimmed);
+      setIsEditingUpi(false);
+      toast.success(
+        `✅ Restaurant UPI ID saved to cloud ("${trimmed}")! QR code updated.`,
+      );
+    } catch (err) {
+      toast.error(err?.message || "Failed to save UPI ID to database");
+    }
+  };
 
   const copyUPI = () => {
-    navigator.clipboard.writeText(merchantUpi)
-    setCopiedUpi(true)
-    toast.success('Restaurant UPI ID Copied', { description: merchantUpi })
-    setTimeout(() => setCopiedUpi(false), 2000)
-  }
+    navigator.clipboard.writeText(merchantUpi);
+    setCopiedUpi(true);
+    toast.success("Restaurant UPI ID Copied", { description: merchantUpi });
+    setTimeout(() => setCopiedUpi(false), 2000);
+  };
 
   // Reset ONLY when modal newly opens (do not wipe settledInvoice when parent clears cart after settlement)
   useEffect(() => {
     if (isOpen) {
-      setSettledInvoice(null)
-      setCashTendered(grandTotal)
-      setSingleRef('')
+      setSettledInvoice(null);
+      setCashTendered(grandTotal);
+      setSingleRef("");
       setSplitPayers([
-        { id: '1', payerName: 'Person A', method: 'UPI', amount: Math.ceil(grandTotal / 2), reference: '' },
-        { id: '2', payerName: 'Person B', method: 'CASH', amount: Math.floor(grandTotal / 2), reference: '' }
-      ])
+        {
+          id: "1",
+          payerName: "Person A",
+          method: "UPI",
+          amount: Math.ceil(grandTotal / 2),
+          reference: "",
+        },
+        {
+          id: "2",
+          payerName: "Person B",
+          method: "CASH",
+          amount: Math.floor(grandTotal / 2),
+          reference: "",
+        },
+      ]);
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   // Single Pay Change calculation
   const cashChange = useMemo(() => {
-    const tendered = Number(cashTendered) || 0
-    return Math.max(0, tendered - grandTotal)
-  }, [cashTendered, grandTotal])
+    const tendered = Number(cashTendered) || 0;
+    return Math.max(0, tendered - grandTotal);
+  }, [cashTendered, grandTotal]);
 
   // Split Pay Calculations
   const splitTotalPaid = useMemo(() => {
-    return splitPayers.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-  }, [splitPayers])
+    return splitPayers.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [splitPayers]);
 
   const splitRemainingBalance = useMemo(() => {
-    return Number((grandTotal - splitTotalPaid).toFixed(2))
-  }, [grandTotal, splitTotalPaid])
+    return Number((grandTotal - splitTotalPaid).toFixed(2));
+  }, [grandTotal, splitTotalPaid]);
 
   // Add new split payer row
   const addSplitPayer = () => {
-    const nextChar = String.fromCharCode(65 + splitPayers.length)
-    const defaultAmt = Math.max(0, splitRemainingBalance)
-    setSplitPayers(prev => [
+    const nextChar = String.fromCharCode(65 + splitPayers.length);
+    const defaultAmt = Math.max(0, splitRemainingBalance);
+    setSplitPayers((prev) => [
       ...prev,
       {
         id: String(Date.now()),
         payerName: `Person ${nextChar}`,
-        method: 'UPI',
+        method: "UPI",
         amount: defaultAmt,
-        reference: ''
-      }
-    ])
-  }
+        reference: "",
+      },
+    ]);
+  };
 
   // Remove split payer row
   const removeSplitPayer = (id) => {
     if (splitPayers.length <= 1) {
-      toast.error('At least one payer is required for split payment')
-      return
+      toast.error("At least one payer is required for split payment");
+      return;
     }
-    setSplitPayers(prev => prev.filter(p => p.id !== id))
-  }
+    setSplitPayers((prev) => prev.filter((p) => p.id !== id));
+  };
 
   // Update specific split payer
   const updateSplitPayer = (id, field, value) => {
-    setSplitPayers(prev => prev.map(p => {
-      if (p.id === id) {
-        return { ...p, [field]: value }
-      }
-      return p
-    }))
-  }
+    setSplitPayers((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          return { ...p, [field]: value };
+        }
+        return p;
+      }),
+    );
+  };
 
   // Split Equally Helper
   const splitEqually = () => {
-    const count = splitPayers.length
-    if (count <= 0) return
-    const equalShare = Math.floor(grandTotal / count)
-    const remainder = grandTotal - (equalShare * count)
+    const count = splitPayers.length;
+    if (count <= 0) return;
+    const equalShare = Math.floor(grandTotal / count);
+    const remainder = grandTotal - equalShare * count;
 
-    setSplitPayers(prev => prev.map((p, idx) => ({
-      ...p,
-      amount: idx === 0 ? equalShare + remainder : equalShare
-    })))
-    toast.success(`Split equally across ${count} payers (₹${equalShare} each)`)
-  }
+    setSplitPayers((prev) =>
+      prev.map((p, idx) => ({
+        ...p,
+        amount: idx === 0 ? equalShare + remainder : equalShare,
+      })),
+    );
+    toast.success(`Split equally across ${count} payers (₹${equalShare} each)`);
+  };
 
   // Execute Complete Settlement
   const handleCompleteSettlement = async () => {
     try {
-      setIsProcessing(true)
+      setIsProcessing(true);
 
       // 1. Validate Payments
-      let finalPayments = []
+      let finalPayments = [];
 
-      if (paymentMode === 'single') {
-        if (singleMethod === 'CASH' && Number(cashTendered) < grandTotal) {
-          toast.error(`Cash tendered (₹${cashTendered}) cannot be less than Grand Total (₹${grandTotal})`)
-          setIsProcessing(false)
-          return
+      if (paymentMode === "single") {
+        if (singleMethod === "CASH" && Number(cashTendered) < grandTotal) {
+          toast.error(
+            `Cash tendered (₹${cashTendered}) cannot be less than Grand Total (₹${grandTotal})`,
+          );
+          setIsProcessing(false);
+          return;
         }
 
         finalPayments = [
           {
             method: singleMethod,
             amount: grandTotal,
-            payerName: customerName || 'Primary Guest',
-            reference: singleRef || (singleMethod === 'CASH' ? 'CASH_REGISTER' : `TXN_${Date.now()}`)
-          }
-        ]
+            payerName: customerName || "Primary Guest",
+            reference:
+              singleRef ||
+              (singleMethod === "CASH" ? "CASH_REGISTER" : `TXN_${Date.now()}`),
+          },
+        ];
       } else {
         // Split Mode validation
         if (splitRemainingBalance !== 0) {
-          toast.error(`Split payments must equal total bill (Remaining balance: ₹${splitRemainingBalance})`)
-          setIsProcessing(false)
-          return
+          toast.error(
+            `Split payments must equal total bill (Remaining balance: ₹${splitRemainingBalance})`,
+          );
+          setIsProcessing(false);
+          return;
         }
 
-        finalPayments = splitPayers.map(p => ({
+        finalPayments = splitPayers.map((p) => ({
           method: p.method,
           amount: Number(p.amount),
-          payerName: p.payerName || 'Guest',
-          reference: p.reference || `SPLIT_${Date.now()}`
-        }))
+          payerName: p.payerName || "Guest",
+          reference: p.reference || `SPLIT_${Date.now()}`,
+        }));
       }
 
-      const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo'
-      const itemsSnapshot = cartItems.map((i) => ({ ...i }))
+      const isDemo =
+        restaurantId === "demo-merchant" || restaurantId === "demo";
+      const itemsSnapshot = cartItems.map((i) => ({ ...i }));
       const pricingSnapshot = calculation?.pricing
         ? JSON.parse(JSON.stringify(calculation.pricing))
-        : { subtotal: grandTotal, taxes: { totalTax: 0, cgst: 0, sgst: 0 }, grandTotal }
-      const orderNumberTable = String(tableNumber || '1').replace(/^Table\s*/i, '')
-      const paymentMethodSummary = finalPayments.map(p => p.method).join(' + ') || singleMethod
-      const resolvedRid = restaurantId || restaurantProfile?.id
+        : {
+            subtotal: grandTotal,
+            taxes: { totalTax: 0, cgst: 0, sgst: 0 },
+            grandTotal,
+          };
+      const orderNumberTable = String(tableNumber || "1").replace(
+        /^Table\s*/i,
+        "",
+      );
+      const paymentMethodSummary =
+        finalPayments.map((p) => p.method).join(" + ") || singleMethod;
+      const resolvedRid = restaurantId || restaurantProfile?.id;
 
-      let invoice = null
+      let invoice = null;
       if (isDemo) {
         invoice = {
           id: `demo_inv_${Date.now()}`,
           invoiceNumber: `DEMO-${Date.now().toString().slice(-6)}`,
-          restaurantId: 'demo-merchant',
-          restaurantDetails: { name: restaurantProfile?.name || 'Servora Demo Kitchen' },
+          restaurantId: "demo-merchant",
+          restaurantDetails: {
+            name: restaurantProfile?.name || "Servora Demo Kitchen",
+          },
           tableNumber: String(tableNumber),
-          customer: { name: customerName || 'Walk-in Guest' },
+          customer: { name: customerName || "Walk-in Guest" },
           items: itemsSnapshot,
           pricing: pricingSnapshot,
-          status: 'DEMO_PREVIEW',
+          status: "DEMO_PREVIEW",
           payments: finalPayments,
           issuedAt: new Date().toISOString(),
-        }
+        };
       } else if (isBillingServerConfigured()) {
         // 2. Generate Official Sequential Invoice on Authoritative Backend
         invoice = await createServerInvoice({
           restaurantId,
           restaurantDetails: {
-            name: restaurantProfile?.name || '',
-            address: restaurantProfile?.address || '',
-            phone: restaurantProfile?.phone || '',
-            gstin: restaurantProfile?.gstin || ''
+            name: restaurantProfile?.name || "",
+            address: restaurantProfile?.address || "",
+            phone: restaurantProfile?.phone || "",
+            gstin: restaurantProfile?.gstin || "",
           },
           tableNumber: String(tableNumber),
           customer: { name: customerName },
@@ -292,53 +393,67 @@ export default function SplitPaymentModal({
           gstSettings: {
             enabled: Boolean(restaurantProfile?.gstEnabled),
             rate: Number(restaurantProfile?.gstRate || 0),
-            label: restaurantProfile?.gstLabel || 'GST'
-          }
-        })
+            label: restaurantProfile?.gstLabel || "GST",
+          },
+        });
 
         // 3. Settle Payments against the Invoice (throws explicitly on failure)
         await settleInvoicePayment({
           invoiceId: invoice.id,
           payments: finalPayments,
-          restaurantId
-        })
+          restaurantId,
+        });
         invoice = {
           ...invoice,
-          items: Array.isArray(invoice.items) && invoice.items.length > 0 ? invoice.items : itemsSnapshot,
+          items:
+            Array.isArray(invoice.items) && invoice.items.length > 0
+              ? invoice.items
+              : itemsSnapshot,
           pricing: invoice.pricing || pricingSnapshot,
           payments: finalPayments,
-        }
+        };
       }
 
-      // 4. Fire Order to Kitchen with Prepaid remark (Demo or Verified Supabase Settlement)
-      const createdKOT = await createOrder({
-        restaurantId: resolvedRid,
-        tableNumber: orderNumberTable,
-        customerName: customerName || `Table ${orderNumberTable} Guest`,
-        items: itemsSnapshot.map(i => ({
-          id: i.id || i._id,
-          name: i.name,
-          price: i.price,
-          quantity: i.quantity,
-          variant: i.variant,
-          notes: i.notes || ''
-        })),
-        subtotal: pricingSnapshot?.subtotal || grandTotal,
-        tax: pricingSnapshot?.taxes?.totalTax || 0,
-        total: grandTotal,
-        status: 'PREPARING',
-        payment_status: isDemo ? 'DEMO' : 'PAID',
-        payment_method: paymentMethodSummary,
-        is_prepaid: !isDemo,
-        notes: isDemo ? `DEMO SANDBOX ORDER (${paymentMethodSummary})` : `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`,
-        specialInstructions: isDemo ? `DEMO SANDBOX ORDER (${paymentMethodSummary})` : `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`
-      })
+      // 4. Fire Order to Kitchen ONLY when creating a new POS order (skip when settling an existing table order)
+      let createdKOT = null;
+      if (!existingOrderId) {
+        createdKOT = await createOrder({
+          restaurantId: resolvedRid,
+          tableNumber: orderNumberTable,
+          customerName: customerName || `Table ${orderNumberTable} Guest`,
+          items: itemsSnapshot.map((i) => ({
+            id: i.id || i._id,
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+            variant: i.variant,
+            notes: i.notes || "",
+          })),
+          subtotal: pricingSnapshot?.subtotal || grandTotal,
+          tax: pricingSnapshot?.taxes?.totalTax || 0,
+          total: grandTotal,
+          status: "PREPARING",
+          payment_status: isDemo ? "DEMO" : "PAID",
+          payment_method: paymentMethodSummary,
+          is_prepaid: !isDemo,
+          notes: isDemo
+            ? `DEMO SANDBOX ORDER (${paymentMethodSummary})`
+            : `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`,
+          specialInstructions: isDemo
+            ? `DEMO SANDBOX ORDER (${paymentMethodSummary})`
+            : `BILLING DONE / PAID IN ADVANCE (${paymentMethodSummary}) ✅`,
+        });
+      }
 
       if (!invoice) {
         // Serverless Supabase-first POS settlement receipt backed by real persisted order ID
         invoice = {
-          id: createdKOT?.id || `pos_${Date.now()}`,
-          invoiceNumber: `POS-${String(createdKOT?.id || Date.now()).slice(-6).toUpperCase()}`,
+          id: existingOrderId || createdKOT?.id || `pos_${Date.now()}`,
+          invoiceNumber: `POS-${String(
+            existingOrderId || createdKOT?.id || Date.now(),
+          )
+            .slice(-6)
+            .toUpperCase()}`,
           restaurantId: resolvedRid,
           restaurantDetails: {
             name: receiptHeader.name,
@@ -350,251 +465,122 @@ export default function SplitPaymentModal({
           customer: { name: customerName || `Table ${orderNumberTable} Guest` },
           items: itemsSnapshot,
           pricing: pricingSnapshot,
-          status: 'PAID',
+          status: "PAID",
           payments: finalPayments,
           issuedAt: new Date().toISOString(),
-        }
+        };
       }
 
-      // Instantly notify live components
-      window.dispatchEvent(new CustomEvent('newOrderCreated', { detail: createdKOT }))
+      // Instantly notify live components when a new KOT order was created
+      if (createdKOT) {
+        window.dispatchEvent(
+          new CustomEvent("newOrderCreated", { detail: createdKOT }),
+        );
+      }
 
-      setSettledInvoice(invoice)
-      toast.success(`🎉 Bill Settled (${invoice.invoiceNumber}) & KOT Sent to Kitchen!`)
+      setSettledInvoice(invoice);
+      toast.success(
+        existingOrderId
+          ? `🎉 Bill Settled (${invoice.invoiceNumber}) & Table Cleared!`
+          : `🎉 Bill Settled (${invoice.invoiceNumber}) & KOT Sent to Kitchen!`,
+      );
       if (onSuccessSettlement) {
-        onSuccessSettlement(invoice)
+        onSuccessSettlement(invoice);
       }
     } catch (err) {
-      console.error('Settlement error:', err)
-      toast.error(err.message || 'Payment settlement failed')
+      console.error("Settlement error:", err);
+      toast.error(err.message || "Payment settlement failed");
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   // Active snapshots for Settled Receipt UI & Thermal Print (safe even after cart clears)
-  const displayPricing = settledInvoice?.pricing || calculation?.pricing || {}
-  const displayItems = settledInvoice?.items || cartItems || []
-  const displayGrandTotal = displayPricing?.grandTotal ?? grandTotal
-  const displayTable = settledInvoice?.tableNumber || tableNumber
+  const displayPricing = settledInvoice?.pricing || calculation?.pricing || {};
+  const displayItems = settledInvoice?.items || cartItems || [];
+  const displayGrandTotal = displayPricing?.grandTotal ?? grandTotal;
+  const displayTable = settledInvoice?.tableNumber || tableNumber;
 
-  // Thermal Print Receipt (Iframe-Isolated)
-  const handlePrint = () => {
+  // Centralized Print Receipt (uses universal 80mm PDF printConfig engine matching Preview UI)
+  const handlePrint = async () => {
     try {
-      const printFrame = document.createElement('iframe')
-      printFrame.style.position = 'fixed'
-      printFrame.style.right = '0'
-      printFrame.style.bottom = '0'
-      printFrame.style.width = '0'
-      printFrame.style.height = '0'
-      printFrame.style.border = '0'
-      document.body.appendChild(printFrame)
-
-      const frameDoc = printFrame.contentWindow || printFrame.contentDocument.document || printFrame.contentDocument
-      const doc = frameDoc.document || frameDoc
-
-      const itemsHtml = displayItems.map(item => `
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px; align-items:flex-start;">
-          <div style="max-width:260px; word-break:break-word;">
-            <span style="font-weight:bold; color:#0f172a;">${escapeHtml(item.name)}</span>
-            ${item.variant && item.variant !== 'full' ? `<span style="font-size:11px; color:#d97706; display:block;">(${escapeHtml(item.variant)})</span>` : ''}
-          </div>
-          <span style="white-space:nowrap; margin:0 8px; color:#475569;">${item.quantity} x ₹${Number(item.price).toFixed(2)}</span>
-          <span style="font-weight:bold; color:#0f172a; white-space:nowrap; text-align:right;">₹${(item.price * item.quantity).toFixed(2)}</span>
-        </div>
-      `).join('')
-
-      const now = new Date()
-      const formattedDate = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      const formattedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-      const invNum = settledInvoice?.invoiceNumber || `INV-${now.getFullYear()}-${Date.now().toString().slice(-6)}`
-
-      doc.open()
-      doc.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8" />
-            <title>${payeeName} - Paid Receipt</title>
-            <style>
-              @page {
-                size: auto;
-                margin: 6mm auto;
-              }
-              * {
-                box-sizing: border-box;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-              html, body {
-                width: 100%;
-                margin: 0;
-                padding: 0;
-                background: #ffffff;
-                color: #1e293b;
-                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-                font-size: 13px;
-                line-height: 1.45;
-              }
-              .receipt-box {
-                width: 100%;
-                max-width: 480px;
-                margin: 0 auto;
-                padding: 16px 20px;
-                background: #fffdfa;
-                border: 1.5px dashed #cbd5e1;
-                border-radius: 8px;
-              }
-              .text-center { text-align: center; }
-              .text-right { text-align: right; }
-              .font-bold { font-weight: bold; }
-              .uppercase { text-transform: uppercase; }
-              .dashed-border {
-                border-bottom: 1.5px dashed #cbd5e1;
-                padding-bottom: 12px;
-                margin-bottom: 12px;
-              }
-              .grid-2 {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 5px;
-                font-size: 12.5px;
-              }
-              .items-header {
-                display: flex;
-                justify-content: space-between;
-                font-weight: bold;
-                border-bottom: 1.5px solid #0f172a;
-                padding-bottom: 5px;
-                margin-bottom: 10px;
-                font-size: 12.5px;
-                color: #0f172a;
-              }
-              .totals-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 6px;
-                font-size: 12.5px;
-                color: #475569;
-              }
-              .grand-total-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                font-size: 17px;
-                font-weight: 900;
-                color: #0f172a;
-                border-top: 2px solid #0f172a;
-                border-bottom: 2px solid #0f172a;
-                padding: 8px 0;
-                margin: 10px 0;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="receipt-box">
-              
-              <!-- Brand Header -->
-              <div class="text-center dashed-border">
-                <h2 style="margin:0; font-size:20px; font-weight:900;" class="uppercase">${escapeHtml(receiptHeader.name)}</h2>
-                ${receiptHeader.address ? `<p style="margin:4px 0 2px; font-size:12px; color:#475569;">${escapeHtml(receiptHeader.address)}</p>` : ''}
-                ${receiptHeader.phone ? `<p style="margin:0; font-size:12px; color:#475569;">Ph: <strong>${escapeHtml(receiptHeader.phone)}</strong></p>` : ''}
-                ${receiptHeader.gstin ? `
-                <div style="margin-top:6px;">
-                  <span style="display:inline-block; padding:2px 8px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px; font-size:11px; font-weight:bold; color:#1e293b;">
-                    GSTIN: ${escapeHtml(receiptHeader.gstin)}
-                  </span>
-                </div>` : ''}
-              </div>
-
-              <!-- Metadata -->
-              <div class="dashed-border">
-                <div class="grid-2">
-                  <div><span style="color:#64748b;">Invoice No:</span> <strong style="color:#0f172a; font-size:13px;">${escapeHtml(invNum)}</strong></div>
-                  <div class="text-right"><span style="color:#64748b;">Table:</span> <strong style="color:#0f172a; font-size:14px;">Table ${escapeHtml(String(displayTable))}</strong></div>
-                </div>
-                <div class="grid-2">
-                  <div><span style="color:#64748b;">Date & Time:</span> <span>${formattedDate}, ${formattedTime}</span></div>
-                  <div class="text-right"><span style="color:#64748b;">Status:</span> <strong style="color:#059669;">PAID</strong></div>
-                </div>
-              </div>
-
-              <!-- Items Table -->
-              <div class="dashed-border" style="padding-bottom:8px;">
-                <div class="items-header">
-                  <span>Item</span>
-                  <span>Qty x Price</span>
-                  <span>Total</span>
-                </div>
-                ${itemsHtml}
-              </div>
-
-              <!-- Totals Breakdown -->
-              <div class="dashed-border" style="padding-bottom:10px;">
-                <div class="totals-row">
-                  <span>Subtotal:</span>
-                  <span style="font-weight:bold; color:#0f172a;">₹${Number(displayPricing?.subtotal || 0).toFixed(2)}</span>
-                </div>
-                ${(displayPricing?.discount?.amount || 0) > 0 ? `
-                  <div class="totals-row" style="color:#059669; font-weight:bold;">
-                    <span>Discount:</span>
-                    <span>-₹${Number(displayPricing?.discount?.amount || 0).toFixed(2)}</span>
-                  </div>
-                ` : ''}
-                ${(displayPricing?.taxes?.totalTax || 0) > 0 ? (() => {
-                  const tv = displayPricing?.taxableValue || displayPricing?.subtotal || 0
-                  const tTotal = displayPricing?.taxes?.totalTax || 0
-                  const halfPct = tv > 0 ? Number((((tTotal / tv) * 100) / 2).toFixed(2)) : 2.5
-                  return `
-                <div class="totals-row">
-                  <span>CGST (${halfPct}%):</span>
-                  <span>₹${Number(displayPricing?.taxes?.cgst || 0).toFixed(2)}</span>
-                </div>
-                <div class="totals-row">
-                  <span>SGST (${halfPct}%):</span>
-                  <span>₹${Number(displayPricing?.taxes?.sgst || 0).toFixed(2)}</span>
-                </div>`
-                })() : ''}
-                <div class="grand-total-row">
-                  <span>Total Paid:</span>
-                  <span>₹${Number(displayGrandTotal || 0).toFixed(2)}</span>
-                </div>
-              </div>
-
-              <!-- Footer -->
-              <div class="text-center" style="font-size:11.5px; color:#64748b; line-height:1.5; padding-top:2px;">
-                <p style="margin:0; font-weight:bold; color:#0f172a;">Thank you for dining with us!</p>
-                <p style="margin:0;">Please visit again soon.</p>
-                <p style="margin:4px 0 0; font-size:9.5px; color:#94a3b8;">Powered by Servora POS OS</p>
-              </div>
-
-            </div>
-          </body>
-        </html>
-      `)
-      doc.close()
-
-      setTimeout(() => {
-        printFrame.contentWindow.focus()
-        printFrame.contentWindow.print()
-        setTimeout(() => {
-          if (document.body.contains(printFrame)) {
-            document.body.removeChild(printFrame)
-          }
-        }, 3000)
-      }, 300)
-
-      toast.success('Paid Receipt sent to printer!')
+      const now = new Date();
+      const invNum =
+        settledInvoice?.invoiceNumber ||
+        `INV-${now.getFullYear()}-${Date.now().toString().slice(-6)}`;
+      const resolvedMethod =
+        settledInvoice?.payments?.map((p) => p.method).filter(Boolean).join(" + ") ||
+        settledInvoice?.paymentMethod ||
+        (paymentMode === "split"
+          ? splitPayers.map((p) => p.method).filter(Boolean).join(" + ")
+          : singleMethod) ||
+        "COUNTER";
+      // Point receipt QR to the safe demo menu (not the live restaurant/table ordering URL)
+      // to prevent off-premise order spam from printed bills until the rating page is built.
+      const origin = getPublicMenuOrigin();
+      const demoSlug = "demo-merchant";
+      const sig = generateRestaurantSignature(demoSlug);
+      const qrTargetUrl = `${origin}/menu?restaurant=${demoSlug}${sig ? `&sig=${encodeURIComponent(sig)}` : ""}`;
+      let qrDataUrl = "";
+      try {
+        qrDataUrl = await QRCode.toDataURL(qrTargetUrl, {
+          width: 140,
+          margin: 1,
+          color: { dark: "#0f172a", light: "#ffffff" },
+        });
+      } catch {
+        qrDataUrl = "";
+      }
+      const receiptOrderPayload = {
+        id: invNum,
+        invoiceNumber: invNum,
+        tableNumber: displayTable,
+        customerName,
+        items: displayItems,
+        subtotal: displayPricing?.subtotal,
+        tax: displayPricing?.taxes?.totalTax ?? 0,
+        total: displayGrandTotal,
+        discountAmount: displayPricing?.discount?.amount ?? 0,
+        paymentMethod: resolvedMethod,
+        payment_status: settledInvoice ? "PAID" : "UNPAID",
+        createdAt: now.toISOString(),
+      };
+      const normalized = normalizeReceiptData(
+        receiptOrderPayload,
+        restaurantProfile,
+        { paymentMethod: resolvedMethod },
+      );
+      const pdf = await generateReceiptPdfDoc(
+        normalized,
+        DEFAULT_PAPER_SIZE_ID,
+        {
+          copies: 1,
+          includeGst: true,
+          showFeedbackQr: Boolean(qrDataUrl),
+          qrDataUrl,
+        },
+      );
+      const adapter = createPrinterAdapter();
+      await adapter.printPdf(pdf, {
+        paperSizeId: DEFAULT_PAPER_SIZE_ID,
+        copies: 1,
+      });
+      toast.success("Paid Receipt prepared for 80mm printer!");
     } catch (err) {
-      console.error('Print error:', err)
-      window.print()
+      console.error("Print error:", err);
+      toast.error("Failed to prepare receipt print document");
     }
-  }
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && !isProcessing && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-3xl border-slate-200 shadow-2xl bg-white">
-        
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => !open && !isProcessing && onClose()}
+    >
+      <DialogContent
+        overlayClassName="z-[1250] bg-slate-950/55 backdrop-blur-xs"
+        className="z-[1300] max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-3xl border-slate-200 shadow-2xl bg-white"
+      >
         {/* Header */}
         <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -603,9 +589,14 @@ export default function SplitPaymentModal({
             </div>
             <div>
               <DialogTitle className="text-sm font-black tracking-tight text-white flex items-center gap-2">
-                <span>Table {displayTable} {settledInvoice ? 'Invoice & Receipt' : 'Bill Settlement'}</span>
+                <span>
+                  Table {displayTable}{" "}
+                  {settledInvoice ? "Invoice & Receipt" : "Bill Settlement"}
+                </span>
                 <Badge className="bg-emerald-500 text-white font-bold text-[10px] px-2 py-0.5">
-                  {settledInvoice ? `₹${displayGrandTotal} Paid` : `₹${grandTotal} Due`}
+                  {settledInvoice
+                    ? `₹${displayGrandTotal} Paid`
+                    : `₹${grandTotal} Due`}
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-[11px] text-slate-400">
@@ -623,56 +614,91 @@ export default function SplitPaymentModal({
             </div>
 
             <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Bill Settled & Receipt Ready</span>
-              <h2 className="text-xl font-black text-slate-900 mt-0.5">{settledInvoice.invoiceNumber}</h2>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Bill Settled & Receipt Ready
+              </span>
+              <h2 className="text-xl font-black text-slate-900 mt-0.5">
+                {settledInvoice.invoiceNumber}
+              </h2>
               <p className="text-xs text-emerald-700 font-bold mt-1 bg-emerald-50 inline-block px-3 py-0.5 rounded-full border border-emerald-200">
                 ✅ Paid & Settled (₹{Number(displayGrandTotal || 0).toFixed(2)})
               </p>
             </div>
 
-            {Array.isArray(settledInvoice.payments) && settledInvoice.payments.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-1.5 text-[11px]">
-                {settledInvoice.payments.map((p, idx) => (
-                  <span key={idx} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-semibold">
-                    {p.method}: ₹{Number(p.amount || 0).toFixed(2)}
-                  </span>
-                ))}
-              </div>
-            )}
+            {Array.isArray(settledInvoice.payments) &&
+              settledInvoice.payments.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-1.5 text-[11px]">
+                  {settledInvoice.payments.map((p, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-semibold"
+                    >
+                      {p.method}: ₹{Number(p.amount || 0).toFixed(2)}
+                    </span>
+                  ))}
+                </div>
+              )}
 
             {/* Bill Summary Breakdown */}
             <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-xs text-left space-y-1.5">
               <div className="flex justify-between text-slate-600">
-                <span>Subtotal ({displayItems.reduce((s, i) => s + Number(i.quantity || 1), 0)} items):</span>
+                <span>
+                  Subtotal (
+                  {displayItems.reduce(
+                    (s, i) => s + Number(i.quantity || 1),
+                    0,
+                  )}{" "}
+                  items):
+                </span>
                 <span>₹{Number(displayPricing?.subtotal || 0).toFixed(2)}</span>
               </div>
               {(displayPricing?.discount?.amount || 0) > 0 && (
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>Discount:</span>
-                  <span>-₹{Number(displayPricing?.discount?.amount || 0).toFixed(2)}</span>
+                  <span>
+                    -₹{Number(displayPricing?.discount?.amount || 0).toFixed(2)}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between text-slate-600">
                 <span>Taxable Value:</span>
-                <span>₹{Number(displayPricing?.taxableValue ?? displayPricing?.subtotal ?? 0).toFixed(2)}</span>
+                <span>
+                  ₹
+                  {Number(
+                    displayPricing?.taxableValue ??
+                      displayPricing?.subtotal ??
+                      0,
+                  ).toFixed(2)}
+                </span>
               </div>
-              {(displayPricing?.taxes?.totalTax || 0) > 0 && (() => {
-                const tv = displayPricing?.taxableValue || displayPricing?.subtotal || 0
-                const tTotal = displayPricing?.taxes?.totalTax || 0
-                const halfPct = tv > 0 ? Number((((tTotal / tv) * 100) / 2).toFixed(2)) : 2.5
-                return (
-                  <>
-                    <div className="flex justify-between text-slate-600">
-                      <span>CGST ({halfPct}%):</span>
-                      <span>₹{Number(displayPricing?.taxes?.cgst || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>SGST ({halfPct}%):</span>
-                      <span>₹{Number(displayPricing?.taxes?.sgst || 0).toFixed(2)}</span>
-                    </div>
-                  </>
-                )
-              })()}
+              {(displayPricing?.taxes?.totalTax || 0) > 0 &&
+                (() => {
+                  const tv =
+                    displayPricing?.taxableValue ||
+                    displayPricing?.subtotal ||
+                    0;
+                  const tTotal = displayPricing?.taxes?.totalTax || 0;
+                  const halfPct =
+                    tv > 0
+                      ? Number((((tTotal / tv) * 100) / 2).toFixed(2))
+                      : 2.5;
+                  return (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>CGST ({halfPct}%):</span>
+                        <span>
+                          ₹{Number(displayPricing?.taxes?.cgst || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>SGST ({halfPct}%):</span>
+                        <span>
+                          ₹{Number(displayPricing?.taxes?.sgst || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               <div className="flex justify-between font-black text-slate-900 pt-2 border-t text-sm">
                 <span>Grand Total Paid:</span>
                 <span>₹{Number(displayGrandTotal || 0).toFixed(2)}</span>
@@ -696,34 +722,45 @@ export default function SplitPaymentModal({
             </div>
           </div>
         ) : (
-          
           /* Payment Processing Screen */
           <>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              
               {/* Bill Summary Strip */}
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs font-semibold">
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Subtotal & Taxes</span>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                    Subtotal & Taxes
+                  </span>
                   <span className="text-slate-700 font-medium">
-                    Subtotal ₹{calculation?.pricing?.subtotal} • {(calculation?.pricing?.taxes?.totalTax || 0) > 0
-                      ? `${restaurantProfile?.gstLabel || 'GST'} ₹${calculation?.pricing?.taxes?.totalTax}`
-                      : 'Tax Exempt (₹0)'}
+                    Subtotal ₹{calculation?.pricing?.subtotal} •{" "}
+                    {(calculation?.pricing?.taxes?.totalTax || 0) > 0
+                      ? `${restaurantProfile?.gstLabel || "GST"} ₹${calculation?.pricing?.taxes?.totalTax}`
+                      : "Tax Exempt (₹0)"}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Total Payable</span>
-                  <span className="text-base font-black text-slate-900">₹{grandTotal}</span>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                    Total Payable
+                  </span>
+                  <span className="text-base font-black text-slate-900">
+                    ₹{grandTotal}
+                  </span>
                 </div>
               </div>
 
               {/* Mode Tabs (Single Pay vs Multi-Payer Split) */}
               <Tabs value={paymentMode} onValueChange={setPaymentMode}>
                 <TabsList className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
-                  <TabsTrigger value="single" className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs">
+                  <TabsTrigger
+                    value="single"
+                    className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs"
+                  >
                     ⚡ Single Payment
                   </TabsTrigger>
-                  <TabsTrigger value="split" className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs">
+                  <TabsTrigger
+                    value="split"
+                    className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs"
+                  >
                     👥 Multi-Payer Split
                   </TabsTrigger>
                 </TabsList>
@@ -732,40 +769,50 @@ export default function SplitPaymentModal({
                 <TabsContent value="single" className="space-y-3 mt-3">
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { id: 'UPI', label: 'UPI / QR', icon: QrCode },
-                      { id: 'CASH', label: 'Cash', icon: Banknote },
-                      { id: 'CARD', label: 'Card / POS', icon: CreditCard },
-                      { id: 'WALLET', label: 'Wallet', icon: Wallet }
-                    ].map(m => {
-                      const isSelected = singleMethod === m.id
-                      const Icon = m.icon
+                      { id: "UPI", label: "UPI / QR", icon: QrCode },
+                      { id: "CASH", label: "Cash", icon: Banknote },
+                      { id: "CARD", label: "Card / POS", icon: CreditCard },
+                      { id: "WALLET", label: "Wallet", icon: Wallet },
+                    ].map((m) => {
+                      const isSelected = singleMethod === m.id;
+                      const Icon = m.icon;
                       return (
                         <button
                           key={m.id}
                           type="button"
                           onClick={() => setSingleMethod(m.id)}
                           className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
-                            isSelected 
-                              ? `border-slate-900 bg-slate-900 text-white shadow-sm` 
-                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                            isSelected
+                              ? `border-slate-900 bg-slate-900 text-white shadow-sm`
+                              : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           }`}
                         >
-                          <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-600'}`} />
-                          <span className="text-[11px] font-bold">{m.label}</span>
+                          <Icon
+                            className={`w-4 h-4 ${isSelected ? "text-white" : "text-slate-600"}`}
+                          />
+                          <span className="text-[11px] font-bold">
+                            {m.label}
+                          </span>
                         </button>
-                      )
+                      );
                     })}
                   </div>
 
                   {/* Method Specific Inputs */}
-                  {singleMethod === 'CASH' && (
+                  {singleMethod === "CASH" && (
                     <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-emerald-950">Cash Tendered by Customer</label>
-                        <span className="text-xs font-mono font-black text-emerald-700">Due: ₹{grandTotal}</span>
+                        <label className="text-xs font-bold text-emerald-950">
+                          Cash Tendered by Customer
+                        </label>
+                        <span className="text-xs font-mono font-black text-emerald-700">
+                          Due: ₹{grandTotal}
+                        </span>
                       </div>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 text-sm">₹</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 text-sm">
+                          ₹
+                        </span>
                         <Input
                           type="number"
                           value={cashTendered}
@@ -776,23 +823,24 @@ export default function SplitPaymentModal({
                       {cashChange > 0 && (
                         <div className="flex justify-between items-center text-xs font-bold text-emerald-800 pt-1">
                           <span>Return Change to Customer:</span>
-                          <span className="text-sm font-black bg-emerald-200/80 px-2 py-0.5 rounded-md">₹{cashChange}</span>
+                          <span className="text-sm font-black bg-emerald-200/80 px-2 py-0.5 rounded-md">
+                            ₹{cashChange}
+                          </span>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {singleMethod === 'UPI' && (
+                  {singleMethod === "UPI" && (
                     <div className="p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-200/80">
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 items-center">
-                        
                         {/* Left Column: Compact Scannable UPI QR Image */}
                         <div className="sm:col-span-5 text-center">
                           <div className="bg-white p-2.5 rounded-2xl shadow-xs border border-indigo-100 inline-block">
                             {upiQrDataUrl ? (
-                              <img 
-                                src={upiQrDataUrl} 
-                                alt={`${payeeName} UPI Payment QR Code`} 
+                              <img
+                                src={upiQrDataUrl}
+                                alt={`${payeeName} UPI Payment QR Code`}
                                 className="w-36 h-36 mx-auto rounded-xl object-contain"
                               />
                             ) : (
@@ -800,17 +848,18 @@ export default function SplitPaymentModal({
                                 Generating QR...
                               </div>
                             )}
-                            
+
                             <div className="mt-1.5 pt-1 border-t border-slate-100 flex items-center justify-center gap-1 text-[10px] font-black text-indigo-950">
                               <span>Scan & Pay:</span>
-                              <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded font-mono font-bold">₹{grandTotal}</span>
+                              <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded font-mono font-bold">
+                                ₹{grandTotal}
+                              </span>
                             </div>
                           </div>
                         </div>
 
                         {/* Right Column: Payee, UPI ID, Copy/Edit, Badges & UTR */}
                         <div className="sm:col-span-7 space-y-2 text-left">
-                          
                           {/* Trust Banner */}
                           <div className="flex items-center justify-between px-2.5 py-1 rounded-xl bg-white border border-indigo-100 text-[11px] font-bold text-indigo-950">
                             <div className="flex items-center gap-1.5 truncate">
@@ -835,8 +884,12 @@ export default function SplitPaymentModal({
                               onClick={copyUPI}
                               className="h-6 px-2 rounded-lg text-[10px] font-bold border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50"
                             >
-                              {copiedUpi ? <Check className="w-3 h-3 mr-1 text-emerald-600" /> : <Copy className="w-3 h-3 mr-1" />}
-                              <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
+                              {copiedUpi ? (
+                                <Check className="w-3 h-3 mr-1 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3 mr-1" />
+                              )}
+                              <span>{copiedUpi ? "Copied" : "Copy"}</span>
                             </Button>
 
                             <Button
@@ -844,12 +897,12 @@ export default function SplitPaymentModal({
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                setTempUpiInput(merchantUpi)
-                                setIsEditingUpi(!isEditingUpi)
+                                setTempUpiInput(merchantUpi);
+                                setIsEditingUpi(!isEditingUpi);
                               }}
                               className="h-6 px-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:text-indigo-600"
                             >
-                              {isEditingUpi ? 'Cancel' : '✏️ Edit'}
+                              {isEditingUpi ? "Cancel" : "✏️ Edit"}
                             </Button>
                           </div>
 
@@ -863,7 +916,9 @@ export default function SplitPaymentModal({
                                 <Input
                                   placeholder="e.g. yourrestaurant@okaxis"
                                   value={tempUpiInput}
-                                  onChange={(e) => setTempUpiInput(e.target.value)}
+                                  onChange={(e) =>
+                                    setTempUpiInput(e.target.value)
+                                  }
                                   className="h-7 text-xs font-mono"
                                 />
                                 <Button
@@ -880,16 +935,28 @@ export default function SplitPaymentModal({
 
                           {/* Supported UPI Apps Badges */}
                           <div className="flex flex-wrap items-center gap-1 text-[9px] font-extrabold text-slate-500">
-                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">GPay</span>
-                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">PhonePe</span>
-                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">Paytm</span>
-                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">BHIM</span>
-                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">Cred</span>
+                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">
+                              GPay
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">
+                              PhonePe
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">
+                              Paytm
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">
+                              BHIM
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-white rounded border border-slate-200">
+                              Cred
+                            </span>
                           </div>
 
                           {/* UTR Input */}
                           <div>
-                            <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Optional UTR / Bank Ref No.</label>
+                            <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                              Optional UTR / Bank Ref No.
+                            </label>
                             <Input
                               placeholder="e.g. 423456789012 (12-digit UTR)"
                               value={singleRef}
@@ -902,9 +969,11 @@ export default function SplitPaymentModal({
                     </div>
                   )}
 
-                  {singleMethod === 'CARD' && (
+                  {singleMethod === "CARD" && (
                     <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-200/80 space-y-2">
-                      <label className="text-xs font-bold text-blue-950 block">Card Reference / Last 4 Digits</label>
+                      <label className="text-xs font-bold text-blue-950 block">
+                        Card Reference / Last 4 Digits
+                      </label>
                       <Input
                         placeholder="e.g. 4242 or Swipe Ref #1098"
                         value={singleRef}
@@ -918,7 +987,9 @@ export default function SplitPaymentModal({
                 {/* ── 2. Multi-Payer Split Payment Tab ── */}
                 <TabsContent value="split" className="space-y-3 mt-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700">Split Bill Payers ({splitPayers.length})</span>
+                    <span className="text-xs font-bold text-slate-700">
+                      Split Bill Payers ({splitPayers.length})
+                    </span>
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
@@ -943,15 +1014,29 @@ export default function SplitPaymentModal({
                   {/* Payer Rows */}
                   <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                     {splitPayers.map((payer) => (
-                      <div key={payer.id} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-2">
+                      <div
+                        key={payer.id}
+                        className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-2"
+                      >
                         <Input
                           value={payer.payerName}
-                          onChange={(e) => updateSplitPayer(payer.id, 'payerName', e.target.value)}
+                          onChange={(e) =>
+                            updateSplitPayer(
+                              payer.id,
+                              "payerName",
+                              e.target.value,
+                            )
+                          }
                           placeholder="Guest Name"
                           className="h-7 text-xs bg-white rounded-lg w-28 shrink-0 font-bold"
                         />
 
-                        <Select value={payer.method} onValueChange={(val) => updateSplitPayer(payer.id, 'method', val)}>
+                        <Select
+                          value={payer.method}
+                          onValueChange={(val) =>
+                            updateSplitPayer(payer.id, "method", val)
+                          }
+                        >
                           <SelectTrigger className="h-7 text-xs bg-white rounded-lg w-24 shrink-0 font-semibold">
                             <SelectValue />
                           </SelectTrigger>
@@ -964,11 +1049,19 @@ export default function SplitPaymentModal({
                         </Select>
 
                         <div className="relative flex-1">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                            ₹
+                          </span>
                           <Input
                             type="number"
                             value={payer.amount}
-                            onChange={(e) => updateSplitPayer(payer.id, 'amount', e.target.value)}
+                            onChange={(e) =>
+                              updateSplitPayer(
+                                payer.id,
+                                "amount",
+                                e.target.value,
+                              )
+                            }
                             className="pl-6 h-7 text-xs bg-white rounded-lg font-black text-slate-900"
                           />
                         </div>
@@ -985,14 +1078,22 @@ export default function SplitPaymentModal({
                   </div>
 
                   {/* Balance Status Banner */}
-                  <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${
-                    splitRemainingBalance === 0 
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                      : 'bg-amber-50 border-amber-200 text-amber-800'
-                  }`}>
-                    <span>{splitRemainingBalance === 0 ? '✅ Total Allocated' : '⚠️ Remaining Balance:'}</span>
+                  <div
+                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${
+                      splitRemainingBalance === 0
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                        : "bg-amber-50 border-amber-200 text-amber-800"
+                    }`}
+                  >
+                    <span>
+                      {splitRemainingBalance === 0
+                        ? "✅ Total Allocated"
+                        : "⚠️ Remaining Balance:"}
+                    </span>
                     <span className="text-sm font-black">
-                      {splitRemainingBalance === 0 ? `₹${grandTotal} Settled` : `₹${splitRemainingBalance}`}
+                      {splitRemainingBalance === 0
+                        ? `₹${grandTotal} Settled`
+                        : `₹${splitRemainingBalance}`}
                     </span>
                   </div>
                 </TabsContent>
@@ -1000,28 +1101,45 @@ export default function SplitPaymentModal({
             </div>
 
             {/* Sticky Action Footer */}
-            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                disabled={isProcessing}
-                className="rounded-xl font-bold text-xs"
-              >
-                Cancel
-              </Button>
+            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={isProcessing}
+                  className="rounded-xl font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrint}
+                  disabled={isProcessing}
+                  className="rounded-xl font-bold text-xs border-slate-200 text-slate-700 hover:bg-white cursor-pointer flex items-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Print Bill</span>
+                </Button>
+              </div>
 
               <Button
                 onClick={handleCompleteSettlement}
-                disabled={isProcessing || (paymentMode === 'split' && splitRemainingBalance !== 0)}
-                className="rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-500/20 active:scale-95 transition-all"
+                disabled={
+                  isProcessing ||
+                  (paymentMode === "split" && splitRemainingBalance !== 0)
+                }
+                className="rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-500/20 active:scale-95 transition-all cursor-pointer"
               >
-                {isProcessing ? 'Generating Invoice...' : `Settle & Generate Bill (₹${grandTotal})`}
+                {isProcessing
+                  ? "Generating Invoice..."
+                  : `Settle & Generate Bill (₹${grandTotal})`}
               </Button>
             </div>
           </>
         )}
-
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -91,8 +91,13 @@ import {
   setLockedTableSession,
 } from "@/utils/tableSecurity";
 import {
+  doesOrderBelongToTable,
+  normalizeTableKey,
+} from "@/utils/orderPipelineHelpers";
+import {
   fetchMenuItems,
   fetchGstSettings,
+  fetchPublicMenuBootstrap,
   getRestaurantByEmail,
   getRestaurantProfile,
   getTableSessions,
@@ -289,6 +294,7 @@ export default function CustomerMenu() {
   const [securityBlocked, setSecurityBlocked] = useState(false);
   const [isTableLockedFromURL, setIsTableLockedFromURL] = useState(false);
   const [availableTables, setAvailableTables] = useState([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  const [sessionOccupiedTables, setSessionOccupiedTables] = useState([]);
   const [showTableModal, setShowTableModal] = useState(false);
   const [pendingTableInput, setPendingTableInput] = useState("");
   const [pendingWaiterAfterTable, setPendingWaiterAfterTable] = useState(false);
@@ -301,13 +307,7 @@ export default function CustomerMenu() {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeOrderId, setActiveOrderId] = useState(() => {
-    try {
-      return sessionStorage.getItem("activeOrderId") || null;
-    } catch {
-      return null;
-    }
-  });
+  const [activeOrderId, setActiveOrderId] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [gstRate, setGstRate] = useState(0);
   const [gstLabel, setGstLabel] = useState("GST");
@@ -341,21 +341,30 @@ export default function CustomerMenu() {
   const [waiterCalledUntil, setWaiterCalledUntil] = useState(null);
   const [waiterCooldownSeconds, setWaiterCooldownSeconds] = useState(0);
 
-  // Restore persisted 2-minute waiter cooldown when restaurantId resolves
+  // Restore persisted 2-minute waiter cooldown when restaurantId resolves or changes across views
   useEffect(() => {
     if (!restaurantId) return;
-    try {
-      const savedUntil = Number(
-        sessionStorage.getItem(`servora_waiter_until_${restaurantId}`) || 0,
-      );
-      if (savedUntil > Date.now()) {
-        setWaiterCalledUntil(savedUntil);
-        setWaiterCooldownSeconds(Math.ceil((savedUntil - Date.now()) / 1000));
-      } else {
-        setWaiterCalledUntil(null);
-        setWaiterCooldownSeconds(0);
-      }
-    } catch (e) {}
+    const syncWaiterFromStorage = () => {
+      try {
+        const savedUntil = Number(
+          sessionStorage.getItem(`servora_waiter_until_${restaurantId}`) || 0,
+        );
+        if (savedUntil > Date.now()) {
+          setWaiterCalledUntil(savedUntil);
+          setWaiterCooldownSeconds(Math.ceil((savedUntil - Date.now()) / 1000));
+        } else {
+          setWaiterCalledUntil(null);
+          setWaiterCooldownSeconds(0);
+        }
+      } catch (e) {}
+    };
+    syncWaiterFromStorage();
+    window.addEventListener("servora_waiter_cooldown_updated", syncWaiterFromStorage);
+    window.addEventListener("storage", syncWaiterFromStorage);
+    return () => {
+      window.removeEventListener("servora_waiter_cooldown_updated", syncWaiterFromStorage);
+      window.removeEventListener("storage", syncWaiterFromStorage);
+    };
   }, [restaurantId]);
 
   // Live 1-second countdown for the 2-minute waiter cooldown
@@ -421,6 +430,26 @@ export default function CustomerMenu() {
   const { orders: liveRestaurantOrders, orderHistory: liveOrderHistory, createOrder, updateStatus, getOrdersByTable } =
     useOrderManagement(restaurantId);
 
+  const occupiedTableSet = useMemo(() => {
+    const occupied = new Set(
+      (sessionOccupiedTables || [])
+        .map((n) => Number(n))
+        .filter((n) => !isNaN(n) && n > 0),
+    );
+    const terminalStatuses = new Set(["FINISHED", "FINISHED_CLOSED", "CANCELLED"]);
+    (liveRestaurantOrders || []).forEach((order) => {
+      const status = String(order?.status || "").toUpperCase();
+      const mode = String(order?.order_mode || order?.orderMode || "").toUpperCase();
+      if (terminalStatuses.has(status) || mode === "TAKEAWAY") return;
+      const rawTable = order?.table_number ?? order?.tableNumber;
+      const parsed = parseInt(String(rawTable || "").replace(/[^0-9]/g, ""), 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        occupied.add(parsed);
+      }
+    });
+    return occupied;
+  }, [sessionOccupiedTables, liveRestaurantOrders]);
+
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -439,13 +468,10 @@ export default function CustomerMenu() {
         let resId = rawResId;
         if (validUuid) {
           resId = validUuid;
-          console.log(`✅ Resolved URL param to UUID: ${resId}`);
         } else if (resId.includes("@")) {
-          console.log(`🔗 Resolving legacy email ID: ${resId}`);
           const profile = await getRestaurantByEmail(resId);
           if (profile && profile.id) {
             resId = profile.id;
-            console.log(`✅ Resolved to UUID: ${resId}`);
           }
         }
         setRestaurantId(resId);
@@ -523,21 +549,33 @@ export default function CustomerMenu() {
         setTableNumber(effectiveTable);
         setPendingTableInput(effectiveTable);
 
-        // Fetch restaurant configured tables for 1-tap table picker
-        if (resId && resId !== "default") {
+        // Fetch bootstrap payload (profile + menu_items + gst + tables) in one RPC for non-demo nodes
+        const useBootstrap = resId && resId !== "default" && !resId.includes("@");
+        const bootstrap = useBootstrap ? await fetchPublicMenuBootstrap(resId) : null;
+
+        // Populate 1-tap table picker & occupied status from bootstrap tables (or fallback for demo/legacy nodes)
+        const syncSessionsState = (sessions) => {
+          if (!Array.isArray(sessions) || sessions.length === 0) return;
+          const nums = Array.from(
+            new Set(
+              sessions
+                .map((s) => Number(s.table_number))
+                .filter((n) => !isNaN(n) && n > 0),
+            ),
+          ).sort((a, b) => a - b);
+          if (nums.length > 0) setAvailableTables(nums);
+          const occNums = sessions
+            .filter((s) => ["occupied", "billing"].includes(String(s?.status || "").toLowerCase()))
+            .map((s) => Number(s.table_number))
+            .filter((n) => !isNaN(n) && n > 0);
+          setSessionOccupiedTables(occNums);
+        };
+
+        if (bootstrap && Array.isArray(bootstrap.tables)) {
+          syncSessionsState(bootstrap.tables);
+        } else if (resId && resId !== "default") {
           getTableSessions(resId)
-            .then((sessions) => {
-              if (Array.isArray(sessions) && sessions.length > 0) {
-                const nums = Array.from(
-                  new Set(
-                    sessions
-                      .map((s) => Number(s.table_number))
-                      .filter((n) => !isNaN(n) && n > 0),
-                  ),
-                ).sort((a, b) => a - b);
-                if (nums.length > 0) setAvailableTables(nums);
-              }
-            })
+            .then(syncSessionsState)
             .catch(() => {});
         }
 
@@ -547,7 +585,7 @@ export default function CustomerMenu() {
         }
 
         // 1. Fetch Restaurant Profile for Dynamic UI
-        const profile = await getRestaurantProfile(resId);
+        const profile = bootstrap?.profile || (await getRestaurantProfile(resId));
 
         let localLogo = "";
         let localCover = "";
@@ -568,9 +606,9 @@ export default function CustomerMenu() {
               ? "Restaurant Menu"
               : rawName;
 
-          // Prioritize local storage over stale database response for immediate feedback
-          const activeLogo = localLogo || profile.logo_url || "";
-          const activeCover = localCover || profile.cover_url || "";
+          // Supabase DB profile is the authoritative source of truth; local cache is only a fallback
+          const activeLogo = profile.logo_url || localLogo || "";
+          const activeCover = profile.cover_url || localCover || "";
 
           setRestaurantData((prev) => ({
             ...prev,
@@ -585,21 +623,22 @@ export default function CustomerMenu() {
         }
 
         // 2. Load menu items from Supabase
-        console.log(`📡 Fetching live menu for node: ${resId}`);
-        let items = await fetchMenuItems(resId);
+        let items = bootstrap?.menuItems ?? (await fetchMenuItems(resId));
         let effectiveId = resId;
+        let rescuedGst = null;
 
         // REPAIR: If empty and resId Is an email, try fixing it
         if ((!items || items.length === 0) && rawResId.includes("@")) {
-          console.log("🔄 Detected email ID in URL. Rescuing UUID...");
           const profile = await getRestaurantByEmail(rawResId);
           if (profile) {
             effectiveId = profile.id;
             setRestaurantId(effectiveId);
-            items = await fetchMenuItems(effectiveId);
+            const rescuedBootstrap = await fetchPublicMenuBootstrap(effectiveId);
+            items = rescuedBootstrap?.menuItems ?? (await fetchMenuItems(effectiveId));
+            rescuedGst = rescuedBootstrap?.gst || null;
 
             // Also fetch actual profile using the rescued UUID
-            const actualProfile = await getRestaurantProfile(effectiveId);
+            const actualProfile = rescuedBootstrap?.profile || (await getRestaurantProfile(effectiveId));
             if (actualProfile) {
               const rescuedRawName = (
                 actualProfile.business_name ||
@@ -625,21 +664,17 @@ export default function CustomerMenu() {
                 address: actualProfile.address || prev.address,
               }));
             }
-
-            console.log(`✅ Rescued! Using UUID: ${effectiveId}`);
           }
         }
 
         if (items && items.length > 0) {
           setMenuItems(items);
-          console.log(`✅ Loaded ${items.length} items from database`);
         } else {
           setMenuItems([]);
-          console.log("⚠️ No menu items found for this restaurant node.");
         }
 
         // 2. Load GST Config from Supabase
-        const gst = await fetchGstSettings(effectiveId);
+        const gst = rescuedGst || bootstrap?.gst || (await fetchGstSettings(effectiveId));
         if (gst && gst.enabled && Number(gst.rate) > 0) {
           setGstRate(Number(gst.rate));
           setGstLabel(gst.label || "GST");
@@ -768,23 +803,36 @@ export default function CustomerMenu() {
   // Emit table session start event when customer scans QR code
   useEffect(() => {
     if (tableNumber && tableNumber !== "N/A" && restaurantId) {
-      console.log("Customer scanned QR code for table:", tableNumber);
-
       const syncScanToCloud = async () => {
         try {
-          // Check if table is already active
-          const sessions = await getTableSessions(restaurantId);
+          const parsedTable = parseInt(tableNumber, 10);
+          if (!Number.isInteger(parsedTable) || parsedTable < 1) return;
+
+          // Reuse deduplicated bootstrap snapshot so occupied/billing tables avoid redundant writes
+          const bootstrap =
+            restaurantId && restaurantId !== "default"
+              ? await fetchPublicMenuBootstrap(restaurantId)
+              : null;
+          const sessions =
+            bootstrap && Array.isArray(bootstrap.tables) && bootstrap.tables.length > 0
+              ? bootstrap.tables
+              : await getTableSessions(restaurantId);
           const currentT = sessions.find(
-            (s) => s.table_number === parseInt(tableNumber),
+            (s) => Number(s.table_number) === parsedTable,
           );
+          const currentStatus = String(currentT?.status || "").toLowerCase();
+
+          if (currentStatus === "occupied" || currentStatus === "billing") {
+            return;
+          }
 
           if (
             !currentT ||
-            currentT.status === "available" ||
-            currentT.status === "needs-cleaning"
+            !currentT.status ||
+            currentStatus === "available" ||
+            currentStatus === "needs-cleaning"
           ) {
-            console.log("Marking table as occupied in cloud...");
-            await updateTableAPI(restaurantId, parseInt(tableNumber), {
+            await updateTableAPI(restaurantId, parsedTable, {
               status: "occupied",
               session_start: new Date().toISOString(),
               last_activity: new Date().toISOString(),
@@ -799,7 +847,7 @@ export default function CustomerMenu() {
     }
   }, [tableNumber, restaurantId]);
 
-  // Keep Single-QR Table Picker synced when merchant reconfigures tables
+  // Keep Single-QR Table Picker & occupied status synced when merchant updates or cleans tables
   useEffect(() => {
     if (!restaurantId || restaurantId === "default") return;
     const refreshTables = () => {
@@ -814,10 +862,16 @@ export default function CustomerMenu() {
               ),
             ).sort((a, b) => a - b);
             if (nums.length > 0) setAvailableTables(nums);
+            const occNums = sessions
+              .filter((s) => ["occupied", "billing"].includes(String(s?.status || "").toLowerCase()))
+              .map((s) => Number(s.table_number))
+              .filter((n) => !isNaN(n) && n > 0);
+            setSessionOccupiedTables(occNums);
           }
         })
         .catch(() => {});
     };
+    refreshTables();
     const handleStorage = (e) => {
       if (e.key === "servora_demo_table_sessions_v1") refreshTables();
     };
@@ -827,15 +881,55 @@ export default function CustomerMenu() {
       window.removeEventListener("tableSessionsUpdated", refreshTables);
       window.removeEventListener("storage", handleStorage);
     };
-  }, [restaurantId]);
+  }, [restaurantId, showTableModal]);
 
-  // Check for session completion and hydrate active order on load/table switch
+  // Restore table-scoped activeOrderId cleanly whenever restaurantId + tableNumber resolve
+  useEffect(() => {
+    if (!restaurantId) return;
+    const tableKey = normalizeTableKey(tableNumber);
+    const scopedStorageKey = tableKey
+      ? `servora_active_order_${restaurantId}_t${tableKey}`
+      : `servora_active_order_${restaurantId}`;
+    try {
+      const savedScopedId = sessionStorage.getItem(scopedStorageKey);
+      if (savedScopedId) {
+        setActiveOrderId(savedScopedId);
+        return;
+      }
+      // Clear any unscoped legacy key if it belongs to a different table
+      const legacyId = sessionStorage.getItem("activeOrderId");
+      if (legacyId) {
+        const rawOrder = sessionStorage.getItem(`servora_order_${legacyId}`);
+        if (rawOrder) {
+          const parsedOrder = JSON.parse(rawOrder);
+          if (doesOrderBelongToTable(parsedOrder, tableNumber)) {
+            setActiveOrderId(legacyId);
+            return;
+          }
+        }
+      }
+      setActiveOrderId(null);
+      setCurrentOrder(null);
+    } catch (e) {}
+  }, [restaurantId, tableNumber]);
+
+  // Check for session completion and hydrate active order STRICTLY for the current table
   useEffect(() => {
     const allKnownOrders = [...(liveRestaurantOrders || []), ...(liveOrderHistory || [])];
     const targetId = currentOrder?.id || activeOrderId;
-    const syncedLatest = targetId
+    const rawSynced = targetId
       ? allKnownOrders.find((o) => String(o.id) === String(targetId))
       : null;
+    const syncedLatest =
+      rawSynced && doesOrderBelongToTable(rawSynced, tableNumber)
+        ? rawSynced
+        : null;
+
+    if (currentOrder && !doesOrderBelongToTable(currentOrder, tableNumber)) {
+      setCurrentOrder(null);
+      setActiveOrderId(null);
+      return;
+    }
 
     if (syncedLatest && currentOrder && syncedLatest.status !== currentOrder.status) {
       setCurrentOrder(syncedLatest);
@@ -843,6 +937,12 @@ export default function CustomerMenu() {
 
     const effectiveStatus = String((syncedLatest || currentOrder)?.status || '').toUpperCase();
     const isTerminalStatus = ['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(effectiveStatus);
+    const tableKey = normalizeTableKey(tableNumber);
+    const scopedStorageKey = restaurantId
+      ? tableKey
+        ? `servora_active_order_${restaurantId}_t${tableKey}`
+        : `servora_active_order_${restaurantId}`
+      : null;
 
     if (activeOrderId && (currentOrder || syncedLatest)) {
       if (isTerminalStatus && !showOrderTracking) {
@@ -851,34 +951,62 @@ export default function CustomerMenu() {
         try {
           sessionStorage.removeItem("activeOrderId");
           if (restaurantId) sessionStorage.removeItem(`servora_active_order_${restaurantId}`);
+          if (scopedStorageKey) sessionStorage.removeItem(scopedStorageKey);
         } catch (e) {}
       }
       return;
     }
 
-    // Hydrate from cached order or live active orders on the customer's table
+    // Hydrate strictly from orders belonging to the customer's exact table
     if (!currentOrder && (liveRestaurantOrders?.length > 0 || activeOrderId)) {
       let matched = null;
       if (activeOrderId) {
-        matched = (liveRestaurantOrders || []).find((o) => String(o.id) === String(activeOrderId)) || null;
+        const liveCandidate = (liveRestaurantOrders || []).find(
+          (o) =>
+            String(o.id) === String(activeOrderId) &&
+            doesOrderBelongToTable(o, tableNumber),
+        ) || null;
+        matched = liveCandidate;
         if (!matched && typeof window !== "undefined") {
           try {
             const rawCached = sessionStorage.getItem(`servora_order_${activeOrderId}`);
-            if (rawCached) matched = JSON.parse(rawCached);
+            if (rawCached) {
+              const parsedCached = JSON.parse(rawCached);
+              const parsedStatus = String(parsedCached?.status || '').toUpperCase();
+              const isCachedTerminal = ['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(parsedStatus);
+              const historyMatch = allKnownOrders.find((o) => String(o.id) === String(activeOrderId));
+              const historyTerminal =
+                historyMatch &&
+                ['FINISHED', 'FINISHED_CLOSED', 'CANCELLED'].includes(String(historyMatch.status || '').toUpperCase());
+              if (
+                doesOrderBelongToTable(parsedCached, tableNumber) &&
+                !isCachedTerminal &&
+                !historyTerminal
+              ) {
+                matched = parsedCached;
+              }
+            }
           } catch (e) {}
         }
       }
       if (!matched && tableNumber && tableNumber !== "N/A") {
-        matched = (getOrdersByTable(tableNumber) || []).find(
-          (o) => !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(o.status || "").toUpperCase()),
+        matched = (liveRestaurantOrders || []).find(
+          (o) =>
+            doesOrderBelongToTable(o, tableNumber) &&
+            !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(o.status || "").toUpperCase()),
         ) || null;
       }
       if (matched) {
         setCurrentOrder(matched);
         setActiveOrderId(matched.id);
+      } else if (activeOrderId && !showOrderTracking) {
+        setActiveOrderId(null);
+        try {
+          if (scopedStorageKey) sessionStorage.removeItem(scopedStorageKey);
+        } catch (e) {}
       }
     }
-  }, [activeOrderId, currentOrder, showOrderTracking, liveRestaurantOrders, liveOrderHistory, tableNumber, restaurantId, getOrdersByTable]);
+  }, [activeOrderId, currentOrder, showOrderTracking, liveRestaurantOrders, liveOrderHistory, tableNumber, restaurantId]);
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -1011,37 +1139,53 @@ export default function CustomerMenu() {
 
   const handleTrackOrders = useCallback(() => {
     setActiveTab("orders");
+    const isTerminal = (o) =>
+      ["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(o?.status || "").toUpperCase());
+
+    // Strictly scope order resolution to the customer's current table (NEVER leak another table's order)
     const tableOrder =
       tableNumber && tableNumber !== "N/A"
-        ? (getOrdersByTable(tableNumber) || []).find(
-            (o) => !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(o.status || "").toUpperCase()),
-          )
+        ? (liveRestaurantOrders || []).find(
+            (o) => doesOrderBelongToTable(o, tableNumber) && !isTerminal(o),
+          ) || null
         : null;
+
     const activeCurrent =
-      currentOrder && !["FINISHED", "FINISHED_CLOSED", "CANCELLED"].includes(String(currentOrder.status || "").toUpperCase())
+      currentOrder &&
+      doesOrderBelongToTable(currentOrder, tableNumber) &&
+      !isTerminal(currentOrder)
         ? currentOrder
         : null;
-    const resolvedOrder =
-      activeCurrent ||
-      (activeOrderId && (liveRestaurantOrders || []).find((o) => String(o.id) === String(activeOrderId))) ||
-      tableOrder ||
-      ((restaurantId === "demo-merchant" || restaurantId === "demo") ? (liveRestaurantOrders || [])[0] : null);
+
+    const activeById =
+      activeOrderId
+        ? (liveRestaurantOrders || []).find(
+            (o) =>
+              String(o.id) === String(activeOrderId) &&
+              doesOrderBelongToTable(o, tableNumber) &&
+              !isTerminal(o),
+          ) || null
+        : null;
+
+    const resolvedOrder = activeCurrent || activeById || tableOrder || null;
 
     if (resolvedOrder) {
       setCurrentOrder(resolvedOrder);
       setActiveOrderId(resolvedOrder.id);
       setShowOrderTracking(true);
-    } else if (activeOrderId) {
-      // Clear stale unresolvable session ID and prompt menu/ordering cleanly
+    } else {
+      setCurrentOrder(null);
+      setActiveOrderId(null);
       try {
         sessionStorage.removeItem("activeOrderId");
+        const tKey = normalizeTableKey(tableNumber);
+        if (restaurantId && tKey) {
+          sessionStorage.removeItem(`servora_active_order_${restaurantId}_t${tKey}`);
+        }
       } catch (e) {}
-      setActiveOrderId(null);
-      setShowNoOrdersModal(true);
-    } else {
       setShowNoOrdersModal(true);
     }
-  }, [currentOrder, activeOrderId, tableNumber, restaurantId, liveRestaurantOrders, getOrdersByTable]);
+  }, [currentOrder, activeOrderId, tableNumber, restaurantId, liveRestaurantOrders]);
 
   const handleDragStart = useCallback((e) => {
     setIsDragging(true);
@@ -1143,15 +1287,17 @@ export default function CustomerMenu() {
         type: "DINE-IN",
       };
 
-      console.log("🚀 Sending order to Supabase...", orderData);
       const order = await createOrder(orderData);
 
       if (order && order.id) {
-        console.log("✅ Order Success Cloud ID:", order.id);
         setCurrentOrder(order);
         setActiveOrderId(order.id);
         try {
+          const tKey = normalizeTableKey(cleanTable);
           sessionStorage.setItem("activeOrderId", order.id);
+          if (restaurantId && tKey) {
+            sessionStorage.setItem(`servora_active_order_${restaurantId}_t${tKey}`, order.id);
+          }
           sessionStorage.setItem(
             `servora_order_${order.id}`,
             JSON.stringify(order),
@@ -1195,6 +1341,11 @@ export default function CustomerMenu() {
             `servora_waiter_until_${restaurantId}`,
             String(until),
           );
+          window.dispatchEvent(
+            new CustomEvent("servora_waiter_cooldown_updated", {
+              detail: { restaurantId, until },
+            }),
+          );
         }
       } catch (e) {}
       setShowWaiterPopup(true);
@@ -1227,6 +1378,12 @@ export default function CustomerMenu() {
   const popularItems = useMemo(() => {
     return menuItems.filter((item) => item.isInStock).slice(0, 6);
   }, [menuItems]);
+
+  useEffect(() => {
+    if (showOrderTracking && typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [showOrderTracking]);
 
   if (loading) {
     return (
@@ -1273,6 +1430,10 @@ export default function CustomerMenu() {
         initialOrder={currentOrder}
         restaurantId={restaurantId}
         tableNumber={tableNumber}
+        waiterCooldownSeconds={waiterCooldownSeconds}
+        waiterCooldownText={waiterCooldownText}
+        onCallWaiter={handleCallWaiter}
+        cartCount={getTotalItems()}
         theme={theme}
         onClose={() => {
           setShowOrderTracking(false);
@@ -1285,7 +1446,11 @@ export default function CustomerMenu() {
             setCurrentOrder(null);
             try {
               sessionStorage.removeItem("activeOrderId");
-              if (restaurantId) sessionStorage.removeItem(`servora_active_order_${restaurantId}`);
+              if (restaurantId) {
+                sessionStorage.removeItem(`servora_active_order_${restaurantId}`);
+                const tKey = normalizeTableKey(tableNumber);
+                if (tKey) sessionStorage.removeItem(`servora_active_order_${restaurantId}_t${tKey}`);
+              }
             } catch (e) {}
           }
         }}
@@ -1298,7 +1463,7 @@ export default function CustomerMenu() {
           setShowOrderTracking(false);
           setActiveTab("search");
           setTimeout(() => {
-            searchInputRef.current?.focus();
+            handleSearchFocus();
           }, 150);
         }}
       />
@@ -1395,73 +1560,24 @@ export default function CustomerMenu() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            {/* ☀️ | 🌙 Symmetrical Circular Swipe Theme Toggle */}
-            <div
-              role="group"
-              aria-label="Theme switcher"
-              onPointerDown={(e) => {
-                themeSwipeStartX.current = e.clientX;
-              }}
-              onPointerUp={(e) => {
-                if (themeSwipeStartX.current !== null) {
-                  const delta = e.clientX - themeSwipeStartX.current;
-                  themeSwipeStartX.current = null;
-                  if (delta > 12) {
-                    setTheme("dark");
-                    return;
-                  }
-                  if (delta < -12) {
-                    setTheme("light");
-                    return;
-                  }
-                }
-              }}
-              className={`h-9 w-[68px] p-[3px] gap-1 rounded-full border relative inline-flex items-center select-none touch-pan-y transition-colors duration-200 ${
+            {/* ☀️ / 🌙 Single-Tap Circular Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Switch to Day Mode" : "Switch to Night Mode"}
+              title={theme === "dark" ? "Switch to Day Mode" : "Switch to Night Mode"}
+              className={`h-9 w-9 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 ${
                 theme === "dark"
-                  ? "bg-white/[0.06] border-white/15 hover:border-white/25"
-                  : "bg-black/[0.03] border-black/10 hover:border-black/20"
+                  ? "bg-zinc-900/95 hover:bg-zinc-800 border-zinc-700/80 hover:border-amber-400/40 text-amber-300 shadow-xs"
+                  : "bg-white hover:bg-amber-50/70 border-zinc-200/90 hover:border-amber-300 text-indigo-600 shadow-xs"
               }`}
-              title="Tap or swipe left for Day, right for Night"
             >
-              <span
-                aria-hidden="true"
-                className={`absolute top-[3px] left-[3px] h-7 w-7 rounded-full border pointer-events-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  theme === "dark"
-                    ? "translate-x-8 bg-zinc-900 border-white/15 shadow-[0_2px_10px_rgba(0,0,0,0.45)]"
-                    : "translate-x-0 bg-white border-amber-200/80 shadow-[0_2px_8px_rgba(245,158,11,0.22)]"
-                }`}
-              />
-
-              <button
-                type="button"
-                onClick={() => setTheme("light")}
-                className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
-                aria-label="Day Mode"
-              >
-                <Sun
-                  className={`w-4 h-4 transition-all duration-300 ease-out ${
-                    theme === "light"
-                      ? "text-amber-500 fill-amber-400 rotate-0 scale-100"
-                      : "text-zinc-400 hover:text-zinc-200 -rotate-45 scale-90"
-                  }`}
-                />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTheme("dark")}
-                className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
-                aria-label="Night Mode"
-              >
-                <Moon
-                  className={`w-3.5 h-3.5 transition-all duration-300 ease-out ${
-                    theme === "dark"
-                      ? "text-amber-300 fill-amber-300 rotate-0 scale-100"
-                      : "text-zinc-400 hover:text-zinc-700 rotate-12 scale-90"
-                  }`}
-                />
-              </button>
-            </div>
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20 transition-transform duration-200" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600 fill-indigo-600/15 transition-transform duration-200" />
+              )}
+            </button>
 
             <Button
               type="button"
@@ -1578,7 +1694,7 @@ export default function CustomerMenu() {
                 setShowTableModal(true);
               }
             }}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ml-1 border transition-all ${
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full ml-0.5 border transition-all shrink-0 whitespace-nowrap ${
               !isTableLockedFromURL ? "cursor-pointer active:scale-95" : ""
             } ${
               tableNumber && tableNumber !== "N/A"
@@ -1591,13 +1707,13 @@ export default function CustomerMenu() {
             }`}
           >
             <div
-              className={`h-1.5 w-1.5 rounded-full animate-pulse ${
+              className={`h-1 w-1 rounded-full animate-pulse shrink-0 ${
                 tableNumber && tableNumber !== "N/A"
                   ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                   : "bg-amber-500"
               }`}
             />
-            <span className="text-[10px] font-black uppercase tracking-widest pt-px">
+            <span className="text-[9px] font-bold uppercase tracking-wider leading-none">
               {tableNumber && tableNumber !== "N/A"
                 ? `Table ${tableNumber}`
                 : "Set Table"}
@@ -1606,70 +1722,23 @@ export default function CustomerMenu() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Mobile Symmetrical Circular Swipe Day | Night Pill */}
-          <div
-            role="group"
-            aria-label="Mobile theme switcher"
-            onPointerDown={(e) => {
-              themeSwipeStartX.current = e.clientX;
-            }}
-            onPointerUp={(e) => {
-              if (themeSwipeStartX.current !== null) {
-                const delta = e.clientX - themeSwipeStartX.current;
-                themeSwipeStartX.current = null;
-                if (delta > 12) {
-                  setTheme("dark");
-                  return;
-                }
-                if (delta < -12) {
-                  setTheme("light");
-                  return;
-                }
-              }
-            }}
-            className={`h-8 w-[62px] p-[3px] gap-1.5 rounded-full border relative inline-flex items-center select-none touch-pan-y transition-colors duration-200 ${
+          {/* Mobile Single-Tap Circular Theme Toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to Day Mode" : "Switch to Night Mode"}
+            className={`h-9 w-9 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 shrink-0 ${
               theme === "dark"
-                ? "bg-white/[0.06] border-white/15"
-                : "bg-black/[0.03] border-black/10"
+                ? "bg-zinc-900 border-zinc-800 hover:border-amber-400/40 text-amber-300"
+                : "bg-white border-zinc-200/90 hover:border-amber-300 text-indigo-600 shadow-xs"
             }`}
           >
-            <span
-              aria-hidden="true"
-              className={`absolute top-[3px] left-[3px] h-6 w-6 rounded-full border pointer-events-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                theme === "dark"
-                  ? "translate-x-[30px] bg-zinc-900 border-white/15 shadow-[0_2px_8px_rgba(0,0,0,0.45)]"
-                  : "translate-x-0 bg-white border-amber-200/80 shadow-[0_2px_6px_rgba(245,158,11,0.22)]"
-              }`}
-            />
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              className="relative z-10 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
-              aria-label="Day Mode"
-            >
-              <Sun
-                className={`w-3.5 h-3.5 transition-all duration-300 ${
-                  theme === "light"
-                    ? "text-amber-500 fill-amber-400 scale-100"
-                    : "text-zinc-400 scale-90"
-                }`}
-              />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className="relative z-10 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
-              aria-label="Night Mode"
-            >
-              <Moon
-                className={`w-3 h-3 transition-all duration-300 ${
-                  theme === "dark"
-                    ? "text-amber-300 fill-amber-300 scale-100"
-                    : "text-zinc-400 scale-90"
-                }`}
-              />
-            </button>
-          </div>
+            {theme === "dark" ? (
+              <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-600 fill-indigo-600/15" />
+            )}
+          </button>
 
           <Button
             type="button"
@@ -3057,6 +3126,7 @@ export default function CustomerMenu() {
                         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                           {availableTables.map((tNum) => {
                             const active = String(tableNumber) === String(tNum);
+                            const isOccupied = occupiedTableSet.has(Number(tNum));
                             return (
                               <button
                                 key={tNum}
@@ -3071,17 +3141,35 @@ export default function CustomerMenu() {
                                     );
                                   } catch (err) {}
                                 }}
-                                className={`h-8 min-w-9 px-2.5 rounded-lg text-[11px] font-black transition-all cursor-pointer shrink-0 border ${
+                                title={isOccupied ? `Table ${tNum} (Occupied)` : `Table ${tNum}`}
+                                className={`h-8 min-w-9 px-2.5 rounded-lg text-[11px] font-black transition-all cursor-pointer shrink-0 border flex items-center gap-1 ${
                                   active
                                     ? theme === "dark"
                                       ? "bg-amber-500 text-slate-950 border-amber-400 shadow-xs"
                                       : "bg-zinc-900 text-white border-zinc-900 shadow-xs"
-                                    : theme === "dark"
-                                      ? "bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:bg-zinc-800"
-                                      : "bg-zinc-100 text-zinc-700 border-zinc-200 hover:bg-zinc-200"
+                                    : isOccupied
+                                      ? theme === "dark"
+                                        ? "bg-rose-500/15 text-rose-200 border-rose-500/35 hover:bg-rose-500/25"
+                                        : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                      : theme === "dark"
+                                        ? "bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:bg-zinc-800"
+                                        : "bg-zinc-100 text-zinc-700 border-zinc-200 hover:bg-zinc-200"
                                 }`}
                               >
-                                T{tNum}
+                                <span>T{tNum}</span>
+                                {isOccupied && (
+                                  <span
+                                    className={`text-[9px] font-bold uppercase ${
+                                      active
+                                        ? theme === "dark"
+                                          ? "text-slate-900/80"
+                                          : "text-rose-200"
+                                        : "text-rose-500"
+                                    }`}
+                                  >
+                                    • Occupied
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
@@ -4052,25 +4140,45 @@ export default function CustomerMenu() {
               </div>
 
               {availableTables.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-0.5 max-h-36 overflow-y-auto no-scrollbar">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-0.5 max-h-40 overflow-y-auto no-scrollbar">
                   {availableTables.map((tNum) => {
                     const active = String(pendingTableInput) === String(tNum);
+                    const isOccupied = occupiedTableSet.has(Number(tNum));
                     return (
                       <button
                         key={tNum}
                         type="button"
                         onClick={() => setPendingTableInput(String(tNum))}
-                        className={`h-9 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border active:scale-95 ${
+                        className={`min-h-[40px] py-1 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border active:scale-95 flex flex-col items-center justify-center leading-tight ${
                           active
                             ? theme === "dark"
                               ? "bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm shadow-amber-500/25"
                               : "bg-zinc-900 text-white border-zinc-900 font-black shadow-sm"
-                            : theme === "dark"
-                              ? "bg-white/6 text-zinc-200 border-white/10 hover:bg-white/12 hover:border-white/20"
-                              : "bg-white/70 text-zinc-700 border-zinc-200/80 hover:bg-white hover:border-zinc-300"
+                            : isOccupied
+                              ? theme === "dark"
+                                ? "bg-rose-500/15 text-rose-200 border-rose-500/35 hover:bg-rose-500/25"
+                                : "bg-rose-50 text-rose-700 border-rose-200/90 hover:bg-rose-100/80"
+                              : theme === "dark"
+                                ? "bg-white/6 text-zinc-200 border-white/10 hover:bg-white/12 hover:border-white/20"
+                                : "bg-white/70 text-zinc-700 border-zinc-200/80 hover:bg-white hover:border-zinc-300"
                         }`}
                       >
-                        Table {tNum}
+                        <span>Table {tNum}</span>
+                        {isOccupied && (
+                          <span
+                            className={`text-[9px] font-extrabold uppercase tracking-wide mt-0.5 ${
+                              active
+                                ? theme === "dark"
+                                  ? "text-slate-900/80"
+                                  : "text-rose-200"
+                                : theme === "dark"
+                                  ? "text-rose-300"
+                                  : "text-rose-600"
+                            }`}
+                          >
+                            Occupied
+                          </span>
+                        )}
                       </button>
                     );
                   })}

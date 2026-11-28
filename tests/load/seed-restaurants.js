@@ -166,14 +166,26 @@ export async function runSeedRestaurants(argv = process.argv.slice(2)) {
     createdOrderIds: [],
   }
 
-  for (const r of plan) {
-    const { data: userRes, error: userErr } = await adminClient.auth.admin.createUser({
-      email: r.email,
-      password: r.password,
-      email_confirm: true,
-      user_metadata: { load_test_run_id: runId, restaurant_code: r.code },
-      app_metadata: { role: 'MERCHANT' },
-    })
+  const seedSingleRestaurant = async (r) => {
+    let userRes = null
+    let userErr = null
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const created = await adminClient.auth.admin.createUser({
+        email: r.email,
+        password: r.password,
+        email_confirm: true,
+        user_metadata: { load_test_run_id: runId, restaurant_code: r.code },
+        app_metadata: { role: 'MERCHANT' },
+      })
+      userRes = created.data
+      userErr = created.error
+      if (!userErr && userRes?.user?.id) break
+      if (/rate limit|429|timeout|fetch failed/i.test(String(userErr?.message || '')) && attempt < 5) {
+        await new Promise((res) => setTimeout(res, attempt * 1500))
+        continue
+      }
+      break
+    }
     if (userErr || !userRes?.user?.id) {
       throw new Error(`Failed creating auth user for ${r.code}: ${userErr?.message || 'unknown'}`)
     }
@@ -196,56 +208,69 @@ export async function runSeedRestaurants(argv = process.argv.slice(2)) {
       .single()
     if (restErr) throw new Error(`Restaurant insert failed (${r.code}): ${restErr.message}`)
 
-    const { error: subErr } = await adminClient.from('subscriptions').insert({
-      restaurant_id: restRow.id,
-      plan_name: 'All-in-One Unlimited',
-      price: 2100,
-      status: 'ACTIVE',
-      utr_number: r.utr_number,
-    })
-    if (subErr) throw new Error(`Subscription insert failed (${r.code}): ${subErr.message}`)
-
-    const { error: pvErr } = await adminClient.from('payment_verifications').insert({
-      restaurant_id: restRow.id,
-      merchant_name: restRow.business_name,
-      email: restRow.email,
-      plan_name: 'All-in-One Unlimited',
-      amount: 2100,
-      utr_number: r.utr_number,
-      status: 'APPROVED',
-      approved_at: new Date().toISOString(),
-    })
-    if (pvErr) throw new Error(`Payment verification insert failed (${r.code}): ${pvErr.message}`)
-
-    const { error: gstErr } = await adminClient.from('gst_settings').insert({
-      restaurant_id: restRow.id,
-      enabled: r.gstSettings.enabled,
-      rate: r.gstSettings.rate,
-      label: r.gstSettings.label,
-    })
-    if (gstErr) throw new Error(`GST settings insert failed (${r.code}): ${gstErr.message}`)
-
-    const { error: catErr } = await adminClient
-      .from('menu_categories')
-      .insert(r.categories.map((c) => ({ restaurant_id: restRow.id, ...c })))
-    if (catErr) throw new Error(`Menu category insert failed (${r.code}): ${catErr.message}`)
-
-    const { data: insertedItems, error: itemsErr } = await adminClient
-      .from('menu_items')
-      .insert(
-        r.items.map(({ initial_quantity, ...itemFields }) => ({
-          ...itemFields,
+    const [subRes, pvRes, gstRes, catRes, itemsRes, tablesRes, custRes] = await Promise.all([
+      adminClient.from('subscriptions').insert({
+        restaurant_id: restRow.id,
+        plan_name: 'All-in-One Unlimited',
+        price: 2100,
+        status: 'ACTIVE',
+        utr_number: r.utr_number,
+      }),
+      adminClient.from('payment_verifications').insert({
+        restaurant_id: restRow.id,
+        merchant_name: restRow.business_name,
+        email: restRow.email,
+        plan_name: 'All-in-One Unlimited',
+        amount: 2100,
+        utr_number: r.utr_number,
+        status: 'APPROVED',
+        approved_at: new Date().toISOString(),
+      }),
+      adminClient.from('gst_settings').insert({
+        restaurant_id: restRow.id,
+        enabled: r.gstSettings.enabled,
+        rate: r.gstSettings.rate,
+        label: r.gstSettings.label,
+      }),
+      adminClient
+        .from('menu_categories')
+        .insert(r.categories.map((c) => ({ restaurant_id: restRow.id, ...c }))),
+      adminClient
+        .from('menu_items')
+        .insert(
+          r.items.map(({ initial_quantity, ...itemFields }) => ({
+            ...itemFields,
+            restaurant_id: restRow.id,
+          }))
+        )
+        .select(),
+      adminClient
+        .from('table_sessions')
+        .insert(r.tables.map((t) => ({ ...t, restaurant_id: restRow.id })))
+        .select(),
+      adminClient
+        .from('customers')
+        .insert({
           restaurant_id: restRow.id,
-        }))
-      )
-      .select()
-    if (itemsErr) throw new Error(`Menu items insert failed (${r.code}): ${itemsErr.message}`)
+          name: `Synthetic Regular ${r.code}`,
+          email: `guest.${runId}.${r.index}@servora.invalid`,
+          phone: `91000${String(r.index).padStart(5, '0')}`,
+        })
+        .select()
+        .single(),
+    ])
 
-    const { data: insertedTables, error: tablesErr } = await adminClient
-      .from('table_sessions')
-      .insert(r.tables.map((t) => ({ ...t, restaurant_id: restRow.id })))
-      .select()
-    if (tablesErr) throw new Error(`Table sessions insert failed (${r.code}): ${tablesErr.message}`)
+    if (subRes.error) throw new Error(`Subscription insert failed (${r.code}): ${subRes.error.message}`)
+    if (pvRes.error) throw new Error(`Payment verification insert failed (${r.code}): ${pvRes.error.message}`)
+    if (gstRes.error) throw new Error(`GST settings insert failed (${r.code}): ${gstRes.error.message}`)
+    if (catRes.error) throw new Error(`Menu category insert failed (${r.code}): ${catRes.error.message}`)
+    if (itemsRes.error) throw new Error(`Menu items insert failed (${r.code}): ${itemsRes.error.message}`)
+    if (tablesRes.error) throw new Error(`Table sessions insert failed (${r.code}): ${tablesRes.error.message}`)
+    if (custRes.error) throw new Error(`Customer insert failed (${r.code}): ${custRes.error.message}`)
+
+    const insertedItems = itemsRes.data
+    const insertedTables = tablesRes.data
+    const insertedCustomer = custRes.data
 
     const masterSig = generateRestaurantSignature(restRow.id)
     const masterUrl = `${publicOrigin}/menu?restaurant=${restRow.id}&sig=${masterSig}`
@@ -267,20 +292,8 @@ export async function runSeedRestaurants(argv = process.argv.slice(2)) {
       .select()
     if (qrErr) throw new Error(`QR insert failed (${r.code}): ${qrErr.message}`)
 
-    const { data: insertedCustomer, error: custErr } = await adminClient
-      .from('customers')
-      .insert({
-        restaurant_id: restRow.id,
-        name: `Synthetic Regular ${r.code}`,
-        email: `guest.${runId}.${r.index}@servora.invalid`,
-        phone: `91000${String(r.index).padStart(5, '0')}`,
-      })
-      .select()
-      .single()
-    if (custErr) throw new Error(`Customer insert failed (${r.code}): ${custErr.message}`)
-
     const qtyById = new Map(r.items.map((it) => [it.id, it.initial_quantity]))
-    manifest.restaurants.push({
+    return {
       index: r.index,
       code: r.code,
       restaurantId: restRow.id,
@@ -306,16 +319,22 @@ export async function runSeedRestaurants(argv = process.argv.slice(2)) {
         initialQuantity: qtyById.get(m.id) ?? m.quantity,
         isInStock: m.is_in_stock,
       })),
-    })
-
-    if (r.index % 20 === 0 || r.index === plan.length) {
-      console.log(`Seeded ${r.index}/${plan.length} synthetic restaurants...`)
     }
   }
 
+  const SEED_CONCURRENCY = 8
+  for (let i = 0; i < plan.length; i += SEED_CONCURRENCY) {
+    const batch = plan.slice(i, i + SEED_CONCURRENCY)
+    const settled = await Promise.all(batch.map((r) => seedSingleRestaurant(r)))
+    manifest.restaurants.push(...settled)
+    console.log(`Seeded ${Math.min(i + SEED_CONCURRENCY, plan.length)}/${plan.length} synthetic restaurants...`)
+  }
+  manifest.restaurants.sort((a, b) => a.index - b.index)
+
   fs.mkdirSync(MANIFESTS_ROOT, { recursive: true })
   const manifestPath = path.join(MANIFESTS_ROOT, `manifest-${runId}.json`)
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+  const serialized = plan.length >= 200 ? JSON.stringify(manifest) : JSON.stringify(manifest, null, 2)
+  fs.writeFileSync(manifestPath, serialized)
 
   const csvRows = ['restaurant_code,restaurant_id,table_number,table_session_id,qr_url']
   for (const r of manifest.restaurants) {

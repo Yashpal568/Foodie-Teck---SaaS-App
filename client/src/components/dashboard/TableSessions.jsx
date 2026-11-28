@@ -48,6 +48,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useOrderManagement, ORDER_STATUS } from "@/hooks/useOrderManagement";
+import { useRestaurantProfile } from "@/hooks/useRestaurantProfile";
+import { computeReceiptTotals } from "@/utils/receiptHelpers";
+import ThermalReceiptModal from "@/components/receipt/ThermalReceiptModal";
+import SplitPaymentModal from "@/components/pos/SplitPaymentModal";
 import {
   getTableSessions,
   updateTableStatus as updateTableAPI,
@@ -137,6 +141,9 @@ const TableSessions = ({
   const [activeTab, setActiveTab] = useState("overview");
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [resolvedId, setResolvedId] = useState(null);
+  const { profile: restaurantProfile } = useRestaurantProfile(restaurantId);
+  const [receiptBillingOrder, setReceiptBillingOrder] = useState(null);
+  const [settlementBillingTable, setSettlementBillingTable] = useState(null);
   const [showConfigTablesModal, setShowConfigTablesModal] = useState(false);
   const [configTableCount, setConfigTableCount] = useState(8);
   const [savingTables, setSavingTables] = useState(false);
@@ -158,8 +165,8 @@ const TableSessions = ({
   }, [restaurantId]);
 
   // Fetch Floor Plan Data
-  const initializeFloorPlan = useCallback(async () => {
-    setLoading(true);
+  const initializeFloorPlan = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const pathId =
         typeof window !== "undefined"
@@ -228,15 +235,48 @@ const TableSessions = ({
             (cloudSessions || []).find(
               (s) => Number(s.table_number) === Number(qr.table_number),
             ) || {};
-          const activeOrder = (cloudOrders || []).find(
+          const matchingOrders = (cloudOrders || []).filter(
             (o) =>
               parseInt(String(o.table_number || o.tableNumber || '').replace(/\D/g, ''), 10) === Number(qr.table_number) &&
               activeStatuses.includes(String(o.status || '').toUpperCase()),
           );
+          const primaryOrder = matchingOrders[0] || null;
+          const consolidatedOrder =
+            matchingOrders.length > 1
+              ? {
+                  ...primaryOrder,
+                  order_items: matchingOrders.flatMap(
+                    (o) => o.order_items || o.items || [],
+                  ),
+                  items: matchingOrders.flatMap(
+                    (o) => o.order_items || o.items || [],
+                  ),
+                  subtotal: matchingOrders.reduce(
+                    (sum, o) => sum + Number(o.subtotal || o.total || 0),
+                    0,
+                  ),
+                  tax: matchingOrders.reduce(
+                    (sum, o) => sum + Number(o.tax || 0),
+                    0,
+                  ),
+                  total: matchingOrders.reduce(
+                    (sum, o) => sum + Number(o.total || o.total_amount || 0),
+                    0,
+                  ),
+                  consolidatedCount: matchingOrders.length,
+                }
+              : primaryOrder;
 
-          const derivedStatus = activeOrder
-            ? (String(activeOrder.status).toUpperCase() === 'BILL_REQUESTED' ? 'billing' : 'occupied')
-            : (session.status || 'available')
+          const hasBillRequest = matchingOrders.some(
+            (o) => String(o.status || '').toUpperCase() === 'BILL_REQUESTED',
+          );
+          const derivedStatus = consolidatedOrder
+            ? hasBillRequest
+              ? 'billing'
+              : session.status === 'billing'
+                ? 'billing'
+                : 'occupied'
+            : session.status || 'available';
 
           return {
             id: qr.table_number,
@@ -244,10 +284,10 @@ const TableSessions = ({
             tableNumber: qr.table_number,
             qrUrl: qr.url || "",
             status: derivedStatus,
-            customers: session.customers || (activeOrder ? (activeOrder.guests || 1) : 0),
-            currentOrder: activeOrder || null,
+            customers: session.customers || (consolidatedOrder ? (consolidatedOrder.guests || 1) : 0),
+            currentOrder: consolidatedOrder || null,
             sessionStart:
-              session.session_start || activeOrder?.created_at || activeOrder?.createdAt || null,
+              session.session_start || consolidatedOrder?.created_at || consolidatedOrder?.createdAt || null,
             lastActivity: session.last_activity || null,
             restaurantId: targetRid,
             needsCleaning: derivedStatus === "needs-cleaning",
@@ -264,15 +304,15 @@ const TableSessions = ({
   }, [restaurantId]);
 
   useEffect(() => {
-    initializeFloorPlan();
+    initializeFloorPlan(true);
 
     // 1. Cross-tab & Window Realtime Event Listeners
     const handleQRUpdated = () => {
-      initializeFloorPlan();
+      initializeFloorPlan(false);
     };
 
     const handleNewOrderEvent = () => {
-      initializeFloorPlan();
+      initializeFloorPlan(false);
     };
 
     const handleStorageEvent = (e) => {
@@ -281,13 +321,15 @@ const TableSessions = ({
         e.key === "servora_demo_table_sessions_v1" ||
         (e.key && e.key.startsWith("servora_qr_codes_"))
       ) {
-        initializeFloorPlan();
+        initializeFloorPlan(false);
       }
     };
 
     window.addEventListener("qrCodesUpdated", handleQRUpdated);
     window.addEventListener("tableSessionsUpdated", handleQRUpdated);
     window.addEventListener("servora_new_order", handleNewOrderEvent);
+    window.addEventListener("newOrderCreated", handleNewOrderEvent);
+    window.addEventListener("orderStatusUpdated", handleNewOrderEvent);
     window.addEventListener("storage", handleStorageEvent);
 
     let floorChannel = null;
@@ -343,6 +385,8 @@ const TableSessions = ({
       window.removeEventListener("qrCodesUpdated", handleQRUpdated);
       window.removeEventListener("tableSessionsUpdated", handleQRUpdated);
       window.removeEventListener("servora_new_order", handleNewOrderEvent);
+      window.removeEventListener("newOrderCreated", handleNewOrderEvent);
+      window.removeEventListener("orderStatusUpdated", handleNewOrderEvent);
       window.removeEventListener("storage", handleStorageEvent);
     };
   }, [resolvedId, initializeFloorPlan]);
@@ -515,18 +559,51 @@ const TableSessions = ({
       setSelectedTable(null);
     }
 
-    // 3. If there's an active order, mark it as FINISHED so re-fetch doesn't override back to 'occupied'
-    const activeOrderId =
-      (String(selectedTable?.tableNumber) === String(table.tableNumber) && tableOrder?.id) ||
-      table.currentOrder?.id ||
-      (typeof table.currentOrder === "string" ? table.currentOrder : null);
-    if (activeOrderId) {
-      try {
-        await updateOrderStatus(activeOrderId, "FINISHED");
-        setTableOrder(null);
-      } catch (err) {
-        console.warn("Could not finish order on table reset:", err);
+    // 3. Advance ALL active orders on this table cleanly to FINISHED so re-fetch doesn't override back to 'occupied'
+    try {
+      const targetRid = resolvedId || restaurantId || "demo-merchant";
+      const allOrders = await fetchOrders(targetRid).catch(() => []);
+      const activeStatuses = new Set([
+        "PENDING",
+        "ORDERED",
+        "PREPARING",
+        "READY",
+        "SERVED",
+        "BILL_REQUESTED",
+      ]);
+      const targetNum = parseInt(String(table.tableNumber || "").replace(/\D/g, ""), 10);
+      const matchingOrders = (allOrders || []).filter((o) => {
+        const oNum = parseInt(String(o.table_number || o.tableNumber || "").replace(/\D/g, ""), 10);
+        return oNum === targetNum && activeStatuses.has(String(o.status || "").toUpperCase());
+      });
+
+      // Fallback to activeOrderObj if fetchOrders missed it
+      const fallbackObj =
+        (String(selectedTable?.tableNumber) === String(table.tableNumber) && tableOrder) ||
+        (typeof table.currentOrder === "object" ? table.currentOrder : null);
+      if (fallbackObj?.id && !matchingOrders.some((o) => String(o.id) === String(fallbackObj.id))) {
+        matchingOrders.push(fallbackObj);
       }
+
+      for (const ord of matchingOrders) {
+        const ordId = ord.id;
+        if (!ordId) continue;
+        const curStatus = String(ord.status || "").toUpperCase();
+        if (curStatus === "PENDING" || curStatus === "ORDERED") {
+          await updateOrderStatus(ordId, "PREPARING");
+          await updateOrderStatus(ordId, "READY");
+          await updateOrderStatus(ordId, "SERVED");
+        } else if (curStatus === "PREPARING") {
+          await updateOrderStatus(ordId, "READY");
+          await updateOrderStatus(ordId, "SERVED");
+        } else if (curStatus === "READY") {
+          await updateOrderStatus(ordId, "SERVED");
+        }
+        await updateOrderStatus(ordId, "FINISHED");
+      }
+      setTableOrder(null);
+    } catch (err) {
+      console.warn("Could not finish order on table reset:", err);
     }
 
     // 4. Sync the cleared table session to cloud
@@ -556,14 +633,12 @@ const TableSessions = ({
     const clearedTableNum = selectedTable.tableNumber;
     try {
       await handleMarkTableAvailable(selectedTable, { silent: true });
-      if (window["toast"]) {
-        window["toast"].success(
-          `🎉 Table ${clearedTableNum} Settled & Cleared!`,
-          {
-            description: "Table is now available for new guests.",
-          },
-        );
-      }
+      toast.success(
+        `🎉 Table ${clearedTableNum} Settled & Cleared!`,
+        {
+          description: "Table is now available for new guests.",
+        },
+      );
     } catch (e) {
       console.error("Error settling table:", e);
     }
@@ -584,236 +659,243 @@ const TableSessions = ({
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <div className="hidden lg:block bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="px-4 md:px-6 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em] mb-1">
-                <Activity className="w-3.5 h-3.5" />
-                <span>Executive POS Table Hub</span>
+      <div className="bg-transparent">
+        <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-5 pb-1">
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_6px_24px_-10px_rgba(15,23,42,0.08)]">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-100/60 via-blue-50/40 to-transparent blur-2xl"
+            />
+            <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/20 flex items-center justify-center shrink-0">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Floor Sync
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-[0.18em]">
+                      Executive Table Hub
+                    </span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">
+                    Table Session Management
+                  </h1>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Live serve time tracking, POS table billing &amp; instant seating controls.
+                  </p>
+                </div>
               </div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight leading-none">
-                Floor POS Management
-              </h1>
-              <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-sm">
-                Live serve time tracking, POS table billing & instant seating
-                controls.
-              </p>
-            </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              <div className="flex items-center gap-1.5 mr-2">
-                <Badge
-                  variant="outline"
-                  className="h-9 px-3 text-xs font-bold border-indigo-200 bg-indigo-50 text-indigo-800 flex items-center gap-1"
-                >
-                  <span>
-                    {stats.totalTables} /{" "}
-                    {planDetails.tableLimit >= 9999
-                      ? "∞"
-                      : planDetails.tableLimit}{" "}
-                    Tables
-                  </span>
-                </Badge>
-
-                {planDetails?.tableLimit < 9999 && (
-                  <button
-                    onClick={() => setShowUpgradeModal(true)}
-                    className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                <div className="flex items-center gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className="h-9 px-3.5 rounded-xl text-xs font-bold border-indigo-200/80 bg-indigo-50/70 text-indigo-700 flex items-center gap-1.5"
                   >
-                    <span>⚡ Renew</span>
-                  </button>
-                )}
-              </div>
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                    <span>
+                      {stats.totalTables} /{" "}
+                      {planDetails.tableLimit >= 9999
+                        ? "∞"
+                        : planDetails.tableLimit}{" "}
+                      Tables
+                    </span>
+                  </Badge>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl h-9 px-3 border-slate-200 font-bold"
-                onClick={() => {
-                  setConfigTableCount(tables.length || 8);
-                  setShowConfigTablesModal(true);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-1.5" />
-                Configure Tables
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl h-9 px-3 border-slate-200"
-                onClick={initializeFloorPlan}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Sync POS Floor
-              </Button>
-              <Button
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-3 font-bold"
-                onClick={() => setActiveItem("qr-codes")}
-              >
-                <QrCode className="w-4 h-4 mr-2" />
-                Universal QR
-              </Button>
+                  {planDetails?.tableLimit < 9999 && (
+                    <button
+                      onClick={() => setShowUpgradeModal(true)}
+                      className="h-9 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                    >
+                      <span>⚡ Renew</span>
+                    </button>
+                  )}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl h-9 px-3.5 bg-white border-slate-200/90 text-slate-700 font-semibold shadow-xs hover:bg-slate-50 hover:border-slate-300 cursor-pointer"
+                  onClick={() => {
+                    setConfigTableCount(tables.length || 8);
+                    setShowConfigTablesModal(true);
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                  Configure Tables
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl h-9 px-3.5 bg-white border-slate-200/90 text-slate-700 font-semibold shadow-xs hover:bg-slate-50 hover:border-slate-300 cursor-pointer"
+                  onClick={initializeFloorPlan}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                  Sync Floor
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl h-9 px-4 font-bold shadow-sm shadow-indigo-500/20 cursor-pointer"
+                  onClick={() => setActiveItem("qr-codes")}
+                >
+                  <QrCode className="w-4 h-4 mr-1.5" />
+                  Universal QR
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 pb-32 lg:pb-8">
+      <div className="p-4 md:p-6 lg:px-8 lg:py-5 space-y-5 pb-32 lg:pb-8">
         {/* Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-6">
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                  <Home className="w-5 h-5" />
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+          <Card className="border border-slate-200/70 shadow-[0_2px_10px_-4px_rgba(15,23,42,0.06)] bg-white rounded-2xl">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                  <Home className="w-4 h-4" />
                 </div>
-                <Badge variant="outline" className="text-[10px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
                   Capacity
-                </Badge>
+                </span>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Total Tables
               </p>
-              <p className="text-xl md:text-2xl font-black text-gray-900 mt-0.5">
+              <p className="text-2xl font-black text-slate-900 mt-0.5 leading-tight">
                 {stats.totalTables}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5" />
+          <Card className="border border-slate-200/70 shadow-[0_2px_10px_-4px_rgba(15,23,42,0.06)] bg-white rounded-2xl">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] text-emerald-600 border-emerald-100"
-                >
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
                   Ready
-                </Badge>
+                </span>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Available
               </p>
-              <p className="text-xl md:text-2xl font-black text-emerald-600 mt-0.5">
+              <p className="text-2xl font-black text-emerald-600 mt-0.5 leading-tight">
                 {stats.available}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5" />
+          <Card className="border border-slate-200/70 shadow-[0_2px_10px_-4px_rgba(15,23,42,0.06)] bg-white rounded-2xl">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <Users className="w-4 h-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] text-blue-600 border-blue-100"
-                >
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600">
                   Dining
-                </Badge>
+                </span>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Occupied
               </p>
-              <p className="text-xl md:text-2xl font-black text-blue-600 mt-0.5">
+              <p className="text-2xl font-black text-blue-600 mt-0.5 leading-tight">
                 {stats.occupied}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-                  <CreditCard className="w-5 h-5" />
+          <Card className="border border-slate-200/70 shadow-[0_2px_10px_-4px_rgba(15,23,42,0.06)] bg-white rounded-2xl">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                  <CreditCard className="w-4 h-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] text-amber-600 border-amber-100"
-                >
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
                   Billing
-                </Badge>
+                </span>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Billing
               </p>
-              <p className="text-xl md:text-2xl font-black text-amber-600 mt-0.5">
+              <p className="text-2xl font-black text-amber-600 mt-0.5 leading-tight">
                 {stats.billing}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white ring-1 ring-gray-100 rounded-2xl">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
-                  <Sparkles className="w-5 h-5" />
+          <Card className="border border-slate-200/70 shadow-[0_2px_10px_-4px_rgba(15,23,42,0.06)] bg-white rounded-2xl">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="w-9 h-9 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] text-orange-600 border-orange-100"
-                >
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600">
                   Turnover
-                </Badge>
+                </span>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Cleanup
               </p>
-              <p className="text-xl md:text-2xl font-black text-orange-600 mt-0.5">
+              <p className="text-2xl font-black text-rose-600 mt-0.5 leading-tight">
                 {stats.needsCleaning}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search & Filter */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search tables by number or name..."
-              className="pl-10 h-11 rounded-xl border-gray-200 focus-visible:ring-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-full md:w-52 h-11 rounded-xl border-gray-200">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Tables</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="occupied">Occupied (Dining)</SelectItem>
-              <SelectItem value="billing">Billing Check</SelectItem>
-              <SelectItem value="needs-cleaning">Cleanup Required</SelectItem>
-              <SelectItem value="reserved">Reserved</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto h-12 p-1.5 bg-gray-100 rounded-2xl">
-            <TabsTrigger
-              value="overview"
-              className="rounded-xl data-[state=active]:bg-white font-bold"
-            >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="grid"
-              className="rounded-xl data-[state=active]:bg-white font-bold"
-            >
-              Grid View
-            </TabsTrigger>
-            <TabsTrigger
-              value="list"
-              className="rounded-xl data-[state=active]:bg-white font-bold"
-            >
-              POS List View
-            </TabsTrigger>
-          </TabsList>
+          {/* Single-Row Search, View Switcher & Status Filter */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="relative w-full lg:w-80 xl:w-96">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search tables by number or name..."
+                className="pl-10 h-10 rounded-xl bg-white border-slate-200 shadow-xs text-sm focus-visible:ring-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <TabsList className="inline-flex h-10 items-center justify-center rounded-xl bg-slate-100/90 p-1 border border-slate-200/70 w-full lg:w-auto">
+              <TabsTrigger
+                value="overview"
+                className="rounded-lg px-4 py-1.5 text-xs font-bold text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs transition-all flex-1 lg:flex-initial"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="grid"
+                className="rounded-lg px-4 py-1.5 text-xs font-bold text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs transition-all flex-1 lg:flex-initial"
+              >
+                Grid View
+              </TabsTrigger>
+              <TabsTrigger
+                value="list"
+                className="rounded-lg px-4 py-1.5 text-xs font-bold text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs transition-all flex-1 lg:flex-initial"
+              >
+                POS List View
+              </TabsTrigger>
+            </TabsList>
+
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-full lg:w-44 h-10 rounded-xl border-slate-200 bg-white shadow-xs text-xs font-semibold text-slate-700">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  All Tables ({stats.totalTables})
+                </SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="occupied">Occupied (Dining)</SelectItem>
+                <SelectItem value="billing">Billing Check</SelectItem>
+                <SelectItem value="needs-cleaning">Cleanup Required</SelectItem>
+                <SelectItem value="reserved">Reserved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <TabsContent value="overview" className="mt-6">
             {!loading && tables.length === 0 ? (
@@ -1304,10 +1386,19 @@ const TableSessions = ({
                 <div className="space-y-3 pt-6">
                   {selectedTable.status === "occupied" && (
                     <Button
-                      className="w-full bg-linear-to-r from-zinc-900 to-zinc-800 hover:from-black hover:to-zinc-900 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-zinc-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
-                      onClick={() =>
-                        handleStatusChange(selectedTable.tableNumber, "billing")
-                      }
+                      className="w-full bg-linear-to-r from-zinc-900 to-zinc-800 hover:from-black hover:to-zinc-900 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-zinc-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                      onClick={async () => {
+                        const targetTableNum = selectedTable.tableNumber;
+                        const activeOrd = tableOrder;
+                        await handleStatusChange(targetTableNum, "billing");
+                        if (activeOrd) {
+                          setSelectedTable(null);
+                          setReceiptBillingOrder({
+                            ...activeOrd,
+                            tableNumber: targetTableNum,
+                          });
+                        }
+                      }}
                     >
                       <CreditCard className="w-4 h-4 mr-2" /> GENERATE CHECK &
                       BILL
@@ -1315,13 +1406,45 @@ const TableSessions = ({
                   )}
 
                   {selectedTable.status === "billing" && (
-                    <Button
-                      className="w-full bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
-                      onClick={handleSettleAndClearPOS}
-                    >
-                      <Check className="w-4 h-4 mr-2" /> SETTLE BILL & FREE
-                      TABLE
-                    </Button>
+                    <div className="space-y-2.5">
+                      {tableOrder && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full bg-white h-11 rounded-2xl font-bold text-xs tracking-wide border-slate-200 text-slate-800 hover:bg-slate-50 cursor-pointer"
+                          onClick={() => {
+                            const activeOrd = tableOrder;
+                            const targetTableNum = selectedTable.tableNumber;
+                            setSelectedTable(null);
+                            setReceiptBillingOrder({
+                              ...activeOrd,
+                              tableNumber: targetTableNum,
+                            });
+                          }}
+                        >
+                          <Receipt className="w-4 h-4 mr-2 text-indigo-600" /> PRINT BILL RECEIPT
+                        </Button>
+                      )}
+                      <Button
+                        className="w-full bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-14 rounded-3xl font-bold text-[13px] tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                        onClick={() => {
+                          if (tableOrder) {
+                            const targetTable = selectedTable;
+                            const activeOrd = tableOrder;
+                            setSelectedTable(null);
+                            setSettlementBillingTable({
+                              table: targetTable,
+                              order: activeOrd,
+                            });
+                          } else {
+                            handleSettleAndClearPOS();
+                          }
+                        }}
+                      >
+                        <Check className="w-4 h-4 mr-2" /> SETTLE BILL & FREE
+                        TABLE
+                      </Button>
+                    </div>
                   )}
 
                   {selectedTable.status === "needs-cleaning" && (
@@ -1453,6 +1576,78 @@ const TableSessions = ({
           setShowUpgradeModal(false);
         }}
       />
+
+      {/* Connected Thermal Receipt & Bill Print Modal */}
+      <ThermalReceiptModal
+        open={!!receiptBillingOrder}
+        onClose={() => setReceiptBillingOrder(null)}
+        order={receiptBillingOrder}
+        profile={restaurantProfile}
+        onProceedToSettle={
+          receiptBillingOrder
+            ? () => {
+                const targetTable =
+                  selectedTable ||
+                  tables.find(
+                    (t) =>
+                      String(t.tableNumber) ===
+                      String(receiptBillingOrder.tableNumber),
+                  );
+                if (targetTable) {
+                  setSettlementBillingTable({
+                    table: targetTable,
+                    order: receiptBillingOrder,
+                  });
+                }
+              }
+            : undefined
+        }
+      />
+
+      {/* Connected Payment Settlement & Table Clear Modal */}
+      {settlementBillingTable && (
+        <SplitPaymentModal
+          isOpen={!!settlementBillingTable}
+          onClose={() => setSettlementBillingTable(null)}
+          restaurantId={resolvedId || restaurantId}
+          restaurantProfile={restaurantProfile}
+          tableNumber={settlementBillingTable.table.tableNumber}
+          cartItems={
+            settlementBillingTable.order?.order_items ||
+            settlementBillingTable.order?.items ||
+            []
+          }
+          calculation={(() => {
+            const totals = computeReceiptTotals(
+              settlementBillingTable.order,
+              restaurantProfile,
+            );
+            return {
+              pricing: {
+                subtotal: totals.subtotal,
+                taxes: {
+                  totalTax: totals.tax,
+                  cgst: totals.cgst,
+                  sgst: totals.sgst,
+                  rate: totals.gstRate,
+                },
+                grandTotal: totals.grandTotal,
+                discount: { amount: Number(settlementBillingTable.order?.discount || 0) },
+              },
+            };
+          })()}
+          customerName={
+            settlementBillingTable.order?.customerName ||
+            settlementBillingTable.order?.customer_name ||
+            `Table ${settlementBillingTable.table.tableNumber} Guest`
+          }
+          existingOrderId={settlementBillingTable.order?.id}
+          onSuccessSettlement={async () => {
+            const settledTable = settlementBillingTable.table;
+            await handleMarkTableAvailable(settledTable, { silent: true });
+          }}
+        />
+      )}
     </div>
   );
 };

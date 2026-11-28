@@ -38,10 +38,10 @@ const SheetContent = React.forwardRef(
    * @param {React.ForwardedRef<any>} ref
    */
   (props, ref) => {
-    const { side = "right", className, children, ...rest } = props
+    const { side = "right", className, overlayClassName, children, ...rest } = props
     return (
       <SheetPortal>
-        <SheetOverlay />
+        <SheetOverlay className={overlayClassName} />
         <SheetPrimitive.Content
           ref={ref}
           className={cn(sheetVariants({ side }), className)}
@@ -70,7 +70,7 @@ const SheetOverlay = React.forwardRef(
     return (
       <SheetPrimitive.Overlay
         className={cn(
-          "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "fixed inset-0 z-50 bg-slate-950/35 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className
         )}
         {...rest}

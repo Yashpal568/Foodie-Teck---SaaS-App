@@ -12,6 +12,7 @@ import {
 import { validateStagingEnvironment } from './safety-guard.js'
 import { createStagingAnonClient, createSeededRng, loadManifest, randomInt, sleep } from './lib/supabase-staging.js'
 import { LoadMetricsCollector } from './lib/metrics.js'
+import { createHttpRateLimiter } from './lib/rate-limiter.js'
 import { runVirtualCustomerSession } from './generate-customers.js'
 import { buildSyntheticRestaurantPlan } from './seed-restaurants.js'
 
@@ -61,22 +62,7 @@ export async function runOrderLoadTest(argv = process.argv.slice(2)) {
 
   const anonPool = Array.from({ length: 8 }, () => createStagingAnonClient(stagingEnv))
   let poolCursor = 0
-  let windowCount = 0
-  let windowStart = performance.now()
-
-  const acquireRateSlot = async () => {
-    const now = performance.now()
-    if (now - windowStart >= 1000) {
-      windowStart = now
-      windowCount = 0
-    }
-    if (windowCount >= profile.maxRps) {
-      await sleep(Math.max(10, 1000 - (now - windowStart)))
-      windowStart = performance.now()
-      windowCount = 0
-    }
-    windowCount += 1
-  }
+  const acquireRateSlot = createHttpRateLimiter(profile.maxRps)
 
   try {
     for (const targetVUs of profile.stages) {
@@ -98,7 +84,6 @@ export async function runOrderLoadTest(argv = process.argv.slice(2)) {
           }
           if (aborted) break
 
-          await acquireRateSlot()
           const restaurant = restaurants[randomInt(rng, 0, restaurants.length - 1)]
           const table = restaurant.tables[randomInt(rng, 0, restaurant.tables.length - 1)]
           const client = anonPool[poolCursor++ % anonPool.length]
@@ -109,6 +94,7 @@ export async function runOrderLoadTest(argv = process.argv.slice(2)) {
             table,
             rng,
             metrics,
+            acquireRateSlot,
             onOrderCreated: (ord) => createdOrderIds.push(ord.id),
           })
 

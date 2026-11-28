@@ -1,7 +1,22 @@
 import { supabase } from '../lib/supabase'
-import { ensureValidRestaurantUUID } from './restaurant.service'
+import { ensureValidRestaurantUUID, getRestaurantProfile } from './restaurant.service'
 import { uploadToCloudinary, isBase64Image } from './cloudinary.service'
 import { assertMerchantOperational } from '../lib/merchantAuth'
+
+const PUBLIC_MENU_CACHE_TTL_MS = 10000
+const publicMenuBootstrapCache = new Map()
+const publicMenuBootstrapInflight = new Map()
+
+export const clearPublicMenuCache = (restaurantId = null) => {
+  if (!restaurantId) {
+    publicMenuBootstrapCache.clear()
+    publicMenuBootstrapInflight.clear()
+    return
+  }
+  const key = String(restaurantId)
+  publicMenuBootstrapCache.delete(key)
+  publicMenuBootstrapInflight.delete(key)
+}
 
 async function uploadPhotoIfBase64(photoVal, _itemId, restaurantId) {
   if (!photoVal) return ''
@@ -144,6 +159,131 @@ export const fetchMenuItems = async (restaurantId) => {
   return (data || []).map(normalizeMenuItem)
 }
 
+/**
+ * Consolidated single-round-trip public QR menu bootstrap read (profile + menu_items + gst + tables)
+ * with a short-TTL read cache and graceful fallback when the bootstrap RPC is unavailable.
+ * Note: Authoritative inventory checks remain inside create_validated_order at checkout time.
+ */
+export const fetchPublicMenuBootstrap = async (restaurantId, { forceRefresh = false } = {}) => {
+  if (!restaurantId) return null
+
+  if (restaurantId === 'demo-merchant' || restaurantId === 'demo') {
+    return {
+      profile: await getRestaurantProfile('demo-merchant'),
+      menuItems: DEFAULT_SAMPLE_MENU.map(normalizeMenuItem),
+      gst: { enabled: false, rate: 0, label: 'GST', gstin: '' },
+      tables: [],
+    }
+  }
+
+  const uuid = await ensureValidRestaurantUUID(restaurantId)
+  if (!uuid) return null
+
+  const cacheKey = String(uuid)
+  if (!forceRefresh) {
+    const cached = publicMenuBootstrapCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value
+    }
+    const inflight = publicMenuBootstrapInflight.get(cacheKey)
+    if (inflight) {
+      return inflight
+    }
+  }
+
+  const runBootstrap = (async () => {
+    try {
+      const sessionRes = await supabase?.auth?.getSession?.().catch(() => null)
+      const hasSession = Boolean(sessionRes?.data?.session?.user)
+
+      // Try single consolidated RPC first
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_public_menu_bootstrap', {
+        p_restaurant_id: uuid,
+      })
+
+      if (!rpcErr && rpcData) {
+        const rawProfile = rpcData.profile || null
+        const cleanName = rawProfile ? ((rawProfile.business_name || '').trim() || 'Restaurant Menu') : null
+        const profile = rawProfile
+          ? {
+              ...rawProfile,
+              name: cleanName,
+              business_name: cleanName,
+              logo_url: rawProfile.logo_url || '',
+              cover_url: rawProfile.cover_url || '',
+              description: rawProfile.description || 'Multi-Cuisine • Gourmet Dining',
+              cuisine: 'Multi-Cuisine',
+            }
+          : null
+        const menuItems = Array.isArray(rpcData.menu_items)
+          ? rpcData.menu_items.map(normalizeMenuItem)
+          : []
+        const rawGst = rpcData.gst || {}
+        const gst = {
+          enabled: Boolean(rawGst.enabled),
+          rate: Number(rawGst.rate || 0),
+          label: rawGst.label || 'GST',
+          gstin: String(rawGst.gstin || rawProfile?.gstin || '').trim().toUpperCase(),
+        }
+        const tables = Array.isArray(rpcData.tables)
+          ? rpcData.tables.map((row) => ({
+              id: `pub-t-${row.table_number}`,
+              restaurant_id: uuid,
+              table_number: Number(row.table_number),
+              status: row.status ? String(row.status).toLowerCase() : undefined,
+            }))
+          : []
+
+        const value = { profile, menuItems, gst, tables }
+        publicMenuBootstrapCache.set(cacheKey, {
+          value,
+          expiresAt: Date.now() + PUBLIC_MENU_CACHE_TTL_MS,
+        })
+        return value
+      }
+
+      // Graceful compatibility if migration has not yet deployed get_public_menu_bootstrap (42883 / PGRST202)
+      const [profile, menuItems, gstRes, tablesRes] = await Promise.all([
+        getRestaurantProfile(uuid),
+        fetchMenuItems(uuid),
+        supabase.from('gst_settings').select('*').eq('restaurant_id', uuid).maybeSingle(),
+        hasSession
+          ? supabase.from('table_sessions').select('table_number, status').eq('restaurant_id', uuid).order('table_number', { ascending: true })
+          : supabase.rpc('get_public_table_numbers', { p_restaurant_id: uuid }),
+      ])
+
+      const gstData = gstRes?.data
+      const gst = gstData
+        ? {
+            ...gstData,
+            gstin: String(gstData.gstin || profile?.gstin || '').trim().toUpperCase(),
+          }
+        : { enabled: false, rate: 0, label: 'GST', gstin: String(profile?.gstin || '').trim().toUpperCase() }
+
+      const tables = Array.isArray(tablesRes?.data)
+        ? tablesRes.data.map((row) => ({
+            id: `pub-t-${row.table_number}`,
+            restaurant_id: uuid,
+            table_number: Number(row.table_number),
+            status: row.status ? String(row.status).toLowerCase() : undefined,
+          }))
+        : []
+
+      const value = { profile, menuItems, gst, tables }
+      publicMenuBootstrapCache.set(cacheKey, {
+        value,
+        expiresAt: Date.now() + PUBLIC_MENU_CACHE_TTL_MS,
+      })
+      return value
+    } finally {
+      publicMenuBootstrapInflight.delete(cacheKey)
+    }
+  })()
+
+  publicMenuBootstrapInflight.set(cacheKey, runBootstrap)
+  return runBootstrap
+}
+
 /** Create a new menu item directly in Supabase DB (fails loudly on real DB errors) */
 export const createMenuItem = async (restaurantId, itemData) => {
   const newItemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
@@ -193,6 +333,7 @@ export const createMenuItem = async (restaurantId, itemData) => {
     throw new Error(error?.message || 'Failed to save menu item.')
   }
 
+  clearPublicMenuCache(uuid)
   return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
 }
 
@@ -235,6 +376,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
         .single()
 
       if (!error && data) {
+        clearPublicMenuCache(restaurantId || data.restaurant_id)
         return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
       }
     } catch (e) {
@@ -264,6 +406,7 @@ export const updateMenuItem = async (itemId, itemData, restaurantId) => {
           .single()
 
         if (!error && data) {
+          clearPublicMenuCache(uuid)
           return normalizeMenuItem({ ...data, photo_url: photoVal || data.photo_url })
         }
         throw new Error(error?.message || 'Failed to add menu item.')
@@ -309,6 +452,7 @@ export const toggleMenuItemStock = async (itemId, isInStock, restaurantId = null
   if (error || !data) {
     throw new Error(error?.message || 'Failed to update stock status.')
   }
+  clearPublicMenuCache(restaurantId || data.restaurant_id)
   return normalizeMenuItem(data)
 }
 
@@ -331,6 +475,7 @@ export const deleteMenuItem = async (itemId, restaurantId = null) => {
   if (error) {
     throw new Error(error.message || 'Failed to delete menu item.')
   }
+  clearPublicMenuCache(restaurantId)
   return true
 }
 
@@ -376,6 +521,7 @@ export const bulkAddMenuItems = async (restaurantId, items) => {
       .select('id, restaurant_id, name, description, price, half_price, quantity, category, type, is_in_stock, photo_url, created_at')
 
     if (!error && data) {
+      clearPublicMenuCache(uuid)
       return data.map(normalizeMenuItem)
     }
   } catch (err) {
@@ -424,6 +570,7 @@ export const bulkReplaceMenuItems = async (restaurantId, items) => {
     throw error
   }
 
+  clearPublicMenuCache(uuid)
   return (data || []).map(normalizeMenuItem)
 }
 

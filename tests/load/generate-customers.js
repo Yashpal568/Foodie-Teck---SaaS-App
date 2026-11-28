@@ -35,6 +35,8 @@ export async function runVirtualCustomerSession({
   rng,
   metrics,
   dryRun = false,
+  acquireRateSlot = null,
+  useBootstrapRead = true,
   onOrderCreated = null,
 }) {
   const tableNum = table.tableNumber ?? table.table_number
@@ -63,6 +65,9 @@ export async function runVirtualCustomerSession({
   }
 
   const measure = async (fn, opts = {}) => {
+    if (typeof acquireRateSlot === 'function' && !dryRun) {
+      await acquireRateSlot()
+    }
     const t0 = performance.now()
     try {
       const res = await fn()
@@ -97,27 +102,72 @@ export async function runVirtualCustomerSession({
     }
   }
 
-  // 1-2. Guest scans QR and loads public profile, valid tables, menu, and GST settings
-  const profRes = await measure(() =>
-    anonClient.rpc('get_public_restaurant_profile', { p_restaurant_id: restaurant.restaurantId })
-  )
-  if (profRes.error) return { ok: false, step: 'public_profile', error: profRes.error.message }
+  // 1-2. Guest scans QR and loads consolidated public bootstrap (or legacy individual reads if RPC unavailable)
+  let tableAlreadyActive = false
+  let bootstrapHandled = false
+  if (useBootstrapRead) {
+    if (typeof acquireRateSlot === 'function') {
+      await acquireRateSlot()
+    }
+    const bootT0 = performance.now()
+    try {
+      const bootRes = await anonClient.rpc('get_public_menu_bootstrap', {
+        p_restaurant_id: restaurant.restaurantId,
+      })
+      const bootLatency = performance.now() - bootT0
+      if (!bootRes?.error && bootRes?.data) {
+        metrics?.recordRequest({ ok: true, status: bootRes.status || 200, latencyMs: bootLatency })
+        bootstrapHandled = true
+        const bootTables = Array.isArray(bootRes.data.tables) ? bootRes.data.tables : []
+        const currentTable = bootTables.find((row) => Number(row.table_number) === Number(tableNum))
+        const st = String(currentTable?.status || '').toLowerCase()
+        tableAlreadyActive = st === 'occupied' || st === 'billing'
+      } else if (bootRes?.error?.code !== '42883' && bootRes?.error?.code !== 'PGRST202') {
+        const msg = String(bootRes?.error?.message || bootRes?.error || '')
+        const isTransport = Number(bootRes?.status || 0) <= 0 && /fetch failed|network|econnreset|etimedout|socket|und_err/i.test(msg)
+        metrics?.recordRequest({
+          ok: false,
+          status: bootRes?.status || (isTransport ? 'NETWORK_ERROR' : 400),
+          latencyMs: bootLatency,
+          error: bootRes?.error,
+        })
+        return { ok: false, step: 'public_bootstrap', error: bootRes?.error?.message || 'bootstrap error' }
+      }
+    } catch (bootErr) {
+      metrics?.recordRequest({
+        ok: false,
+        status: 'NETWORK_ERROR',
+        latencyMs: performance.now() - bootT0,
+        error: bootErr,
+      })
+      return { ok: false, step: 'public_bootstrap', error: bootErr?.message || 'bootstrap network error' }
+    }
+  }
 
-  await measure(() => anonClient.rpc('get_public_table_numbers', { p_restaurant_id: restaurant.restaurantId }))
-  await measure(() =>
-    anonClient.from('menu_items').select('id,name,price,half_price,category,is_in_stock,quantity').eq('restaurant_id', restaurant.restaurantId)
-  )
-  await measure(() =>
-    anonClient.from('gst_settings').select('enabled,rate,label').eq('restaurant_id', restaurant.restaurantId).maybeSingle()
-  )
+  if (!bootstrapHandled) {
+    const profRes = await measure(() =>
+      anonClient.rpc('get_public_restaurant_profile', { p_restaurant_id: restaurant.restaurantId })
+    )
+    if (profRes.error) return { ok: false, step: 'public_profile', error: profRes.error.message }
 
-  // 3. Claim table session cleanly via guest RPC
-  await measure(() =>
-    anonClient.rpc('claim_public_table_session', {
-      p_restaurant_id: restaurant.restaurantId,
-      p_table_number: Number(tableNum),
-    })
-  )
+    await measure(() => anonClient.rpc('get_public_table_numbers', { p_restaurant_id: restaurant.restaurantId }))
+    await measure(() =>
+      anonClient.from('menu_items').select('id,name,price,half_price,category,is_in_stock,quantity').eq('restaurant_id', restaurant.restaurantId)
+    )
+    await measure(() =>
+      anonClient.from('gst_settings').select('enabled,rate,label').eq('restaurant_id', restaurant.restaurantId).maybeSingle()
+    )
+  }
+
+  // 3. Claim table session cleanly via guest RPC only if not already occupied/billing
+  if (!tableAlreadyActive) {
+    await measure(() =>
+      anonClient.rpc('claim_public_table_session', {
+        p_restaurant_id: restaurant.restaurantId,
+        p_table_number: Number(tableNum),
+      })
+    )
+  }
 
   // 4-5. Submit validated atomic order via create_validated_order RPC
   const orderRes = await measure(

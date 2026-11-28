@@ -78,7 +78,9 @@ function CustomPieTooltip({ active, payload }) {
   )
 }
 
-export default function DashboardRealtimeAnalytics({ restaurantId = 'default', onNavigateAnalytics }) {
+import { formatLocalDateKey, deduplicateOrders, filterOrdersByDate } from '@/utils/analyticsHelpers'
+
+export default function DashboardRealtimeAnalytics({ restaurantId = 'default', selectedDate = '', onNavigateAnalytics }) {
   const { orders: activeOrders, orderHistory } = useOrderManagement(restaurantId)
   const { stats: tableStats } = useTableSessions(restaurantId)
   const activeTablesCount = (tableStats?.occupied || 0) + (tableStats?.billing || 0)
@@ -86,11 +88,14 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
   const [activeIndex, setActiveIndex] = useState(null)
 
   const isDemo = restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest'
+  const todayKey = formatLocalDateKey()
+  const isHistoricalDate = Boolean(selectedDate && selectedDate !== todayKey)
 
-  // Aggregate All Live Orders (and non-cancelled subset for revenue/category totals)
+  // Aggregate Live Orders (filtered strictly by selectedDate when browsing a specific date)
   const allOrders = useMemo(() => {
-    return [...(activeOrders || []), ...(orderHistory || [])]
-  }, [activeOrders, orderHistory])
+    const merged = deduplicateOrders([...(activeOrders || []), ...(orderHistory || [])])
+    return selectedDate ? filterOrdersByDate(merged, selectedDate) : merged
+  }, [activeOrders, orderHistory, selectedDate])
 
   const billableOrders = useMemo(() => {
     return allOrders.filter(o => String(o?.status || '').toUpperCase() !== 'CANCELLED')
@@ -117,9 +122,9 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       })
     })
 
-    // Only show starter demo data inside isolated demo mode; real merchants start at 0
+    // Only show starter demo data for Today in isolated demo mode when no orders exist yet
     if (totalItemsCount === 0) {
-      if (!isDemo) return []
+      if (!isDemo || isHistoricalDate) return []
       const fallback = [
         { name: 'Starters', value: 8, revenue: 1920 },
         { name: 'Main Course', value: 12, revenue: 4200 },
@@ -141,7 +146,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       percentage: ((c.value / totalItemsCount) * 100).toFixed(1),
       fill: CATEGORY_COLORS[i % CATEGORY_COLORS.length]
     }))
-  }, [billableOrders, isDemo])
+  }, [billableOrders, isDemo, isHistoricalDate])
 
   // 2. Status Distribution Calculation
   const statusData = useMemo(() => {
@@ -161,7 +166,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
     }))
 
     if (entries.length === 0) {
-      if (!isDemo) return []
+      if (!isDemo || isHistoricalDate) return []
       return [
         { name: 'Completed', value: 14, percentage: '56.0', fill: STATUS_COLORS.FINISHED },
         { name: 'Served', value: 6, percentage: '24.0', fill: STATUS_COLORS.SERVED },
@@ -197,7 +202,7 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
 
     const vals = Object.values(map)
     const hasData = vals.some(v => v.orders > 0)
-    if (!hasData && isDemo) {
+    if (!hasData && isDemo && !isHistoricalDate) {
       return [
         { hour: '11 AM', orders: 3, revenue: 840 },
         { hour: '1 PM', orders: 9, revenue: 2750 },
@@ -209,10 +214,10 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
       ]
     }
     return vals
-  }, [allOrders, isDemo])
+  }, [allOrders, isDemo, isHistoricalDate])
 
   const topCategory = categoryData[0] || { name: 'None yet', percentage: '0' }
-  const totalOrdersCount = isDemo ? (allOrders.length || 29) : allOrders.length
+  const totalOrdersCount = isDemo && !isHistoricalDate ? (allOrders.length || 29) : allOrders.length
   const totalVolumeSum = categoryData.reduce((a, b) => a + b.value, 0)
 
   return (
@@ -226,15 +231,17 @@ export default function DashboardRealtimeAnalytics({ restaurantId = 'default', o
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                Live Sales & Order Intelligence
+                {isHistoricalDate ? `Sales & Order Snapshot (${selectedDate})` : 'Live Sales & Order Intelligence'}
               </CardTitle>
               <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Real-Time
+                {isHistoricalDate ? selectedDate : 'Real-Time'}
               </Badge>
             </div>
             <p className="text-slate-500 text-xs font-medium mt-0.5">
-              Live category mix, order status distribution, and velocity from active sessions
+              {isHistoricalDate
+                ? `Category mix, order status distribution, and hourly trend for ${selectedDate}`
+                : 'Live category mix, order status distribution, and velocity from active sessions'}
             </p>
           </div>
         </div>

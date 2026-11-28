@@ -27,19 +27,35 @@ export async function runInventoryVerification(argv = process.argv.slice(2)) {
   const adminClient = createStagingAdminClient(stagingEnv)
   const metrics = new LoadMetricsCollector('inventory-reconciliation', manifest.runId)
 
-  for (const r of manifest.restaurants) {
-    const t0 = performance.now()
-    const [{ data: dbItems, error: itemErr }, { data: dbOrders, error: ordErr }] = await Promise.all([
-      adminClient.from('menu_items').select('id,name,quantity,is_in_stock').eq('restaurant_id', r.restaurantId),
-      adminClient
+  const fetchAllOrdersForRestaurant = async (rid) => {
+    const allOrders = []
+    let from = 0
+    const pageSize = 1000
+    while (true) {
+      const { data, error } = await adminClient
         .from('orders')
         .select('id,status,order_items(menu_item_id,quantity)')
-        .eq('restaurant_id', r.restaurantId),
+        .eq('restaurant_id', rid)
+        .range(from, from + pageSize - 1)
+      if (error) return { data: null, error }
+      if (!data || data.length === 0) break
+      allOrders.push(...data)
+      if (data.length < pageSize) break
+      from += pageSize
+    }
+    return { data: allOrders, error: null }
+  }
+
+  const verifyTenant = async (r) => {
+    const t0 = performance.now()
+    const [{ data: dbItems, error: itemErr }, { data: dbOrders, error: ordErr }] = await Promise.all([
+      adminClient.from('menu_items').select('id,name,quantity,is_in_stock').eq('restaurant_id', r.restaurantId).range(0, 999),
+      fetchAllOrdersForRestaurant(r.restaurantId),
     ])
 
     if (itemErr || ordErr) {
       metrics.recordRequest({ ok: false, status: 500, latencyMs: performance.now() - t0, error: itemErr || ordErr })
-      continue
+      return
     }
 
     const activeDeductions = new Map()
@@ -73,6 +89,11 @@ export async function runInventoryVerification(argv = process.argv.slice(2)) {
     }
 
     metrics.recordRequest({ ok: true, status: 200, latencyMs: performance.now() - t0 })
+  }
+
+  const CONCURRENCY = 10
+  for (let i = 0; i < manifest.restaurants.length; i += CONCURRENCY) {
+    await Promise.all(manifest.restaurants.slice(i, i + CONCURRENCY).map((r) => verifyTenant(r)))
   }
 
   const outDir = path.join(REPORTS_ROOT, manifest.runId)

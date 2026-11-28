@@ -1,0 +1,58 @@
+# Distributed 4-shard k6 topology blueprint for 50,000 - 100,000 VUs
+# Requires explicit user approval + upgraded staging Supabase compute + k6 Cloud / multi-VM cluster.
+services:
+  k6-shard-1:
+    image: grafana/k6:latest
+    command: run /scripts/servora-scale2.js
+    environment:
+      - STAGING_URL=${STAGING_SUPABASE_URL}
+      - STAGING_ANON_KEY=${STAGING_SUPABASE_ANON_KEY}
+      - MANIFEST_PATH=/manifests/manifest-scale2.json
+      - TARGET_PEAK_VUS=100000
+      - SHARD_COUNT=4
+      - SHARD_INDEX=0
+    volumes:
+      - ./servora-scale2.js:/scripts/servora-scale2.js:ro
+      - ../../../artifacts/load-test/manifests:/manifests:ro
+
+  k6-shard-2:
+    image: grafana/k6:latest
+    command: run /scripts/servora-scale2.js
+    environment:
+      - STAGING_URL=${STAGING_SUPABASE_URL}
+      - STAGING_ANON_KEY=${STAGING_SUPABASE_ANON_KEY}
+      - MANIFEST_PATH=/manifests/manifest-scale2.json
+      - TARGET_PEAK_VUS=100000
+      - SHARD_COUNT=4
+      - SHARD_INDEX=1
+    volumes:
+      - ./servora-scale2.js:/scripts/servora-scale2.js:ro
+      - ../../../artifacts/load-test/manifests:/manifests:ro
+
+  k6-shard-3:
+    image: grafana/k6:latest
+    command: run /scripts/servora-scale2.js
+    environment:
+      - STAGING_URL=${STAGING_SUPABASE_URL}
+      - STAGING_ANON_KEY=${STAGING_SUPABASE_ANON_KEY}
+      - MANIFEST_PATH=/manifests/manifest-scale2.json
+      - TARGET_PEAK_VUS=100000
+      - SHARD_COUNT=4
+      - SHARD_INDEX=2
+    volumes:
+      - ./servora-scale2.js:/scripts/servora-scale2.js:ro
+      - ../../../artifacts/load-test/manifests:/manifests:ro
+
+  k6-shard-4:
+    image: grafana/k6:latest
+    command: run /scripts/servora-scale2.js
+    environment:
+      - STAGING_URL=${STAGING_SUPABASE_URL}
+      - STAGING_ANON_KEY=${STAGING_SUPABASE_ANON_KEY}
+      - MANIFEST_PATH=/manifests/manifest-scale2.json
+      - TARGET_PEAK_VUS=100000
+      - SHARD_COUNT=4
+      - SHARD_INDEX=3
+    volumes:
+      - ./servora-scale2.js:/scripts/servora-scale2.js:ro
+      - ../../../artifacts/load-test/manifests:/manifests:ro

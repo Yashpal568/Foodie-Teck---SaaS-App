@@ -76,117 +76,102 @@ export async function createExecutivePDF({
   // 1. Watermark on Page 1
   drawWatermark()
 
-  // 2. Executive Dark Architecture Header (Height: 44mm)
-  doc.setFillColor(11, 15, 25) // Ultra Deep Midnight Slate
-  doc.rect(0, 0, pageWidth, 44, 'F')
+  // 2. Floating Rounded Executive Dark Navy Hero Card (Margins: 14mm L/R, 10mm Top, Height: 31mm)
+  const heroX = 14
+  const heroY = 10
+  const heroW = pageWidth - 28
+  const heroH = 31
 
-  // Top Dual Glow Accent Bar (2.5mm)
-  doc.setFillColor(primaryAccent[0], primaryAccent[1], primaryAccent[2])
-  doc.rect(0, 0, pageWidth * 0.6, 2.5, 'F')
-  doc.setFillColor(secondaryAccent[0], secondaryAccent[1], secondaryAccent[2])
-  doc.rect(pageWidth * 0.6, 0, pageWidth * 0.4, 2.5, 'F')
+  doc.setFillColor(18, 24, 48)
+  doc.roundedRect(heroX, heroY, heroW, heroH, 3, 3, 'F')
 
-  // Servora Logo Image (Left)
-  const iconX = 14
-  const iconY = 10
-  const iconSize = 14
-  if (logoImg) {
-    doc.addImage(logoImg, 'PNG', iconX, iconY, iconSize, iconSize)
-  } else {
-    doc.setFillColor(primaryAccent[0], primaryAccent[1], primaryAccent[2])
-    doc.roundedRect(iconX, iconY, iconSize, iconSize, 3, 3, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.text('S', iconX + iconSize / 2, iconY + iconSize / 2 + 3.2, { align: 'center' })
-  }
-
-  // Left Header Text
-  const textStartX = iconX + iconSize + 4.5
-  doc.setTextColor(165, 180, 252) // Indigo-200
-  doc.setFontSize(7.5)
+  // Left Pill Tagline
+  doc.setFillColor(35, 44, 78)
+  doc.roundedRect(heroX + 6, heroY + 4.5, 72, 4.5, 1.5, 1.5, 'F')
+  doc.setTextColor(165, 180, 252)
+  doc.setFontSize(5.8)
   doc.setFont('helvetica', 'bold')
-  doc.text(tagline, textStartX, 15)
+  doc.text(tagline, heroX + 8.5, heroY + 7.6)
 
+  // Left Main Title & Subtitle
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(16)
+  doc.setFontSize(16.5)
   doc.setFont('helvetica', 'bold')
-  doc.text(reportTitle, textStartX, 23.5)
-
-  doc.setTextColor(148, 163, 184) // Slate-400
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  doc.text(reportSubtitle, textStartX, 30)
-
-  // Right Header Content (Restaurant Name & Badges)
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(13)
-  doc.setFont('helvetica', 'bold')
-  doc.text(safeRestaurantName, pageWidth - 14, 16, { align: 'right' })
+  doc.text(reportTitle, heroX + 6, heroY + 16.5)
 
   doc.setTextColor(148, 163, 184)
-  doc.setFontSize(7)
+  doc.setFontSize(7.2)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Generated: ${generatedDate} • ${generatedTime}`, pageWidth - 14, 21.5, { align: 'right' })
+  doc.text(reportSubtitle, heroX + 6, heroY + 22.5, { maxWidth: 105 })
+
+  // Right Header Content (Restaurant Badge, Name, Timestamp & Status Pills)
+  const rightEdge = heroX + heroW - 6
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(10.5)
+  doc.setFont('helvetica', 'bold')
+  doc.text(safeRestaurantName, rightEdge, heroY + 9.5, { align: 'right' })
+
+  doc.setTextColor(148, 163, 184)
+  doc.setFontSize(6.6)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Generated: ${generatedDate} • ${generatedTime}`, rightEdge, heroY + 14.8, { align: 'right' })
 
   // Status Chip on Dark Header
   const bW = 26
   const bH = 5
-  const bX = pageWidth - 14 - bW
-  const bY = 26
+  const bX = rightEdge - bW
+  const bY = heroY + 18.5
 
-  doc.setFillColor(15, 45, 35) // Deep emerald container
+  doc.setFillColor(15, 45, 35)
   doc.roundedRect(bX, bY, bW, bH, 1.2, 1.2, 'F')
   doc.setDrawColor(16, 185, 129)
   doc.setLineWidth(0.3)
   doc.roundedRect(bX, bY, bW, bH, 1.2, 1.2, 'S')
 
   doc.setTextColor(52, 211, 153)
-  doc.setFontSize(6.5)
+  doc.setFontSize(6)
   doc.setFont('helvetica', 'bold')
-  doc.text(badgeText, bX + bW / 2, bY + 3.5, { align: 'center' })
+  doc.text(badgeText, bX + bW / 2, bY + 3.4, { align: 'center' })
 
   // Time Range Pill
   const pillW = 24
-  const pillX = bX - pillW - 3
-  doc.setFillColor(30, 41, 59)
+  const pillX = bX - pillW - 2.5
+  doc.setFillColor(35, 44, 78)
   doc.roundedRect(pillX, bY, pillW, bH, 1.2, 1.2, 'F')
   doc.setTextColor(203, 213, 225)
-  doc.setFontSize(6.5)
+  doc.setFontSize(6)
   doc.setFont('helvetica', 'bold')
-  doc.text(timeRangeLabel, pillX + pillW / 2, bY + 3.5, { align: 'center' })
+  doc.text(timeRangeLabel, pillX + pillW / 2, bY + 3.4, { align: 'center' })
 
   /**
    * Helper for continuation page header in autoTable didDrawPage
    */
   const handleContinuationPage = (data) => {
-    if (data.pageNumber > 1) {
+    const pageNum = data?.pageNumber || (typeof doc.getNumberOfPages === 'function' ? doc.getNumberOfPages() : 2)
+    if (pageNum > 1) {
       drawWatermark()
 
-      // Continuation Page Slim Header Bar
-      doc.setFillColor(11, 15, 25)
-      doc.rect(0, 0, pageWidth, 12, 'F')
-      
-      doc.setFillColor(primaryAccent[0], primaryAccent[1], primaryAccent[2])
-      doc.rect(0, 0, pageWidth, 1.2, 'F')
+      // Clean White Continuation Page Header (matches reference Page 2)
+      doc.setFillColor(15, 23, 42)
+      doc.roundedRect(14, 7, 5, 5, 1, 1, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(6.5)
+      doc.setFont('helvetica', 'bold')
+      doc.text('S', 16.5, 10.6, { align: 'center' })
 
-      if (logoImg) {
-        doc.addImage(logoImg, 'PNG', 14, 2, 8, 8)
-        doc.setTextColor(255, 255, 255)
-        doc.setFontSize(8)
-        doc.setFont('helvetica', 'bold')
-        doc.text(`SERVORA | ${reportTitle.toUpperCase()}`, 25, 8)
-      } else {
-        doc.setTextColor(255, 255, 255)
-        doc.setFontSize(8)
-        doc.setFont('helvetica', 'bold')
-        doc.text(`SERVORA | ${reportTitle.toUpperCase()}`, 14, 8)
-      }
+      doc.setTextColor(15, 23, 42)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`SERVORA  |  ${reportTitle.toUpperCase()}`, 21.5, 10.6)
 
-      doc.setTextColor(148, 163, 184)
-      doc.setFontSize(7.5)
+      doc.setTextColor(100, 116, 139)
+      doc.setFontSize(7.2)
       doc.setFont('helvetica', 'normal')
-      doc.text(`${safeRestaurantName} • Page ${data.pageNumber}`, pageWidth - 14, 8, { align: 'right' })
+      doc.text(`${safeRestaurantName}  •  Page ${pageNum}`, pageWidth - 14, 10.6, { align: 'right' })
+
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(0.3)
+      doc.line(14, 14.5, pageWidth - 14, 14.5)
     }
   }
 

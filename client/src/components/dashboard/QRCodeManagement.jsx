@@ -356,71 +356,80 @@ export default function QRCodeManagement({ activeItem, setActiveItem, navigate, 
 
   return (
     <div className="min-h-screen bg-slate-50/60 pb-28">
-      {/* 🌟 Master Sticky Command Header 🌟 */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-            
-            {/* Left Title & Status Beacon */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-linear-to-tr from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
-                <QrCode className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+      {/* 🌟 Executive QR Header Card 🌟 */}
+      <div className="bg-transparent">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-1">
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_6px_24px_-10px_rgba(15,23,42,0.08)]">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-100/60 via-blue-50/40 to-transparent blur-2xl"
+            />
+            <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+              {/* Left Title & Status Beacon */}
+              <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/20 flex items-center justify-center shrink-0">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Signatures
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-[0.18em]">
+                      Universal QR Hub
+                    </span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">
                     QR Fleet Command
                   </h1>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live Signatures
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Single tamper-proof Universal QR for your entire restaurant &amp; floor table management.
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Action Hub */}
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                {/* Plan Fleet Counter Pill */}
+                <div className="h-9 px-3.5 rounded-xl text-xs font-bold border border-indigo-200/80 bg-indigo-50/70 text-indigo-700 flex items-center gap-1.5 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                  <span>
+                    {qrCodes.length} / {effectiveLimit >= 9999 ? '∞' : effectiveLimit} Tables
                   </span>
                 </div>
-                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate sm:whitespace-normal">
-                  Single tamper-proof Universal QR for your entire restaurant & floor table management.
-                </p>
+
+                {/* Add / Change Tables Toggle */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowConfigDrawer(!showConfigDrawer)}
+                  className="rounded-xl h-9 px-3.5 bg-white border-slate-200/90 text-slate-700 font-semibold shadow-xs hover:bg-slate-50 hover:border-slate-300 cursor-pointer flex items-center gap-1.5 transition-all shrink-0"
+                >
+                  {showConfigDrawer ? (
+                    <>
+                      <X className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Close</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Configure Tables</span>
+                    </>
+                  )}
+                </Button>
+
+                {/* 🌟 HERO ACTION: Print Standee Studio */}
+                <Button
+                  size="sm"
+                  onClick={() => { setSelectedStudioQR(masterQR || null); setIsStudioOpen(true); }}
+                  disabled={!masterQR && qrCodes.length === 0}
+                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl h-9 px-4 font-bold shadow-sm shadow-indigo-500/20 cursor-pointer flex items-center gap-1.5 transition-all shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Standee Studio</span>
+                </Button>
               </div>
-            </div>
-
-            {/* Right Action Hub (Clean, Responsive & Minimal) */}
-            <div className="flex items-center gap-2 sm:gap-2.5 self-start md:self-center flex-wrap sm:flex-nowrap">
-              
-              {/* Plan Fleet Counter Pill */}
-              <div className="h-9 sm:h-10 px-3 rounded-xl bg-slate-100/90 border border-slate-200/90 flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <Table className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-[11px] sm:text-xs font-black text-slate-900">
-                  {qrCodes.length} <span className="text-slate-400 font-medium">/ {effectiveLimit >= 9999 ? '∞' : effectiveLimit}</span>
-                </span>
-              </div>
-
-              {/* Add / Change Tables Toggle */}
-              <Button
-                variant="outline"
-                onClick={() => setShowConfigDrawer(!showConfigDrawer)}
-                className="h-9 sm:h-10 px-3 rounded-xl border-slate-200 bg-white hover:bg-slate-50 font-bold text-[11px] sm:text-xs text-slate-700 shadow-2xs cursor-pointer flex items-center gap-1.5 transition-all shrink-0"
-              >
-                {showConfigDrawer ? (
-                  <>
-                    <X className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Close</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Configure Tables</span>
-                  </>
-                )}
-              </Button>
-
-              {/* 🌟 HERO ACTION: Print Standee Studio */}
-              <Button 
-                onClick={() => { setSelectedStudioQR(masterQR || null); setIsStudioOpen(true); }}
-                disabled={!masterQR && qrCodes.length === 0}
-                className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-black hover:to-indigo-900 text-amber-400 font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-md shadow-slate-900/15 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 border border-amber-400/20 shrink-0"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span>Standee Studio</span>
-              </Button>
             </div>
           </div>
         </div>

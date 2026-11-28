@@ -5,6 +5,7 @@ const cors = require('cors')
 const helmet = require('helmet')
 const emailRoutes = require('./routes/email.routes')
 const billingRoutes = require('./routes/billing.routes')
+const printRoutes = require('./routes/print.routes')
 const { initExpiryCron } = require('./jobs/expiryCron')
 const {
   requestContext,
@@ -54,6 +55,7 @@ app.use('/api', createRateLimiter({ windowMs: 60_000, max: 180, keyPrefix: 'api-
 ================================ */
 app.use('/api/email', emailRoutes)
 app.use('/api/billing', billingRoutes)
+app.use('/api/print', printRoutes)
 
 /* Verified Server-Side Admin Session Check */
 app.get('/api/admin/session', requireAuth, requireAdmin, (req, res) => {

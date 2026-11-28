@@ -253,6 +253,7 @@ export const useOrderManagement = (restaurantId) => {
     }
 
     let channel = null
+    let toastChannel = null
     if (effectiveSubscriptionId) {
       // Listen for real-time changes to the 'orders' table
       channel = supabase
@@ -282,10 +283,23 @@ export const useOrderManagement = (restaurantId) => {
           }
         )
         .subscribe()
+
+      // Also listen to direct order broadcast channel (instant cross-device/tab delivery)
+      toastChannel = supabase
+        .channel(`order-toasts:rid=${effectiveSubscriptionId}`)
+        .on('broadcast', { event: 'new_order' }, () => {
+          refreshOrders(false)
+        })
+        .subscribe()
     }
 
     const handleLocalOrder = () => {
       refreshOrders(false)
+    }
+    const handleVisibilityOrFocus = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        refreshOrders(false)
+      }
     }
     const handleStorageEvent = (e) => {
       if (
@@ -309,21 +323,30 @@ export const useOrderManagement = (restaurantId) => {
 
     const safetyInterval = setInterval(() => {
       refreshOrders(false)
-    }, 8000)
+    }, 4000)
 
     window.addEventListener('newOrderCreated', handleLocalOrder)
     window.addEventListener('servora_new_order', handleLocalOrder)
     window.addEventListener('orderStatusUpdated', handleLocalOrder)
     window.addEventListener('storage', handleStorageEvent)
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
 
     return () => {
       clearInterval(safetyInterval)
       if (channel) supabase.removeChannel(channel)
+      if (toastChannel) supabase.removeChannel(toastChannel)
       if (bc) bc.close()
       window.removeEventListener('newOrderCreated', handleLocalOrder)
       window.removeEventListener('servora_new_order', handleLocalOrder)
       window.removeEventListener('orderStatusUpdated', handleLocalOrder)
       window.removeEventListener('storage', handleStorageEvent)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      }
     }
   }, [resolvedId, restaurantId, isDemo, refreshOrders])
 

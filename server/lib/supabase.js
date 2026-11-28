@@ -4,6 +4,19 @@ const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
 
+const STAGING_SUPABASE_REF = 'mhkxdidwmycsibdjflxz'
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.ALLOW_STAGING_SUPABASE !== 'true' &&
+  [SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY].some((v) =>
+    String(v || '').toLowerCase().includes(STAGING_SUPABASE_REF)
+  )
+) {
+  throw new Error(
+    `[ENV BOUNDARY ABORT] Server in production mode cannot connect to staging Supabase (${STAGING_SUPABASE_REF}).`
+  )
+}
+
 if (!SUPABASE_URL) {
   console.warn('[Servora Server] Missing SUPABASE_URL environment variable. Database-backed operations will fail closed.')
 }

@@ -89,6 +89,11 @@ export const useTableSessions = (restaurantId) => {
     }
 
     const handleSync = () => refreshTables()
+    const handleVisibilityOrFocus = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        refreshTables()
+      }
+    }
     const handleStorage = (e) => {
       if (
         !e.key ||
@@ -110,13 +115,17 @@ export const useTableSessions = (restaurantId) => {
       // ignore BroadcastChannel failures
     }
 
-    const safetyInterval = setInterval(refreshTables, 8000)
+    const safetyInterval = setInterval(refreshTables, 5000)
 
     window.addEventListener('servora_new_order', handleSync)
     window.addEventListener('newOrderCreated', handleSync)
     window.addEventListener('orderStatusUpdated', handleSync)
     window.addEventListener('tableSessionsUpdated', handleSync)
     window.addEventListener('storage', handleStorage)
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
 
     return () => {
       clearInterval(safetyInterval)
@@ -127,6 +136,10 @@ export const useTableSessions = (restaurantId) => {
       window.removeEventListener('orderStatusUpdated', handleSync)
       window.removeEventListener('tableSessionsUpdated', handleSync)
       window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      }
     }
   }, [resolvedId, restaurantId, refreshTables])
 

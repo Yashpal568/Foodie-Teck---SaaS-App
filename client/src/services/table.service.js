@@ -3,6 +3,15 @@ import { ensureValidRestaurantUUID } from './restaurant.service'
 import { generateRestaurantSignature, getPublicMenuOrigin } from '@/utils/tableSecurity'
 import { assertMerchantOperational } from '@/lib/merchantAuth'
 
+const hasAuthenticatedSession = async () => {
+  try {
+    const res = await supabase?.auth?.getSession?.()
+    return Boolean(res?.data?.session?.user)
+  } catch {
+    return false
+  }
+}
+
 const DEMO_TABLES_STORAGE_KEY = 'servora_demo_table_sessions_v1'
 
 const createDefaultDemoTables = (count = 8) =>
@@ -58,17 +67,20 @@ export const getTableSessions = async (restaurantId) => {
 
   try {
     if (validId) {
-      const { data, error } = await supabase
-        .from('table_sessions')
-        .select('*')
-        .eq('restaurant_id', validId)
-        .order('table_number', { ascending: true })
-      
-      if (!error && data && data.length > 0) {
-        return data
+      const hasSession = await hasAuthenticatedSession()
+      if (hasSession) {
+        const { data, error } = await supabase
+          .from('table_sessions')
+          .select('*')
+          .eq('restaurant_id', validId)
+          .order('table_number', { ascending: true })
+        
+        if (!error && data && data.length > 0) {
+          return data
+        }
       }
 
-      // Public guest menu fallback via narrow table-number RPC when RLS restricts full table_sessions
+      // Anonymous guest path (or fallback): call narrow public table RPC directly
       const { data: pubTables, error: rpcErr } = await supabase.rpc('get_public_table_numbers', {
         p_restaurant_id: validId,
       })
@@ -120,8 +132,20 @@ export const updateTableStatus = async (restaurantId, tableNumber, updates) => {
 
   const validId = await ensureValidRestaurantUUID(restaurantId)
   if (!validId) return null
-  if (String(updates?.status || '').toLowerCase() !== 'occupied') {
+  const isClaimOccupied = String(updates?.status || '').toLowerCase() === 'occupied'
+  if (!isClaimOccupied) {
     await assertMerchantOperational(validId)
+  }
+
+  const hasSession = await hasAuthenticatedSession()
+  if (!hasSession && isClaimOccupied) {
+    const { error: rpcErr } = await supabase.rpc('claim_public_table_session', {
+      p_restaurant_id: validId,
+      p_table_number: cleanTableNum,
+    })
+    if (!rpcErr) {
+      return { restaurant_id: validId, table_number: cleanTableNum, status: 'occupied' }
+    }
   }
 
   const { data, error } = await supabase
@@ -405,8 +429,12 @@ export const syncTableSession = async (restaurant_id, tableData) => {
 
 /** Get QR Codes directly from Supabase */
 export const getQRCodes = async (restaurantId) => {
+  if (!restaurantId || restaurantId === 'demo-merchant' || restaurantId === 'demo' || restaurantId === 'guest') {
+    return []
+  }
   const validId = (await ensureValidRestaurantUUID(restaurantId)) || restaurantId
-  if (!validId) return []
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!validId || !uuidRegex.test(String(validId))) return []
 
   try {
     const { data, error } = await supabase

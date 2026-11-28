@@ -40,7 +40,9 @@ import {
   Zap,
   Bell,
   ArrowRight,
+  Calendar,
 } from "lucide-react";
+import { formatLocalDateKey, shiftLocalDateKey } from "@/utils/analyticsHelpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase, getCachedSession } from '@/lib/supabase';
@@ -68,6 +70,11 @@ function Dashboard() {
   const [plan, setPlan] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeLimitType, setUpgradeLimitType] = useState("general");
+  const todayDateKey = formatLocalDateKey();
+  const yesterdayDateKey = shiftLocalDateKey(todayDateKey, -1);
+  const [selectedDate, setSelectedDate] = useState(todayDateKey);
+  const [orderHistoryNav, setOrderHistoryNav] = useState(null);
+  const [analyticsDateNav, setAnalyticsDateNav] = useState(null);
 
   const [subDetails, setSubDetails] = useState({
     pendingApproval: false,
@@ -441,6 +448,41 @@ function Dashboard() {
     setTimeout(() => setIsRefreshing(false), 800);
   };
 
+  const openOrdersForSelectedDate = (targetDate = selectedDate) => {
+    const chosen = targetDate || todayDateKey;
+    const filter =
+      chosen === todayDateKey ? "TODAY" : chosen === yesterdayDateKey ? "YESTERDAY" : "CUSTOM";
+    setOrderHistoryNav({
+      mainTab: "history",
+      dateFilter: filter,
+      customDate: chosen,
+      nonce: Date.now(),
+    });
+    setActiveItem("orders");
+  };
+
+  const openAnalyticsForSelectedDate = (targetDate = selectedDate) => {
+    const chosen = targetDate || todayDateKey;
+    const range =
+      chosen === todayDateKey ? "today" : chosen === yesterdayDateKey ? "yesterday" : "custom_date";
+    setAnalyticsDateNav({
+      timeRange: range,
+      selectedDate: chosen,
+      nonce: Date.now(),
+    });
+    setActiveItem("analytics");
+  };
+
+  const selectedDateDisplay = (() => {
+    const [y, m, d] = (selectedDate || todayDateKey).split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-IN", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  })();
+
   const renderContent = () => {
     switch (activeItem) {
       case "dashboard":
@@ -450,7 +492,7 @@ function Dashboard() {
             <div className="flex flex-col gap-0 flex-1">
               {/* ── HERO HEADER BAND ── */}
               <div className="bg-white border-b border-slate-100 px-4 lg:px-8 py-3 sm:py-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
                   {/* Left: breadcrumb + title */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -463,18 +505,57 @@ function Dashboard() {
                       Restaurant Dashboard
                     </h1>
                     <p className="text-xs text-slate-400 font-medium mt-1 truncate hidden sm:block">
-                      Real-time performance monitoring ·{" "}
-                      {new Date().toLocaleDateString("en-IN", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {selectedDate === todayDateKey
+                        ? "Real-time performance monitoring"
+                        : "Historical date snapshot"}{" "}
+                      · {selectedDateDisplay}
                     </p>
                   </div>
 
-                  {/* Right: Quick Actions — scrollable row on small screens */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar">
+                  {/* Right: Date Switcher + Quick Actions */}
+                  <div className="flex flex-wrap items-center justify-between xl:justify-end gap-2 shrink-0">
+                    {/* Date Picker Controls (Today / Yesterday / Calendar Date) */}
+                    <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(todayDateKey)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          selectedDate === todayDateKey
+                            ? "bg-white text-slate-900 shadow-xs font-black"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(yesterdayDateKey)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          selectedDate === yesterdayDateKey
+                            ? "bg-white text-indigo-700 shadow-xs font-black"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Yesterday
+                      </button>
+                      <div className="relative flex items-center pl-1.5 pr-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-500 pointer-events-none mr-1" />
+                        <input
+                          type="date"
+                          aria-label="Select dashboard date"
+                          value={selectedDate}
+                          max={todayDateKey}
+                          onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                          className={`bg-transparent text-[11px] font-bold rounded-lg py-1 pr-1 outline-none cursor-pointer ${
+                            selectedDate !== todayDateKey && selectedDate !== yesterdayDateKey
+                              ? "text-indigo-700 font-black"
+                              : "text-slate-700"
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
                     <button
                       onClick={handleRefresh}
                       className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${isRefreshing ? "opacity-60" : ""}`}
@@ -500,20 +581,24 @@ function Dashboard() {
                       <ExternalLink className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={() => setActiveItem("analytics")}
+                      onClick={() => openAnalyticsForSelectedDate(selectedDate)}
                       className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-xs font-bold rounded-xl transition-all whitespace-nowrap"
                     >
                       <TrendingUp className="w-3.5 h-3.5" />
                       Analytics
                     </button>
                     <button
-                      onClick={() => setActiveItem("orders")}
+                      onClick={() => {
+                        setOrderHistoryNav({ mainTab: "kitchen", nonce: Date.now() });
+                        setActiveItem("orders");
+                      }}
                       className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-slate-900/20 whitespace-nowrap"
                     >
                       <Zap className="w-3.5 h-3.5" />
                       <span className="hidden sm:inline">New Order</span>
                       <span className="sm:hidden">Order</span>
                     </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -524,7 +609,7 @@ function Dashboard() {
                 <OnboardingChecklist profile={profile} onSetupClick={() => setActiveItem('settings')} />
 
                 {/* ── 1. FULL WIDTH KPI OVERVIEW CARDS ── */}
-                <OverviewCards restaurantId={restaurantId} />
+                <OverviewCards restaurantId={restaurantId} selectedDate={selectedDate} />
 
                 {/* ── 2. OPERATIONAL SPLIT GRID: Shortcuts & Recent Orders (Left) + Live Floor Tables (Right) ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 xl:gap-6 items-stretch">
@@ -561,7 +646,7 @@ function Dashboard() {
                         <button
                           key={item.action}
                           onClick={() => setActiveItem(item.action)}
-                          className={`flex flex-col items-center gap-1.5 p-2 sm:p-3 bg-white border ${item.border} rounded-xl hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 text-center group cursor-pointer`}
+                          className={`flex flex-col items-center gap-1.5 p-2 sm:p-3 bg-white border ${item.border} rounded-xl hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-[transform,box-shadow,border-color] duration-200 ease-out will-change-transform text-center group cursor-pointer`}
                         >
                           <div className={`p-1.5 sm:p-2 ${item.bg} rounded-lg`}>
                             <item.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${item.color}`} />
@@ -577,7 +662,8 @@ function Dashboard() {
                     <div className="flex-1 flex flex-col min-h-0">
                       <RecentOrders
                         restaurantId={restaurantId}
-                        onViewAll={() => setActiveItem("orders")}
+                        selectedDate={selectedDate}
+                        onViewAll={(dateKey) => openOrdersForSelectedDate(dateKey || selectedDate)}
                       />
                     </div>
                   </div>
@@ -632,7 +718,8 @@ function Dashboard() {
                 {/* ── 3. REAL-TIME ANALYTICS & PIE CHART SECTION ── */}
                 <DashboardRealtimeAnalytics
                   restaurantId={restaurantId || resolvedId || profile?.id}
-                  onNavigateAnalytics={() => setActiveItem("analytics")}
+                  selectedDate={selectedDate}
+                  onNavigateAnalytics={() => openAnalyticsForSelectedDate(selectedDate)}
                 />
               </div>
             </div>
@@ -680,6 +767,7 @@ function Dashboard() {
             activeItem={activeItem}
             setActiveItem={setActiveItem}
             navigate={navigate}
+            navIntent={orderHistoryNav}
           />
         );
 
@@ -719,6 +807,7 @@ function Dashboard() {
             navigate={navigate}
             restaurantId={restaurantId || resolvedId || profile?.id}
             plan={plan}
+            dateNavIntent={analyticsDateNav}
           />
         )
       }
@@ -840,7 +929,7 @@ function Dashboard() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {isDemoMode && (
-        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 text-white px-4 py-2 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-md relative z-1000 shrink-0">
+        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 text-white px-4 py-2 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-md relative z-30 shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
             <span>✨ Live Merchant Console Demo — Full Enterprise Features Active</span>

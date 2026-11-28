@@ -54,6 +54,7 @@ export async function runGenerateQRCodes(argv = process.argv.slice(2)) {
   const entries = []
   let signatureFailures = 0
 
+  const qrTasks = []
   for (const r of restaurantsForQr) {
     const restDir = path.join(outRoot, r.code)
     fs.mkdirSync(restDir, { recursive: true })
@@ -65,7 +66,9 @@ export async function runGenerateQRCodes(argv = process.argv.slice(2)) {
     }
 
     const masterPngPath = path.join(restDir, 'master-menu.png')
-    await QRCode.toFile(masterPngPath, masterUrl, { width: 320, margin: 1, errorCorrectionLevel: 'M' })
+    qrTasks.push(() =>
+      QRCode.toFile(masterPngPath, masterUrl, { width: 320, margin: 1, errorCorrectionLevel: 'M' })
+    )
 
     for (const t of r.tables) {
       const tableNum = t.tableNumber ?? t.table_number
@@ -78,15 +81,18 @@ export async function runGenerateQRCodes(argv = process.argv.slice(2)) {
         parsed.searchParams.get('table'),
         parsed.searchParams.get('sig')
       )
-      // Also verify cross-restaurant signature tampering is rejected
+      // Also verify cross-restaurant signature tampering and wrong-table tampering are rejected
+      const wrongSigBlocked = !verifyTableSignature(r.restaurantId, tableNum, `${sig.slice(0, -4)}ffff`)
       const crossTamperBlocked = !verifyTableSignature('00000000-0000-4000-8000-000000000099', tableNum, sig)
 
-      if (!sigValid || !crossTamperBlocked) {
+      if (!sigValid || !wrongSigBlocked || !crossTamperBlocked) {
         signatureFailures += 1
       }
 
       const filePath = path.join(restDir, `table-${String(tableNum).padStart(2, '0')}.png`)
-      await QRCode.toFile(filePath, qrUrl, { width: 280, margin: 1, errorCorrectionLevel: 'M' })
+      qrTasks.push(() =>
+        QRCode.toFile(filePath, qrUrl, { width: 280, margin: 1, errorCorrectionLevel: 'M' })
+      )
 
       entries.push({
         restaurantCode: r.code,
@@ -96,15 +102,26 @@ export async function runGenerateQRCodes(argv = process.argv.slice(2)) {
         qrUrl,
         signature: sig,
         signatureVerified: sigValid,
+        tamperedSignatureRejected: wrongSigBlocked,
         crossRestaurantTamperBlocked: crossTamperBlocked,
         pngFile: path.relative(REPO_ROOT, filePath).replace(/\\/g, '/'),
       })
     }
   }
 
+  // Write PNG files cleanly in bounded parallel batches of 25
+  const BATCH_SIZE = 25
+  for (let i = 0; i < qrTasks.length; i += BATCH_SIZE) {
+    await Promise.all(qrTasks.slice(i, i + BATCH_SIZE).map((fn) => fn()))
+  }
+
   const qrManifestJson = path.join(MANIFESTS_ROOT, `qr-manifest-${runId}.json`)
   const qrManifestCsv = path.join(MANIFESTS_ROOT, `qr-manifest-${runId}.csv`)
-  fs.writeFileSync(qrManifestJson, JSON.stringify({ runId, totalQRCodes: entries.length, signatureFailures, entries }, null, 2))
+  const serializedQrManifest =
+    entries.length > 2000
+      ? JSON.stringify({ runId, totalQRCodes: entries.length, signatureFailures, entries })
+      : JSON.stringify({ runId, totalQRCodes: entries.length, signatureFailures, entries }, null, 2)
+  fs.writeFileSync(qrManifestJson, serializedQrManifest)
   fs.writeFileSync(
     qrManifestCsv,
     [

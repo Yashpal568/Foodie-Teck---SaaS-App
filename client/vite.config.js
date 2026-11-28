@@ -1,11 +1,38 @@
 import { fileURLToPath, URL } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, loadEnv } from "vite"
+
+const STAGING_SUPABASE_REF = "mhkxdidwmycsibdjflxz"
+const STAGING_ORIGIN_HOST = "staging-menu.servora.invalid"
+
+function enforceProductionSupabaseBoundary(mode) {
+  return {
+    name: "servora-production-supabase-boundary",
+    apply: "build",
+    configResolved() {
+      if (mode !== "production") return
+      const env = loadEnv(mode, process.cwd(), "")
+      const candidates = {
+        VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || "",
+        VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "",
+        VITE_APP_URL: env.VITE_APP_URL || process.env.VITE_APP_URL || "",
+      }
+      for (const [key, val] of Object.entries(candidates)) {
+        const lower = String(val).toLowerCase()
+        if (lower.includes(STAGING_SUPABASE_REF) || lower.includes(STAGING_ORIGIN_HOST)) {
+          throw new Error(
+            `[ENV BOUNDARY ABORT] Production build cannot use staging credential/host in ${key} (${STAGING_SUPABASE_REF}). Production builds must target Primary Supabase (oliuhzkbnxjiwkrdlcfv).`
+          )
+        }
+      }
+    },
+  }
+}
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), tailwindcss(), enforceProductionSupabaseBoundary(mode)],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -46,4 +73,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))
